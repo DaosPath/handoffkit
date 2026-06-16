@@ -3,4 +3,6 @@ include LICENSE
 graft examples
 graft tests
 global-exclude __pycache__
+global-exclude __pycache__/*
 global-exclude *.py[cod]
+global-exclude *.pyc.*

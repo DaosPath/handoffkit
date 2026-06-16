@@ -1,232 +1,201 @@
 # HandoffKit
 
-HandoffKit is a lightweight Python framework for building multi-agent workflows with structured state transfer protocols.
+[![Tests](https://github.com/DaosPath/handoffkit/actions/workflows/ci.yml/badge.svg)](https://github.com/DaosPath/handoffkit/actions/workflows/ci.yml)
+![Python versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
+![Package version](https://img.shields.io/badge/version-0.1.1-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+A lightweight Python framework for building multi-agent workflows with structured state transfer protocols.
 
 HandoffKit helps developers build multi-agent AI workflows where agents pass structured state instead of messy free-text context.
 
-The core idea is simple:
+## Why HandoffKit?
 
-> Agents should not merely pass prose. They should pass task state.
-
-That state can include the original task, a summary, decisions, important files, errors, next steps, and metadata. This makes handoffs easier to inspect, replay, test, and improve.
-
-## Inspiration
-
-This package is inspired by the research and reproducibility repository [`DaosPath/state-transfer-protocols`](https://github.com/DaosPath/state-transfer-protocols), especially its comparison of `natural`, `compressed`, `hybrid_min`, and `hybrid_state` handoff protocols for multilingual multi-agent workflows.
-
-This is a new developer library, not a copy of that repository. The research repo focuses on experiments, task banks, validators, data freezes, and claims about protocol behavior. This package turns the same conceptual direction into a simple Python API for building agent workflows.
-
-## What Problem It Solves
-
-Multi-agent systems often lose context because each agent receives a loose text summary from the previous agent. That works for demos, but becomes fragile when workflows involve files, decisions, errors, validation, and long chains.
+Multi-agent systems often lose context because each agent receives a loose prose summary from the previous agent. That works for demos, but it becomes fragile when workflows involve files, decisions, errors, validation, and long chains.
 
 HandoffKit gives developers:
 
-- agents with tools,
-- local execution with `EchoProvider`,
-- structured handoff state,
+- deterministic local agents for tests and demos,
+- structured `HandoffState` objects,
 - protocol modes for different transfer styles,
-- team workflows such as `Architect -> Coder -> Tester`,
-- a simple CLI demo,
-- tests and packaging for PyPI.
+- a sequential `Team` runner,
+- typed tools,
+- local Ollama and OpenAI provider adapters,
+- package metadata and CI checks suitable for PyPI preparation.
+
+## Core Concept
+
+Agents should not merely pass prose. They should pass task state.
+
+A `HandoffState` can include:
+
+- the original task,
+- source and target agent names,
+- summary,
+- decisions,
+- important files,
+- errors,
+- next steps,
+- metadata.
+
+That state is JSON-friendly, testable, inspectable, and reusable across agent boundaries.
 
 ## Installation
 
-Future PyPI installation:
+After the package is published:
 
 ```bash
 pip install handoffkit
 ```
 
-## Development Installation
-
-From the project root:
+For local development from a clone:
 
 ```bash
-pip install -e .
+pip install -e ".[dev]"
 ```
 
-## Basic Agent
+## Quick Start
 
 ```python
 from handoffkit import Agent
 
 agent = Agent(
     name="Planner",
-    role="You create technical plans."
+    role="Create concise implementation plans."
 )
 
-result = agent.run("Create a plan for a Python CLI app")
-print(result)
+print(agent.run("Create a plan for a Python CLI app with tests."))
 ```
 
-If no provider is configured, `EchoProvider` is used. It requires no API key and is useful for tests, examples, and local development.
+If no provider is configured, HandoffKit uses `EchoProvider`, a deterministic local provider designed for tests, examples, and package demos.
 
-## Tool Decorator
+## Protocols
 
-```python
-from handoffkit import tool
+HandoffKit ships four protocol modes:
 
-@tool
-def add(a: int, b: int) -> int:
-    """Add two numbers."""
-    return a + b
+- `natural`: human-readable summary handoff.
+- `compressed`: whitespace-normalized compact summary.
+- `hybrid_min`: minimal structured state with task, summary, and next steps.
+- `hybrid_state`: full structured state with decisions, files, errors, next steps, and metadata.
 
-print(add.run(a=2, b=3))
-```
-
-Tools keep metadata such as name, description, parameters, type hints, and the original function.
-
-## Handoff Protocol
+Example:
 
 ```python
 from handoffkit import Agent, HandoffProtocol
 
-architect = Agent(
-    name="Architect",
-    role="Analyze projects and create technical plans"
-)
-
-coder = Agent(
-    name="Coder",
-    role="Write code based on received handoff state"
-)
+architect = Agent("Architect", "Create technical plans.")
+coder = Agent("Coder", "Implement from handoff state.")
 
 protocol = HandoffProtocol(mode="hybrid_state")
-
 state = protocol.transfer(
     from_agent=architect,
     to_agent=coder,
-    task="Create a Python package"
+    task="Prepare a Python package for PyPI.",
+    summary="Use typed package metadata, tests, CI, and twine validation.",
+    decisions=["Keep runtime dependencies empty."],
+    important_files=["pyproject.toml", "README.md"],
+    next_steps=["Implement changes.", "Run pytest and twine check."],
 )
 
+state.validate()
 print(state.to_json())
 ```
 
-## Team Workflow
+## Examples
 
-```python
-from handoffkit import Agent, HandoffProtocol, Team
+Run examples from the repository root:
 
-architect = Agent("Architect", "Create technical plans")
-coder = Agent("Coder", "Implement code from handoff state")
-tester = Agent("Tester", "Test implementation and report errors")
-
-team = Team(
-    agents=[architect, coder, tester],
-    protocol=HandoffProtocol(mode="hybrid_state")
-)
-
-result = team.run("Create a small Python CLI calculator with tests")
-print(result)
+```bash
+python examples/simple_agent.py
+python examples/handoff_demo.py
+python examples/coding_team.py
+python examples/ollama_agent.py --model llama3.1
 ```
 
-## Protocol Modes
+Included examples:
 
-### `natural`
-
-Transfers a human-readable handoff summary. Useful for simple collaboration and debugging.
-
-### `compressed`
-
-Transfers a compact representation that keeps the task, agents, abbreviated summary, and next steps. Useful when the handoff should stay short.
-
-### `hybrid_min`
-
-Transfers only `task`, `summary`, and `next_steps`. Useful when the receiving agent needs the minimum viable state.
-
-### `hybrid_state`
-
-Transfers the complete structured state: task, source agent, target agent, summary, decisions, important files, errors, next steps, and metadata. Useful when operational state preservation matters.
+- `examples/simple_agent.py`: one deterministic local agent.
+- `examples/handoff_demo.py`: explicit `Architect -> Coder` `HandoffState`.
+- `examples/coding_team.py`: visible `Architect -> Coder -> Tester` handoff chain.
+- `examples/ollama_agent.py`: real Ollama provider example with configurable model and clear startup error.
+- `examples/tool_agent.py`: custom tool decorator example.
 
 ## Ollama
 
-Run Ollama locally, then use:
-
-```python
-from handoffkit import Agent
-from handoffkit.providers import OllamaProvider
-
-agent = Agent(
-    name="LocalAgent",
-    role="Answer using a local model.",
-    provider=OllamaProvider(model="llama3.1")
-)
-
-print(agent.run("Explain state transfer in one paragraph."))
-```
-
-The provider calls:
-
-```txt
-http://localhost:11434/api/generate
-```
-
-## OpenAI
-
-Set your environment variable:
+Start Ollama locally and pull a model:
 
 ```bash
-set OPENAI_API_KEY=your-key
+ollama pull llama3.1
+ollama serve
 ```
 
-Then:
-
-```python
-from handoffkit import Agent
-from handoffkit.providers import OpenAIProvider
-
-agent = Agent(
-    name="OpenAIAgent",
-    role="Answer clearly.",
-    provider=OpenAIProvider(model="gpt-4o-mini")
-)
-
-print(agent.run("Create a concise implementation plan."))
-```
-
-No API keys are stored in this package.
-
-## Included Tools
-
-Filesystem:
-
-- `read_file(path)`
-- `write_file(path, content)`
-- `list_files(path)`
-- `file_exists(path)`
-
-Shell:
-
-- `run_command(command, cwd=None)`
-
-Dangerous commands such as `rm -rf`, `del /s`, `format`, `shutdown`, `reboot`, `mkfs`, and `diskpart` are blocked.
-
-Text:
-
-- `summarize_text(text, max_chars=500)`
-- `extract_keywords(text)`
-
-## Run Tests
+Then run:
 
 ```bash
-pytest
+python examples/ollama_agent.py --model llama3.1 "Explain structured agent handoffs."
 ```
 
-## Build Package
+You can also configure it with environment variables:
+
+```bash
+set OLLAMA_MODEL=llama3.1
+set OLLAMA_BASE_URL=http://localhost:11434
+python examples/ollama_agent.py
+```
+
+If Ollama is not running, the example exits with a clear message explaining how to start it.
+
+## Development
+
+Install the package with development dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+
+Run tests:
+
+```bash
+pytest -q
+```
+
+Build and validate package artifacts:
 
 ```bash
 python -m build
+python -m twine check dist/*
 ```
 
-## Publish to PyPI
+## Publishing
 
-After configuring a PyPI token:
+Do not publish from an unvalidated working tree.
+
+Recommended release flow:
 
 ```bash
+pytest -q
 python -m build
+python -m twine check dist/*
+```
+
+After configuring a PyPI token, publish with:
+
+```bash
 python -m twine upload dist/*
 ```
+
+## CLI
+
+```bash
+handoffkit --version
+handoffkit demo
+```
+
+## Inspiration
+
+This package is inspired by the research and reproducibility repository [`DaosPath/state-transfer-protocols`](https://github.com/DaosPath/state-transfer-protocols), especially its comparison of `natural`, `compressed`, `hybrid_min`, and `hybrid_state` handoff protocols for multilingual multi-agent workflows.
+
+This is a developer library, not a copy of that repository. The research repo focuses on experiments, task banks, validators, data freezes, and claims about protocol behavior. HandoffKit turns the same conceptual direction into a simple Python API for building agent workflows.
 
 ## Roadmap
 
@@ -238,10 +207,9 @@ python -m twine upload dist/*
 - ForgeAI Studio integration,
 - Rust project agents,
 - repository editing agents,
-- EXP01-EXP16-inspired benchmark analysis,
-- contract validators,
-- handoff quality metrics,
-- partial reproduction utilities for the original protocol experiments.
+- benchmark-inspired analysis utilities,
+- richer contract validators,
+- handoff quality metrics.
 
 ## License
 

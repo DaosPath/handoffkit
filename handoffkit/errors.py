@@ -13,6 +13,10 @@ class ProtocolError(StateTransferError):
     """Raised when a handoff protocol is invalid or cannot run."""
 
 
+class HandoffValidationError(StateTransferError):
+    """Raised when a handoff state violates the expected contract."""
+
+
 class ToolExecutionError(StateTransferError):
     """Raised when a tool fails during execution."""
 

@@ -3,9 +3,15 @@
 from handoffkit import Agent
 
 
-agent = Agent(
-    name="Planner",
-    role="You create technical plans.",
-)
+def main() -> None:
+    """Run a deterministic local agent with the built-in EchoProvider."""
+    agent = Agent(
+        name="Planner",
+        role="Create concise implementation plans with decisions and next steps.",
+    )
+    result = agent.run("Create a plan for a Python CLI app with tests.")
+    print(result)
 
-print(agent.run("Create a plan for a Python CLI app."))
+
+if __name__ == "__main__":
+    main()
