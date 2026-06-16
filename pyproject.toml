@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "handoffkit"
+version = "0.1.0"
+description = "A lightweight Python framework for building multi-agent workflows with structured state transfer protocols."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  { name = "DaosPath" }
+]
+keywords = [
+  "agents",
+  "handoff",
+  "multi-agent",
+  "state-transfer",
+  "protocols",
+  "ai"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed"
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2.0",
+  "pytest>=8.0.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/DaosPath/handoffkit"
+Source = "https://github.com/DaosPath/handoffkit"
+Issues = "https://github.com/DaosPath/handoffkit/issues"
+
+[project.scripts]
+handoffkit = "handoffkit.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["handoffkit*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -p no:cacheprovider"
