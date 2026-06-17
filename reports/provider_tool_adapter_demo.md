@@ -1,0 +1,60 @@
+# Provider Tool Adapter Demo
+
+## Tool Calls
+
+label
+
+## Result
+
+label:provider-adapter
+
+## Report
+
+```json
+{
+  "provider_tools": [
+    {
+      "name": "label",
+      "description": "Return a labeled value.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      }
+    }
+  ],
+  "tool_calls": [
+    {
+      "tool_name": "label",
+      "arguments": {
+        "value": "provider-adapter"
+      },
+      "call_id": "76360ac525d44dc48c776de21e0278f6",
+      "metadata": {}
+    }
+  ],
+  "tool_results": [
+    {
+      "tool_name": "label",
+      "success": true,
+      "result": "label:provider-adapter",
+      "error": null,
+      "call_id": "76360ac525d44dc48c776de21e0278f6",
+      "metadata": {}
+    }
+  ],
+  "capabilities": {
+    "supports_structured_output": false,
+    "supports_tool_calling": true,
+    "supports_json_mode": true,
+    "supports_streaming": false,
+    "metadata": {}
+  }
+}
+```

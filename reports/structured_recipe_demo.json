@@ -1,0 +1,108 @@
+{
+  "structured_output": {
+    "success": true,
+    "data": {
+      "title": "Recipe plan",
+      "summary": "Plan the work, execute it, then review the result.",
+      "success": true
+    },
+    "raw_output": "{\"title\": \"Recipe plan\", \"summary\": \"Plan the work, execute it, then review the result.\", \"success\": true}",
+    "errors": [],
+    "schema_name": "RecipeStepSummary",
+    "repaired": false,
+    "metadata": {
+      "agent": "StructuredPlanner",
+      "provider": "StructuredStepProvider",
+      "model": "echo",
+      "context_used": false,
+      "memories_used": 0
+    }
+  },
+  "recipe_result": {
+    "recipe_name": "structured-plan-review",
+    "success": true,
+    "final_output": "EchoProvider[echo] response\nSummary: Agent: RecipeReviewer Role: Review structured workflow output. Task: Previous output: { \"success\": true, \"data\": { \"title\": \"Recipe plan\", \"summary\": \"Plan the work, execute it, then review the result.\", \"success\": true }, \"raw_output\": \"{\\\"title\\\": \\\"Recipe plan\\\", \\\"summary\\\": \\\"Plan the work, execute it, then review the result.\\\", \\\"success\\\": true}\", \"errors\": [], \"schema_name\": \"RecipeStepSummary\", \"repaired\"...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+    "step_results": [
+      {
+        "step_name": "structured-plan",
+        "agent_name": "StructuredPlanner",
+        "task": "Initial task: Review structured output.\n\nStep task: Plan a small workflow with structured output.",
+        "output": "{\n  \"success\": true,\n  \"data\": {\n    \"title\": \"Recipe plan\",\n    \"summary\": \"Plan the work, execute it, then review the result.\",\n    \"success\": true\n  },\n  \"raw_output\": \"{\\\"title\\\": \\\"Recipe plan\\\", \\\"summary\\\": \\\"Plan the work, execute it, then review the result.\\\", \\\"success\\\": true}\",\n  \"errors\": [],\n  \"schema_name\": \"RecipeStepSummary\",\n  \"repaired\": false,\n  \"metadata\": {\n    \"agent\": \"StructuredPlanner\",\n    \"provider\": \"StructuredStepProvider\",\n    \"model\": \"echo\",\n    \"context_used\": false,\n    \"memories_used\": 0\n  }\n}",
+        "success": true,
+        "mode": "structured",
+        "structured_output": {
+          "success": true,
+          "data": {
+            "title": "Recipe plan",
+            "summary": "Plan the work, execute it, then review the result.",
+            "success": true
+          },
+          "raw_output": "{\"title\": \"Recipe plan\", \"summary\": \"Plan the work, execute it, then review the result.\", \"success\": true}",
+          "errors": [],
+          "schema_name": "RecipeStepSummary",
+          "repaired": false,
+          "metadata": {
+            "agent": "StructuredPlanner",
+            "provider": "StructuredStepProvider",
+            "model": "echo",
+            "context_used": false,
+            "memories_used": 0
+          }
+        },
+        "metadata": {}
+      },
+      {
+        "step_name": "review",
+        "agent_name": "RecipeReviewer",
+        "task": "Previous output: {\n  \"success\": true,\n  \"data\": {\n    \"title\": \"Recipe plan\",\n    \"summary\": \"Plan the work, execute it, then review the result.\",\n    \"success\": true\n  },\n  \"raw_output\": \"{\\\"title\\\": \\\"Recipe plan\\\", \\\"summary\\\": \\\"Plan the work, execute it, then review the result.\\\", \\\"success\\\": true}\",\n  \"errors\": [],\n  \"schema_name\": \"RecipeStepSummary\",\n  \"repaired\": false,\n  \"metadata\": {\n    \"agent\": \"StructuredPlanner\",\n    \"provider\": \"StructuredStepProvider\",\n    \"model\": \"echo\",\n    \"context_used\": false,\n    \"memories_used\": 0\n  }\n}\n\nStep task: Review the structured summary from the previous step.",
+        "output": "EchoProvider[echo] response\nSummary: Agent: RecipeReviewer Role: Review structured workflow output. Task: Previous output: { \"success\": true, \"data\": { \"title\": \"Recipe plan\", \"summary\": \"Plan the work, execute it, then review the result.\", \"success\": true }, \"raw_output\": \"{\\\"title\\\": \\\"Recipe plan\\\", \\\"summary\\\": \\\"Plan the work, execute it, then review the result.\\\", \\\"success\\\": true}\", \"errors\": [], \"schema_name\": \"RecipeStepSummary\", \"repaired\"...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+        "success": true,
+        "mode": "agent",
+        "structured_output": null,
+        "metadata": {}
+      }
+    ],
+    "handoff_states": [
+      {
+        "task": "Review the structured summary from the previous step.",
+        "from_agent": "StructuredPlanner",
+        "to_agent": "RecipeReviewer",
+        "summary": "{\n  \"success\": true,\n  \"data\": {\n    \"title\": \"Recipe plan\",\n    \"summary\": \"Plan the work, execute it, then review the result.\",\n    \"success\": true\n  },\n  \"raw_output\": \"{\\\"title\\\": \\\"Recipe plan\\\", \\\"summary\\\": \\\"Plan the work, execute it, then review the result.\\\", \\\"success\\\": true}\",\n  \"errors\": [],\n  \"schema_name\": \"RecipeStepSummary\",\n  \"repaired\": false,\n  \"metadata\": {\n    \"agent\": \"StructuredPlanner\",\n    \"provider\": \"StructuredStepProvider\",\n    \"model\": \"echo\",\n    \"context_used\": false,\n    \"memories_used\": 0\n  }\n}",
+        "decisions": [
+          "Step structured-plan completed with success=True."
+        ],
+        "important_files": [],
+        "errors": [],
+        "next_steps": [
+          "Review the structured summary from the previous step."
+        ],
+        "context_refs": [],
+        "metadata": {
+          "mode": "hybrid_state",
+          "handoff_version": "1.0",
+          "state_contract": [
+            "task",
+            "from_agent",
+            "to_agent",
+            "summary",
+            "decisions",
+            "important_files",
+            "errors",
+            "next_steps",
+            "context_refs",
+            "metadata"
+          ],
+          "recipe": "structured-plan-review",
+          "from_step": "structured-plan",
+          "to_step": "review"
+        }
+      }
+    ],
+    "context_used": [],
+    "memories_used": [],
+    "tool_results": [],
+    "metadata": {
+      "step_count": 2
+    }
+  }
+}

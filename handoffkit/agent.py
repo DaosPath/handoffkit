@@ -10,7 +10,15 @@ from typing import Any
 from handoffkit.context import ContextPack, ContextRunResult
 from handoffkit.handoff import HandoffState
 from handoffkit.memory import AgentMemory, MemoryStore
+from handoffkit.provider_adapters import ProviderToolAdapter
 from handoffkit.providers import BaseProvider, EchoProvider
+from handoffkit.structured import (
+    JsonOutputParser,
+    OutputRepairer,
+    OutputValidationError,
+    StructuredOutputResult,
+    StructuredOutputSchema,
+)
 from handoffkit.tool import Tool, ensure_tool
 from handoffkit.tool_execution import (
     ToolCall,
@@ -82,17 +90,22 @@ class Agent:
         tools: Sequence[Tool | Callable[..., Any]] | None = None,
         max_steps: int = 5,
         require_approval: bool = False,
+        tool_call_mode: str = "auto",
     ) -> ToolExecutionReport:
         """Run an agent with structured tool execution.
 
         EchoProvider uses a deterministic local command parser. Other providers
         can return JSON with `tool_calls` and/or `final`.
         """
+        if tool_call_mode not in {"auto", "deterministic", "provider_json"}:
+            raise ValueError("tool_call_mode must be 'auto', 'deterministic', or 'provider_json'")
         registry = ToolRegistry(self.tools)
         for item in tools or []:
             if ensure_tool(item).name not in registry.list_tools():
                 registry.register(item)
-        if isinstance(self.provider, EchoProvider):
+        if tool_call_mode == "deterministic" or (
+            tool_call_mode == "auto" and isinstance(self.provider, EchoProvider)
+        ):
             return self._run_local_tool_mode(
                 task,
                 registry=registry,
@@ -103,6 +116,107 @@ class Agent:
             registry=registry,
             max_steps=max_steps,
             require_approval=require_approval,
+        )
+
+    def run_structured(
+        self,
+        task: str,
+        schema: StructuredOutputSchema,
+        max_repair_attempts: int = 1,
+        context: ContextPack | None = None,
+        memory: MemoryStore | None = None,
+    ) -> StructuredOutputResult:
+        """Run the agent and validate provider output against a simple schema."""
+        memories = memory.search(task, limit=5) if memory else []
+        prompt = self._build_structured_prompt(
+            task,
+            schema=schema,
+            context=context,
+            memories=memories,
+        )
+        self.memory.add("user", task, agent=self.name)
+        raw = self.provider.generate(prompt)
+        self.memory.add("assistant", raw, agent=self.name)
+
+        parser = JsonOutputParser()
+        repairer = OutputRepairer()
+        errors: list[str] = []
+        repaired = False
+        try:
+            data = schema.validate(parser.parse(raw))
+        except OutputValidationError as exc:
+            errors.append(str(exc))
+        else:
+            return StructuredOutputResult(
+                success=True,
+                data=data,
+                raw_output=raw,
+                errors=[],
+                schema_name=schema.name,
+                repaired=repaired,
+                metadata={
+                    "agent": self.name,
+                    "provider": self.provider.__class__.__name__,
+                    "model": self.model,
+                    "context_used": context is not None,
+                    "memories_used": len(memories),
+                },
+            )
+
+        if max_repair_attempts <= 0:
+            return StructuredOutputResult(
+                success=False,
+                data=None,
+                raw_output=raw,
+                errors=errors,
+                schema_name=schema.name,
+                repaired=False,
+                metadata={
+                    "agent": self.name,
+                    "provider": self.provider.__class__.__name__,
+                    "model": self.model,
+                    "context_used": context is not None,
+                    "memories_used": len(memories),
+                },
+            )
+
+        for _ in range(max_repair_attempts):
+            try:
+                repaired_text = repairer.repair(raw)
+                repaired = True
+                data = schema.validate(parser.parse(repaired_text))
+            except OutputValidationError as exc:
+                errors.append(str(exc))
+                continue
+            return StructuredOutputResult(
+                success=True,
+                data=data,
+                raw_output=raw,
+                errors=errors,
+                schema_name=schema.name,
+                repaired=True,
+                metadata={
+                    "agent": self.name,
+                    "provider": self.provider.__class__.__name__,
+                    "model": self.model,
+                    "context_used": context is not None,
+                    "memories_used": len(memories),
+                },
+            )
+        return StructuredOutputResult(
+            success=False,
+            data=None,
+            raw_output=raw,
+            errors=errors,
+            schema_name=schema.name,
+            repaired=repaired,
+            metadata={
+                "agent": self.name,
+                "provider": self.provider.__class__.__name__,
+                "model": self.model,
+                "context_used": context is not None,
+                "memories_used": len(memories),
+            },
         )
 
     def run_with_context(
@@ -200,35 +314,34 @@ class Agent:
         require_approval: bool,
     ) -> ToolExecutionReport:
         """Run provider JSON tool-call loop."""
+        adapter = ProviderToolAdapter()
         calls: list[ToolCall] = []
         results = []
         steps: list[dict[str, Any]] = []
         final_output = ""
+        tool_call_error = False
         for step_index in range(max_steps):
             prompt = self._build_tool_prompt(task, registry=registry, results=results)
             raw = self.provider.generate(prompt)
             self.memory.add("assistant", raw, agent=self.name)
             step: dict[str, Any] = {"step": step_index + 1, "provider_output": raw}
             try:
-                payload = json.loads(raw)
-            except json.JSONDecodeError:
+                payload = JsonOutputParser().parse(raw)
+            except OutputValidationError:
                 final_output = raw
                 steps.append({**step, "mode": "plain_text"})
-                break
-            if not isinstance(payload, dict):
-                final_output = raw
-                steps.append({**step, "mode": "non_object_json"})
                 break
             if payload.get("final") is not None and not payload.get("tool_calls"):
                 final_output = str(payload["final"])
                 steps.append({**step, "mode": "final"})
                 break
-            raw_calls = payload.get("tool_calls") or []
-            step_calls = [
-                ToolCall.from_dict(item)
-                for item in raw_calls
-                if isinstance(item, dict)
-            ]
+            try:
+                step_calls = adapter.parse_tool_calls(payload)
+            except OutputValidationError as exc:
+                final_output = str(exc)
+                tool_call_error = True
+                steps.append({**step, "mode": "tool_call_error", "error": str(exc)})
+                break
             step_results = [
                 registry.execute(call, require_approval=require_approval)
                 for call in step_calls
@@ -254,7 +367,11 @@ class Agent:
             tool_calls=calls,
             tool_results=results,
             final_output=final_output,
-            success=all(result.success for result in results) and "max_steps" not in final_output,
+            success=(
+                all(result.success for result in results)
+                and "max_steps" not in final_output
+                and not tool_call_error
+            ),
             steps=steps,
         )
 
@@ -276,6 +393,30 @@ class Agent:
             "Return JSON only. To call tools, return "
             '{"tool_calls":[{"tool_name":"name","arguments":{}}],"final":null}. '
             'To finish, return {"final":"Done"}.'
+        )
+
+    def _build_structured_prompt(
+        self,
+        task: str,
+        *,
+        schema: StructuredOutputSchema,
+        context: ContextPack | None,
+        memories: list[Any],
+    ) -> str:
+        """Build a provider prompt for JSON-only structured output."""
+        context_text = context.to_markdown() if context else "No context pack."
+        memory_text = "\n".join(f"- {item.kind}: {item.content}" for item in memories)
+        if not memory_text:
+            memory_text = "No relevant structured memories."
+        return (
+            f"Agent: {self.name}\n"
+            f"Role: {self.role}\n"
+            f"Task: {task}\n\n"
+            f"Project context:\n{context_text}\n\n"
+            f"Relevant memory:\n{memory_text}\n\n"
+            "Return JSON only. Do not wrap it in Markdown. "
+            "The JSON object must match this schema:\n"
+            f"{json.dumps(schema.to_json_schema(), indent=2)}"
         )
 
     def _build_context_prompt(

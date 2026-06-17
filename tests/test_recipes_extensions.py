@@ -18,6 +18,7 @@ from handoffkit import (
     RecipeRunner,
     RecipeRunResult,
     RecipeStep,
+    StructuredOutputSchema,
     WorkflowTemplate,
     tool,
 )
@@ -26,8 +27,19 @@ from handoffkit.builtins import (
     plan_execute_review_recipe,
     research_summary_recipe,
 )
+from handoffkit.providers import BaseProvider
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+class StructuredRecipeProvider(BaseProvider):
+    """Fake structured provider for recipe tests."""
+
+    model = "structured-recipe-fake"
+
+    def generate(self, prompt: str, **kwargs) -> str:  # type: ignore[no-untyped-def]
+        """Return valid structured JSON."""
+        return '{"title":"Plan","summary":"Done","success":true}'
 
 
 def test_recipe_step_serialization() -> None:
@@ -162,6 +174,36 @@ def test_recipe_runner_with_tools() -> None:
     assert result.tool_results[0].success is True
 
 
+def test_recipe_runner_with_structured_step() -> None:
+    schema = StructuredOutputSchema(
+        name="StepSummary",
+        fields={"title": str, "summary": str, "success": bool},
+        required=["title", "summary", "success"],
+    )
+    recipe = Recipe(
+        name="structured-recipe",
+        description="Structured step.",
+        steps=[
+            RecipeStep(
+                name="plan",
+                agent=Agent(
+                    "Planner",
+                    "Plan.",
+                    provider=StructuredRecipeProvider(),
+                ),
+                task="Plan work.",
+                structured_schema=schema,
+            )
+        ],
+    )
+
+    result = RecipeRunner(recipe).run()
+
+    assert result.success is True
+    assert result.step_results[0]["mode"] == "structured"
+    assert result.step_results[0]["structured_output"]["data"]["title"] == "Plan"
+
+
 def test_recipe_run_result_serialization() -> None:
     result = RecipeRunResult(
         recipe_name="demo",
@@ -243,7 +285,14 @@ def test_built_in_recipes_create_valid_recipes() -> None:
 
 @pytest.mark.parametrize(
     "script_name",
-    ["recipe_demo.py", "coding_review_recipe.py", "extension_demo.py"],
+    [
+        "recipe_demo.py",
+        "coding_review_recipe.py",
+        "extension_demo.py",
+        "structured_output_demo.py",
+        "provider_tool_adapter_demo.py",
+        "structured_recipe_demo.py",
+    ],
 )
 def test_recipe_examples_run(script_name: str) -> None:
     completed = subprocess.run(

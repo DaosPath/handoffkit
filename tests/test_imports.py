@@ -7,15 +7,22 @@ def test_backward_compatible_public_imports() -> None:
         ExtensionRegistry,
         HandoffProtocol,
         JsonMemoryStore,
+        JsonOutputParser,
         MemoryItem,
         MemoryStore,
+        OutputRepairer,
         ProjectIndexer,
+        ProviderCapabilities,
+        ProviderToolAdapter,
         Recipe,
         RecipeRunner,
         RecipeRunResult,
         RecipeStep,
+        StructuredOutputResult,
+        StructuredOutputSchema,
         Team,
         ToolCall,
+        ToolCallParser,
         ToolRegistry,
         ToolResult,
         WorkflowTemplate,
@@ -38,6 +45,13 @@ def test_backward_compatible_public_imports() -> None:
     assert WorkflowTemplate.__name__ == "WorkflowTemplate"
     assert Extension.__name__ == "Extension"
     assert ExtensionRegistry.__name__ == "ExtensionRegistry"
+    assert StructuredOutputSchema.__name__ == "StructuredOutputSchema"
+    assert StructuredOutputResult.__name__ == "StructuredOutputResult"
+    assert JsonOutputParser.__name__ == "JsonOutputParser"
+    assert OutputRepairer.__name__ == "OutputRepairer"
+    assert ProviderCapabilities.__name__ == "ProviderCapabilities"
+    assert ProviderToolAdapter.__name__ == "ProviderToolAdapter"
+    assert ToolCallParser.__name__ == "ToolCallParser"
     assert ToolCall.__name__ == "ToolCall"
     assert ToolResult.__name__ == "ToolResult"
     assert ToolRegistry.__name__ == "ToolRegistry"

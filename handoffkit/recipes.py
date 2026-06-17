@@ -12,6 +12,7 @@ from handoffkit.context import ContextPack
 from handoffkit.handoff import HandoffState
 from handoffkit.memory import MemoryItem, MemoryStore
 from handoffkit.protocol import HandoffProtocol
+from handoffkit.structured import StructuredOutputSchema
 from handoffkit.tool import Tool, ensure_tool
 from handoffkit.tool_execution import ToolResult
 
@@ -45,6 +46,7 @@ class RecipeStep:
     tools: list[Tool | Callable[..., Any]] = field(default_factory=list)
     use_context: bool = False
     use_memory: bool = False
+    structured_schema: StructuredOutputSchema | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -56,6 +58,11 @@ class RecipeStep:
             "tools": [ensure_tool(tool).to_dict() for tool in self.tools],
             "use_context": self.use_context,
             "use_memory": self.use_memory,
+            "structured_schema": (
+                self.structured_schema.to_dict()
+                if self.structured_schema is not None
+                else None
+            ),
             "metadata": self.metadata,
         }
 
@@ -216,9 +223,21 @@ class RecipeRunner:
             output = ""
             step_success = True
             mode = "agent"
+            structured_output: dict[str, Any] | None = None
 
             try:
-                if combined_tools:
+                if step.structured_schema is not None:
+                    structured_result = agent.run_structured(
+                        task,
+                        schema=step.structured_schema,
+                        context=context if step.use_context else None,
+                        memory=memory if step.use_memory else None,
+                    )
+                    output = structured_result.to_json()
+                    structured_output = structured_result.to_dict()
+                    step_success = structured_result.success
+                    mode = "structured"
+                elif combined_tools:
                     report = agent.run_with_tools(task, tools=combined_tools)
                     output = report.final_output
                     step_success = report.success
@@ -251,6 +270,7 @@ class RecipeRunner:
                     "output": output,
                     "success": step_success,
                     "mode": mode,
+                    "structured_output": structured_output,
                     "metadata": step.metadata,
                 }
             )
