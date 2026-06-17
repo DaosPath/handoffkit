@@ -1,0 +1,24 @@
+{
+  "success": true,
+  "data": {
+    "title": "Calculator architecture",
+    "summary": "Create a small CLI layer over pure calculator functions.",
+    "next_steps": [
+      "Define operations",
+      "Add argparse CLI",
+      "Write tests"
+    ],
+    "success": true
+  },
+  "raw_output": "{\"title\": \"Calculator architecture\", \"summary\": \"Create a small CLI layer over pure calculator functions.\", \"next_steps\": [\"Define operations\", \"Add argparse CLI\", \"Write tests\"], \"success\": true}",
+  "errors": [],
+  "schema_name": "TaskSummary",
+  "repaired": false,
+  "metadata": {
+    "agent": "Reporter",
+    "provider": "FakeProvider",
+    "model": "echo",
+    "context_used": false,
+    "memories_used": 0
+  }
+}

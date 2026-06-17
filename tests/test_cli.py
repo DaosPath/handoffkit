@@ -1,6 +1,13 @@
 import pytest
 
-from handoffkit.cli import main, run_demo, run_extension_demo, run_recipe_demo
+from handoffkit.cli import (
+    main,
+    run_demo,
+    run_extension_demo,
+    run_provider_tools_demo,
+    run_recipe_demo,
+    run_structured_demo,
+)
 
 
 def test_cli_help_when_no_command(capsys) -> None:  # type: ignore[no-untyped-def]
@@ -20,7 +27,7 @@ def test_cli_version(capsys) -> None:  # type: ignore[no-untyped-def]
     captured = capsys.readouterr()
 
     assert exc_info.value.code == 0
-    assert "handoffkit 0.5.0" in captured.out
+    assert "handoffkit 0.6.0" in captured.out
 
 
 def test_run_demo_reports_handoff_count() -> None:
@@ -41,3 +48,17 @@ def test_run_extension_demo_reports_extension() -> None:
 
     assert "HandoffKit extension demo" in output
     assert "demo" in output
+
+
+def test_run_structured_demo_reports_structured_output() -> None:
+    output = run_structured_demo()
+
+    assert "Structured Output: TaskSummary" in output
+    assert "Success" in output
+
+
+def test_run_provider_tools_demo_reports_tool_result() -> None:
+    output = run_provider_tools_demo()
+
+    assert "provider tool adapter demo" in output
+    assert "label:demo" in output
