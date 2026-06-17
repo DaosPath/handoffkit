@@ -9,9 +9,17 @@ from handoffkit.context import (
     ProjectIndexer,
 )
 from handoffkit.errors import HandoffValidationError
+from handoffkit.extensions import Extension, ExtensionRegistry
 from handoffkit.handoff import HandoffState
 from handoffkit.memory import JsonMemoryStore, MemoryItem, MemoryReport, MemoryStore
 from handoffkit.protocol import HandoffProtocol
+from handoffkit.recipes import (
+    Recipe,
+    RecipeRunner,
+    RecipeRunResult,
+    RecipeStep,
+    WorkflowTemplate,
+)
 from handoffkit.runner import Team, TeamRunResult
 from handoffkit.tool import Tool, tool
 from handoffkit.tool_execution import (
@@ -21,7 +29,7 @@ from handoffkit.tool_execution import (
     ToolResult,
 )
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __all__ = [
     "Agent",
@@ -29,6 +37,8 @@ __all__ = [
     "ContextPack",
     "ContextRetriever",
     "ContextRunResult",
+    "Extension",
+    "ExtensionRegistry",
     "HandoffValidationError",
     "HandoffProtocol",
     "HandoffState",
@@ -37,6 +47,10 @@ __all__ = [
     "MemoryReport",
     "MemoryStore",
     "ProjectIndexer",
+    "Recipe",
+    "RecipeRunResult",
+    "RecipeRunner",
+    "RecipeStep",
     "Team",
     "TeamRunResult",
     "Tool",
@@ -44,6 +58,7 @@ __all__ = [
     "ToolExecutionReport",
     "ToolRegistry",
     "ToolResult",
+    "WorkflowTemplate",
     "__version__",
     "tool",
 ]

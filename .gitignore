@@ -20,7 +20,10 @@ env/
 .reference_state_transfer_protocols/
 examples/output/
 reports/context_handoff_demo.md
+reports/coding_review_recipe.*
+reports/extension_demo.*
 reports/memory_demo.*
 reports/project_context_demo.*
+reports/recipe_demo.*
 tests/_tmp_tool_execution/
 tests/_tmp_memory_context/
