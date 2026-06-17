@@ -6,7 +6,7 @@ import functools
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, TypeVar, get_type_hints
+from typing import Any, TypeVar, get_args, get_origin, get_type_hints
 
 from handoffkit.errors import ToolExecutionError
 
@@ -20,6 +20,40 @@ def _type_name(value: Any) -> str:
     if hasattr(value, "__name__"):
         return value.__name__
     return str(value).replace("typing.", "")
+
+
+def _json_schema_type(value: Any) -> str:
+    """Map a Python annotation to a simple JSON schema type."""
+    if value is inspect.Signature.empty or value is Any:
+        return "string"
+
+    origin = get_origin(value)
+    target = origin or value
+    if target is str:
+        return "string"
+    if target is int:
+        return "integer"
+    if target is float:
+        return "number"
+    if target is bool:
+        return "boolean"
+    if target is list:
+        return "array"
+    if target is dict:
+        return "object"
+    return "string"
+
+
+def _json_schema_for_annotation(value: Any) -> dict[str, Any]:
+    """Return a compact JSON-schema-like object for one annotation."""
+    schema: dict[str, Any] = {"type": _json_schema_type(value)}
+    origin = get_origin(value)
+    args = get_args(value)
+    if (origin is list or value is list) and args:
+        schema["items"] = _json_schema_for_annotation(args[0])
+    if origin is dict and len(args) == 2:
+        schema["additionalProperties"] = _json_schema_for_annotation(args[1])
+    return schema
 
 
 @dataclass(frozen=True)
@@ -51,7 +85,9 @@ class Tool:
         self.signature = inspect.signature(func)
         self.type_hints = get_type_hints(func)
         self.parameters = self._build_parameters()
-        self.return_type = _type_name(self.type_hints.get("return", self.signature.return_annotation))
+        self.return_type = _type_name(
+            self.type_hints.get("return", self.signature.return_annotation)
+        )
 
     def _build_parameters(self) -> dict[str, ToolParameter]:
         parameters: dict[str, ToolParameter] = {}
@@ -86,6 +122,25 @@ class Tool:
                 for name, parameter in self.parameters.items()
             },
             "return_type": self.return_type,
+        }
+
+    def to_schema(self) -> dict[str, Any]:
+        """Return a simple JSON-schema-compatible tool description."""
+        properties: dict[str, Any] = {}
+        required: list[str] = []
+        for name, parameter in self.signature.parameters.items():
+            annotation = self.type_hints.get(name, parameter.annotation)
+            properties[name] = _json_schema_for_annotation(annotation)
+            if parameter.default is inspect.Signature.empty:
+                required.append(name)
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": {
+                "type": "object",
+                "properties": properties,
+                "required": required,
+            },
         }
 
     def run(self, **kwargs: Any) -> Any:

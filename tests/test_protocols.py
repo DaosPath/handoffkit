@@ -40,3 +40,51 @@ def test_hybrid_min_only_keeps_minimal_state() -> None:
     assert state.important_files == []
     assert state.errors == []
     assert state.next_steps
+
+
+def test_protocol_modes_produce_distinct_state_shapes() -> None:
+    architect = Agent("Architect", "Create plans")
+    coder = Agent("Coder", "Write code")
+    long_summary = " ".join(["Keep structured state"] * 80)
+
+    natural_state = HandoffProtocol(mode="natural").transfer(
+        from_agent=architect,
+        to_agent=coder,
+        task="Build a package",
+        summary=long_summary,
+    )
+    compressed_state = HandoffProtocol(mode="compressed").transfer(
+        from_agent=architect,
+        to_agent=coder,
+        task="Build a package",
+        summary=long_summary,
+    )
+    hybrid_min_state = HandoffProtocol(mode="hybrid_min").transfer(
+        from_agent=architect,
+        to_agent=coder,
+        task="Build a package",
+        summary=long_summary,
+    )
+    hybrid_state = HandoffProtocol(mode="hybrid_state").transfer(
+        from_agent=architect,
+        to_agent=coder,
+        task="Build a package",
+        summary=long_summary,
+        decisions=["Use pyproject.toml"],
+        important_files=["pyproject.toml"],
+        errors=["No blocker"],
+        next_steps=["Run tests"],
+        metadata={"release": "0.2.0"},
+    )
+
+    assert natural_state.summary.startswith("Architect is handing off to Coder")
+    assert compressed_state.summary.endswith("...")
+    assert len(compressed_state.summary) <= 360
+    assert hybrid_min_state.decisions == []
+    assert hybrid_min_state.important_files == []
+    assert hybrid_min_state.errors == []
+    assert hybrid_state.decisions == ["Use pyproject.toml"]
+    assert hybrid_state.important_files == ["pyproject.toml"]
+    assert hybrid_state.errors == ["No blocker"]
+    assert hybrid_state.next_steps == ["Run tests"]
+    assert hybrid_state.metadata["release"] == "0.2.0"

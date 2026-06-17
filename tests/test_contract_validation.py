@@ -32,3 +32,27 @@ def test_handoff_state_validate_rejects_invalid_list_fields() -> None:
 
     with pytest.raises(HandoffValidationError, match="next_steps"):
         state.validate()
+
+
+def test_handoff_state_validate_rejects_invalid_summary_and_metadata() -> None:
+    state = HandoffState(task="Task", from_agent="Architect", to_agent="Coder")
+    state.summary = ["not a string"]  # type: ignore[assignment]
+    state.metadata = ["not a dict"]  # type: ignore[assignment]
+
+    with pytest.raises(HandoffValidationError, match="summary.*metadata"):
+        state.validate()
+
+
+def test_handoff_state_from_dict_preserves_invalid_shape_for_validation() -> None:
+    state = HandoffState.from_dict(
+        {
+            "task": "Task",
+            "from_agent": "Architect",
+            "to_agent": "Coder",
+            "summary": "Plan",
+            "decisions": "Use strings, not a list",
+        }
+    )
+
+    with pytest.raises(HandoffValidationError, match="decisions"):
+        state.validate()

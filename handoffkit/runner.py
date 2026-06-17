@@ -32,7 +32,7 @@ class Team:
         current_output = first.run(task)
         outputs.append(AgentOutput(agent=first.name, output=current_output))
 
-        for previous, current in zip(self.agents, self.agents[1:]):
+        for previous, current in zip(self.agents, self.agents[1:], strict=False):
             handoff = self.protocol.transfer(
                 from_agent=previous,
                 to_agent=current,

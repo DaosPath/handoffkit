@@ -12,6 +12,12 @@ REQUIRED_TEXT_FIELDS = ("task", "from_agent", "to_agent")
 LIST_FIELDS = ("decisions", "important_files", "errors", "next_steps")
 
 
+def _value_or_default(data: dict[str, Any], key: str, default: Any) -> Any:
+    """Read a key without coercing invalid caller data into a valid shape."""
+    value = data.get(key, default)
+    return default if value is None else value
+
+
 @dataclass
 class HandoffState:
     """State transferred from one agent to another."""
@@ -34,7 +40,7 @@ class HandoffState:
         """Return a JSON string."""
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent)
 
-    def validate(self) -> "HandoffState":
+    def validate(self) -> HandoffState:
         """Validate the handoff state contract and return self."""
         problems: list[str] = []
         for field_name in REQUIRED_TEXT_FIELDS:
@@ -57,22 +63,22 @@ class HandoffState:
         return self
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "HandoffState":
+    def from_dict(cls, data: dict[str, Any]) -> HandoffState:
         """Create a handoff state from a dictionary."""
         return cls(
-            task=str(data.get("task", "")),
-            from_agent=str(data.get("from_agent", "")),
-            to_agent=str(data.get("to_agent", "")),
-            summary=str(data.get("summary", "")),
-            decisions=list(data.get("decisions") or []),
-            important_files=list(data.get("important_files") or []),
-            errors=list(data.get("errors") or []),
-            next_steps=list(data.get("next_steps") or []),
-            metadata=dict(data.get("metadata") or {}),
+            task=_value_or_default(data, "task", ""),
+            from_agent=_value_or_default(data, "from_agent", ""),
+            to_agent=_value_or_default(data, "to_agent", ""),
+            summary=_value_or_default(data, "summary", ""),
+            decisions=_value_or_default(data, "decisions", []),
+            important_files=_value_or_default(data, "important_files", []),
+            errors=_value_or_default(data, "errors", []),
+            next_steps=_value_or_default(data, "next_steps", []),
+            metadata=_value_or_default(data, "metadata", {}),
         )
 
     @classmethod
-    def from_json(cls, value: str) -> "HandoffState":
+    def from_json(cls, value: str) -> HandoffState:
         """Create a handoff state from JSON."""
         data = json.loads(value)
         if not isinstance(data, dict):
