@@ -1,4 +1,4 @@
-"""Minimal OpenAI HTTP provider."""
+"""Minimal OpenAI-compatible HTTP provider."""
 
 from __future__ import annotations
 
@@ -11,21 +11,25 @@ from typing import Any
 from handoffkit.errors import ProviderConfigurationError, ProviderExecutionError
 from handoffkit.providers.base import BaseProvider
 
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+
 
 class OpenAIProvider(BaseProvider):
-    """Provider that calls OpenAI using `OPENAI_API_KEY`."""
+    """Provider that calls OpenAI or an OpenAI-compatible API."""
 
     def __init__(
         self,
-        model: str = "gpt-4o-mini",
+        model: str | None = None,
         *,
         api_key: str | None = None,
-        base_url: str = "https://api.openai.com/v1",
+        base_url: str | None = None,
         timeout: float = 60.0,
     ) -> None:
-        self.model = model
+        self.model = model or os.getenv("OPENAI_MODEL") or DEFAULT_OPENAI_MODEL
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        self.base_url = base_url.rstrip("/")
+        configured_base_url = base_url or os.getenv("OPENAI_BASE_URL") or DEFAULT_OPENAI_BASE_URL
+        self.base_url = configured_base_url.rstrip("/")
         self.timeout = timeout
         if not self.api_key:
             raise ProviderConfigurationError(
@@ -55,11 +59,22 @@ class OpenAIProvider(BaseProvider):
                 body = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
-            raise ProviderExecutionError(f"OpenAI request failed: {detail}") from exc
+            raise ProviderExecutionError(
+                f"OpenAI-compatible request failed with HTTP {exc.code}: "
+                f"{self._sanitize_error_detail(detail)}"
+            ) from exc
         except urllib.error.URLError as exc:
-            raise ProviderExecutionError(f"OpenAI request failed: {exc}") from exc
+            raise ProviderExecutionError(
+                f"OpenAI-compatible request failed for {self.base_url}: {exc.reason}"
+            ) from exc
         choices = body.get("choices") or []
         if not choices:
             return ""
         message = choices[0].get("message") or {}
         return str(message.get("content", ""))
+
+    def _sanitize_error_detail(self, detail: str) -> str:
+        """Return provider error text without leaking the configured API key."""
+        if not self.api_key:
+            return detail
+        return detail.replace(self.api_key, "[redacted-api-key]")
