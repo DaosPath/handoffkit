@@ -24,9 +24,11 @@ def test_handoff_json_roundtrip() -> None:
         from_agent="Architect",
         to_agent="Coder",
         summary="Plan complete",
+        context_refs=["README.md", "pyproject.toml"],
     )
 
     loaded = HandoffState.from_json(state.to_json())
 
     assert loaded.task == state.task
     assert loaded.summary == state.summary
+    assert loaded.context_refs == ["README.md", "pyproject.toml"]

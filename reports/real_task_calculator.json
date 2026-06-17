@@ -31,6 +31,7 @@
         "Write pytest coverage.",
         "Run generated project tests."
       ],
+      "context_refs": [],
       "metadata": {
         "mode": "hybrid_state",
         "handoff_version": "1.0",
@@ -43,6 +44,7 @@
           "important_files",
           "errors",
           "next_steps",
+          "context_refs",
           "metadata"
         ],
         "stage": "architect_to_coder"
@@ -69,6 +71,7 @@
         "Run pytest in the generated project.",
         "Capture command evidence."
       ],
+      "context_refs": [],
       "metadata": {
         "mode": "hybrid_state",
         "handoff_version": "1.0",
@@ -81,6 +84,7 @@
           "important_files",
           "errors",
           "next_steps",
+          "context_refs",
           "metadata"
         ],
         "stage": "coder_to_tester"
@@ -111,6 +115,7 @@
         "Write JSON report.",
         "Include captured command evidence."
       ],
+      "context_refs": [],
       "metadata": {
         "mode": "hybrid_state",
         "handoff_version": "1.0",
@@ -123,6 +128,7 @@
           "important_files",
           "errors",
           "next_steps",
+          "context_refs",
           "metadata"
         ],
         "stage": "tester_to_reporter"
