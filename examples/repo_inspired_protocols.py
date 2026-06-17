@@ -1,7 +1,8 @@
 """Compare protocol modes inspired by state-transfer-protocols."""
 
-from handoffkit import Agent, HandoffProtocol
+from __future__ import annotations
 
+from handoffkit import Agent, HandoffProtocol
 
 architect = Agent("Architect", "Create technical plans.")
 coder = Agent("Coder", "Implement from handoff state.")
