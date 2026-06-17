@@ -6,8 +6,14 @@ from handoffkit.handoff import HandoffState
 from handoffkit.protocol import HandoffProtocol
 from handoffkit.runner import Team, TeamRunResult
 from handoffkit.tool import Tool, tool
+from handoffkit.tool_execution import (
+    ToolCall,
+    ToolExecutionReport,
+    ToolRegistry,
+    ToolResult,
+)
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "Agent",
@@ -17,6 +23,10 @@ __all__ = [
     "Team",
     "TeamRunResult",
     "Tool",
+    "ToolCall",
+    "ToolExecutionReport",
+    "ToolRegistry",
+    "ToolResult",
     "__version__",
     "tool",
 ]

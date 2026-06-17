@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0
+
+- Added ToolCall and ToolResult.
+- Added ToolRegistry.
+- Added Agent.run_with_tools().
+- Added deterministic local tool execution.
+- Added provider JSON tool-call loop.
+- Added basic safety layer for shell/write operations.
+- Added tool execution reports.
+- Added examples for local and fake-provider tool execution.
+- Added tests for tool execution flow.
+
 ## 0.2.0
 
 - Added JSON-schema-style tool metadata with `Tool.to_schema()`

@@ -2,6 +2,8 @@ include README.md
 include LICENSE
 graft examples
 graft tests
+prune examples/output
+prune tests/_tmp_tool_execution
 global-exclude __pycache__
 global-exclude __pycache__/*
 global-exclude *.py[cod]
