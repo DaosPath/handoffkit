@@ -51,7 +51,22 @@ Tester
 
 That makes agent workflows easier to inspect, test, replay, and improve.
 
-## What 0.5.0 Adds
+## What 0.6.0 Adds
+
+HandoffKit 0.6.0 adds structured outputs and provider-neutral tool adapters:
+
+- `StructuredOutputSchema` for lightweight schemas without Pydantic,
+- `StructuredOutputResult` for validated model output reports,
+- `JsonOutputParser` for clean, fenced, or embedded JSON,
+- `OutputRepairer` for simple JSON cleanup,
+- `Agent.run_structured()` for schema-guided agent runs,
+- `ProviderCapabilities` for serializable provider feature flags,
+- `ProviderToolAdapter` for normalizing provider tool schemas and calls,
+- `ToolCallParser` for provider-style tool call payloads,
+- `provider_json` mode in `Agent.run_with_tools()`,
+- structured demos and tests that run without API keys.
+
+## What 0.5.0 Added
 
 HandoffKit 0.5.0 adds reusable workflow building blocks:
 
@@ -244,6 +259,70 @@ Safety:
   `reboot`, `mkfs`, and `diskpart` are blocked;
 - when `require_approval=True`, write and shell tools return
   `approval_required` instead of executing.
+
+## Structured Outputs + Provider Tool Adapters
+
+Structured outputs matter because multi-agent workflows need machine-checkable
+contracts, not only polished prose. HandoffKit can ask a provider for JSON,
+parse common response shapes, validate the result, and perform small safe
+repairs such as removing Markdown fences or trailing commas.
+
+```python
+from handoffkit import Agent, StructuredOutputSchema
+
+schema = StructuredOutputSchema(
+    name="TaskSummary",
+    fields={
+        "title": str,
+        "summary": str,
+        "success": bool,
+    },
+    required=["title", "summary", "success"],
+)
+
+agent = Agent(name="Reporter", role="Return structured task summaries.")
+result = agent.run_structured("Summarize the task.", schema=schema)
+
+print(result.data)
+print(result.to_markdown())
+```
+
+`Agent.run_structured()` sends schema instructions to the provider, parses the
+response with `JsonOutputParser`, validates it with `StructuredOutputSchema`,
+and can use `OutputRepairer` for simple JSON mistakes. It works with fake or
+local providers, so normal tests do not require API keys.
+
+Provider tool adapters keep tool calling provider-agnostic:
+
+```python
+from handoffkit import ProviderToolAdapter, ToolRegistry, tool
+
+@tool
+def read_file(path: str) -> str:
+    """Read a file."""
+    return f"read:{path}"
+
+adapter = ProviderToolAdapter()
+provider_tools = adapter.tools_to_provider_format([read_file])
+tool_calls = adapter.parse_tool_calls({
+    "tool_calls": [
+        {
+            "function": {
+                "name": "read_file",
+                "arguments": "{\"path\":\"README.md\"}",
+            }
+        }
+    ]
+})
+
+registry = ToolRegistry([read_file])
+results = [registry.execute(call) for call in tool_calls]
+```
+
+The internal format stays `ToolCall(tool_name="read_file", arguments={...})`
+whether a provider returns HandoffKit JSON or function-style tool calls. This is
+provider-neutral by design; HandoffKit does not require any external SDK for
+normal tests.
 
 ## Memory + Project Context
 
@@ -449,6 +528,8 @@ handoffkit --version
 handoffkit demo
 handoffkit demo-recipe
 handoffkit demo-extension
+handoffkit demo-structured
+handoffkit demo-provider-tools
 ```
 
 ## Examples
@@ -460,6 +541,9 @@ python examples/coding_team.py
 python examples/tool_schema_demo.py
 python examples/tool_execution_demo.py
 python examples/fake_provider_tool_call_demo.py
+python examples/structured_output_demo.py
+python examples/provider_tool_adapter_demo.py
+python examples/structured_recipe_demo.py
 python examples/recipe_demo.py
 python examples/coding_review_recipe.py
 python examples/extension_demo.py

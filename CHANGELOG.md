@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+- Added StructuredOutputSchema and StructuredOutputResult.
+- Added JsonOutputParser and OutputRepairer.
+- Added Agent.run_structured().
+- Added ProviderCapabilities and ProviderToolAdapter.
+- Added ToolCallParser for provider-style tool calls.
+- Added provider_json mode to Agent.run_with_tools().
+- Added structured output and provider tool adapter demos.
+- Added tests for structured outputs and provider tool call normalization.
+
 ## 0.5.0
 
 - Added RecipeStep, Recipe, RecipeRunner and RecipeRunResult.

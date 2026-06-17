@@ -13,6 +13,11 @@ from handoffkit.extensions import Extension, ExtensionRegistry
 from handoffkit.handoff import HandoffState
 from handoffkit.memory import JsonMemoryStore, MemoryItem, MemoryReport, MemoryStore
 from handoffkit.protocol import HandoffProtocol
+from handoffkit.provider_adapters import (
+    ProviderCapabilities,
+    ProviderToolAdapter,
+    ToolCallParser,
+)
 from handoffkit.recipes import (
     Recipe,
     RecipeRunner,
@@ -21,6 +26,13 @@ from handoffkit.recipes import (
     WorkflowTemplate,
 )
 from handoffkit.runner import Team, TeamRunResult
+from handoffkit.structured import (
+    JsonOutputParser,
+    OutputRepairer,
+    OutputValidationError,
+    StructuredOutputResult,
+    StructuredOutputSchema,
+)
 from handoffkit.tool import Tool, tool
 from handoffkit.tool_execution import (
     ToolCall,
@@ -29,7 +41,7 @@ from handoffkit.tool_execution import (
     ToolResult,
 )
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 __all__ = [
     "Agent",
@@ -43,18 +55,26 @@ __all__ = [
     "HandoffProtocol",
     "HandoffState",
     "JsonMemoryStore",
+    "JsonOutputParser",
     "MemoryItem",
     "MemoryReport",
     "MemoryStore",
+    "OutputRepairer",
+    "OutputValidationError",
     "ProjectIndexer",
+    "ProviderCapabilities",
+    "ProviderToolAdapter",
     "Recipe",
     "RecipeRunResult",
     "RecipeRunner",
     "RecipeStep",
+    "StructuredOutputResult",
+    "StructuredOutputSchema",
     "Team",
     "TeamRunResult",
     "Tool",
     "ToolCall",
+    "ToolCallParser",
     "ToolExecutionReport",
     "ToolRegistry",
     "ToolResult",
