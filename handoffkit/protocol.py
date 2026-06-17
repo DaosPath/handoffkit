@@ -32,6 +32,7 @@ class HandoffProtocol:
         important_files: list[str] | None = None,
         errors: list[str] | None = None,
         next_steps: list[str] | None = None,
+        context_refs: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> HandoffState:
         """Create handoff state from one agent to another."""
@@ -52,6 +53,7 @@ class HandoffProtocol:
                 important_files=important_files,
                 errors=errors,
                 next_steps=next_steps,
+                context_refs=context_refs,
                 metadata=metadata,
             )
         raise ProtocolError(f"Unsupported handoff protocol mode: {self.mode}")

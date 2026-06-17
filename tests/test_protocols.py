@@ -88,3 +88,17 @@ def test_protocol_modes_produce_distinct_state_shapes() -> None:
     assert hybrid_state.errors == ["No blocker"]
     assert hybrid_state.next_steps == ["Run tests"]
     assert hybrid_state.metadata["release"] == "0.2.0"
+
+
+def test_hybrid_state_accepts_context_refs() -> None:
+    protocol = HandoffProtocol(mode="hybrid_state")
+    state = protocol.transfer(
+        from_agent=Agent("Architect", "Plan"),
+        to_agent=Agent("Coder", "Build"),
+        task="Use context",
+        summary="Context ready",
+        context_refs=["README.md", "tests/test_handoff.py"],
+    )
+
+    assert state.context_refs == ["README.md", "tests/test_handoff.py"]
+    assert "context_refs" in state.metadata["state_contract"]

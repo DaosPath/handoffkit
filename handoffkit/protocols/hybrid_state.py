@@ -17,6 +17,7 @@ def build_state(
     important_files: list[str] | None = None,
     errors: list[str] | None = None,
     next_steps: list[str] | None = None,
+    context_refs: list[str] | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> HandoffState:
     """Build a full structured handoff state."""
@@ -32,6 +33,7 @@ def build_state(
             "important_files",
             "errors",
             "next_steps",
+            "context_refs",
             "metadata",
         ],
     }
@@ -48,5 +50,6 @@ def build_state(
             f"{to_agent} should inspect the structured handoff.",
             "Continue the task while preserving decisions and constraints.",
         ],
+        context_refs=context_refs or [],
         metadata=merged_metadata,
     )

@@ -4,6 +4,7 @@ graft examples
 graft tests
 prune examples/output
 prune tests/_tmp_tool_execution
+prune tests/_tmp_memory_context
 global-exclude __pycache__
 global-exclude __pycache__/*
 global-exclude *.py[cod]
