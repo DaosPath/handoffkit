@@ -7,8 +7,9 @@ import shlex
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from handoffkit.context import ContextPack, ContextRunResult
 from handoffkit.handoff import HandoffState
-from handoffkit.memory import AgentMemory
+from handoffkit.memory import AgentMemory, MemoryStore
 from handoffkit.providers import BaseProvider, EchoProvider
 from handoffkit.tool import Tool, ensure_tool
 from handoffkit.tool_execution import (
@@ -102,6 +103,29 @@ class Agent:
             registry=registry,
             max_steps=max_steps,
             require_approval=require_approval,
+        )
+
+    def run_with_context(
+        self,
+        task: str,
+        context: ContextPack | None = None,
+        memory: MemoryStore | None = None,
+        tools: Sequence[Tool | Callable[..., Any]] | None = None,
+    ) -> ContextRunResult:
+        """Run the agent with retrieved project context and structured memory."""
+        memories = memory.search(task, limit=5) if memory else []
+        prompt = self._build_context_prompt(task, context=context, memories=memories)
+        self.memory.add("user", task, agent=self.name)
+        output = self.provider.generate(prompt)
+        self.memory.add("assistant", output, agent=self.name)
+        if tools:
+            tool_report = self.run_with_tools(task, tools=tools)
+            output = f"{output}\n\nTool execution: {tool_report.final_output}"
+        return ContextRunResult(
+            final_output=output,
+            context_used=context,
+            memories_used=memories,
+            success=True,
         )
 
     def _run_local_tool_mode(
@@ -252,6 +276,28 @@ class Agent:
             "Return JSON only. To call tools, return "
             '{"tool_calls":[{"tool_name":"name","arguments":{}}],"final":null}. '
             'To finish, return {"final":"Done"}.'
+        )
+
+    def _build_context_prompt(
+        self,
+        task: str,
+        *,
+        context: ContextPack | None,
+        memories: list[Any],
+    ) -> str:
+        """Build prompt with context and memory summaries."""
+        context_text = context.to_markdown() if context else "No context pack."
+        memory_text = "\n".join(f"- {item.kind}: {item.content}" for item in memories)
+        if not memory_text:
+            memory_text = "No relevant structured memories."
+        return (
+            f"Agent: {self.name}\n"
+            f"Role: {self.role}\n"
+            f"Task: {task}\n\n"
+            f"Project context:\n{context_text}\n\n"
+            f"Relevant memory:\n{memory_text}\n\n"
+            "Use the provided context and memories. "
+            "Report useful progress, decisions, errors if any, and next steps."
         )
 
     def _build_prompt(self, task: str, *, handoff_state: HandoffState | None) -> str:

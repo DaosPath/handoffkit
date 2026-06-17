@@ -28,9 +28,9 @@ def test_handoff_state_validate_rejects_missing_required_text() -> None:
 
 def test_handoff_state_validate_rejects_invalid_list_fields() -> None:
     state = HandoffState(task="Task", from_agent="Architect", to_agent="Coder")
-    state.next_steps = "Implement"  # type: ignore[assignment]
+    state.context_refs = "README.md"  # type: ignore[assignment]
 
-    with pytest.raises(HandoffValidationError, match="next_steps"):
+    with pytest.raises(HandoffValidationError, match="context_refs"):
         state.validate()
 
 

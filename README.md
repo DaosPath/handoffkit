@@ -51,7 +51,21 @@ Tester
 
 That makes agent workflows easier to inspect, test, replay, and improve.
 
-## What 0.3.0 Adds
+## What 0.4.0 Adds
+
+HandoffKit 0.4.0 adds a lightweight memory and project context engine:
+
+- `MemoryItem`, `MemoryStore`, and `JsonMemoryStore` for structured memory,
+- `ProjectIndexer` for scanning local project files,
+- `ContextRetriever` for deterministic keyword retrieval,
+- `ContextPack` for bundling relevant files and memories,
+- `Agent.run_with_context()` for context-aware agent runs,
+- `HandoffState.context_refs` so agents can pass explicit context references.
+
+No vector database. No heavy dependency stack. Just transparent, inspectable
+context for agent workflows.
+
+## What 0.3.0 Added
 
 HandoffKit 0.3.0 adds a real tool execution loop:
 
@@ -214,6 +228,56 @@ Safety:
 - when `require_approval=True`, write and shell tools return
   `approval_required` instead of executing.
 
+## Memory + Project Context
+
+HandoffKit can store durable project decisions, index local files, retrieve
+relevant context, and hand explicit references from one agent to the next.
+
+```python
+from handoffkit import (
+    Agent,
+    ContextPack,
+    ContextRetriever,
+    JsonMemoryStore,
+    ProjectIndexer,
+)
+
+memory = JsonMemoryStore("examples/output/memory.json")
+memory.add(
+    "Calculator CLI should use argparse and pure functions.",
+    kind="decision",
+    tags=["calculator", "cli"],
+)
+
+documents = ProjectIndexer(".").index()
+retriever = ContextRetriever(documents)
+matches = retriever.search("calculator argparse tests", limit=3)
+
+context = ContextPack(
+    query="Create a calculator CLI implementation plan.",
+    documents=matches,
+    memories=memory.search("calculator cli", limit=3),
+)
+
+agent = Agent("Architect", "Create concise implementation plans.")
+result = agent.run_with_context(
+    "Create a concise architecture plan for a Python CLI calculator.",
+    context=context,
+    memory=memory,
+)
+
+print(result.final_output)
+print(context.to_markdown())
+```
+
+Run the included demos:
+
+```bash
+python examples/memory_demo.py
+python examples/project_context_demo.py
+python examples/context_handoff_demo.py
+```
+
 ## Real Task Demo
 
 HandoffKit includes a reproducible real task demo:
@@ -311,6 +375,9 @@ python examples/coding_team.py
 python examples/tool_schema_demo.py
 python examples/tool_execution_demo.py
 python examples/fake_provider_tool_call_demo.py
+python examples/memory_demo.py
+python examples/project_context_demo.py
+python examples/context_handoff_demo.py
 python examples/real_task_calculator.py
 ```
 
@@ -369,6 +436,7 @@ HandoffKit is a developer library, not a copy of that repository.
 - structured tool calling loops,
 - handoff quality metrics,
 - memory integrations,
+- project context retrieval,
 - benchmark-inspired examples,
 - multi-agent workflow templates.
 

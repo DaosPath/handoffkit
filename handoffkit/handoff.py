@@ -9,7 +9,7 @@ from typing import Any
 from handoffkit.errors import HandoffValidationError
 
 REQUIRED_TEXT_FIELDS = ("task", "from_agent", "to_agent")
-LIST_FIELDS = ("decisions", "important_files", "errors", "next_steps")
+LIST_FIELDS = ("decisions", "important_files", "errors", "next_steps", "context_refs")
 
 
 def _value_or_default(data: dict[str, Any], key: str, default: Any) -> Any:
@@ -30,6 +30,7 @@ class HandoffState:
     important_files: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     next_steps: list[str] = field(default_factory=list)
+    context_refs: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -74,6 +75,7 @@ class HandoffState:
             important_files=_value_or_default(data, "important_files", []),
             errors=_value_or_default(data, "errors", []),
             next_steps=_value_or_default(data, "next_steps", []),
+            context_refs=_value_or_default(data, "context_refs", []),
             metadata=_value_or_default(data, "metadata", {}),
         )
 

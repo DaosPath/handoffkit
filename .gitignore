@@ -4,6 +4,9 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.build-tmp/
+.build-artifacts/
+.build-noiso/
 .coverage
 htmlcov/
 build/
@@ -15,4 +18,9 @@ env/
 .env.*
 !.env.example
 .reference_state_transfer_protocols/
+examples/output/
+reports/context_handoff_demo.md
+reports/memory_demo.*
+reports/project_context_demo.*
 tests/_tmp_tool_execution/
+tests/_tmp_memory_context/

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+- Added MemoryItem, MemoryStore, and JsonMemoryStore.
+- Added project context indexing and retrieval.
+- Added ContextPack for packaging retrieved files and memories.
+- Added Agent.run_with_context().
+- Added context_refs to HandoffState.
+- Added memory and project-context examples.
+- Added context handoff demo.
+- Expanded README for memory and context workflows.
+
 ## 0.3.0
 
 - Added ToolCall and ToolResult.
