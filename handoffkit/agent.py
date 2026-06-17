@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import shlex
 from collections.abc import Callable, Sequence
 from typing import Any
 
@@ -9,6 +11,11 @@ from handoffkit.handoff import HandoffState
 from handoffkit.memory import AgentMemory
 from handoffkit.providers import BaseProvider, EchoProvider
 from handoffkit.tool import Tool, ensure_tool
+from handoffkit.tool_execution import (
+    ToolCall,
+    ToolExecutionReport,
+    ToolRegistry,
+)
 
 
 class Agent:
@@ -67,6 +74,185 @@ class Agent:
         output = self.provider.generate(prompt, **kwargs)
         self.memory.add("assistant", output, agent=self.name)
         return output
+
+    def run_with_tools(
+        self,
+        task: str,
+        tools: Sequence[Tool | Callable[..., Any]] | None = None,
+        max_steps: int = 5,
+        require_approval: bool = False,
+    ) -> ToolExecutionReport:
+        """Run an agent with structured tool execution.
+
+        EchoProvider uses a deterministic local command parser. Other providers
+        can return JSON with `tool_calls` and/or `final`.
+        """
+        registry = ToolRegistry(self.tools)
+        for item in tools or []:
+            if ensure_tool(item).name not in registry.list_tools():
+                registry.register(item)
+        if isinstance(self.provider, EchoProvider):
+            return self._run_local_tool_mode(
+                task,
+                registry=registry,
+                require_approval=require_approval,
+            )
+        return self._run_provider_tool_loop(
+            task,
+            registry=registry,
+            max_steps=max_steps,
+            require_approval=require_approval,
+        )
+
+    def _run_local_tool_mode(
+        self,
+        task: str,
+        *,
+        registry: ToolRegistry,
+        require_approval: bool,
+    ) -> ToolExecutionReport:
+        """Run deterministic local tool calls for common file/shell tasks."""
+        calls = self._infer_local_tool_calls(task, registry)
+        results = [registry.execute(call, require_approval=require_approval) for call in calls]
+        if not calls:
+            final_output = (
+                "No deterministic local tool call matched the task. "
+                "This mode only handles simple read/list/write/run command requests."
+            )
+        elif all(result.success for result in results):
+            final_output = "Completed deterministic local tool execution."
+        else:
+            final_output = "Tool execution completed with errors."
+        return ToolExecutionReport(
+            task=task,
+            agent_name=self.name,
+            tool_calls=calls,
+            tool_results=results,
+            final_output=final_output,
+            success=bool(calls) and all(result.success for result in results),
+            steps=[
+                {
+                    "mode": "deterministic_local",
+                    "tool_calls": [call.to_dict() for call in calls],
+                    "tool_results": [result.to_dict() for result in results],
+                }
+            ],
+        )
+
+    def _infer_local_tool_calls(self, task: str, registry: ToolRegistry) -> list[ToolCall]:
+        """Infer simple local tool calls from plain English task text."""
+        lowered = task.lower()
+        tokens = shlex.split(task)
+        available = set(registry.list_tools())
+
+        def after_phrase(*phrases: str) -> str:
+            for phrase in phrases:
+                index = lowered.find(phrase)
+                if index >= 0:
+                    return task[index + len(phrase) :].strip().strip("'\"")
+            return ""
+
+        if "read file" in lowered and "read_file" in available:
+            path = after_phrase("read file") or (tokens[-1] if tokens else "")
+            return [ToolCall("read_file", {"path": path})]
+        if "list files" in lowered and "list_files" in available:
+            path = after_phrase("list files", "list files in") or "."
+            return [ToolCall("list_files", {"path": path})]
+        if "run command" in lowered and "run_command" in available:
+            command = after_phrase("run command")
+            return [ToolCall("run_command", {"command": command})]
+        if "write file" in lowered and "write_file" in available:
+            path = tokens[2] if len(tokens) >= 3 else "output.txt"
+            content = after_phrase("content") or ""
+            return [ToolCall("write_file", {"path": path, "content": content})]
+        return []
+
+    def _run_provider_tool_loop(
+        self,
+        task: str,
+        *,
+        registry: ToolRegistry,
+        max_steps: int,
+        require_approval: bool,
+    ) -> ToolExecutionReport:
+        """Run provider JSON tool-call loop."""
+        calls: list[ToolCall] = []
+        results = []
+        steps: list[dict[str, Any]] = []
+        final_output = ""
+        for step_index in range(max_steps):
+            prompt = self._build_tool_prompt(task, registry=registry, results=results)
+            raw = self.provider.generate(prompt)
+            self.memory.add("assistant", raw, agent=self.name)
+            step: dict[str, Any] = {"step": step_index + 1, "provider_output": raw}
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                final_output = raw
+                steps.append({**step, "mode": "plain_text"})
+                break
+            if not isinstance(payload, dict):
+                final_output = raw
+                steps.append({**step, "mode": "non_object_json"})
+                break
+            if payload.get("final") is not None and not payload.get("tool_calls"):
+                final_output = str(payload["final"])
+                steps.append({**step, "mode": "final"})
+                break
+            raw_calls = payload.get("tool_calls") or []
+            step_calls = [
+                ToolCall.from_dict(item)
+                for item in raw_calls
+                if isinstance(item, dict)
+            ]
+            step_results = [
+                registry.execute(call, require_approval=require_approval)
+                for call in step_calls
+            ]
+            calls.extend(step_calls)
+            results.extend(step_results)
+            steps.append(
+                {
+                    **step,
+                    "mode": "tool_calls",
+                    "tool_calls": [call.to_dict() for call in step_calls],
+                    "tool_results": [result.to_dict() for result in step_results],
+                }
+            )
+            if not step_calls:
+                final_output = str(payload.get("final") or "")
+                break
+        else:
+            final_output = "Stopped after max_steps to avoid an infinite tool loop."
+        return ToolExecutionReport(
+            task=task,
+            agent_name=self.name,
+            tool_calls=calls,
+            tool_results=results,
+            final_output=final_output,
+            success=all(result.success for result in results) and "max_steps" not in final_output,
+            steps=steps,
+        )
+
+    def _build_tool_prompt(
+        self,
+        task: str,
+        *,
+        registry: ToolRegistry,
+        results: list[Any],
+    ) -> str:
+        """Build a provider prompt that documents the JSON tool-call protocol."""
+        return (
+            f"Agent: {self.name}\n"
+            f"Role: {self.role}\n"
+            f"Task: {task}\n\n"
+            f"Available tool schemas:\n{json.dumps(registry.schemas(), indent=2)}\n\n"
+            f"Previous tool results:\n"
+            f"{json.dumps([result.to_dict() for result in results], indent=2, default=str)}\n\n"
+            "Return JSON only. To call tools, return "
+            '{"tool_calls":[{"tool_name":"name","arguments":{}}],"final":null}. '
+            'To finish, return {"final":"Done"}.'
+        )
 
     def _build_prompt(self, task: str, *, handoff_state: HandoffState | None) -> str:
         tool_lines = "\n".join(
