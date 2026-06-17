@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0
+
+- Added RecipeStep, Recipe, RecipeRunner and RecipeRunResult.
+- Added WorkflowTemplate for reusable agent workflow patterns.
+- Added Extension and ExtensionRegistry.
+- Added built-in recipe factories.
+- Added recipe and extension demos.
+- Added Markdown/JSON recipe reports.
+- Added tests for recipes, templates and extensions.
+
 ## 0.4.0
 
 - Added MemoryItem, MemoryStore, and JsonMemoryStore.

@@ -51,7 +51,24 @@ Tester
 
 That makes agent workflows easier to inspect, test, replay, and improve.
 
-## What 0.4.0 Adds
+## What 0.5.0 Adds
+
+HandoffKit 0.5.0 adds reusable workflow building blocks:
+
+- `RecipeStep` for one named workflow step,
+- `Recipe` for reusable agent workflows,
+- `RecipeRunner` and `RecipeRunResult` for execution and reports,
+- `WorkflowTemplate` for common workflow patterns,
+- `Extension` and `ExtensionRegistry` for safe local extension bundles,
+- built-in recipe factories,
+- recipe and extension demos,
+- Markdown/JSON recipe reports.
+
+This keeps HandoffKit general. Repo agents, research agents, coding agents, and
+business agents can be built on top of HandoffKit without turning the core into
+a GitHub- or repository-specific package.
+
+## What 0.4.0 Added
 
 HandoffKit 0.4.0 adds a lightweight memory and project context engine:
 
@@ -278,6 +295,72 @@ python examples/project_context_demo.py
 python examples/context_handoff_demo.py
 ```
 
+## Recipes + Extension API
+
+Recipes make agent workflows reusable. Instead of wiring the same planner,
+executor, reviewer, tools, context, and memory flow by hand in every script, you
+can define a `Recipe` once and run it with `RecipeRunner`.
+
+```python
+from handoffkit import Agent, Recipe, RecipeRunner, RecipeStep
+
+planner = Agent(name="Planner", role="Plan the task.")
+executor = Agent(name="Executor", role="Execute the plan.")
+reviewer = Agent(name="Reviewer", role="Review the result.")
+
+recipe = Recipe(
+    name="plan-execute-review",
+    description="A reusable three-step workflow.",
+    steps=[
+        RecipeStep(name="plan", agent=planner, task="Create a plan."),
+        RecipeStep(name="execute", agent=executor, task="Execute the plan."),
+        RecipeStep(name="review", agent=reviewer, task="Review the output."),
+    ],
+)
+
+result = RecipeRunner(recipe).run()
+print(result.to_markdown())
+```
+
+Templates create common workflow shapes:
+
+```python
+from handoffkit import Agent, WorkflowTemplate
+
+recipe = WorkflowTemplate.sequential(
+    name="simple-workflow",
+    agents=[
+        Agent("Architect", "Plan."),
+        Agent("Coder", "Build."),
+        Agent("Tester", "Test."),
+    ],
+    task="Build a small calculator.",
+)
+```
+
+Extensions bundle recipes and tools safely:
+
+```python
+from handoffkit import Extension, ExtensionRegistry
+
+registry = ExtensionRegistry()
+registry.register(
+    Extension(
+        name="coding",
+        description="Local coding workflows.",
+        version="0.1.0",
+        recipes=[recipe],
+        tools=[],
+    )
+)
+
+print([recipe.name for recipe in registry.recipes()])
+```
+
+HandoffKit does not ship Git/GitHub APIs as core primitives. A repository agent
+can be built as an extension or recipe using HandoffKit's general tools:
+structured state, memory, context packs, recipes, and extension registries.
+
 ## Real Task Demo
 
 HandoffKit includes a reproducible real task demo:
@@ -364,6 +447,8 @@ Use temporary or scoped provider tokens. Do not commit API keys.
 ```bash
 handoffkit --version
 handoffkit demo
+handoffkit demo-recipe
+handoffkit demo-extension
 ```
 
 ## Examples
@@ -375,6 +460,9 @@ python examples/coding_team.py
 python examples/tool_schema_demo.py
 python examples/tool_execution_demo.py
 python examples/fake_provider_tool_call_demo.py
+python examples/recipe_demo.py
+python examples/coding_review_recipe.py
+python examples/extension_demo.py
 python examples/memory_demo.py
 python examples/project_context_demo.py
 python examples/context_handoff_demo.py
