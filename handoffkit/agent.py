@@ -91,6 +91,7 @@ class Agent:
         max_steps: int = 5,
         require_approval: bool = False,
         tool_call_mode: str = "auto",
+        provider_adapter: ProviderToolAdapter | None = None,
     ) -> ToolExecutionReport:
         """Run an agent with structured tool execution.
 
@@ -116,6 +117,7 @@ class Agent:
             registry=registry,
             max_steps=max_steps,
             require_approval=require_approval,
+            provider_adapter=provider_adapter,
         )
 
     def run_structured(
@@ -312,16 +314,22 @@ class Agent:
         registry: ToolRegistry,
         max_steps: int,
         require_approval: bool,
+        provider_adapter: ProviderToolAdapter | None,
     ) -> ToolExecutionReport:
         """Run provider JSON tool-call loop."""
-        adapter = ProviderToolAdapter()
+        adapter = provider_adapter or ProviderToolAdapter()
         calls: list[ToolCall] = []
         results = []
         steps: list[dict[str, Any]] = []
         final_output = ""
         tool_call_error = False
         for step_index in range(max_steps):
-            prompt = self._build_tool_prompt(task, registry=registry, results=results)
+            prompt = self._build_tool_prompt(
+                task,
+                registry=registry,
+                results=results,
+                adapter=adapter,
+            )
             raw = self.provider.generate(prompt)
             self.memory.add("assistant", raw, agent=self.name)
             step: dict[str, Any] = {"step": step_index + 1, "provider_output": raw}
@@ -331,16 +339,17 @@ class Agent:
                 final_output = raw
                 steps.append({**step, "mode": "plain_text"})
                 break
-            if payload.get("final") is not None and not payload.get("tool_calls"):
-                final_output = str(payload["final"])
-                steps.append({**step, "mode": "final"})
-                break
+            final_text = adapter.parse_final(payload)
             try:
                 step_calls = adapter.parse_tool_calls(payload)
             except OutputValidationError as exc:
                 final_output = str(exc)
                 tool_call_error = True
                 steps.append({**step, "mode": "tool_call_error", "error": str(exc)})
+                break
+            if final_text is not None and not step_calls:
+                final_output = final_text
+                steps.append({**step, "mode": "final"})
                 break
             step_results = [
                 registry.execute(call, require_approval=require_approval)
@@ -381,13 +390,18 @@ class Agent:
         *,
         registry: ToolRegistry,
         results: list[Any],
+        adapter: ProviderToolAdapter,
     ) -> str:
         """Build a provider prompt that documents the JSON tool-call protocol."""
+        tools = [registry.get(name) for name in registry.list_tools()]
+        provider_tools = adapter.tools_to_provider_format(tools)
         return (
             f"Agent: {self.name}\n"
             f"Role: {self.role}\n"
             f"Task: {task}\n\n"
-            f"Available tool schemas:\n{json.dumps(registry.schemas(), indent=2)}\n\n"
+            f"Provider tool format: {adapter.provider_format}\n"
+            f"Available tool schemas:\n"
+            f"{json.dumps(provider_tools, indent=2)}\n\n"
             f"Previous tool results:\n"
             f"{json.dumps([result.to_dict() for result in results], indent=2, default=str)}\n\n"
             "Return JSON only. To call tools, return "

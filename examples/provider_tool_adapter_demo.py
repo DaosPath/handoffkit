@@ -25,6 +25,7 @@ def main() -> None:
     provider_response = {
         "tool_calls": [
             {
+                "id": "call_provider_adapter_demo",
                 "function": {
                     "name": "label",
                     "arguments": '{"value":"provider-adapter"}',

@@ -133,6 +133,12 @@ class StructuredOutputSchema:
             raise OutputValidationError("; ".join(errors))
         return data
 
+    def validate_report(self, data: dict[str, Any]) -> Any:
+        """Validate data and return a structured report."""
+        from handoffkit.validation import StructuredOutputValidator
+
+        return StructuredOutputValidator().validate(self, data)
+
 
 @dataclass
 class StructuredOutputResult:

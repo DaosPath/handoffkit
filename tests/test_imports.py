@@ -6,6 +6,10 @@ def test_backward_compatible_public_imports() -> None:
         Extension,
         ExtensionRegistry,
         HandoffProtocol,
+        HandoffQualityEvaluator,
+        HandoffQualityMetric,
+        HandoffQualityReport,
+        HandoffStateValidator,
         JsonMemoryStore,
         JsonOutputParser,
         MemoryItem,
@@ -14,23 +18,32 @@ def test_backward_compatible_public_imports() -> None:
         ProjectIndexer,
         ProviderCapabilities,
         ProviderToolAdapter,
+        ProviderToolFormat,
         Recipe,
         RecipeRunner,
         RecipeRunResult,
         RecipeStep,
         StructuredOutputResult,
         StructuredOutputSchema,
+        StructuredOutputValidator,
         Team,
         ToolCall,
         ToolCallParser,
         ToolRegistry,
         ToolResult,
+        ToolSchemaValidator,
+        ValidationIssue,
+        ValidationReport,
         WorkflowTemplate,
         tool,
     )
 
     assert Agent.__name__ == "Agent"
     assert HandoffProtocol.__name__ == "HandoffProtocol"
+    assert HandoffQualityMetric.__name__ == "HandoffQualityMetric"
+    assert HandoffQualityReport.__name__ == "HandoffQualityReport"
+    assert HandoffQualityEvaluator.__name__ == "HandoffQualityEvaluator"
+    assert HandoffStateValidator.__name__ == "HandoffStateValidator"
     assert Team.__name__ == "Team"
     assert MemoryItem.__name__ == "MemoryItem"
     assert MemoryStore.__name__ == "MemoryStore"
@@ -51,8 +64,13 @@ def test_backward_compatible_public_imports() -> None:
     assert OutputRepairer.__name__ == "OutputRepairer"
     assert ProviderCapabilities.__name__ == "ProviderCapabilities"
     assert ProviderToolAdapter.__name__ == "ProviderToolAdapter"
+    assert ProviderToolFormat is not None
     assert ToolCallParser.__name__ == "ToolCallParser"
     assert ToolCall.__name__ == "ToolCall"
     assert ToolResult.__name__ == "ToolResult"
     assert ToolRegistry.__name__ == "ToolRegistry"
+    assert StructuredOutputValidator.__name__ == "StructuredOutputValidator"
+    assert ToolSchemaValidator.__name__ == "ToolSchemaValidator"
+    assert ValidationIssue.__name__ == "ValidationIssue"
+    assert ValidationReport.__name__ == "ValidationReport"
     assert callable(tool)

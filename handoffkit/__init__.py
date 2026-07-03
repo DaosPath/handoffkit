@@ -16,7 +16,13 @@ from handoffkit.protocol import HandoffProtocol
 from handoffkit.provider_adapters import (
     ProviderCapabilities,
     ProviderToolAdapter,
+    ProviderToolFormat,
     ToolCallParser,
+)
+from handoffkit.quality import (
+    HandoffQualityEvaluator,
+    HandoffQualityMetric,
+    HandoffQualityReport,
 )
 from handoffkit.recipes import (
     Recipe,
@@ -40,8 +46,15 @@ from handoffkit.tool_execution import (
     ToolRegistry,
     ToolResult,
 )
+from handoffkit.validation import (
+    HandoffStateValidator,
+    StructuredOutputValidator,
+    ToolSchemaValidator,
+    ValidationIssue,
+    ValidationReport,
+)
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 __all__ = [
     "Agent",
@@ -53,7 +66,11 @@ __all__ = [
     "ExtensionRegistry",
     "HandoffValidationError",
     "HandoffProtocol",
+    "HandoffQualityEvaluator",
+    "HandoffQualityMetric",
+    "HandoffQualityReport",
     "HandoffState",
+    "HandoffStateValidator",
     "JsonMemoryStore",
     "JsonOutputParser",
     "MemoryItem",
@@ -64,12 +81,14 @@ __all__ = [
     "ProjectIndexer",
     "ProviderCapabilities",
     "ProviderToolAdapter",
+    "ProviderToolFormat",
     "Recipe",
     "RecipeRunResult",
     "RecipeRunner",
     "RecipeStep",
     "StructuredOutputResult",
     "StructuredOutputSchema",
+    "StructuredOutputValidator",
     "Team",
     "TeamRunResult",
     "Tool",
@@ -78,6 +97,9 @@ __all__ = [
     "ToolExecutionReport",
     "ToolRegistry",
     "ToolResult",
+    "ToolSchemaValidator",
+    "ValidationIssue",
+    "ValidationReport",
     "WorkflowTemplate",
     "__version__",
     "tool",
