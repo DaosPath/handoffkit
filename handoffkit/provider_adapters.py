@@ -84,10 +84,13 @@ class ToolCallParser:
     def _payload(self, value: str | dict[str, Any]) -> dict[str, Any]:
         if isinstance(value, dict):
             return value
-        return self.json_parser.parse(value)
+        payload = self.json_parser.parse(value)
+        if not isinstance(payload, dict):
+            raise OutputValidationError("provider response JSON must be an object")
+        return payload
 
     def _parse_tool_calls_array(self, payload: dict[str, Any]) -> list[ToolCall]:
-        raw_calls = payload.get("tool_calls") or []
+        raw_calls = payload.get("tool_calls")
         if raw_calls is None:
             return []
         if not isinstance(raw_calls, list):
@@ -124,6 +127,8 @@ class ToolCallParser:
 
     def _parse_one(self, item: dict[str, Any]) -> ToolCall:
         call_id = str(item.get("call_id") or item.get("id") or "")
+        if "function" in item and not isinstance(item["function"], dict):
+            raise OutputValidationError("openai function tool call must be an object")
         if "function" in item and isinstance(item["function"], dict):
             function = item["function"]
             name = str(function.get("name", ""))
