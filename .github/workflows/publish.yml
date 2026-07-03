@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch'
     environment:
-      name: testpypi
+      name: handoffkit
       url: https://test.pypi.org/project/handoffkit/
     permissions:
       contents: read

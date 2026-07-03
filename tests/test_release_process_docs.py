@@ -21,7 +21,7 @@ def test_publish_workflow_uses_trusted_publishing_without_tokens() -> None:
     assert "pypa/gh-action-pypi-publish@release/v1" in text
     assert "workflow_dispatch" in text
     assert "release:" in text
-    assert "testpypi" in text
+    assert "TestPyPI" in text
     assert "pypi" in text
     assert "TWINE_PASSWORD" not in text
     assert "TWINE_USERNAME" not in text
@@ -35,7 +35,7 @@ def test_release_process_docs_cover_trusted_publishing() -> None:
 
     assert "Trusted Publishing" in text
     assert "publish.yml" in text
-    assert "testpypi" in text
+    assert "TestPyPI" in text
     assert "pypi" in text
     assert "DaosPath" in text
     assert "handoffkit" in text

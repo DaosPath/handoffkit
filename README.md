@@ -917,7 +917,7 @@ the workflow:
 - owner: `DaosPath`
 - repository: `handoffkit`
 - workflow: `publish.yml`
-- TestPyPI environment: `testpypi`
+- TestPyPI environment: `handoffkit`
 - PyPI environment: `pypi`
 
 See `docs/RELEASE_PROCESS.md` for the full release checklist.
