@@ -86,6 +86,16 @@ HandoffKit 1.0.0 is the first stable release:
 - safe built-in project templates through `TemplateScaffolder` and `handoffkit init`,
 - migration notes from 0.9.x to 1.0.0.
 
+## What 1.0.1 Adds
+
+HandoffKit 1.0.1 is a release-trust patch:
+
+- PyPI/TestPyPI publishing is documented around GitHub Actions Trusted Publishing,
+- package tokens are not stored in the repository or workflow secrets,
+- release steps are captured in `docs/RELEASE_PROCESS.md`,
+- security reporting is documented in `SECURITY.md`,
+- the stable 1.x public API remains unchanged.
+
 ## What 0.9.0 Adds
 
 HandoffKit 0.9.0 is the final pre-1.0 stabilization release:
@@ -893,23 +903,30 @@ python -m twine check dist/*
 
 ## Publishing
 
-Build and validate:
+HandoffKit 1.0.0 was uploaded manually with `twine`. HandoffKit 1.0.1 and later
+are prepared for PyPI Trusted Publishing through GitHub Actions OIDC.
+
+Trusted Publishing keeps package tokens out of the repository and out of GitHub
+Secrets. TestPyPI publishing is triggered manually from the `Publish` workflow;
+real PyPI publishing is triggered by publishing a GitHub Release after CI is
+green.
+
+Trusted Publisher settings must be configured on TestPyPI and PyPI before using
+the workflow:
+
+- owner: `DaosPath`
+- repository: `handoffkit`
+- workflow: `publish.yml`
+- TestPyPI environment: `testpypi`
+- PyPI environment: `pypi`
+
+See `docs/RELEASE_PROCESS.md` for the full release checklist.
+
+Local build validation still uses:
 
 ```bash
 python -m build
 python -m twine check dist/*
-```
-
-Upload to TestPyPI first:
-
-```bash
-python -m twine upload --repository testpypi dist/*
-```
-
-Upload to PyPI only after TestPyPI install verification:
-
-```bash
-python -m twine upload dist/*
 ```
 
 ## Inspiration
