@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
+import platform
+import sys
+from pathlib import Path
 
 from handoffkit import __version__
 from handoffkit.agent import Agent
@@ -15,10 +19,13 @@ from handoffkit.provider_adapters import ProviderToolAdapter
 from handoffkit.providers import BaseProvider
 from handoffkit.quality import HandoffQualityEvaluator
 from handoffkit.recipes import RecipeRunner
+from handoffkit.replay import ReplayRunner
+from handoffkit.reports import load_report_json
 from handoffkit.runner import Team
 from handoffkit.structured import StructuredOutputSchema
 from handoffkit.tool import tool
 from handoffkit.tool_execution import ToolRegistry
+from handoffkit.tracing import RunTrace
 from handoffkit.validation import (
     HandoffStateValidator,
     StructuredOutputValidator,
@@ -234,6 +241,90 @@ def run_provider_formats_demo() -> str:
     )
 
 
+def run_doctor() -> str:
+    """Run local package diagnostics without network access."""
+    checks = {
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+        "handoffkit": __version__,
+        "build_installed": importlib.util.find_spec("build") is not None,
+        "twine_installed": importlib.util.find_spec("twine") is not None,
+        "core_imports": True,
+    }
+    return (
+        "HandoffKit doctor\n"
+        f"Python: {checks['python']}\n"
+        f"Platform: {checks['platform']}\n"
+        f"HandoffKit: {checks['handoffkit']}\n"
+        f"build installed: {checks['build_installed']}\n"
+        f"twine installed: {checks['twine_installed']}\n"
+        f"Core imports: {checks['core_imports']}\n"
+        "Status: OK"
+    )
+
+
+def run_api() -> str:
+    """Return stable API candidates for the road to 1.0."""
+    stable = [
+        "Agent",
+        "Team",
+        "HandoffState",
+        "HandoffProtocol",
+        "Tool",
+        "ToolCall",
+        "ToolResult",
+        "ToolRegistry",
+        "Recipe",
+        "RecipeStep",
+        "RecipeRunner",
+        "RecipeRunResult",
+        "ValidationReport",
+        "HandoffQualityReport",
+        "ProviderToolAdapter",
+        "RunTrace",
+        "ReplayRunner",
+    ]
+    return "HandoffKit stable API candidates\n" + "\n".join(f"- {name}" for name in stable)
+
+
+def run_trace_demo() -> str:
+    """Run a local team demo and return a run trace."""
+    team = Team(
+        agents=[
+            Agent("Architect", "Plan implementation."),
+            Agent("Coder", "Implement from handoff state."),
+            Agent("Tester", "Review the result."),
+        ],
+        protocol=HandoffProtocol(mode="hybrid_state"),
+    )
+    result = team.run("Create a small Python CLI calculator with tests.")
+    return RunTrace.from_team_result(result, name="cli-trace-demo").to_markdown()
+
+
+def run_replay_demo() -> str:
+    """Run a local replay summary demo without re-executing saved work."""
+    team = Team(
+        agents=[Agent("Planner", "Plan."), Agent("Reviewer", "Review.")],
+        protocol=HandoffProtocol(mode="hybrid_state"),
+    )
+    trace = RunTrace.from_team_result(
+        team.run("Prepare a release checklist."),
+        name="cli-replay-demo",
+    )
+    return ReplayRunner(trace).summary().to_markdown()
+
+
+def validate_report(path: str) -> str:
+    """Validate that a report file is JSON object shaped."""
+    payload = load_report_json(Path(path))
+    return (
+        "HandoffKit report validation\n"
+        f"Path: {path}\n"
+        f"Keys: {sorted(payload)}\n"
+        "Status: OK"
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the command-line interface."""
     parser = argparse.ArgumentParser(prog="handoffkit")
@@ -247,6 +338,12 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("demo-quality", help="Run a local handoff quality demo.")
     subparsers.add_parser("demo-validators", help="Run local contract validator demos.")
     subparsers.add_parser("demo-provider-formats", help="Run local provider format demos.")
+    subparsers.add_parser("doctor", help="Run local package diagnostics.")
+    subparsers.add_parser("api", help="Show stable API candidates.")
+    subparsers.add_parser("demo-trace", help="Run a local run trace demo.")
+    subparsers.add_parser("demo-replay", help="Run a local replay summary demo.")
+    validate_parser = subparsers.add_parser("validate-report", help="Validate a JSON report.")
+    validate_parser.add_argument("path", help="Path to a report JSON file.")
     args = parser.parse_args(argv)
 
     if args.command == "demo":
@@ -272,6 +369,21 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "demo-provider-formats":
         print(run_provider_formats_demo())
+        return 0
+    if args.command == "doctor":
+        print(run_doctor())
+        return 0
+    if args.command == "api":
+        print(run_api())
+        return 0
+    if args.command == "demo-trace":
+        print(run_trace_demo())
+        return 0
+    if args.command == "demo-replay":
+        print(run_replay_demo())
+        return 0
+    if args.command == "validate-report":
+        print(validate_report(args.path))
         return 0
 
     parser.print_help()

@@ -46,6 +46,8 @@
   },
   "metadata": {
     "handoffs": 1,
-    "evaluator": "HandoffQualityEvaluator"
+    "evaluator": "HandoffQualityEvaluator",
+    "min_score": 0.6,
+    "required_metrics": []
   }
 }
