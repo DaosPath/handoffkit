@@ -23,14 +23,17 @@
       .cardTitle { font: 750 22px Inter, ui-sans-serif, system-ui, sans-serif; fill: #F8FAFC; letter-spacing: 0; }
       .cardBody { font: 500 16px Inter, ui-sans-serif, system-ui, sans-serif; fill: #CBD5E1; letter-spacing: 0; }
       .chip { font: 700 13px "JetBrains Mono", "SFMono-Regular", Consolas, monospace; fill: #D1FAE5; letter-spacing: 0; }
+      .mark { font: 900 28px Inter, ui-sans-serif, system-ui, sans-serif; fill: #F8FAFC; letter-spacing: 0; }
     </style>
   </defs>
 
   <rect width="1200" height="560" rx="34" fill="url(#heroBg)"/>
   <rect x="1.5" y="1.5" width="1197" height="557" rx="32.5" stroke="#334155" stroke-width="3"/>
-  <path d="M96 102H374" stroke="url(#accent)" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="118" cy="106" r="28" fill="#0F172A" stroke="url(#accent)" stroke-width="3"/>
+  <text x="99" y="116" class="mark">HK</text>
+  <path d="M164 106H374" stroke="url(#accent)" stroke-width="8" stroke-linecap="round"/>
 
-  <text x="96" y="152" class="eyebrow">OPEN-SOURCE PYTHON FRAMEWORK</text>
+  <text x="96" y="156" class="eyebrow">OPEN-SOURCE PYTHON FRAMEWORK</text>
   <text x="92" y="232" class="titleText">HandoffKit</text>
   <text x="96" y="282" class="subtitle">Structured state transfer for</text>
   <text x="96" y="316" class="subtitle">multi-agent Python workflows.</text>
@@ -65,8 +68,8 @@
 
     <rect x="616" y="246" width="330" height="104" rx="22" fill="#111827" stroke="url(#accent)" stroke-width="2.5"/>
     <text x="657" y="284" class="cardTitle">HandoffState</text>
-    <text x="657" y="315" class="cardBody">task · decisions · files · errors</text>
-    <text x="657" y="340" class="cardBody">next steps · metadata · schema</text>
+    <text x="657" y="315" class="cardBody">task | decisions | files | errors</text>
+    <text x="657" y="340" class="cardBody">next steps | metadata | schema</text>
 
     <path d="M744 171H858" stroke="#94A3B8" stroke-width="3.5" stroke-linecap="round"/>
     <path d="M846 159L860 171L846 183" stroke="#94A3B8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
