@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import importlib.util
 import json
 import platform
@@ -12,6 +13,7 @@ from pathlib import Path
 from handoffkit import __version__
 from handoffkit.agent import Agent
 from handoffkit.builtins import plan_execute_review_recipe
+from handoffkit.evaluation import WorkflowEvaluator
 from handoffkit.extensions import Extension, ExtensionRegistry
 from handoffkit.handoff import HandoffState
 from handoffkit.protocol import HandoffProtocol
@@ -23,6 +25,7 @@ from handoffkit.replay import ReplayRunner
 from handoffkit.reports import load_report_json
 from handoffkit.runner import Team
 from handoffkit.structured import StructuredOutputSchema
+from handoffkit.templates import TemplateScaffolder
 from handoffkit.tool import tool
 from handoffkit.tool_execution import ToolRegistry
 from handoffkit.tracing import RunTrace
@@ -77,6 +80,28 @@ def run_demo() -> str:
         f"Handoffs: {len(result.handoffs)}\n"
         f"Final output:\n{result.final_output}"
     )
+
+
+def run_async_demo() -> str:
+    """Run a local async runtime demo."""
+
+    async def _run() -> str:
+        team = Team(
+            agents=[
+                Agent("Planner", "Plan async work."),
+                Agent("Reviewer", "Review async handoffs."),
+            ],
+            protocol=HandoffProtocol(mode="hybrid_state"),
+        )
+        result = await team.arun("Create a short async release checklist.")
+        return (
+            "HandoffKit async demo\n"
+            f"Agents: {', '.join(agent.name for agent in team.agents)}\n"
+            f"Handoffs: {len(result.handoffs)}\n"
+            f"Final output:\n{result.final_output}"
+        )
+
+    return asyncio.run(_run())
 
 
 def run_recipe_demo() -> str:
@@ -270,10 +295,17 @@ def run_api() -> str:
         "Team",
         "HandoffState",
         "HandoffProtocol",
+        "EvaluationCheck",
+        "EvaluationResult",
+        "WorkflowEvaluationReport",
+        "WorkflowEvaluator",
         "Tool",
         "ToolCall",
         "ToolResult",
         "ToolRegistry",
+        "ProjectTemplate",
+        "TemplateFile",
+        "TemplateScaffolder",
         "Recipe",
         "RecipeStep",
         "RecipeRunner",
@@ -325,12 +357,37 @@ def validate_report(path: str) -> str:
     )
 
 
+def evaluate_report(path: str) -> str:
+    """Evaluate a trace or report JSON file offline."""
+    payload = load_report_json(Path(path))
+    report = WorkflowEvaluator().from_report_json(payload)
+    return report.to_markdown()
+
+
+def init_project(
+    project_name: str,
+    *,
+    template: str = "basic-agent",
+    output: str = ".",
+    force: bool = False,
+) -> str:
+    """Scaffold a HandoffKit starter project."""
+    result = TemplateScaffolder().scaffold(
+        project_name,
+        template=template,
+        output=output,
+        force=force,
+    )
+    return result.to_markdown()
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the command-line interface."""
     parser = argparse.ArgumentParser(prog="handoffkit")
     parser.add_argument("--version", action="version", version=f"handoffkit {__version__}")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("demo", help="Run a local EchoProvider demo.")
+    subparsers.add_parser("demo-async", help="Run a local async runtime demo.")
     subparsers.add_parser("demo-recipe", help="Run a local recipe demo.")
     subparsers.add_parser("demo-extension", help="Run a local extension demo.")
     subparsers.add_parser("demo-structured", help="Run a local structured output demo.")
@@ -344,10 +401,23 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("demo-replay", help="Run a local replay summary demo.")
     validate_parser = subparsers.add_parser("validate-report", help="Validate a JSON report.")
     validate_parser.add_argument("path", help="Path to a report JSON file.")
+    evaluate_parser = subparsers.add_parser(
+        "evaluate",
+        help="Evaluate a trace or report JSON file.",
+    )
+    evaluate_parser.add_argument("path", help="Path to a trace or report JSON file.")
+    init_parser = subparsers.add_parser("init", help="Scaffold a HandoffKit starter project.")
+    init_parser.add_argument("project_name", help="Project directory name.")
+    init_parser.add_argument("--template", default="basic-agent", help="Template name.")
+    init_parser.add_argument("--output", default=".", help="Parent output directory.")
+    init_parser.add_argument("--force", action="store_true", help="Overwrite existing files.")
     args = parser.parse_args(argv)
 
     if args.command == "demo":
         print(run_demo())
+        return 0
+    if args.command == "demo-async":
+        print(run_async_demo())
         return 0
     if args.command == "demo-recipe":
         print(run_recipe_demo())
@@ -384,6 +454,19 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "validate-report":
         print(validate_report(args.path))
+        return 0
+    if args.command == "evaluate":
+        print(evaluate_report(args.path))
+        return 0
+    if args.command == "init":
+        print(
+            init_project(
+                args.project_name,
+                template=args.template,
+                output=args.output,
+                force=args.force,
+            )
+        )
         return 0
 
     parser.print_help()

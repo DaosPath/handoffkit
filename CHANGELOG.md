@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0
+
+- Promoted package maturity classifier to production/stable.
+- Added offline workflow evaluation reports.
+- Added async Agent, Team, and RecipeRunner runtime helpers.
+- Added built-in project templates and CLI scaffolding.
+- Added 1.0 public API and migration documentation.
+- Added tests for evaluation, async runtime, templates, stable metadata, and CLI.
+
 ## 0.9.0
 
 - Promoted package maturity classifier to beta.

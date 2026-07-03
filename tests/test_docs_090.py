@@ -1,15 +1,16 @@
-"""Documentation coverage for the final pre-1.0 stabilization release."""
+"""Documentation coverage for the stable 1.0 release."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 
-def test_pre_1_0_docs_exist_and_cover_required_topics() -> None:
+def test_stable_docs_exist_and_cover_required_topics() -> None:
     docs = {
-        "PUBLIC_API.md": ["Agent", "RunTrace", "ProviderToolAdapter", "Compatibility Promise"],
+        "PUBLIC_API.md": ["Agent", "RunTrace", "ProviderToolAdapter", "1.x"],
         "MIGRATION_0_9.md": ["No breaking changes", "What Did Not Change", "handoffkit doctor"],
-        "COMPATIBILITY.md": ["Python 3.10", "Runtime Dependencies", "Offline Test Policy"],
+        "MIGRATION_1_0.md": ["No breaking changes", "WorkflowEvaluator", "handoffkit init"],
+        "COMPATIBILITY.md": ["Python 3.10", "Runtime Dependencies", "Async Compatibility"],
     }
     for filename, expected_terms in docs.items():
         text = (Path("docs") / filename).read_text(encoding="utf-8")
@@ -17,11 +18,12 @@ def test_pre_1_0_docs_exist_and_cover_required_topics() -> None:
             assert term in text
 
 
-def test_readme_documents_090_and_road_to_1_0() -> None:
+def test_readme_documents_100_and_stable_api() -> None:
     text = Path("README.md").read_text(encoding="utf-8")
 
+    assert "## What 1.0.0 Adds" in text
     assert "## What 0.9.0 Adds" in text
     assert "## Road to 1.0" in text
     assert "docs/PUBLIC_API.md" in text
-    assert "docs/MIGRATION_0_9.md" in text
+    assert "docs/MIGRATION_1_0.md" in text
     assert "docs/COMPATIBILITY.md" in text

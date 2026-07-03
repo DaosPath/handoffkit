@@ -10,6 +10,18 @@ test, lint, build, and package metadata checks across that matrix.
 The core package has no runtime dependencies. Development extras install test,
 lint, build, and package validation tools only.
 
+## Async Compatibility
+
+Async runtime helpers are additive in 1.0.0. Existing synchronous APIs remain the
+primary compatibility contract. Provider classes can implement `agenerate()` for
+native async behavior, or rely on the default thread-backed wrapper.
+
+## Template Compatibility
+
+Built-in project templates generate small starter projects with no external
+runtime dependencies. Scaffolding never overwrites existing files unless callers
+set `force=True` or pass `--force` through the CLI.
+
 ## Offline Test Policy
 
 Normal tests and demos run offline by default using deterministic local
