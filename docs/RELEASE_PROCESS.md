@@ -9,7 +9,7 @@ Configure both package indexes before publishing with the workflow:
 
 | Index | Owner | Repository | Workflow | Environment |
 |---|---|---|---|---|
-| TestPyPI | `DaosPath` | `handoffkit` | `publish.yml` | `testpypi` |
+| TestPyPI | `DaosPath` | `handoffkit` | `publish.yml` | `handoffkit` |
 | PyPI | `DaosPath` | `handoffkit` | `publish.yml` | `pypi` |
 
 Do not store PyPI package tokens in files or GitHub Secrets. The publish
