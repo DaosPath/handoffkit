@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0
+
+- Added real-world coding, support escalation, and research workflow showcases.
+- Added `handoffkit report` for rendering generated run reports.
+- Added direct `handoffkit init coding-review`, `support-escalation`, and `research-workflow` templates.
+- Added example scripts and deterministic reports for the new showcases.
+- Improved README with a 5-minute adoption path.
+
 ## 1.0.1
 
 - Added Trusted Publishing workflow for TestPyPI and PyPI releases.

@@ -47,21 +47,29 @@ def test_new_public_helpers_import_from_public_namespace() -> None:
     from handoffkit import (  # noqa: PLC0415
         FileTraceStore,
         ReplaySummary,
+        ShowcaseResult,
         TraceEvent,
         TraceStep,
+        build_showcase,
         load_report_json,
+        run_showcase,
+        showcase_names,
         write_report_files,
     )
 
     assert FileTraceStore.__name__ == "FileTraceStore"
     assert ReplaySummary.__name__ == "ReplaySummary"
+    assert ShowcaseResult.__name__ == "ShowcaseResult"
     assert TraceEvent.__name__ == "TraceEvent"
     assert TraceStep.__name__ == "TraceStep"
+    assert callable(build_showcase)
     assert callable(load_report_json)
+    assert callable(run_showcase)
+    assert callable(showcase_names)
     assert callable(write_report_files)
 
 
-def test_version_is_101() -> None:
+def test_version_is_110() -> None:
     from handoffkit import __version__  # noqa: PLC0415
 
-    assert __version__ == "1.0.1"
+    assert __version__ == "1.1.0"

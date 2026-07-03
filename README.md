@@ -63,6 +63,22 @@ Tester
 
 That makes agent workflows easier to inspect, test, replay, and improve.
 
+## Wow in 5 Minutes
+
+Start with a real coding-agent workflow, not an abstract toy:
+
+```bash
+pip install handoffkit
+handoffkit init coding-review
+cd coding-review
+python coding_review.py
+handoffkit report runs/latest
+```
+
+The demo shows the same handoff as a vague free-text summary and as structured
+`HandoffState`: files, decisions, errors, next steps, validation, quality, and
+replay evidence stay attached to the work.
+
 ## Visual Overview
 
 <img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-trace-replay.svg" alt="HandoffKit RunTrace, FileTraceStore, ReplayRunner, and reports flow" width="100%">
@@ -75,16 +91,17 @@ HandoffKit is built around three ideas:
 | Quality control | `ValidationReport`, `HandoffQualityReport` | Handoffs can be validated, scored, serialized, and reviewed. |
 | Audit trail | `RunTrace`, `FileTraceStore`, `ReplayRunner` | Runs can be stored and replay-inspected without providers, tools, or shell. |
 
-## What 1.0.0 Adds
+## What 1.1.0 Adds
 
-HandoffKit 1.0.0 is the first stable release:
+HandoffKit 1.1.0 focuses on adoption:
 
-- production/stable package metadata,
-- frozen public API documentation for the 1.x series,
-- offline `WorkflowEvaluator` reports for traces, handoffs, teams, recipes, and tools,
-- async runtime helpers for `Agent`, `Team`, and `RecipeRunner`,
-- safe built-in project templates through `TemplateScaffolder` and `handoffkit init`,
-- migration notes from 0.9.x to 1.0.0.
+- coding agents demo: `Architect -> Coder -> Reviewer -> Tester`,
+- customer support demo: `Triage -> Billing -> Refund -> Supervisor`,
+- research demo: `Researcher -> Extractor -> Fact-checker -> Writer`,
+- direct templates through `handoffkit init coding-review`,
+  `handoffkit init support-escalation`, and `handoffkit init research-workflow`,
+- `handoffkit report runs/latest` for rendering generated run reports,
+- deterministic showcase reports that work offline and require no API key.
 
 ## What 1.0.1 Adds
 
@@ -95,6 +112,17 @@ HandoffKit 1.0.1 is a release-trust patch:
 - release steps are captured in `docs/RELEASE_PROCESS.md`,
 - security reporting is documented in `SECURITY.md`,
 - the stable 1.x public API remains unchanged.
+
+## What 1.0.0 Adds
+
+HandoffKit 1.0.0 is the first stable release:
+
+- production/stable package metadata,
+- frozen public API documentation for the 1.x series,
+- offline `WorkflowEvaluator` reports for traces, handoffs, teams, recipes, and tools,
+- async runtime helpers for `Agent`, `Team`, and `RecipeRunner`,
+- safe built-in project templates through `TemplateScaffolder` and `handoffkit init`,
+- migration notes from 0.9.x to 1.0.0.
 
 ## What 0.9.0 Adds
 
@@ -594,6 +622,9 @@ Start small offline projects with built-in templates:
 ```bash
 handoffkit init my-agent --template basic-agent --output .
 handoffkit init my-team --template team-workflow --output .
+handoffkit init coding-review
+handoffkit init support-escalation
+handoffkit init research-workflow
 ```
 
 Templates never overwrite existing files unless `--force` is passed.
@@ -606,6 +637,10 @@ handoffkit api
 handoffkit demo-async
 handoffkit demo-trace
 handoffkit demo-replay
+handoffkit demo-coding-review
+handoffkit demo-support
+handoffkit demo-research
+handoffkit report runs/latest
 handoffkit validate-report reports/trace_demo.json
 handoffkit evaluate reports/trace_demo.json
 ```
@@ -858,6 +893,9 @@ handoffkit init my-agent --template basic-agent --output .
 
 ```bash
 python examples/simple_agent.py
+python examples/coding_review.py
+python examples/support_escalation.py
+python examples/research_workflow.py
 python examples/handoff_demo.py
 python examples/coding_team.py
 python examples/tool_schema_demo.py

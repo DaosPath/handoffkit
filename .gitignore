@@ -19,6 +19,7 @@ env/
 !.env.example
 .reference_state_transfer_protocols/
 examples/output/
+runs/
 reports/context_handoff_demo.md
 reports/coding_review_recipe.*
 reports/extension_demo.*
