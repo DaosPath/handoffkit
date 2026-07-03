@@ -89,6 +89,33 @@ class ValidationReport:
             raise ValueError(messages)
         return self
 
+    @staticmethod
+    def json_schema() -> dict[str, Any]:
+        """Return a JSON-schema-like contract for ValidationReport."""
+        return {
+            "title": "ValidationReport",
+            "type": "object",
+            "properties": {
+                "success": {"type": "boolean"},
+                "issues": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "code": {"type": "string"},
+                            "message": {"type": "string"},
+                            "field": {"type": "string"},
+                            "severity": {"type": "string"},
+                        },
+                        "required": ["code", "message", "field", "severity"],
+                    },
+                },
+                "metadata": {"type": "object"},
+            },
+            "required": ["success", "issues", "metadata"],
+            "additionalProperties": True,
+        }
+
 
 class HandoffStateValidator:
     """Validate HandoffState contracts without mutating them."""

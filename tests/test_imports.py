@@ -5,6 +5,7 @@ def test_backward_compatible_public_imports() -> None:
         ContextRetriever,
         Extension,
         ExtensionRegistry,
+        FileTraceStore,
         HandoffProtocol,
         HandoffQualityEvaluator,
         HandoffQualityMetric,
@@ -23,6 +24,9 @@ def test_backward_compatible_public_imports() -> None:
         RecipeRunner,
         RecipeRunResult,
         RecipeStep,
+        ReplayRunner,
+        ReplaySummary,
+        RunTrace,
         StructuredOutputResult,
         StructuredOutputSchema,
         StructuredOutputValidator,
@@ -32,10 +36,14 @@ def test_backward_compatible_public_imports() -> None:
         ToolRegistry,
         ToolResult,
         ToolSchemaValidator,
+        TraceEvent,
+        TraceStep,
         ValidationIssue,
         ValidationReport,
         WorkflowTemplate,
+        load_report_json,
         tool,
+        write_report_files,
     )
 
     assert Agent.__name__ == "Agent"
@@ -55,9 +63,13 @@ def test_backward_compatible_public_imports() -> None:
     assert Recipe.__name__ == "Recipe"
     assert RecipeRunner.__name__ == "RecipeRunner"
     assert RecipeRunResult.__name__ == "RecipeRunResult"
+    assert ReplayRunner.__name__ == "ReplayRunner"
+    assert ReplaySummary.__name__ == "ReplaySummary"
+    assert RunTrace.__name__ == "RunTrace"
     assert WorkflowTemplate.__name__ == "WorkflowTemplate"
     assert Extension.__name__ == "Extension"
     assert ExtensionRegistry.__name__ == "ExtensionRegistry"
+    assert FileTraceStore.__name__ == "FileTraceStore"
     assert StructuredOutputSchema.__name__ == "StructuredOutputSchema"
     assert StructuredOutputResult.__name__ == "StructuredOutputResult"
     assert JsonOutputParser.__name__ == "JsonOutputParser"
@@ -69,8 +81,12 @@ def test_backward_compatible_public_imports() -> None:
     assert ToolCall.__name__ == "ToolCall"
     assert ToolResult.__name__ == "ToolResult"
     assert ToolRegistry.__name__ == "ToolRegistry"
+    assert TraceEvent.__name__ == "TraceEvent"
+    assert TraceStep.__name__ == "TraceStep"
     assert StructuredOutputValidator.__name__ == "StructuredOutputValidator"
     assert ToolSchemaValidator.__name__ == "ToolSchemaValidator"
     assert ValidationIssue.__name__ == "ValidationIssue"
     assert ValidationReport.__name__ == "ValidationReport"
+    assert callable(load_report_json)
     assert callable(tool)
+    assert callable(write_report_files)

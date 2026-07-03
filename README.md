@@ -51,6 +51,22 @@ Tester
 
 That makes agent workflows easier to inspect, test, replay, and improve.
 
+## What 0.8.0 Adds
+
+HandoffKit 0.8.0 prepares the package for the road to 1.0 with traceable,
+replayable workflow evidence:
+
+- `RunTrace`, `TraceStep`, and `TraceEvent` for serializable run traces,
+- `FileTraceStore` for local trace storage,
+- `ReplayRunner` and `ReplaySummary` for replay inspection without re-execution,
+- `write_report_files()` and `load_report_json()` for report IO,
+- `HandoffState.json_schema()`, `ValidationReport.json_schema()`, and
+  `RunTrace.json_schema()`,
+- configurable `HandoffQualityEvaluator(min_score=..., required_metrics=...)`,
+- CLI commands for `doctor`, `api`, `demo-trace`, `demo-replay`, and
+  `validate-report`,
+- stable API documentation for the path to 1.0.
+
 ## What 0.7.0 Adds
 
 HandoffKit 0.7.0 adds reusable validation and quality layers for mature
@@ -438,6 +454,79 @@ calls = openai_adapter.parse_tool_calls({
 print(calls[0].tool_name, calls[0].arguments, calls[0].call_id)
 ```
 
+## Replayable Workflows
+
+Run traces turn team, recipe, and tool execution reports into durable evidence.
+Replay does not call providers or tools again; it inspects a saved trace.
+
+```python
+from handoffkit import Agent, HandoffProtocol, RunTrace, Team
+
+team = Team(
+    agents=[Agent("Planner", "Plan."), Agent("Reviewer", "Review.")],
+    protocol=HandoffProtocol(mode="hybrid_state"),
+)
+
+result = team.run("Prepare a release checklist.")
+trace = RunTrace.from_team_result(result)
+
+print(trace.to_json())
+print(trace.to_markdown())
+```
+
+## Run Traces
+
+`RunTrace` can be created from `TeamRunResult`, `RecipeRunResult`, and
+`ToolExecutionReport`.
+
+```python
+from handoffkit import FileTraceStore, ReplayRunner, RunTrace
+
+trace = RunTrace.from_team_result(result, name="release-checklist")
+path = FileTraceStore("traces").save(trace)
+loaded = FileTraceStore("traces").load(path)
+summary = ReplayRunner(loaded).summary()
+
+print(summary.to_markdown())
+```
+
+## Report Files
+
+Any report object with `to_json()`, `to_markdown()`, or `to_dict()` can be
+written consistently:
+
+```python
+from handoffkit import write_report_files
+
+json_path, markdown_path = write_report_files(trace, "trace_demo")
+```
+
+## CLI Doctor
+
+```bash
+handoffkit doctor
+handoffkit api
+handoffkit demo-trace
+handoffkit demo-replay
+handoffkit validate-report reports/trace_demo.json
+```
+
+`doctor` runs local package diagnostics only. It does not make network calls and
+does not inspect secrets.
+
+## Stable API Surface
+
+The following APIs are treated as 1.0 candidates:
+
+- `Agent`, `Team`, `HandoffState`, `HandoffProtocol`,
+- `Tool`, `ToolCall`, `ToolResult`, `ToolRegistry`,
+- `Recipe`, `RecipeStep`, `RecipeRunner`, `RecipeRunResult`,
+- `ValidationReport`, `HandoffQualityReport`,
+- `ProviderToolAdapter`,
+- `RunTrace`, `ReplayRunner`.
+
+See `docs/API_STABILITY.md` and `docs/ROAD_TO_1_0.md`.
+
 ## Memory + Project Context
 
 HandoffKit can store durable project decisions, index local files, retrieve
@@ -647,6 +736,11 @@ handoffkit demo-provider-tools
 handoffkit demo-quality
 handoffkit demo-validators
 handoffkit demo-provider-formats
+handoffkit doctor
+handoffkit api
+handoffkit demo-trace
+handoffkit demo-replay
+handoffkit validate-report reports/trace_demo.json
 ```
 
 ## Examples
@@ -663,6 +757,9 @@ python examples/provider_tool_adapter_demo.py
 python examples/handoff_quality_demo.py
 python examples/contract_validation_demo.py
 python examples/provider_tool_formats_demo.py
+python examples/trace_demo.py
+python examples/replay_demo.py
+python examples/provider_matrix_demo.py
 python examples/structured_recipe_demo.py
 python examples/recipe_demo.py
 python examples/coding_review_recipe.py
@@ -726,6 +823,7 @@ HandoffKit is a developer library, not a copy of that repository.
 - broader tool schema coverage,
 - provider-specific integration examples,
 - benchmark-inspired quality comparisons,
+- API freeze and migration guide for 1.0,
 - memory integrations,
 - project context retrieval,
 - benchmark-inspired examples,

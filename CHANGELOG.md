@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.0
+
+- Added run tracing and replay summaries.
+- Added FileTraceStore.
+- Added report file utilities.
+- Added CLI doctor, api, trace, replay and report validation commands.
+- Added stable API documentation for the road to 1.0.
+- Added JSON schema helpers for core contracts.
+- Improved handoff quality evaluator configuration.
+- Hardened provider tool adapter validation.
+
 ## 0.7.0
 
 - Added reusable validation reports and contract validators.
