@@ -57,6 +57,7 @@ EXPECTED_EXPORTS = [
     "ReplaySummary",
     "RunTrace",
     "ScaffoldResult",
+    "ShowcaseResult",
     "StructuredOutputResult",
     "StructuredOutputSchema",
     "StructuredOutputValidator",
@@ -79,7 +80,10 @@ EXPECTED_EXPORTS = [
     "WorkflowEvaluator",
     "WorkflowTemplate",
     "__version__",
+    "build_showcase",
     "load_report_json",
+    "run_showcase",
+    "showcase_names",
     "tool",
     "write_report_files",
 ]

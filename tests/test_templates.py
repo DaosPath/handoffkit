@@ -12,7 +12,10 @@ def test_builtin_templates_are_listed() -> None:
 
     assert scaffolder.list_templates() == [
         "basic-agent",
+        "coding-review",
         "recipe-workflow",
+        "research-workflow",
+        "support-escalation",
         "team-workflow",
         "tool-agent",
     ]
@@ -39,6 +42,20 @@ def test_scaffold_writes_project_files(tmp_path) -> None:  # type: ignore[no-unt
     assert result.success is True
     assert (tmp_path / "demo-agent" / "README.md").exists()
     assert (tmp_path / "demo-agent" / "main.py").read_text(encoding="utf-8")
+
+
+def test_scaffold_writes_showcase_template(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    result = TemplateScaffolder().scaffold(
+        "coding-review",
+        template="coding-review",
+        output=tmp_path,
+    )
+
+    assert result.success is True
+    assert (tmp_path / "coding-review" / "coding_review.py").exists()
+    assert "handoffkit report runs/latest" in (
+        tmp_path / "coding-review" / "README.md"
+    ).read_text(encoding="utf-8")
 
 
 def test_scaffold_does_not_overwrite_without_force(tmp_path) -> None:  # type: ignore[no-untyped-def]

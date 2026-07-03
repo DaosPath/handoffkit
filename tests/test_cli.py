@@ -4,14 +4,18 @@ from handoffkit.cli import (
     evaluate_report,
     init_project,
     main,
+    render_report,
     run_async_demo,
+    run_coding_review_demo,
     run_demo,
     run_extension_demo,
     run_provider_formats_demo,
     run_provider_tools_demo,
     run_quality_demo,
     run_recipe_demo,
+    run_research_workflow_demo,
     run_structured_demo,
+    run_support_escalation_demo,
     run_validators_demo,
 )
 
@@ -33,7 +37,7 @@ def test_cli_version(capsys) -> None:  # type: ignore[no-untyped-def]
     captured = capsys.readouterr()
 
     assert exc_info.value.code == 0
-    assert "handoffkit 1.0.1" in captured.out
+    assert "handoffkit 1.1.0" in captured.out
 
 
 def test_run_demo_reports_handoff_count() -> None:
@@ -102,12 +106,36 @@ def test_run_provider_formats_demo_reports_provider_shapes() -> None:
     assert "Anthropic call: add" in output
 
 
+def test_real_world_cli_demos_write_reports(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+
+    outputs = [
+        run_coding_review_demo(),
+        run_support_escalation_demo(),
+        run_research_workflow_demo(),
+    ]
+
+    assert "Architect -> Coder -> Reviewer -> Tester" in outputs[0]
+    assert "Triage -> Billing -> Refund -> Supervisor" in outputs[1]
+    assert "Researcher -> Extractor -> Fact-checker -> Writer" in outputs[2]
+    assert (tmp_path / "runs" / "latest" / "report.json").exists()
+    assert "Research Workflow" in render_report(str(tmp_path / "runs" / "latest"))
+
+
 def test_new_cli_commands_run(capsys) -> None:  # type: ignore[no-untyped-def]
-    for command in ["demo-async", "demo-quality", "demo-validators", "demo-provider-formats"]:
+    for command in [
+        "demo-async",
+        "demo-quality",
+        "demo-validators",
+        "demo-provider-formats",
+        "demo-coding-review",
+        "demo-support",
+        "demo-research",
+    ]:
         exit_code = main([command])
         captured = capsys.readouterr()
         assert exit_code == 0
-        assert "HandoffKit" in captured.out
+        assert captured.out
 
 
 def test_evaluate_report_command(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -131,3 +159,10 @@ def test_init_project_command(tmp_path) -> None:  # type: ignore[no-untyped-def]
 
     assert "Scaffold Result" in output
     assert (tmp_path / "demo-agent" / "main.py").exists()
+
+
+def test_init_project_uses_showcase_template_name_directly(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    output = init_project("coding-review", output=str(tmp_path))
+
+    assert "coding-review" in output
+    assert (tmp_path / "coding-review" / "coding_review.py").exists()

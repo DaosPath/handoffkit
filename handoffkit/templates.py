@@ -166,9 +166,12 @@ def builtin_templates() -> list[ProjectTemplate]:
     """Return built-in offline starter templates."""
     return [
         _basic_agent_template(),
+        _coding_review_template(),
         _team_workflow_template(),
         _tool_agent_template(),
         _recipe_workflow_template(),
+        _support_escalation_template(),
+        _research_workflow_template(),
     ]
 
 
@@ -299,4 +302,67 @@ def _recipe_workflow_template() -> ProjectTemplate:
                 ),
             ),
         ],
+    )
+
+
+def _showcase_template(
+    *,
+    name: str,
+    title: str,
+    description: str,
+    script: str,
+) -> ProjectTemplate:
+    return ProjectTemplate(
+        name=name,
+        description=description,
+        files=[
+            TemplateFile(
+                "README.md",
+                (
+                    f"# {title}\n\n"
+                    f"{description}\n\n"
+                    "## Run\n\n"
+                    "```bash\n"
+                    f"python {script}\n"
+                    "handoffkit report runs/latest\n"
+                    "```\n"
+                ),
+            ),
+            TemplateFile(
+                script,
+                (
+                    "from handoffkit import run_showcase\n\n\n"
+                    "if __name__ == '__main__':\n"
+                    f"    result = run_showcase('{name}')\n"
+                    "    print(result.to_markdown())\n"
+                ),
+            ),
+        ],
+    )
+
+
+def _coding_review_template() -> ProjectTemplate:
+    return _showcase_template(
+        name="coding-review",
+        title="Coding Agents Showcase",
+        description="Architect -> Coder -> Reviewer -> Tester with structured handoffs.",
+        script="coding_review.py",
+    )
+
+
+def _support_escalation_template() -> ProjectTemplate:
+    return _showcase_template(
+        name="support-escalation",
+        title="Support Escalation Showcase",
+        description="Triage -> Billing -> Refund -> Supervisor with audit-ready state.",
+        script="support_escalation.py",
+    )
+
+
+def _research_workflow_template() -> ProjectTemplate:
+    return _showcase_template(
+        name="research-workflow",
+        title="Research Workflow Showcase",
+        description="Researcher -> Extractor -> Fact-checker -> Writer with traceable sources.",
+        script="research_workflow.py",
     )

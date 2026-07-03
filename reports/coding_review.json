@@ -1,0 +1,478 @@
+{
+  "slug": "coding-review",
+  "title": "Coding Agents: Architect -> Coder -> Reviewer -> Tester",
+  "command": "pip install handoffkit\nhandoffkit init coding-review\ncd coding-review\npython coding_review.py\nhandoffkit report runs/latest",
+  "pain": "Free-text agent summaries drop files, edge cases, review fixes, and test evidence.",
+  "free_text_summary": "Calculator is basically done. Reviewer found one small issue. Tester should run it.",
+  "lost_context": [
+    "which files changed",
+    "why argparse was chosen",
+    "the divide-by-zero risk",
+    "the exact review fix",
+    "the commands tester must run"
+  ],
+  "preserved_context": [
+    "important_files across every handoff",
+    "decisions and rationale",
+    "errors and fixes",
+    "next_steps as executable checks",
+    "trace and replay evidence"
+  ],
+  "handoffs": [
+    {
+      "task": "Ship a Python CLI calculator with tests and review evidence.",
+      "from_agent": "Architect",
+      "to_agent": "Coder",
+      "summary": "Build argparse CLI around pure add, subtract, multiply, and divide functions.",
+      "decisions": [
+        "Use argparse subcommands for operations.",
+        "Keep arithmetic in pure functions for easy tests.",
+        "Return exit code 2 for division by zero input."
+      ],
+      "important_files": [
+        "calculator.py",
+        "tests/test_calculator.py"
+      ],
+      "errors": [],
+      "next_steps": [
+        "Implement calculator.py",
+        "Write pytest coverage for each operation",
+        "Run pytest -q"
+      ],
+      "context_refs": [
+        "ADR-001-cli-shape",
+        "issue-42-calculator"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "risk": "division-by-zero"
+      }
+    },
+    {
+      "task": "Ship a Python CLI calculator with tests and review evidence.",
+      "from_agent": "Coder",
+      "to_agent": "Reviewer",
+      "summary": "Implementation done with pure operation helpers and argparse command routing.",
+      "decisions": [
+        "Expose calculate(operation, a, b) for tests.",
+        "Keep CLI printing separate from arithmetic.",
+        "Use ValueError for invalid divide calls."
+      ],
+      "important_files": [
+        "calculator.py",
+        "tests/test_calculator.py"
+      ],
+      "errors": [
+        "Manual smoke caught missing divide-by-zero message; fixed before review."
+      ],
+      "next_steps": [
+        "Review CLI argument errors",
+        "Review test coverage for divide edge case",
+        "Verify README command examples"
+      ],
+      "context_refs": [
+        "pytest-output-local",
+        "README.md#usage"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "coverage": "operation matrix"
+      }
+    },
+    {
+      "task": "Ship a Python CLI calculator with tests and review evidence.",
+      "from_agent": "Reviewer",
+      "to_agent": "Tester",
+      "summary": "Review passed after one fix: invalid operation message now names supported commands.",
+      "decisions": [
+        "Keep public calculate() helper stable.",
+        "Add regression test for invalid operation.",
+        "Do not add external dependencies."
+      ],
+      "important_files": [
+        "calculator.py",
+        "tests/test_calculator.py",
+        "README.md"
+      ],
+      "errors": [
+        "Initial invalid-operation error was too vague; regression added."
+      ],
+      "next_steps": [
+        "Run pytest -q",
+        "Run python calculator.py add 2 3",
+        "Verify division-by-zero exits with code 2"
+      ],
+      "context_refs": [
+        "review-note-17",
+        "pytest-output-local"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "review_status": "approved-after-fix"
+      }
+    }
+  ],
+  "trace": {
+    "run_id": "showcase-coding-review",
+    "name": "Coding Agents: Architect -> Coder -> Reviewer -> Tester",
+    "success": true,
+    "final_output": "Review passed after one fix: invalid operation message now names supported commands.",
+    "steps": [
+      {
+        "name": "step-1",
+        "agent": "Architect",
+        "task": "Ship a Python CLI calculator with tests and review evidence.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Architect created the initial plan.",
+        "handoff": null,
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "showcase",
+            "message": "Workflow started.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-2",
+        "agent": "Coder",
+        "task": "Ship a Python CLI calculator with tests and review evidence.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Build argparse CLI around pure add, subtract, multiply, and divide functions.",
+        "handoff": {
+          "task": "Ship a Python CLI calculator with tests and review evidence.",
+          "from_agent": "Architect",
+          "to_agent": "Coder",
+          "summary": "Build argparse CLI around pure add, subtract, multiply, and divide functions.",
+          "decisions": [
+            "Use argparse subcommands for operations.",
+            "Keep arithmetic in pure functions for easy tests.",
+            "Return exit code 2 for division by zero input."
+          ],
+          "important_files": [
+            "calculator.py",
+            "tests/test_calculator.py"
+          ],
+          "errors": [],
+          "next_steps": [
+            "Implement calculator.py",
+            "Write pytest coverage for each operation",
+            "Run pytest -q"
+          ],
+          "context_refs": [
+            "ADR-001-cli-shape",
+            "issue-42-calculator"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "risk": "division-by-zero"
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-3",
+        "agent": "Reviewer",
+        "task": "Ship a Python CLI calculator with tests and review evidence.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Implementation done with pure operation helpers and argparse command routing.",
+        "handoff": {
+          "task": "Ship a Python CLI calculator with tests and review evidence.",
+          "from_agent": "Coder",
+          "to_agent": "Reviewer",
+          "summary": "Implementation done with pure operation helpers and argparse command routing.",
+          "decisions": [
+            "Expose calculate(operation, a, b) for tests.",
+            "Keep CLI printing separate from arithmetic.",
+            "Use ValueError for invalid divide calls."
+          ],
+          "important_files": [
+            "calculator.py",
+            "tests/test_calculator.py"
+          ],
+          "errors": [
+            "Manual smoke caught missing divide-by-zero message; fixed before review."
+          ],
+          "next_steps": [
+            "Review CLI argument errors",
+            "Review test coverage for divide edge case",
+            "Verify README command examples"
+          ],
+          "context_refs": [
+            "pytest-output-local",
+            "README.md#usage"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "coverage": "operation matrix"
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-4",
+        "agent": "Tester",
+        "task": "Ship a Python CLI calculator with tests and review evidence.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Review passed after one fix: invalid operation message now names supported commands.",
+        "handoff": {
+          "task": "Ship a Python CLI calculator with tests and review evidence.",
+          "from_agent": "Reviewer",
+          "to_agent": "Tester",
+          "summary": "Review passed after one fix: invalid operation message now names supported commands.",
+          "decisions": [
+            "Keep public calculate() helper stable.",
+            "Add regression test for invalid operation.",
+            "Do not add external dependencies."
+          ],
+          "important_files": [
+            "calculator.py",
+            "tests/test_calculator.py",
+            "README.md"
+          ],
+          "errors": [
+            "Initial invalid-operation error was too vague; regression added."
+          ],
+          "next_steps": [
+            "Run pytest -q",
+            "Run python calculator.py add 2 3",
+            "Verify division-by-zero exits with code 2"
+          ],
+          "context_refs": [
+            "review-note-17",
+            "pytest-output-local"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "review_status": "approved-after-fix"
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      }
+    ],
+    "handoffs": [
+      {
+        "task": "Ship a Python CLI calculator with tests and review evidence.",
+        "from_agent": "Architect",
+        "to_agent": "Coder",
+        "summary": "Build argparse CLI around pure add, subtract, multiply, and divide functions.",
+        "decisions": [
+          "Use argparse subcommands for operations.",
+          "Keep arithmetic in pure functions for easy tests.",
+          "Return exit code 2 for division by zero input."
+        ],
+        "important_files": [
+          "calculator.py",
+          "tests/test_calculator.py"
+        ],
+        "errors": [],
+        "next_steps": [
+          "Implement calculator.py",
+          "Write pytest coverage for each operation",
+          "Run pytest -q"
+        ],
+        "context_refs": [
+          "ADR-001-cli-shape",
+          "issue-42-calculator"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "risk": "division-by-zero"
+        }
+      },
+      {
+        "task": "Ship a Python CLI calculator with tests and review evidence.",
+        "from_agent": "Coder",
+        "to_agent": "Reviewer",
+        "summary": "Implementation done with pure operation helpers and argparse command routing.",
+        "decisions": [
+          "Expose calculate(operation, a, b) for tests.",
+          "Keep CLI printing separate from arithmetic.",
+          "Use ValueError for invalid divide calls."
+        ],
+        "important_files": [
+          "calculator.py",
+          "tests/test_calculator.py"
+        ],
+        "errors": [
+          "Manual smoke caught missing divide-by-zero message; fixed before review."
+        ],
+        "next_steps": [
+          "Review CLI argument errors",
+          "Review test coverage for divide edge case",
+          "Verify README command examples"
+        ],
+        "context_refs": [
+          "pytest-output-local",
+          "README.md#usage"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "coverage": "operation matrix"
+        }
+      },
+      {
+        "task": "Ship a Python CLI calculator with tests and review evidence.",
+        "from_agent": "Reviewer",
+        "to_agent": "Tester",
+        "summary": "Review passed after one fix: invalid operation message now names supported commands.",
+        "decisions": [
+          "Keep public calculate() helper stable.",
+          "Add regression test for invalid operation.",
+          "Do not add external dependencies."
+        ],
+        "important_files": [
+          "calculator.py",
+          "tests/test_calculator.py",
+          "README.md"
+        ],
+        "errors": [
+          "Initial invalid-operation error was too vague; regression added."
+        ],
+        "next_steps": [
+          "Run pytest -q",
+          "Run python calculator.py add 2 3",
+          "Verify division-by-zero exits with code 2"
+        ],
+        "context_refs": [
+          "review-note-17",
+          "pytest-output-local"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "review_status": "approved-after-fix"
+        }
+      }
+    ],
+    "metadata": {
+      "showcase": "coding-review",
+      "offline": true
+    }
+  },
+  "replay": {
+    "success": true,
+    "step_count": 4,
+    "handoff_count": 3,
+    "tool_result_count": 0,
+    "final_output": "Review passed after one fix: invalid operation message now names supported commands.",
+    "metadata": {
+      "run_id": "showcase-coding-review",
+      "name": "Coding Agents: Architect -> Coder -> Reviewer -> Tester",
+      "source": "",
+      "replayed": false
+    }
+  },
+  "validation": {
+    "success": true,
+    "issues": [],
+    "metadata": {
+      "validator": "HandoffStateValidator"
+    }
+  },
+  "quality": {
+    "success": true,
+    "score": 1.0,
+    "grade": "A",
+    "metrics": [
+      {
+        "name": "completeness",
+        "score": 1.0,
+        "weight": 1.4,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      },
+      {
+        "name": "clarity",
+        "score": 1.0,
+        "weight": 1.0,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      },
+      {
+        "name": "actionability",
+        "score": 1.0,
+        "weight": 1.2,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      },
+      {
+        "name": "traceability",
+        "score": 1.0,
+        "weight": 1.0,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      },
+      {
+        "name": "error_awareness",
+        "score": 1.0,
+        "weight": 0.7,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      }
+    ],
+    "recommendations": [],
+    "validation": {
+      "success": true,
+      "issues": [],
+      "metadata": {
+        "reports": 3,
+        "successful": 3
+      }
+    },
+    "metadata": {
+      "handoffs": 3,
+      "successful": 3,
+      "failed": 0,
+      "average_score": 1.0,
+      "evaluator": "HandoffQualityEvaluator",
+      "min_score": 0.75,
+      "required_metrics": []
+    }
+  },
+  "artifacts": {
+    "run_trace": "runs\\latest\\trace.json",
+    "run_report_json": "runs\\latest\\report.json",
+    "run_report_md": "runs\\latest\\report.md",
+    "report_json": "reports\\coding_review.json",
+    "report_md": "reports\\coding_review.md"
+  }
+}
