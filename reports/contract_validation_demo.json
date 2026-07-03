@@ -1,0 +1,25 @@
+{
+  "handoff": {
+    "success": true,
+    "issues": [],
+    "metadata": {
+      "validator": "HandoffStateValidator"
+    }
+  },
+  "structured_output": {
+    "success": true,
+    "issues": [],
+    "metadata": {
+      "validator": "StructuredOutputValidator",
+      "schema_name": "CalculatorPlan"
+    }
+  },
+  "tool_schema": {
+    "success": true,
+    "issues": [],
+    "metadata": {
+      "validator": "ToolSchemaValidator",
+      "tool": "add"
+    }
+  }
+}
