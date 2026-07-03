@@ -31,6 +31,8 @@ from handoffkit.recipes import (
     RecipeStep,
     WorkflowTemplate,
 )
+from handoffkit.replay import ReplayRunner, ReplaySummary
+from handoffkit.reports import load_report_json, write_report_files
 from handoffkit.runner import Team, TeamRunResult
 from handoffkit.structured import (
     JsonOutputParser,
@@ -46,6 +48,7 @@ from handoffkit.tool_execution import (
     ToolRegistry,
     ToolResult,
 )
+from handoffkit.tracing import FileTraceStore, RunTrace, TraceEvent, TraceStep
 from handoffkit.validation import (
     HandoffStateValidator,
     StructuredOutputValidator,
@@ -54,7 +57,7 @@ from handoffkit.validation import (
     ValidationReport,
 )
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 __all__ = [
     "Agent",
@@ -86,6 +89,9 @@ __all__ = [
     "RecipeRunResult",
     "RecipeRunner",
     "RecipeStep",
+    "ReplayRunner",
+    "ReplaySummary",
+    "RunTrace",
     "StructuredOutputResult",
     "StructuredOutputSchema",
     "StructuredOutputValidator",
@@ -97,10 +103,15 @@ __all__ = [
     "ToolExecutionReport",
     "ToolRegistry",
     "ToolResult",
+    "TraceEvent",
+    "TraceStep",
     "ToolSchemaValidator",
     "ValidationIssue",
     "ValidationReport",
     "WorkflowTemplate",
     "__version__",
+    "FileTraceStore",
+    "load_report_json",
     "tool",
+    "write_report_files",
 ]

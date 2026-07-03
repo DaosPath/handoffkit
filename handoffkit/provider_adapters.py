@@ -92,7 +92,12 @@ class ToolCallParser:
             return []
         if not isinstance(raw_calls, list):
             raise OutputValidationError("tool_calls must be a list")
-        return [self._parse_one(item) for item in raw_calls if isinstance(item, dict)]
+        calls: list[ToolCall] = []
+        for item in raw_calls:
+            if not isinstance(item, dict):
+                raise OutputValidationError("tool_calls items must be objects")
+            calls.append(self._parse_one(item))
+        return calls
 
     def _parse_anthropic(self, payload: dict[str, Any]) -> list[ToolCall]:
         raw_content = payload.get("content", payload.get("tool_calls", [])) or []
@@ -101,9 +106,11 @@ class ToolCallParser:
         calls: list[ToolCall] = []
         for item in raw_content:
             if not isinstance(item, dict):
-                continue
+                raise OutputValidationError("anthropic content items must be objects")
             if item.get("type") != "tool_use" and "input" not in item:
                 continue
+            if not item.get("name"):
+                raise OutputValidationError("anthropic tool_use name is required")
             call = ToolCall(
                 tool_name=str(item.get("name", "")),
                 arguments=self._arguments(item.get("input", {})),
@@ -120,6 +127,8 @@ class ToolCallParser:
         if "function" in item and isinstance(item["function"], dict):
             function = item["function"]
             name = str(function.get("name", ""))
+            if not name:
+                raise OutputValidationError("openai function tool call name is required")
             arguments = self._arguments(function.get("arguments", {}))
             call = ToolCall(
                 tool_name=name,
@@ -130,6 +139,8 @@ class ToolCallParser:
                 call.call_id = call_id
             return call
         if item.get("type") == "tool_use" or "input" in item:
+            if not item.get("name"):
+                raise OutputValidationError("anthropic tool_use name is required")
             call = ToolCall(
                 tool_name=str(item.get("name", "")),
                 arguments=self._arguments(item.get("input", {})),
@@ -139,6 +150,8 @@ class ToolCallParser:
                 call.call_id = call_id
             return call
         name = str(item.get("tool_name") or item.get("name") or "")
+        if not name:
+            raise OutputValidationError("tool call name is required")
         arguments = self._arguments(item.get("arguments", {}))
         metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
         call = ToolCall(tool_name=name, arguments=arguments, metadata=metadata)

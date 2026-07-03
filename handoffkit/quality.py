@@ -85,8 +85,16 @@ class HandoffQualityReport:
 class HandoffQualityEvaluator:
     """Evaluate handoff quality with deterministic offline metrics."""
 
-    def __init__(self, *, validator: HandoffStateValidator | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        validator: HandoffStateValidator | None = None,
+        min_score: float = 0.6,
+        required_metrics: list[str] | None = None,
+    ) -> None:
         self.validator = validator or HandoffStateValidator()
+        self.min_score = min_score
+        self.required_metrics = set(required_metrics or [])
 
     def evaluate(self, state: HandoffState) -> HandoffQualityReport:
         """Evaluate one handoff state."""
@@ -104,14 +112,24 @@ class HandoffQualityEvaluator:
             score = min(score, 0.39)
         grade = self._grade(score)
         recommendations = self._recommendations(metrics, validation)
+        required_pass = all(
+            metric.score >= self.min_score
+            for metric in metrics
+            if metric.name in self.required_metrics
+        )
         return HandoffQualityReport(
-            success=validation.success and score >= 0.6,
+            success=validation.success and score >= self.min_score and required_pass,
             score=score,
             grade=grade,
             metrics=metrics,
             recommendations=recommendations,
             validation=validation,
-            metadata={"handoffs": 1, "evaluator": self.__class__.__name__},
+            metadata={
+                "handoffs": 1,
+                "evaluator": self.__class__.__name__,
+                "min_score": self.min_score,
+                "required_metrics": sorted(self.required_metrics),
+            },
         )
 
     def evaluate_many(self, handoffs: list[HandoffState]) -> HandoffQualityReport:
@@ -152,10 +170,11 @@ class HandoffQualityEvaluator:
                 )
             )
         score = sum(report.score for report in reports) / len(reports)
+        successful = sum(1 for report in reports if report.success)
         validation = ValidationReport(
             success=all(report.validation.success for report in reports),
             issues=[issue for report in reports for issue in report.validation.issues],
-            metadata={"reports": len(reports)},
+            metadata={"reports": len(reports), "successful": successful},
         )
         return HandoffQualityReport(
             success=all(report.success for report in reports),
@@ -164,7 +183,15 @@ class HandoffQualityEvaluator:
             metrics=metrics,
             recommendations=self._recommendations(metrics, validation),
             validation=validation,
-            metadata={"handoffs": len(handoffs), "evaluator": self.__class__.__name__},
+            metadata={
+                "handoffs": len(handoffs),
+                "successful": successful,
+                "failed": len(reports) - successful,
+                "average_score": round(score, 3),
+                "evaluator": self.__class__.__name__,
+                "min_score": self.min_score,
+                "required_metrics": sorted(self.required_metrics),
+            },
         )
 
     def _completeness(

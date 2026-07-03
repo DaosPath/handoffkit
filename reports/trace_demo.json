@@ -1,0 +1,197 @@
+{
+  "run_id": "team-6664a3b11f39",
+  "name": "trace-demo",
+  "success": true,
+  "final_output": "EchoProvider[echo] response\nSummary: Agent: Tester Role: Review implementation evidence. Task: Create a small Python CLI calculator with tests. Tools: - No tools registered Recent memory: No prior memory. Handoff state: {\"task\": \"Create a small Python CLI calculator with tests.\", \"from_agent\": \"Coder\", \"to_agent\": \"Tester\", \"summary\": \"EchoProvider[echo] response\\nSummary: Agent: Coder Role: Implement from structured handoffs. Task: Create a small Py...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+  "steps": [
+    {
+      "name": "step-1",
+      "agent": "Architect",
+      "task": "Create a small Python CLI calculator with tests.",
+      "mode": "team",
+      "success": true,
+      "output": "EchoProvider[echo] response\nSummary: Agent: Architect Role: Create implementation plans. Task: Create a small Python CLI calculator with tests. Tools: - No tools registered Recent memory: No prior memory. Handoff state: No handoff state. Respond with useful progress, decisions, errors if any, and next steps.\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "handoff": null,
+      "tool_results": [],
+      "events": [
+        {
+          "kind": "agent_output",
+          "message": "Agent produced output.",
+          "timestamp": "",
+          "metadata": {}
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "name": "step-2",
+      "agent": "Coder",
+      "task": "Create a small Python CLI calculator with tests.",
+      "mode": "team",
+      "success": true,
+      "output": "EchoProvider[echo] response\nSummary: Agent: Coder Role: Implement from structured handoffs. Task: Create a small Python CLI calculator with tests. Tools: - No tools registered Recent memory: No prior memory. Handoff state: {\"task\": \"Create a small Python CLI calculator with tests.\", \"from_agent\": \"Architect\", \"to_agent\": \"Coder\", \"summary\": \"EchoProvider[echo] response\\nSummary: Agent: Architect Role: Create implementation plans. Task: Create a small...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "handoff": {
+        "task": "Create a small Python CLI calculator with tests.",
+        "from_agent": "Architect",
+        "to_agent": "Coder",
+        "summary": "EchoProvider[echo] response\nSummary: Agent: Architect Role: Create implementation plans. Task: Create a small Python CLI calculator with tests. Tools: - No tools registered Recent memory: No prior memory. Handoff state: No handoff state. Respond with useful progress, decisions, errors if any, and next steps.\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+        "decisions": [
+          "Architect completed its current role output."
+        ],
+        "important_files": [],
+        "errors": [],
+        "next_steps": [
+          "Coder should inspect the structured handoff.",
+          "Continue the task while preserving decisions and constraints."
+        ],
+        "context_refs": [],
+        "metadata": {
+          "mode": "hybrid_state",
+          "handoff_version": "1.0",
+          "state_contract": [
+            "task",
+            "from_agent",
+            "to_agent",
+            "summary",
+            "decisions",
+            "important_files",
+            "errors",
+            "next_steps",
+            "context_refs",
+            "metadata"
+          ]
+        }
+      },
+      "tool_results": [],
+      "events": [
+        {
+          "kind": "agent_output",
+          "message": "Agent produced output.",
+          "timestamp": "",
+          "metadata": {}
+        }
+      ],
+      "metadata": {}
+    },
+    {
+      "name": "step-3",
+      "agent": "Tester",
+      "task": "Create a small Python CLI calculator with tests.",
+      "mode": "team",
+      "success": true,
+      "output": "EchoProvider[echo] response\nSummary: Agent: Tester Role: Review implementation evidence. Task: Create a small Python CLI calculator with tests. Tools: - No tools registered Recent memory: No prior memory. Handoff state: {\"task\": \"Create a small Python CLI calculator with tests.\", \"from_agent\": \"Coder\", \"to_agent\": \"Tester\", \"summary\": \"EchoProvider[echo] response\\nSummary: Agent: Coder Role: Implement from structured handoffs. Task: Create a small Py...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "handoff": {
+        "task": "Create a small Python CLI calculator with tests.",
+        "from_agent": "Coder",
+        "to_agent": "Tester",
+        "summary": "EchoProvider[echo] response\nSummary: Agent: Coder Role: Implement from structured handoffs. Task: Create a small Python CLI calculator with tests. Tools: - No tools registered Recent memory: No prior memory. Handoff state: {\"task\": \"Create a small Python CLI calculator with tests.\", \"from_agent\": \"Architect\", \"to_agent\": \"Coder\", \"summary\": \"EchoProvider[echo] response\\nSummary: Agent: Architect Role: Create implementation plans. Task: Create a small...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+        "decisions": [
+          "Coder completed its current role output."
+        ],
+        "important_files": [],
+        "errors": [],
+        "next_steps": [
+          "Tester should inspect the structured handoff.",
+          "Continue the task while preserving decisions and constraints."
+        ],
+        "context_refs": [],
+        "metadata": {
+          "mode": "hybrid_state",
+          "handoff_version": "1.0",
+          "state_contract": [
+            "task",
+            "from_agent",
+            "to_agent",
+            "summary",
+            "decisions",
+            "important_files",
+            "errors",
+            "next_steps",
+            "context_refs",
+            "metadata"
+          ]
+        }
+      },
+      "tool_results": [],
+      "events": [
+        {
+          "kind": "agent_output",
+          "message": "Agent produced output.",
+          "timestamp": "",
+          "metadata": {}
+        }
+      ],
+      "metadata": {}
+    }
+  ],
+  "handoffs": [
+    {
+      "task": "Create a small Python CLI calculator with tests.",
+      "from_agent": "Architect",
+      "to_agent": "Coder",
+      "summary": "EchoProvider[echo] response\nSummary: Agent: Architect Role: Create implementation plans. Task: Create a small Python CLI calculator with tests. Tools: - No tools registered Recent memory: No prior memory. Handoff state: No handoff state. Respond with useful progress, decisions, errors if any, and next steps.\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "decisions": [
+        "Architect completed its current role output."
+      ],
+      "important_files": [],
+      "errors": [],
+      "next_steps": [
+        "Coder should inspect the structured handoff.",
+        "Continue the task while preserving decisions and constraints."
+      ],
+      "context_refs": [],
+      "metadata": {
+        "mode": "hybrid_state",
+        "handoff_version": "1.0",
+        "state_contract": [
+          "task",
+          "from_agent",
+          "to_agent",
+          "summary",
+          "decisions",
+          "important_files",
+          "errors",
+          "next_steps",
+          "context_refs",
+          "metadata"
+        ]
+      }
+    },
+    {
+      "task": "Create a small Python CLI calculator with tests.",
+      "from_agent": "Coder",
+      "to_agent": "Tester",
+      "summary": "EchoProvider[echo] response\nSummary: Agent: Coder Role: Implement from structured handoffs. Task: Create a small Python CLI calculator with tests. Tools: - No tools registered Recent memory: No prior memory. Handoff state: {\"task\": \"Create a small Python CLI calculator with tests.\", \"from_agent\": \"Architect\", \"to_agent\": \"Coder\", \"summary\": \"EchoProvider[echo] response\\nSummary: Agent: Architect Role: Create implementation plans. Task: Create a small...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "decisions": [
+        "Coder completed its current role output."
+      ],
+      "important_files": [],
+      "errors": [],
+      "next_steps": [
+        "Tester should inspect the structured handoff.",
+        "Continue the task while preserving decisions and constraints."
+      ],
+      "context_refs": [],
+      "metadata": {
+        "mode": "hybrid_state",
+        "handoff_version": "1.0",
+        "state_contract": [
+          "task",
+          "from_agent",
+          "to_agent",
+          "summary",
+          "decisions",
+          "important_files",
+          "errors",
+          "next_steps",
+          "context_refs",
+          "metadata"
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "source": "TeamRunResult",
+    "task": "Create a small Python CLI calculator with tests."
+  }
+}

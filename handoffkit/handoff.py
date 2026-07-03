@@ -54,6 +54,29 @@ class HandoffState:
 
         return HandoffStateValidator().validate(self)
 
+    @staticmethod
+    def json_schema() -> dict[str, Any]:
+        """Return a JSON-schema-like contract for HandoffState."""
+        string_array = {"type": "array", "items": {"type": "string"}}
+        return {
+            "title": "HandoffState",
+            "type": "object",
+            "properties": {
+                "task": {"type": "string"},
+                "from_agent": {"type": "string"},
+                "to_agent": {"type": "string"},
+                "summary": {"type": "string"},
+                "decisions": string_array,
+                "important_files": string_array,
+                "errors": string_array,
+                "next_steps": string_array,
+                "context_refs": string_array,
+                "metadata": {"type": "object"},
+            },
+            "required": ["task", "from_agent", "to_agent"],
+            "additionalProperties": True,
+        }
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> HandoffState:
         """Create a handoff state from a dictionary."""
