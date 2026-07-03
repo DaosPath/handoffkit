@@ -1,4 +1,4 @@
-"""Compatibility tests for the final pre-1.0 public API surface."""
+"""Compatibility tests for the stable 1.0 public API surface."""
 
 # ruff: noqa: E501
 
@@ -25,6 +25,8 @@ EXPECTED_EXPORTS = [
     "ContextPack",
     "ContextRetriever",
     "ContextRunResult",
+    "EvaluationCheck",
+    "EvaluationResult",
     "Extension",
     "ExtensionRegistry",
     "FileTraceStore",
@@ -43,6 +45,7 @@ EXPECTED_EXPORTS = [
     "OutputRepairer",
     "OutputValidationError",
     "ProjectIndexer",
+    "ProjectTemplate",
     "ProviderCapabilities",
     "ProviderToolAdapter",
     "ProviderToolFormat",
@@ -53,11 +56,14 @@ EXPECTED_EXPORTS = [
     "ReplayRunner",
     "ReplaySummary",
     "RunTrace",
+    "ScaffoldResult",
     "StructuredOutputResult",
     "StructuredOutputSchema",
     "StructuredOutputValidator",
     "Team",
     "TeamRunResult",
+    "TemplateFile",
+    "TemplateScaffolder",
     "Tool",
     "ToolCall",
     "ToolCallParser",
@@ -69,6 +75,8 @@ EXPECTED_EXPORTS = [
     "TraceStep",
     "ValidationIssue",
     "ValidationReport",
+    "WorkflowEvaluationReport",
+    "WorkflowEvaluator",
     "WorkflowTemplate",
     "__version__",
     "load_report_json",

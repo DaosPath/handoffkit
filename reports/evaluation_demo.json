@@ -1,0 +1,176 @@
+{
+  "success": true,
+  "score": 1.0,
+  "grade": "A",
+  "results": [
+    {
+      "target": "RunTrace",
+      "success": true,
+      "checks": [
+        {
+          "name": "trace_success",
+          "passed": true,
+          "message": "trace succeeded",
+          "severity": "error",
+          "metadata": {}
+        },
+        {
+          "name": "trace_steps",
+          "passed": true,
+          "message": "trace recorded steps",
+          "severity": "error",
+          "metadata": {}
+        },
+        {
+          "name": "trace_final_output",
+          "passed": true,
+          "message": "trace has final output",
+          "severity": "error",
+          "metadata": {}
+        },
+        {
+          "name": "handoffs_present",
+          "passed": true,
+          "message": "2 handoff state(s) recorded",
+          "severity": "info",
+          "metadata": {}
+        },
+        {
+          "name": "handoff_1_contract",
+          "passed": true,
+          "message": "contract validation passed",
+          "severity": "error",
+          "metadata": {
+            "success": true,
+            "issues": [],
+            "metadata": {
+              "validator": "HandoffStateValidator"
+            }
+          }
+        },
+        {
+          "name": "handoff_2_contract",
+          "passed": true,
+          "message": "contract validation passed",
+          "severity": "error",
+          "metadata": {
+            "success": true,
+            "issues": [],
+            "metadata": {
+              "validator": "HandoffStateValidator"
+            }
+          }
+        },
+        {
+          "name": "handoff_quality",
+          "passed": true,
+          "message": "handoff quality score 0.640",
+          "severity": "error",
+          "metadata": {
+            "success": true,
+            "score": 0.64,
+            "grade": "C",
+            "metrics": [
+              {
+                "name": "completeness",
+                "score": 0.72,
+                "weight": 1.4,
+                "notes": [
+                  "average over 2 handoffs"
+                ]
+              },
+              {
+                "name": "clarity",
+                "score": 1.0,
+                "weight": 1.0,
+                "notes": [
+                  "average over 2 handoffs"
+                ]
+              },
+              {
+                "name": "actionability",
+                "score": 0.625,
+                "weight": 1.2,
+                "notes": [
+                  "average over 2 handoffs"
+                ]
+              },
+              {
+                "name": "traceability",
+                "score": 0.25,
+                "weight": 1.0,
+                "notes": [
+                  "average over 2 handoffs"
+                ]
+              },
+              {
+                "name": "error_awareness",
+                "score": 0.55,
+                "weight": 0.7,
+                "notes": [
+                  "average over 2 handoffs"
+                ]
+              }
+            ],
+            "recommendations": [
+              "Include summary, decisions, next steps, and relevant refs.",
+              "Write next steps as concrete actions.",
+              "Add important_files or context_refs for follow-up work.",
+              "Record errors or mark that errors were checked."
+            ],
+            "validation": {
+              "success": true,
+              "issues": [],
+              "metadata": {
+                "reports": 2,
+                "successful": 2
+              }
+            },
+            "metadata": {
+              "handoffs": 2,
+              "successful": 2,
+              "failed": 0,
+              "average_score": 0.64,
+              "evaluator": "HandoffQualityEvaluator",
+              "min_score": 0.6,
+              "required_metrics": []
+            }
+          }
+        },
+        {
+          "name": "replay_summary",
+          "passed": true,
+          "message": "replay summary inspected trace without execution",
+          "severity": "error",
+          "metadata": {
+            "success": true,
+            "step_count": 3,
+            "handoff_count": 2,
+            "tool_result_count": 0,
+            "final_output": "EchoProvider[echo] response\nSummary: Agent: Tester Role: Review the result. Task: Create a tiny Python CLI calculator. Tools: - No tools registered Recent memory: No prior memory. Handoff state: {\"task\": \"Create a tiny Python CLI calculator.\", \"from_agent\": \"Coder\", \"to_agent\": \"Tester\", \"summary\": \"EchoProvider[echo] response\\nSummary: Agent: Coder Role: Implement from handoff state. Task: Create a tiny Python CLI calculator. Tools: - No tools regis...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+            "metadata": {
+              "run_id": "team-d64462cd5af0",
+              "name": "evaluation-demo",
+              "source": "TeamRunResult",
+              "replayed": false
+            }
+          }
+        }
+      ],
+      "score": 1.0,
+      "metadata": {
+        "run_id": "team-d64462cd5af0",
+        "name": "evaluation-demo"
+      }
+    }
+  ],
+  "recommendations": [
+    "Workflow artifacts passed offline evaluation."
+  ],
+  "metadata": {
+    "targets": 1,
+    "evaluator": "WorkflowEvaluator",
+    "min_score": 0.75,
+    "handoff_min_score": 0.6
+  }
+}

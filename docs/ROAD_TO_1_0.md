@@ -2,7 +2,8 @@
 
 0.8.0 focused on replayable workflow evidence and API stability. 0.9.0 is the
 last pre-1.0 release focused on polish, compatibility checks, and documentation
-completeness.
+completeness. 1.0.0 completes the stable API commitment and adds offline
+workflow evaluation, async runtime helpers, and project templates.
 
 ## 0.8.0
 
@@ -22,8 +23,8 @@ completeness.
 
 ## 1.0.0
 
-- Stable public API commitment.
-- Documented contracts.
-- Reproducible workflow traces.
-- Provider-neutral tool formats.
-- PyPI package with clear examples and CLI diagnostics.
+- Stable public API commitment with production/stable package metadata.
+- Offline workflow evaluation reports.
+- Async Agent, Team, and RecipeRunner helpers.
+- Built-in project templates and safe CLI scaffolding.
+- Reproducible workflow traces, provider-neutral tool formats, and CLI diagnostics.

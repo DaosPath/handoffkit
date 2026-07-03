@@ -75,6 +75,17 @@ HandoffKit is built around three ideas:
 | Quality control | `ValidationReport`, `HandoffQualityReport` | Handoffs can be validated, scored, serialized, and reviewed. |
 | Audit trail | `RunTrace`, `FileTraceStore`, `ReplayRunner` | Runs can be stored and replay-inspected without providers, tools, or shell. |
 
+## What 1.0.0 Adds
+
+HandoffKit 1.0.0 is the first stable release:
+
+- production/stable package metadata,
+- frozen public API documentation for the 1.x series,
+- offline `WorkflowEvaluator` reports for traces, handoffs, teams, recipes, and tools,
+- async runtime helpers for `Agent`, `Team`, and `RecipeRunner`,
+- safe built-in project templates through `TemplateScaffolder` and `handoffkit init`,
+- migration notes from 0.9.x to 1.0.0.
+
 ## What 0.9.0 Adds
 
 HandoffKit 0.9.0 is the final pre-1.0 stabilization release:
@@ -537,14 +548,56 @@ from handoffkit import write_report_files
 json_path, markdown_path = write_report_files(trace, "trace_demo")
 ```
 
+## Evaluation Suite
+
+Use `WorkflowEvaluator` to check whether workflow artifacts are ready to ship:
+
+```python
+from handoffkit import RunTrace, WorkflowEvaluator
+
+trace = RunTrace.from_team_result(team_result)
+report = WorkflowEvaluator().evaluate(trace)
+print(report.to_markdown())
+```
+
+The evaluator runs offline and checks contracts, handoff quality, replay
+summaries, trace completeness, and tool result success.
+
+## Async Runtime
+
+Synchronous APIs remain the compatibility baseline. Async helpers are additive:
+
+```python
+from handoffkit import Agent, Team
+
+team = Team([Agent("Planner", "Plan."), Agent("Reviewer", "Review.")])
+result = await team.arun("Prepare a release checklist.")
+```
+
+Providers can implement native `agenerate()`, or use HandoffKit's default
+thread-backed async wrapper.
+
+## Project Templates
+
+Start small offline projects with built-in templates:
+
+```bash
+handoffkit init my-agent --template basic-agent --output .
+handoffkit init my-team --template team-workflow --output .
+```
+
+Templates never overwrite existing files unless `--force` is passed.
+
 ## CLI Doctor
 
 ```bash
 handoffkit doctor
 handoffkit api
+handoffkit demo-async
 handoffkit demo-trace
 handoffkit demo-replay
 handoffkit validate-report reports/trace_demo.json
+handoffkit evaluate reports/trace_demo.json
 ```
 
 `doctor` runs local package diagnostics only. It does not make network calls and
@@ -552,23 +605,25 @@ does not inspect secrets.
 
 ## Stable API Surface
 
-The following APIs are treated as 1.0 candidates:
+The following APIs are stable for the 1.x series:
 
 - `Agent`, `Team`, `HandoffState`, `HandoffProtocol`,
 - `Tool`, `ToolCall`, `ToolResult`, `ToolRegistry`,
 - `Recipe`, `RecipeStep`, `RecipeRunner`, `RecipeRunResult`,
 - `ValidationReport`, `HandoffQualityReport`,
+- `WorkflowEvaluator`, `WorkflowEvaluationReport`,
 - `ProviderToolAdapter`,
-- `RunTrace`, `ReplayRunner`.
+- `RunTrace`, `ReplayRunner`,
+- `TemplateScaffolder`, `ProjectTemplate`.
 
 See `docs/API_STABILITY.md` and `docs/ROAD_TO_1_0.md`.
 
 ## Road to 1.0
 
-0.9.0 is the final compatibility pass before the 1.0 API commitment. The
-candidate stable surface is documented in `docs/PUBLIC_API.md`, migration notes
-live in `docs/MIGRATION_0_9.md`, and runtime/test/provider support policy lives
-in `docs/COMPATIBILITY.md`.
+1.0.0 completes the first stable API commitment. The stable surface is
+documented in `docs/PUBLIC_API.md`, migration notes live in
+`docs/MIGRATION_1_0.md`, and runtime/test/provider support policy lives in
+`docs/COMPATIBILITY.md`.
 
 ## Memory + Project Context
 
@@ -772,6 +827,7 @@ Use temporary or scoped provider tokens. Do not commit API keys.
 ```bash
 handoffkit --version
 handoffkit demo
+handoffkit demo-async
 handoffkit demo-recipe
 handoffkit demo-extension
 handoffkit demo-structured
@@ -784,6 +840,8 @@ handoffkit api
 handoffkit demo-trace
 handoffkit demo-replay
 handoffkit validate-report reports/trace_demo.json
+handoffkit evaluate reports/trace_demo.json
+handoffkit init my-agent --template basic-agent --output .
 ```
 
 ## Examples
@@ -800,6 +858,9 @@ python examples/provider_tool_adapter_demo.py
 python examples/handoff_quality_demo.py
 python examples/contract_validation_demo.py
 python examples/provider_tool_formats_demo.py
+python examples/evaluation_demo.py
+python examples/async_demo.py
+python examples/template_demo.py
 python examples/trace_demo.py
 python examples/replay_demo.py
 python examples/provider_matrix_demo.py
@@ -862,7 +923,7 @@ HandoffKit is a developer library, not a copy of that repository.
 
 ## Roadmap
 
-- 1.0 public API commitment,
+- 1.x compatibility maintenance,
 - richer memory persistence adapters after 1.0,
 - broader provider-specific integration examples,
 - benchmark-inspired quality comparisons,
