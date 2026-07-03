@@ -40,6 +40,7 @@ from handoffkit.recipes import (
 from handoffkit.replay import ReplayRunner, ReplaySummary
 from handoffkit.reports import load_report_json, write_report_files
 from handoffkit.runner import Team, TeamRunResult
+from handoffkit.showcases import ShowcaseResult, build_showcase, run_showcase, showcase_names
 from handoffkit.structured import (
     JsonOutputParser,
     OutputRepairer,
@@ -64,7 +65,7 @@ from handoffkit.validation import (
     ValidationReport,
 )
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 
 __all__ = [
     "Agent",
@@ -104,6 +105,7 @@ __all__ = [
     "ReplaySummary",
     "RunTrace",
     "ScaffoldResult",
+    "ShowcaseResult",
     "StructuredOutputResult",
     "StructuredOutputSchema",
     "StructuredOutputValidator",
@@ -127,6 +129,9 @@ __all__ = [
     "WorkflowTemplate",
     "__version__",
     "load_report_json",
+    "build_showcase",
     "tool",
+    "run_showcase",
+    "showcase_names",
     "write_report_files",
 ]

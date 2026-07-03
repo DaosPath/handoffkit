@@ -24,6 +24,7 @@ from handoffkit.recipes import RecipeRunner
 from handoffkit.replay import ReplayRunner
 from handoffkit.reports import load_report_json
 from handoffkit.runner import Team
+from handoffkit.showcases import load_showcase_report, run_showcase
 from handoffkit.structured import StructuredOutputSchema
 from handoffkit.templates import TemplateScaffolder
 from handoffkit.tool import tool
@@ -364,17 +365,41 @@ def evaluate_report(path: str) -> str:
     return report.to_markdown()
 
 
+def render_report(path: str) -> str:
+    """Render a generated HandoffKit run report."""
+    return load_showcase_report(path)
+
+
+def run_coding_review_demo() -> str:
+    """Run the real-world coding agents showcase."""
+    return run_showcase("coding-review").to_markdown()
+
+
+def run_support_escalation_demo() -> str:
+    """Run the real-world support escalation showcase."""
+    return run_showcase("support-escalation").to_markdown()
+
+
+def run_research_workflow_demo() -> str:
+    """Run the real-world research workflow showcase."""
+    return run_showcase("research-workflow").to_markdown()
+
+
 def init_project(
     project_name: str,
     *,
-    template: str = "basic-agent",
+    template: str | None = None,
     output: str = ".",
     force: bool = False,
 ) -> str:
     """Scaffold a HandoffKit starter project."""
-    result = TemplateScaffolder().scaffold(
+    scaffolder = TemplateScaffolder()
+    selected_template = template or "basic-agent"
+    if template is None and project_name in scaffolder.list_templates():
+        selected_template = project_name
+    result = scaffolder.scaffold(
         project_name,
-        template=template,
+        template=selected_template,
         output=output,
         force=force,
     )
@@ -395,6 +420,9 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("demo-quality", help="Run a local handoff quality demo.")
     subparsers.add_parser("demo-validators", help="Run local contract validator demos.")
     subparsers.add_parser("demo-provider-formats", help="Run local provider format demos.")
+    subparsers.add_parser("demo-coding-review", help="Run the coding agents showcase.")
+    subparsers.add_parser("demo-support", help="Run the support escalation showcase.")
+    subparsers.add_parser("demo-research", help="Run the research workflow showcase.")
     subparsers.add_parser("doctor", help="Run local package diagnostics.")
     subparsers.add_parser("api", help="Show stable API candidates.")
     subparsers.add_parser("demo-trace", help="Run a local run trace demo.")
@@ -406,9 +434,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Evaluate a trace or report JSON file.",
     )
     evaluate_parser.add_argument("path", help="Path to a trace or report JSON file.")
+    report_parser = subparsers.add_parser("report", help="Render a generated run report.")
+    report_parser.add_argument("path", help="Path to runs/latest, report.md, or report.json.")
     init_parser = subparsers.add_parser("init", help="Scaffold a HandoffKit starter project.")
     init_parser.add_argument("project_name", help="Project directory name.")
-    init_parser.add_argument("--template", default="basic-agent", help="Template name.")
+    init_parser.add_argument("--template", default=None, help="Template name.")
     init_parser.add_argument("--output", default=".", help="Parent output directory.")
     init_parser.add_argument("--force", action="store_true", help="Overwrite existing files.")
     args = parser.parse_args(argv)
@@ -440,6 +470,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "demo-provider-formats":
         print(run_provider_formats_demo())
         return 0
+    if args.command == "demo-coding-review":
+        print(run_coding_review_demo())
+        return 0
+    if args.command == "demo-support":
+        print(run_support_escalation_demo())
+        return 0
+    if args.command == "demo-research":
+        print(run_research_workflow_demo())
+        return 0
     if args.command == "doctor":
         print(run_doctor())
         return 0
@@ -457,6 +496,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "evaluate":
         print(evaluate_report(args.path))
+        return 0
+    if args.command == "report":
+        print(render_report(args.path))
         return 0
     if args.command == "init":
         print(
