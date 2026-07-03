@@ -49,3 +49,30 @@ class Team:
             agent_outputs=outputs,
             handoffs=handoffs,
         )
+
+    async def arun(self, task: str) -> TeamRunResult:
+        """Run the task through all agents asynchronously in sequence."""
+        outputs: list[AgentOutput] = []
+        handoffs = []
+
+        first = self.agents[0]
+        current_output = await first.arun(task)
+        outputs.append(AgentOutput(agent=first.name, output=current_output))
+
+        for previous, current in zip(self.agents, self.agents[1:], strict=False):
+            handoff = self.protocol.transfer(
+                from_agent=previous,
+                to_agent=current,
+                task=task,
+                summary=current_output,
+            )
+            handoffs.append(handoff)
+            current_output = await current.arun(task, handoff_state=handoff)
+            outputs.append(AgentOutput(agent=current.name, output=current_output))
+
+        return TeamRunResult(
+            task=task,
+            final_output=current_output,
+            agent_outputs=outputs,
+            handoffs=handoffs,
+        )

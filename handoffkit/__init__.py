@@ -9,6 +9,12 @@ from handoffkit.context import (
     ProjectIndexer,
 )
 from handoffkit.errors import HandoffValidationError
+from handoffkit.evaluation import (
+    EvaluationCheck,
+    EvaluationResult,
+    WorkflowEvaluationReport,
+    WorkflowEvaluator,
+)
 from handoffkit.extensions import Extension, ExtensionRegistry
 from handoffkit.handoff import HandoffState
 from handoffkit.memory import JsonMemoryStore, MemoryItem, MemoryReport, MemoryStore
@@ -41,6 +47,7 @@ from handoffkit.structured import (
     StructuredOutputResult,
     StructuredOutputSchema,
 )
+from handoffkit.templates import ProjectTemplate, ScaffoldResult, TemplateFile, TemplateScaffolder
 from handoffkit.tool import Tool, tool
 from handoffkit.tool_execution import (
     ToolCall,
@@ -57,7 +64,7 @@ from handoffkit.validation import (
     ValidationReport,
 )
 
-__version__ = "0.9.0"
+__version__ = "1.0.0"
 
 __all__ = [
     "Agent",
@@ -67,6 +74,9 @@ __all__ = [
     "ContextRunResult",
     "Extension",
     "ExtensionRegistry",
+    "EvaluationCheck",
+    "EvaluationResult",
+    "FileTraceStore",
     "HandoffValidationError",
     "HandoffProtocol",
     "HandoffQualityEvaluator",
@@ -82,6 +92,7 @@ __all__ = [
     "OutputRepairer",
     "OutputValidationError",
     "ProjectIndexer",
+    "ProjectTemplate",
     "ProviderCapabilities",
     "ProviderToolAdapter",
     "ProviderToolFormat",
@@ -92,11 +103,14 @@ __all__ = [
     "ReplayRunner",
     "ReplaySummary",
     "RunTrace",
+    "ScaffoldResult",
     "StructuredOutputResult",
     "StructuredOutputSchema",
     "StructuredOutputValidator",
     "Team",
     "TeamRunResult",
+    "TemplateFile",
+    "TemplateScaffolder",
     "Tool",
     "ToolCall",
     "ToolCallParser",
@@ -108,9 +122,10 @@ __all__ = [
     "ToolSchemaValidator",
     "ValidationIssue",
     "ValidationReport",
+    "WorkflowEvaluationReport",
+    "WorkflowEvaluator",
     "WorkflowTemplate",
     "__version__",
-    "FileTraceStore",
     "load_report_json",
     "tool",
     "write_report_files",

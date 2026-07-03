@@ -1,8 +1,8 @@
 # HandoffKit Public API
 
-HandoffKit 0.9.0 treats the following exports as 1.0 candidates. The exact
-runtime behavior remains governed by the docs, tests, and type signatures in the
-package.
+HandoffKit 1.0.0 treats the following exports as stable public API for the 1.x
+series. Runtime behavior is governed by docs, tests, and public type
+signatures.
 
 ## Core Workflow
 
@@ -11,6 +11,11 @@ package.
 - `TeamRunResult`
 - `HandoffState`
 - `HandoffProtocol`
+
+Stable sync methods remain the compatibility baseline. Async helpers
+`Agent.arun()`, `Agent.arun_structured()`, `Agent.arun_with_context()`,
+`Agent.arun_with_tools()`, `Team.arun()`, and `RecipeRunner.arun()` are additive
+1.x APIs.
 
 ## Tools and Providers
 
@@ -27,6 +32,10 @@ package.
 
 ## Structured Output, Validation, Quality
 
+- `EvaluationCheck`
+- `EvaluationResult`
+- `WorkflowEvaluationReport`
+- `WorkflowEvaluator`
 - `StructuredOutputSchema`
 - `StructuredOutputResult`
 - `JsonOutputParser`
@@ -44,6 +53,10 @@ package.
 
 ## Recipes, Context, Memory, Extensions
 
+- `ProjectTemplate`
+- `ScaffoldResult`
+- `TemplateFile`
+- `TemplateScaffolder`
 - `Recipe`
 - `RecipeStep`
 - `RecipeRunner`
@@ -74,5 +87,5 @@ package.
 
 ## Compatibility Promise
 
-These APIs should not be removed or receive breaking signature changes before
-1.0 unless a final release-candidate test finds a correctness issue.
+These APIs should not be removed or receive breaking signature changes in 1.x
+without a documented migration path.

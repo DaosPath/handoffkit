@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import shlex
 from collections.abc import Callable, Sequence
@@ -81,6 +82,20 @@ class Agent:
         prompt = self._build_prompt(task, handoff_state=handoff_state)
         self.memory.add("user", task, agent=self.name)
         output = self.provider.generate(prompt, **kwargs)
+        self.memory.add("assistant", output, agent=self.name)
+        return output
+
+    async def arun(
+        self,
+        task: str,
+        *,
+        handoff_state: HandoffState | None = None,
+        **kwargs: Any,
+    ) -> str:
+        """Run the agent asynchronously on a task and return provider output."""
+        prompt = self._build_prompt(task, handoff_state=handoff_state)
+        self.memory.add("user", task, agent=self.name)
+        output = await self.provider.agenerate(prompt, **kwargs)
         self.memory.add("assistant", output, agent=self.name)
         return output
 
@@ -221,6 +236,90 @@ class Agent:
             },
         )
 
+    async def arun_structured(
+        self,
+        task: str,
+        schema: StructuredOutputSchema,
+        max_repair_attempts: int = 1,
+        context: ContextPack | None = None,
+        memory: MemoryStore | None = None,
+    ) -> StructuredOutputResult:
+        """Run the agent asynchronously and validate provider output."""
+        memories = memory.search(task, limit=5) if memory else []
+        prompt = self._build_structured_prompt(
+            task,
+            schema=schema,
+            context=context,
+            memories=memories,
+        )
+        self.memory.add("user", task, agent=self.name)
+        raw = await self.provider.agenerate(prompt)
+        self.memory.add("assistant", raw, agent=self.name)
+
+        parser = JsonOutputParser()
+        repairer = OutputRepairer()
+        errors: list[str] = []
+        repaired = False
+        metadata = {
+            "agent": self.name,
+            "provider": self.provider.__class__.__name__,
+            "model": self.model,
+            "context_used": context is not None,
+            "memories_used": len(memories),
+        }
+        try:
+            data = schema.validate(parser.parse(raw))
+        except OutputValidationError as exc:
+            errors.append(str(exc))
+        else:
+            return StructuredOutputResult(
+                success=True,
+                data=data,
+                raw_output=raw,
+                errors=[],
+                schema_name=schema.name,
+                repaired=repaired,
+                metadata=metadata,
+            )
+
+        if max_repair_attempts <= 0:
+            return StructuredOutputResult(
+                success=False,
+                data=None,
+                raw_output=raw,
+                errors=errors,
+                schema_name=schema.name,
+                repaired=False,
+                metadata=metadata,
+            )
+
+        for _ in range(max_repair_attempts):
+            try:
+                repaired_text = repairer.repair(raw)
+                repaired = True
+                data = schema.validate(parser.parse(repaired_text))
+            except OutputValidationError as exc:
+                errors.append(str(exc))
+                continue
+            return StructuredOutputResult(
+                success=True,
+                data=data,
+                raw_output=raw,
+                errors=errors,
+                schema_name=schema.name,
+                repaired=True,
+                metadata=metadata,
+            )
+        return StructuredOutputResult(
+            success=False,
+            data=None,
+            raw_output=raw,
+            errors=errors,
+            schema_name=schema.name,
+            repaired=repaired,
+            metadata=metadata,
+        )
+
     def run_with_context(
         self,
         task: str,
@@ -242,6 +341,49 @@ class Agent:
             context_used=context,
             memories_used=memories,
             success=True,
+        )
+
+    async def arun_with_context(
+        self,
+        task: str,
+        context: ContextPack | None = None,
+        memory: MemoryStore | None = None,
+        tools: Sequence[Tool | Callable[..., Any]] | None = None,
+    ) -> ContextRunResult:
+        """Run the agent asynchronously with retrieved project context and memory."""
+        memories = memory.search(task, limit=5) if memory else []
+        prompt = self._build_context_prompt(task, context=context, memories=memories)
+        self.memory.add("user", task, agent=self.name)
+        output = await self.provider.agenerate(prompt)
+        self.memory.add("assistant", output, agent=self.name)
+        if tools:
+            tool_report = await self.arun_with_tools(task, tools=tools)
+            output = f"{output}\n\nTool execution: {tool_report.final_output}"
+        return ContextRunResult(
+            final_output=output,
+            context_used=context,
+            memories_used=memories,
+            success=True,
+        )
+
+    async def arun_with_tools(
+        self,
+        task: str,
+        tools: Sequence[Tool | Callable[..., Any]] | None = None,
+        max_steps: int = 5,
+        require_approval: bool = False,
+        tool_call_mode: str = "auto",
+        provider_adapter: ProviderToolAdapter | None = None,
+    ) -> ToolExecutionReport:
+        """Run an agent with structured tool execution asynchronously."""
+        return await asyncio.to_thread(
+            self.run_with_tools,
+            task,
+            tools=tools,
+            max_steps=max_steps,
+            require_approval=require_approval,
+            tool_call_mode=tool_call_mode,
+            provider_adapter=provider_adapter,
         )
 
     def _run_local_tool_mode(

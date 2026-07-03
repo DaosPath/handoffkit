@@ -1,7 +1,10 @@
 import pytest
 
 from handoffkit.cli import (
+    evaluate_report,
+    init_project,
     main,
+    run_async_demo,
     run_demo,
     run_extension_demo,
     run_provider_formats_demo,
@@ -30,7 +33,7 @@ def test_cli_version(capsys) -> None:  # type: ignore[no-untyped-def]
     captured = capsys.readouterr()
 
     assert exc_info.value.code == 0
-    assert "handoffkit 0.9.0" in captured.out
+    assert "handoffkit 1.0.0" in captured.out
 
 
 def test_run_demo_reports_handoff_count() -> None:
@@ -38,6 +41,13 @@ def test_run_demo_reports_handoff_count() -> None:
 
     assert "HandoffKit demo" in output
     assert "Handoffs: 2" in output
+
+
+def test_run_async_demo_reports_handoff_count() -> None:
+    output = run_async_demo()
+
+    assert "HandoffKit async demo" in output
+    assert "Handoffs: 1" in output
 
 
 def test_run_recipe_demo_reports_recipe() -> None:
@@ -93,8 +103,31 @@ def test_run_provider_formats_demo_reports_provider_shapes() -> None:
 
 
 def test_new_cli_commands_run(capsys) -> None:  # type: ignore[no-untyped-def]
-    for command in ["demo-quality", "demo-validators", "demo-provider-formats"]:
+    for command in ["demo-async", "demo-quality", "demo-validators", "demo-provider-formats"]:
         exit_code = main([command])
         captured = capsys.readouterr()
         assert exit_code == 0
         assert "HandoffKit" in captured.out
+
+
+def test_evaluate_report_command(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    path = tmp_path / "trace.json"
+    path.write_text(
+        (
+            '{"run_id":"demo","name":"demo","success":true,'
+            '"final_output":"done","steps":[{"name":"step","success":true}],'
+            '"handoffs":[],"metadata":{}}'
+        ),
+        encoding="utf-8",
+    )
+
+    output = evaluate_report(str(path))
+
+    assert "Workflow Evaluation Report" in output
+
+
+def test_init_project_command(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    output = init_project("demo-agent", template="basic-agent", output=str(tmp_path))
+
+    assert "Scaffold Result" in output
+    assert (tmp_path / "demo-agent" / "main.py").exists()

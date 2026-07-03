@@ -316,6 +316,123 @@ class RecipeRunner:
             metadata={"step_count": len(self.recipe.steps)},
         )
 
+    async def arun(
+        self,
+        initial_task: str | None = None,
+        memory: MemoryStore | None = None,
+        context: ContextPack | None = None,
+        tools: Sequence[Tool | Callable[..., Any]] | None = None,
+    ) -> RecipeRunResult:
+        """Run the recipe asynchronously and return a structured report."""
+        step_results: list[dict[str, Any]] = []
+        handoff_states: list[HandoffState] = []
+        context_used: list[ContextPack] = []
+        memories_used: list[MemoryItem] = []
+        tool_results: list[ToolResult] = []
+        previous_output = ""
+        previous_state: HandoffState | None = None
+        success = True
+
+        for index, step in enumerate(self.recipe.steps):
+            agent = step.agent or Agent(step.name, f"Execute recipe step {step.name}.")
+            task = self._build_step_task(step, initial_task, previous_output, index)
+            combined_tools = list(step.tools) + list(tools or [])
+            output = ""
+            step_success = True
+            mode = "agent"
+            structured_output: dict[str, Any] | None = None
+
+            try:
+                if step.structured_schema is not None:
+                    structured_result = await agent.arun_structured(
+                        task,
+                        schema=step.structured_schema,
+                        context=context if step.use_context else None,
+                        memory=memory if step.use_memory else None,
+                    )
+                    output = structured_result.to_json()
+                    structured_output = structured_result.to_dict()
+                    step_success = structured_result.success
+                    mode = "structured"
+                elif combined_tools:
+                    report = await agent.arun_with_tools(task, tools=combined_tools)
+                    output = report.final_output
+                    step_success = report.success
+                    tool_results.extend(report.tool_results)
+                    mode = "tools"
+                elif step.use_context:
+                    context_result = await agent.arun_with_context(
+                        task,
+                        context=context,
+                        memory=memory if step.use_memory else None,
+                    )
+                    output = context_result.final_output
+                    step_success = context_result.success
+                    if context_result.context_used is not None:
+                        context_used.append(context_result.context_used)
+                    memories_used.extend(context_result.memories_used)
+                    mode = "context"
+                else:
+                    output = await agent.arun(task, handoff_state=previous_state)
+            except Exception as exc:
+                output = str(exc)
+                step_success = False
+                success = False
+
+            step_results.append(
+                {
+                    "step_name": step.name,
+                    "agent_name": agent.name,
+                    "task": task,
+                    "output": output,
+                    "success": step_success,
+                    "mode": mode,
+                    "structured_output": structured_output,
+                    "metadata": step.metadata,
+                }
+            )
+            success = success and step_success
+
+            next_step = self.recipe.steps[index + 1] if index + 1 < len(self.recipe.steps) else None
+            if next_step is not None:
+                next_agent = next_step.agent or Agent(
+                    next_step.name,
+                    f"Execute recipe step {next_step.name}.",
+                )
+                state = self.protocol.transfer(
+                    from_agent=agent,
+                    to_agent=next_agent,
+                    task=next_step.task,
+                    summary=output,
+                    decisions=[f"Step {step.name} completed with success={step_success}."],
+                    next_steps=[next_step.task],
+                    context_refs=[
+                        doc.path
+                        for doc in (context.documents if context is not None else [])
+                    ],
+                    metadata={
+                        "recipe": self.recipe.name,
+                        "from_step": step.name,
+                        "to_step": next_step.name,
+                    },
+                )
+                handoff_states.append(state)
+                previous_state = state
+            previous_output = output
+
+        final_output = step_results[-1]["output"] if step_results else ""
+        return RecipeRunResult(
+            recipe_name=self.recipe.name,
+            success=success,
+            final_output=final_output,
+            step_results=step_results,
+            handoff_states=handoff_states,
+            context_used=context_used,
+            memories_used=memories_used,
+            tool_results=tool_results,
+            metadata={"step_count": len(self.recipe.steps), "async": True},
+        )
+
     def _build_step_task(
         self,
         step: RecipeStep,
