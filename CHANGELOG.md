@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1
+
+- Added Trusted Publishing workflow for TestPyPI and PyPI releases.
+- Added release process documentation for GitHub Actions OIDC publishing.
+- Added security policy documentation.
+- Improved README package trust documentation.
+- Kept the 1.x public API unchanged.
+
 ## 1.0.0
 
 - Promoted package maturity classifier to production/stable.
