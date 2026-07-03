@@ -51,6 +51,21 @@ Tester
 
 That makes agent workflows easier to inspect, test, replay, and improve.
 
+## What 0.7.0 Adds
+
+HandoffKit 0.7.0 adds reusable validation and quality layers for mature
+multi-agent workflows:
+
+- `ValidationIssue` and `ValidationReport` for reusable contract reports,
+- `HandoffStateValidator`, `StructuredOutputValidator`, and `ToolSchemaValidator`,
+- `validate_report(...)` helpers while keeping existing `validate()` behavior,
+- `HandoffQualityEvaluator` with deterministic handoff quality scoring,
+- quality metrics for completeness, clarity, actionability, traceability, and error awareness,
+- provider-native tool schemas for `handoffkit`, `openai`, and `anthropic`,
+- provider-style tool call parsing with call ID preservation,
+- `provider_adapter` support in `Agent.run_with_tools(...)`,
+- offline quality, validator, and provider-format demos with JSON/Markdown reports.
+
 ## What 0.6.0 Adds
 
 HandoffKit 0.6.0 adds structured outputs and provider-neutral tool adapters:
@@ -324,6 +339,105 @@ whether a provider returns HandoffKit JSON or function-style tool calls. This is
 provider-neutral by design; HandoffKit does not require any external SDK for
 normal tests.
 
+## Handoff Quality Metrics
+
+Quality checks are deterministic and offline. They help compare handoff states
+without calling a provider or judging prose with another model.
+
+```python
+from handoffkit import HandoffQualityEvaluator, HandoffState
+
+state = HandoffState(
+    task="Create a Python CLI calculator.",
+    from_agent="Architect",
+    to_agent="Coder",
+    summary="Build an argparse calculator with pure operations and tests.",
+    decisions=["Use argparse.", "Keep operations pure."],
+    important_files=["calculator.py", "test_calculator.py"],
+    next_steps=["Implement calculator.py", "Run pytest -q"],
+    context_refs=["README.md#real-task-demo"],
+    metadata={"errors_checked": True},
+)
+
+report = HandoffQualityEvaluator().evaluate(state)
+print(report.score, report.grade)
+print(report.to_markdown())
+```
+
+Metrics:
+
+| Metric | Checks |
+|---|---|
+| `completeness` | required fields, summary, decisions, files, context, next steps |
+| `clarity` | useful summary length and non-empty decisions |
+| `actionability` | next steps written as concrete actions |
+| `traceability` | important files and context references |
+| `error_awareness` | recorded errors or explicit error-check metadata |
+
+## Contract Validators
+
+Validators return `ValidationReport` objects that can be serialized, rendered as
+Markdown, or raised as exceptions. Existing APIs stay compatible:
+`HandoffState.validate()` still returns `self` or raises `HandoffValidationError`,
+and `StructuredOutputSchema.validate()` still returns the input dictionary or
+raises `OutputValidationError`.
+
+```python
+from handoffkit import (
+    HandoffStateValidator,
+    StructuredOutputSchema,
+    StructuredOutputValidator,
+    ToolSchemaValidator,
+    tool,
+)
+
+@tool
+def add(a: int, b: int) -> int:
+    """Add two integers."""
+    return a + b
+
+schema = StructuredOutputSchema(
+    name="Plan",
+    fields={"title": str, "ready": bool},
+    required=["title", "ready"],
+)
+
+print(StructuredOutputValidator().validate(schema, {"title": "Demo", "ready": True}).to_json())
+print(ToolSchemaValidator().validate(add).to_markdown())
+```
+
+## Provider Tool Formats
+
+`ProviderToolAdapter` can render tools as HandoffKit, OpenAI function-style, or
+Anthropic `tool_use` schemas. It also parses provider-native tool call payloads
+back into HandoffKit `ToolCall` objects.
+
+```python
+from handoffkit import ProviderToolAdapter, tool
+
+@tool
+def read_file(path: str) -> str:
+    """Read a file."""
+    return f"read:{path}"
+
+openai_adapter = ProviderToolAdapter(provider_format="openai")
+anthropic_adapter = ProviderToolAdapter(provider_format="anthropic")
+
+print(openai_adapter.tools_to_provider_format([read_file]))
+print(anthropic_adapter.tools_to_provider_format([read_file]))
+
+calls = openai_adapter.parse_tool_calls({
+    "tool_calls": [
+        {
+            "id": "call_123",
+            "type": "function",
+            "function": {"name": "read_file", "arguments": "{\"path\":\"README.md\"}"},
+        }
+    ]
+})
+print(calls[0].tool_name, calls[0].arguments, calls[0].call_id)
+```
+
 ## Memory + Project Context
 
 HandoffKit can store durable project decisions, index local files, retrieve
@@ -530,6 +644,9 @@ handoffkit demo-recipe
 handoffkit demo-extension
 handoffkit demo-structured
 handoffkit demo-provider-tools
+handoffkit demo-quality
+handoffkit demo-validators
+handoffkit demo-provider-formats
 ```
 
 ## Examples
@@ -543,6 +660,9 @@ python examples/tool_execution_demo.py
 python examples/fake_provider_tool_call_demo.py
 python examples/structured_output_demo.py
 python examples/provider_tool_adapter_demo.py
+python examples/handoff_quality_demo.py
+python examples/contract_validation_demo.py
+python examples/provider_tool_formats_demo.py
 python examples/structured_recipe_demo.py
 python examples/recipe_demo.py
 python examples/coding_review_recipe.py
@@ -602,11 +722,10 @@ HandoffKit is a developer library, not a copy of that repository.
 
 ## Roadmap
 
-- richer contract validators,
+- richer memory persistence adapters,
 - broader tool schema coverage,
-- provider adapters,
-- structured tool calling loops,
-- handoff quality metrics,
+- provider-specific integration examples,
+- benchmark-inspired quality comparisons,
 - memory integrations,
 - project context retrieval,
 - benchmark-inspired examples,

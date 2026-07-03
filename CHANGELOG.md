@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0
+
+- Added reusable validation reports and contract validators.
+- Added deterministic handoff quality metrics and reports.
+- Added provider-native tool formats for HandoffKit, OpenAI, and Anthropic shapes.
+- Added provider_adapter support to Agent.run_with_tools().
+- Added quality, validator, and provider-format CLI demos.
+- Added offline examples and Markdown/JSON reports for 0.7.0 workflows.
+- Expanded tests for validators, quality scoring, provider adapters, and CLI demos.
+
 ## 0.6.0
 
 - Added StructuredOutputSchema and StructuredOutputResult.

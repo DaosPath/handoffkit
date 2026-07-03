@@ -43,25 +43,16 @@ class HandoffState:
 
     def validate(self) -> HandoffState:
         """Validate the handoff state contract and return self."""
-        problems: list[str] = []
-        for field_name in REQUIRED_TEXT_FIELDS:
-            value = getattr(self, field_name)
-            if not isinstance(value, str) or not value.strip():
-                problems.append(f"{field_name} must be a non-empty string")
-        if not isinstance(self.summary, str):
-            problems.append("summary must be a string")
-        for field_name in LIST_FIELDS:
-            value = getattr(self, field_name)
-            if not isinstance(value, list):
-                problems.append(f"{field_name} must be a list")
-                continue
-            if not all(isinstance(item, str) for item in value):
-                problems.append(f"{field_name} must contain only strings")
-        if not isinstance(self.metadata, dict):
-            problems.append("metadata must be a dictionary")
-        if problems:
-            raise HandoffValidationError("; ".join(problems))
+        report = self.validate_report()
+        if not report.success:
+            raise HandoffValidationError("; ".join(issue.message for issue in report.errors))
         return self
+
+    def validate_report(self) -> Any:
+        """Validate the handoff state and return a structured report."""
+        from handoffkit.validation import HandoffStateValidator
+
+        return HandoffStateValidator().validate(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> HandoffState:

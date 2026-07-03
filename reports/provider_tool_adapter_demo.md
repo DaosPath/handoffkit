@@ -35,8 +35,10 @@ label:provider-adapter
       "arguments": {
         "value": "provider-adapter"
       },
-      "call_id": "76360ac525d44dc48c776de21e0278f6",
-      "metadata": {}
+      "call_id": "call_provider_adapter_demo",
+      "metadata": {
+        "provider_format": "openai"
+      }
     }
   ],
   "tool_results": [
@@ -45,7 +47,7 @@ label:provider-adapter
       "success": true,
       "result": "label:provider-adapter",
       "error": null,
-      "call_id": "76360ac525d44dc48c776de21e0278f6",
+      "call_id": "call_provider_adapter_demo",
       "metadata": {}
     }
   ],
@@ -54,7 +56,11 @@ label:provider-adapter
     "supports_tool_calling": true,
     "supports_json_mode": true,
     "supports_streaming": false,
-    "metadata": {}
+    "metadata": {},
+    "provider": "",
+    "tool_format": "handoffkit",
+    "supports_parallel_tool_calls": false,
+    "strict_json_schema": false
   }
 }
 ```

@@ -9,14 +9,21 @@ from handoffkit import __version__
 from handoffkit.agent import Agent
 from handoffkit.builtins import plan_execute_review_recipe
 from handoffkit.extensions import Extension, ExtensionRegistry
+from handoffkit.handoff import HandoffState
 from handoffkit.protocol import HandoffProtocol
 from handoffkit.provider_adapters import ProviderToolAdapter
 from handoffkit.providers import BaseProvider
+from handoffkit.quality import HandoffQualityEvaluator
 from handoffkit.recipes import RecipeRunner
 from handoffkit.runner import Team
 from handoffkit.structured import StructuredOutputSchema
 from handoffkit.tool import tool
 from handoffkit.tool_execution import ToolRegistry
+from handoffkit.validation import (
+    HandoffStateValidator,
+    StructuredOutputValidator,
+    ToolSchemaValidator,
+)
 
 
 class _StaticProvider(BaseProvider):
@@ -30,6 +37,20 @@ class _StaticProvider(BaseProvider):
     def generate(self, prompt: str, **kwargs) -> str:  # type: ignore[no-untyped-def]
         """Return preconfigured output."""
         return self.output
+
+
+def _demo_handoff_state() -> HandoffState:
+    return HandoffState(
+        task="Create a Python CLI calculator.",
+        from_agent="Architect",
+        to_agent="Coder",
+        summary="Build a dependency-free argparse calculator with pure operations and tests.",
+        decisions=["Use argparse for CLI parsing.", "Keep math operations in pure functions."],
+        important_files=["calculator.py", "test_calculator.py"],
+        next_steps=["Implement calculator.py", "Write pytest coverage", "Run pytest -q"],
+        context_refs=["README.md#real-task-demo"],
+        metadata={"errors_checked": True},
+    )
 
 
 def run_demo() -> str:
@@ -133,6 +154,86 @@ def run_provider_tools_demo() -> str:
     )
 
 
+def run_quality_demo() -> str:
+    """Run a local handoff quality demo."""
+    report = HandoffQualityEvaluator().evaluate(_demo_handoff_state())
+    return "HandoffKit quality demo\n\n" + report.to_markdown()
+
+
+def run_validators_demo() -> str:
+    """Run local contract validator demos."""
+
+    @tool
+    def add(a: int, b: int) -> int:
+        """Add two integers."""
+        return a + b
+
+    schema = StructuredOutputSchema(
+        name="CalculatorPlan",
+        fields={"title": str, "steps": list, "ready": bool},
+        required=["title", "steps", "ready"],
+    )
+    state_report = HandoffStateValidator().validate(_demo_handoff_state())
+    output_report = StructuredOutputValidator().validate(
+        schema,
+        {"title": "CLI calculator", "steps": ["implement", "test"], "ready": True},
+    )
+    tool_report = ToolSchemaValidator().validate(add)
+    return (
+        "HandoffKit contract validators demo\n"
+        f"HandoffState: {state_report.success}\n"
+        f"StructuredOutput: {output_report.success}\n"
+        f"ToolSchema: {tool_report.success}\n\n"
+        f"{state_report.to_markdown()}"
+    )
+
+
+def run_provider_formats_demo() -> str:
+    """Run local provider tool format demo."""
+
+    @tool
+    def add(a: int, b: int) -> int:
+        """Add two integers."""
+        return a + b
+
+    openai_adapter = ProviderToolAdapter(provider_format="openai")
+    anthropic_adapter = ProviderToolAdapter(provider_format="anthropic")
+    openai_call = openai_adapter.parse_tool_calls(
+        {
+            "tool_calls": [
+                {
+                    "id": "call_openai_1",
+                    "type": "function",
+                    "function": {"name": "add", "arguments": '{"a":2,"b":3}'},
+                }
+            ]
+        }
+    )[0]
+    anthropic_call = anthropic_adapter.parse_tool_calls(
+        {
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "add",
+                    "input": {"a": 5, "b": 8},
+                }
+            ]
+        }
+    )[0]
+    openai_schema = openai_adapter.tools_to_provider_format([add])[0]
+    anthropic_schema = anthropic_adapter.tools_to_provider_format([add])[0]
+    return (
+        "HandoffKit provider tool formats demo\n"
+        f"OpenAI schema type: {openai_schema['type']}\n"
+        f"Anthropic schema keys: {sorted(anthropic_schema)}\n"
+        f"OpenAI call: {openai_call.tool_name} {openai_call.arguments} "
+        f"id={openai_call.call_id}\n"
+        f"Anthropic call: {anthropic_call.tool_name} {anthropic_call.arguments} "
+        f"id={anthropic_call.call_id}"
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the command-line interface."""
     parser = argparse.ArgumentParser(prog="handoffkit")
@@ -143,6 +244,9 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("demo-extension", help="Run a local extension demo.")
     subparsers.add_parser("demo-structured", help="Run a local structured output demo.")
     subparsers.add_parser("demo-provider-tools", help="Run a local provider tool adapter demo.")
+    subparsers.add_parser("demo-quality", help="Run a local handoff quality demo.")
+    subparsers.add_parser("demo-validators", help="Run local contract validator demos.")
+    subparsers.add_parser("demo-provider-formats", help="Run local provider format demos.")
     args = parser.parse_args(argv)
 
     if args.command == "demo":
@@ -159,6 +263,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "demo-provider-tools":
         print(run_provider_tools_demo())
+        return 0
+    if args.command == "demo-quality":
+        print(run_quality_demo())
+        return 0
+    if args.command == "demo-validators":
+        print(run_validators_demo())
+        return 0
+    if args.command == "demo-provider-formats":
+        print(run_provider_formats_demo())
         return 0
 
     parser.print_help()
