@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import pytest
+
 from handoffkit import (
     Agent,
     ProviderCapabilities,
@@ -13,6 +15,7 @@ from handoffkit import (
     tool,
 )
 from handoffkit.providers import BaseProvider
+from handoffkit.structured import OutputValidationError
 
 
 @tool
@@ -276,3 +279,71 @@ def test_agent_run_with_tools_provider_adapter_argument() -> None:
     assert report.tool_calls[0].call_id == "toolu_run"
     assert report.tool_results[0].result == "read:README.md"
     assert report.final_output == "Done."
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ({"tool_calls": "not-a-list"}, "tool_calls must be a list"),
+        ({"tool_calls": ["bad-item"]}, "tool_calls items must be objects"),
+        (
+            {"tool_calls": [{"function": "bad-function"}]},
+            "openai function tool call must be an object",
+        ),
+        (
+            {"tool_calls": [{"function": {"arguments": "{}"}}]},
+            "openai function tool call name is required",
+        ),
+        (
+            {"tool_calls": [{"tool_name": "read_file", "arguments": "[1,2]"}]},
+            "arguments JSON must be an object",
+        ),
+        ({"tool_calls": [{"arguments": {}}]}, "tool call name is required"),
+    ],
+)
+def test_provider_tool_adapter_rejects_malformed_handoffkit_and_openai_payloads(
+    payload: dict[str, Any],
+    message: str,
+) -> None:
+    adapter = ProviderToolAdapter(provider_format="openai")
+
+    with pytest.raises(OutputValidationError, match=message):
+        adapter.parse_tool_calls(payload)
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ({"content": "not-a-list"}, "anthropic content/tool_calls must be a list"),
+        ({"content": ["bad-item"]}, "anthropic content items must be objects"),
+        ({"content": [{"type": "tool_use", "input": {}}]}, "anthropic tool_use name is required"),
+        (
+            {"content": [{"type": "tool_use", "name": "read_file", "input": "[1,2]"}]},
+            "arguments JSON must be an object",
+        ),
+    ],
+)
+def test_provider_tool_adapter_rejects_malformed_anthropic_payloads(
+    payload: dict[str, Any],
+    message: str,
+) -> None:
+    adapter = ProviderToolAdapter(provider_format="anthropic")
+
+    with pytest.raises(OutputValidationError, match=message):
+        adapter.parse_tool_calls(payload)
+
+
+def test_provider_tool_adapter_preserves_handoffkit_call_id() -> None:
+    calls = ProviderToolAdapter().parse_tool_calls(
+        {
+            "tool_calls": [
+                {
+                    "call_id": "local_call_1",
+                    "tool_name": "read_file",
+                    "arguments": {"path": "README.md"},
+                }
+            ]
+        }
+    )
+
+    assert calls[0].call_id == "local_call_1"
