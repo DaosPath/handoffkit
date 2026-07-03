@@ -1,8 +1,8 @@
 # HandoffKit API Stability
 
-HandoffKit 0.8.0 starts the road to a 1.0 API contract. The project is still
-pre-1.0, but these APIs are intended to remain stable unless a 1.0 preparation
-issue finds a clear design problem.
+HandoffKit 0.9.0 is the final pre-1.0 API audit. The project is still pre-1.0,
+but these APIs are intended to remain stable unless a final compatibility issue
+finds a clear design problem before 1.0.
 
 ## 1.0 Candidate APIs
 
@@ -21,6 +21,8 @@ issue finds a clear design problem.
   file writes.
 - Normal tests and examples stay offline unless explicitly marked as API tests.
 - New runtime dependencies are avoided unless they become essential for 1.0.
+- Public constructors and methods listed in `docs/PUBLIC_API.md` are covered by
+  compatibility tests.
 
 ## Experimental Areas
 

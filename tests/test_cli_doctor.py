@@ -1,4 +1,4 @@
-"""Tests for 0.8.0 CLI commands."""
+"""Tests for 0.9.0 CLI commands."""
 
 from __future__ import annotations
 

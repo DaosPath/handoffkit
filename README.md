@@ -75,6 +75,18 @@ HandoffKit is built around three ideas:
 | Quality control | `ValidationReport`, `HandoffQualityReport` | Handoffs can be validated, scored, serialized, and reviewed. |
 | Audit trail | `RunTrace`, `FileTraceStore`, `ReplayRunner` | Runs can be stored and replay-inspected without providers, tools, or shell. |
 
+## What 0.9.0 Adds
+
+HandoffKit 0.9.0 is the final pre-1.0 stabilization release:
+
+- beta package metadata,
+- final public API documentation for 1.0 candidates,
+- migration notes from 0.8.x to 0.9.x,
+- compatibility documentation for Python, providers, and dependencies,
+- stronger public API signature and import compatibility tests,
+- local wheel install smoke coverage,
+- hardened malformed provider tool-call validation.
+
 ## What 0.8.0 Adds
 
 HandoffKit 0.8.0 prepares the package for the road to 1.0 with traceable,
@@ -551,6 +563,13 @@ The following APIs are treated as 1.0 candidates:
 
 See `docs/API_STABILITY.md` and `docs/ROAD_TO_1_0.md`.
 
+## Road to 1.0
+
+0.9.0 is the final compatibility pass before the 1.0 API commitment. The
+candidate stable surface is documented in `docs/PUBLIC_API.md`, migration notes
+live in `docs/MIGRATION_0_9.md`, and runtime/test/provider support policy lives
+in `docs/COMPATIBILITY.md`.
+
 ## Memory + Project Context
 
 HandoffKit can store durable project decisions, index local files, retrieve
@@ -843,15 +862,11 @@ HandoffKit is a developer library, not a copy of that repository.
 
 ## Roadmap
 
-- richer memory persistence adapters,
-- broader tool schema coverage,
-- provider-specific integration examples,
+- 1.0 public API commitment,
+- richer memory persistence adapters after 1.0,
+- broader provider-specific integration examples,
 - benchmark-inspired quality comparisons,
-- API freeze and migration guide for 1.0,
-- memory integrations,
-- project context retrieval,
-- benchmark-inspired examples,
-- multi-agent workflow templates.
+- more workflow templates and extension examples.
 
 ## License
 

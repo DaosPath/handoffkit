@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0
+
+- Promoted package maturity classifier to beta.
+- Added final pre-1.0 public API, migration, and compatibility documentation.
+- Added public API export and signature compatibility tests.
+- Added local wheel install smoke coverage.
+- Hardened provider tool adapter validation for malformed payloads.
+- Improved README and road-to-1.0 documentation.
+
 ## 0.8.0
 
 - Added run tracing and replay summaries.
