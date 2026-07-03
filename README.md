@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-hero.svg" alt="HandoffKit: structured state transfer for multi-agent Python workflows" width="100%">
+
 # HandoffKit
 
 **Structured state transfer for multi-agent Python workflows.**
@@ -9,12 +11,20 @@ files, errors, next steps, and metadata. No messy context soup.
 
 [![Tests](https://github.com/DaosPath/handoffkit/actions/workflows/ci.yml/badge.svg)](https://github.com/DaosPath/handoffkit/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/handoffkit.svg)](https://pypi.org/project/handoffkit/)
-![Python versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
+![Python versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ```bash
 pip install handoffkit
 ```
+
+<table>
+  <tr>
+    <td><strong>Contract-first</strong><br>Agents pass JSON-friendly state instead of vague summaries.</td>
+    <td><strong>Replayable</strong><br>Trace team, recipe, and tool runs without re-running side effects.</td>
+    <td><strong>Offline by default</strong><br>Tests and demos run locally with deterministic providers.</td>
+  </tr>
+</table>
 
 </div>
 
@@ -24,6 +34,8 @@ pip install handoffkit
 
 HandoffKit is a lightweight Python framework for building multi-agent AI
 workflows where agents pass **structured state** instead of free-text summaries.
+
+<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-state-flow.svg" alt="HandoffKit turns fragile free text handoffs into structured HandoffState contracts" width="100%">
 
 Most multi-agent demos do this:
 
@@ -50,6 +62,18 @@ Tester
 ```
 
 That makes agent workflows easier to inspect, test, replay, and improve.
+
+## Visual Overview
+
+<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-trace-replay.svg" alt="HandoffKit RunTrace, FileTraceStore, ReplayRunner, and reports flow" width="100%">
+
+HandoffKit is built around three ideas:
+
+| Layer | API | Why it matters |
+|---|---|---|
+| State transfer | `HandoffState`, `HandoffProtocol`, `Team` | Agents receive explicit task, decisions, files, errors, and next steps. |
+| Quality control | `ValidationReport`, `HandoffQualityReport` | Handoffs can be validated, scored, serialized, and reviewed. |
+| Audit trail | `RunTrace`, `FileTraceStore`, `ReplayRunner` | Runs can be stored and replay-inspected without providers, tools, or shell. |
 
 ## What 0.8.0 Adds
 
