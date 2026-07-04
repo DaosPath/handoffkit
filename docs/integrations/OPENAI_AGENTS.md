@@ -23,3 +23,40 @@ def build_handoff(previous_agent: str, next_agent: str, task: str) -> dict:
 
 Use the SDK for tool execution and model orchestration. Use HandoffKit to make
 handoff payloads inspectable, testable, and replayable.
+
+## Copy/Paste Adapter
+
+```python
+from typing import Any
+
+from handoffkit import HandoffState, HandoffStateValidator
+
+
+def build_agents_sdk_handoff_payload(
+    previous_agent: str,
+    next_agent: str,
+    task: str,
+    sdk_context: dict[str, Any],
+) -> dict[str, Any]:
+    handoff = HandoffState(
+        task=task,
+        from_agent=previous_agent,
+        to_agent=next_agent,
+        summary=str(sdk_context["summary"]),
+        decisions=list(sdk_context.get("decisions", [])),
+        important_files=list(sdk_context.get("important_files", [])),
+        errors=list(sdk_context.get("errors", [])),
+        next_steps=list(sdk_context.get("next_steps", [])),
+        metadata={"integration": "openai-agents-sdk", "errors_checked": True},
+    )
+    HandoffStateValidator().validate(handoff).raise_if_failed()
+    return handoff.to_dict()
+```
+
+## Runnable Example
+
+See [`examples/openai_agents_sdk_integration.py`](../../examples/openai_agents_sdk_integration.py).
+
+The example does not call the OpenAI API. It shows the boundary to keep stable:
+the Agents SDK can run agents and tools, while HandoffKit validates the handoff
+payload before the next agent consumes it.

@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 680" role="img" aria-labelledby="title desc">
+  <title id="title">HandoffKit coding-review demo</title>
+  <desc id="desc">A taller polished HandoffKit before and after graphic comparing vague context soup with structured HandoffState handoffs.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="680" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f8fafc"/>
+      <stop offset="0.5" stop-color="#eef6ff"/>
+      <stop offset="1" stop-color="#ecfdf5"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#2563eb"/>
+      <stop offset="0.5" stop-color="#059669"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <filter id="shadow" x="-7%" y="-10%" width="114%" height="124%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0f172a" flood-opacity="0.14"/>
+    </filter>
+    <style>
+      .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+      .title { fill: #0f172a; font-size: 40px; font-weight: 860; letter-spacing: 0; }
+      .lead { fill: #475569; font-size: 18px; font-weight: 540; letter-spacing: 0; }
+      .label { font-size: 12px; font-weight: 820; letter-spacing: 0; }
+      .h2 { fill: #0f172a; font-size: 25px; font-weight: 820; letter-spacing: 0; }
+      .body { fill: #334155; font-size: 17px; font-weight: 560; letter-spacing: 0; }
+      .muted { fill: #64748b; font-size: 14px; font-weight: 560; letter-spacing: 0; }
+      .cmd { fill: #dbeafe; font-size: 15px; font-weight: 760; letter-spacing: 0; }
+      .metric { fill: #334155; font-size: 13px; font-weight: 720; letter-spacing: 0; }
+      .bad { fill: #be123c; }
+      .ok { fill: #047857; }
+      .blue { fill: #1d4ed8; }
+      .warn { fill: #a16207; }
+      .surface { fill: #ffffff; stroke: #dbe4ef; stroke-width: 1.2; }
+      .terminal { fill: #0b1020; stroke: #1e293b; stroke-width: 1.2; }
+      .row { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1; }
+      .soft { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="680" rx="34" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="1277" height="677" rx="32.5" fill="none" stroke="#dbe4ef" stroke-width="3"/>
+
+  <g transform="translate(68 58)">
+    <rect width="134" height="32" rx="16" fill="#dbeafe" stroke="#bfdbfe"/>
+    <text x="20" y="21" class="mono label blue">5 MIN DEMO</text>
+    <text x="0" y="86" class="sans title">Context soup becomes a contract</text>
+    <text x="0" y="122" class="sans lead">Run a coding-agent workflow, then inspect exactly what the next agent receives.</text>
+    <rect x="0" y="154" width="560" height="6" rx="3" fill="url(#accent)"/>
+  </g>
+
+  <g transform="translate(738 66)" filter="url(#shadow)">
+    <rect width="454" height="132" rx="22" class="terminal"/>
+    <circle cx="30" cy="28" r="6.5" fill="#fb7185"/>
+    <circle cx="54" cy="28" r="6.5" fill="#fbbf24"/>
+    <circle cx="78" cy="28" r="6.5" fill="#34d399"/>
+    <path d="M28 50H426" stroke="#1e293b"/>
+    <text x="30" y="80" class="mono cmd">$ pip install handoffkit</text>
+    <text x="30" y="106" class="mono cmd">$ handoffkit init coding-review</text>
+  </g>
+
+  <g transform="translate(68 258)" filter="url(#shadow)">
+    <rect width="366" height="314" rx="26" class="surface"/>
+    <rect x="28" y="28" width="116" height="32" rx="16" fill="#ffe4e6" stroke="#fecdd3"/>
+    <text x="52" y="49" class="sans label bad">BEFORE</text>
+    <text x="28" y="102" class="sans h2 bad">Before: vague summary</text>
+    <rect x="28" y="132" width="310" height="112" rx="18" fill="#fff7f8" stroke="#ffe4e6"/>
+    <text x="52" y="172" class="sans body">"Basically done.</text>
+    <text x="52" y="204" class="sans body">Reviewer found an issue.</text>
+    <text x="52" y="236" class="sans body">Tester should run it."</text>
+    <text x="28" y="284" class="mono label bad">lost: files, decisions, errors, next steps</text>
+  </g>
+
+  <g transform="translate(472 378)">
+    <path d="M0 0H120" stroke="#94a3b8" stroke-width="3.2" stroke-linecap="round"/>
+    <path d="M106 -14L122 0L106 14" fill="none" stroke="#94a3b8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="14" y="-82" width="98" height="38" rx="19" fill="#ffffff" stroke="#cbd5e1"/>
+    <text x="43" y="-58" class="mono label" fill="#475569">lost</text>
+    <rect x="2" y="44" width="118" height="38" rx="19" fill="#ffffff" stroke="#cbd5e1"/>
+    <text x="28" y="68" class="mono label" fill="#475569">becomes</text>
+  </g>
+
+  <g transform="translate(626 232)" filter="url(#shadow)">
+    <rect width="588" height="384" rx="28" class="surface"/>
+    <rect x="32" y="30" width="108" height="32" rx="16" fill="#dcfce7" stroke="#bbf7d0"/>
+    <text x="56" y="51" class="sans label ok">AFTER</text>
+    <text x="32" y="100" class="sans h2 ok">After: HandoffState</text>
+    <text x="32" y="132" class="sans muted">Structured state travels as data, not as a fragile paragraph.</text>
+
+    <g transform="translate(32 164)">
+      <rect width="248" height="48" rx="14" class="row"/>
+      <circle cx="24" cy="24" r="6" fill="#2563eb"/>
+      <text x="44" y="30" class="sans body">decisions: use argparse</text>
+
+      <rect x="292" width="232" height="48" rx="14" class="row"/>
+      <circle cx="316" cy="24" r="6" fill="#059669"/>
+      <text x="336" y="30" class="sans body">files: calculator.py</text>
+
+      <rect y="70" width="248" height="48" rx="14" class="row"/>
+      <circle cx="24" cy="94" r="6" fill="#be123c"/>
+      <text x="44" y="100" class="sans body">errors: checked path</text>
+
+      <rect x="292" y="70" width="232" height="48" rx="14" class="row"/>
+      <circle cx="316" cy="94" r="6" fill="#f59e0b"/>
+      <text x="336" y="100" class="sans body">next_steps: pytest -q</text>
+    </g>
+
+    <g transform="translate(32 318)">
+      <rect width="160" height="38" rx="19" fill="#ecfdf5" stroke="#bbf7d0"/>
+      <text x="22" y="24" class="mono metric ok">validation passed</text>
+      <rect x="178" width="154" height="38" rx="19" fill="#eff6ff" stroke="#bfdbfe"/>
+      <text x="202" y="24" class="mono metric blue">quality A / 1.000</text>
+      <rect x="350" width="188" height="38" rx="19" fill="#fffbeb" stroke="#fde68a"/>
+      <text x="372" y="24" class="mono metric warn">replay: 4 steps, 3 handoffs</text>
+    </g>
+  </g>
+</svg>

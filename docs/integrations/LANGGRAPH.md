@@ -28,3 +28,32 @@ def coder_node(state: dict) -> dict:
 
 Use LangGraph for graph control flow. Use HandoffKit for the contract carried
 between nodes.
+
+## Copy/Paste Adapter
+
+```python
+from handoffkit import HandoffState, HandoffStateValidator
+
+
+def to_graph_payload(handoff: HandoffState) -> dict:
+    HandoffStateValidator().validate(handoff).raise_if_failed()
+    return {"handoff": handoff.to_dict()}
+
+
+def from_graph_payload(state: dict) -> HandoffState:
+    handoff = HandoffState.from_dict(state["handoff"]).validate()
+    HandoffStateValidator().validate(handoff).raise_if_failed()
+    return handoff
+```
+
+Keep orchestration decisions in LangGraph. Keep handoff shape, validation, and
+reporting in HandoffKit.
+
+## Runnable Example
+
+See [`examples/langgraph_integration.py`](../../examples/langgraph_integration.py).
+
+The example uses LangGraph-style node functions and runs offline without
+requiring LangGraph as a dependency. If your application already uses LangGraph,
+drop the same node functions into your graph and keep `HandoffState` as the
+payload between nodes.

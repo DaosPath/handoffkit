@@ -28,3 +28,32 @@ def to_handoff(decision: ReviewDecision) -> HandoffState:
 
 Use Pydantic AI for strongly typed model outputs. Use HandoffKit for the
 multi-agent workflow contract and reporting layer.
+
+## Copy/Paste Adapter
+
+```python
+from handoffkit import HandoffState, HandoffStateValidator
+
+
+def pydantic_ai_result_to_handoff(result) -> HandoffState:
+    handoff = HandoffState(
+        task=result.task,
+        from_agent=result.previous_agent,
+        to_agent=result.next_agent,
+        summary=result.summary,
+        decisions=list(result.decisions),
+        important_files=list(result.important_files),
+        errors=list(getattr(result, "risks", [])),
+        next_steps=list(result.next_steps),
+        metadata={"integration": "pydantic-ai", "errors_checked": True},
+    )
+    HandoffStateValidator().validate(handoff).raise_if_failed()
+    return handoff
+```
+
+## Runnable Example
+
+See [`examples/pydantic_ai_integration.py`](../../examples/pydantic_ai_integration.py).
+
+The example runs offline with a dataclass stand-in for a typed Pydantic AI
+result, so normal tests do not need provider keys or extra dependencies.
