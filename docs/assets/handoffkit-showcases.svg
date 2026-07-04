@@ -1,74 +1,116 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
   <title id="title">HandoffKit real-world workflow showcases</title>
-  <desc id="desc">Three HandoffKit demos showing coding agents, customer support escalation, and research workflow handoffs with quality and replay reports.</desc>
+  <desc id="desc">Three polished HandoffKit demos showing coding agents, support escalation, and research workflow with structured handoffs and reports.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f8fafc"/>
-      <stop offset="1" stop-color="#eef6ff"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f8fafc"/>
+      <stop offset="0.52" stop-color="#eef6ff"/>
+      <stop offset="1" stop-color="#ecfdf5"/>
     </linearGradient>
-    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2563eb"/>
-      <stop offset="1" stop-color="#0f766e"/>
+    <linearGradient id="blueGreen" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#059669"/>
     </linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
-      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.12"/>
+    <linearGradient id="amberRose" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#e11d48"/>
+    </linearGradient>
+    <linearGradient id="violetCyan" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+    <filter id="shadow" x="-8%" y="-10%" width="116%" height="124%">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#0f172a" flood-opacity="0.14"/>
     </filter>
+    <style>
+      .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+      .h { fill: #0f172a; font-size: 43px; font-weight: 820; letter-spacing: 0; }
+      .lead { fill: #475569; font-size: 19px; font-weight: 520; letter-spacing: 0; }
+      .title { fill: #0f172a; font-size: 24px; font-weight: 800; letter-spacing: 0; }
+      .copy { fill: #475569; font-size: 16px; font-weight: 520; letter-spacing: 0; }
+      .agent { fill: #f8fafc; font-size: 12px; font-weight: 780; letter-spacing: 0; }
+      .metric { fill: #0f172a; font-size: 18px; font-weight: 820; letter-spacing: 0; }
+      .metricLabel { fill: #64748b; font-size: 12px; font-weight: 720; letter-spacing: 0; }
+      .card { fill: #ffffff; stroke: #dbe4ef; stroke-width: 1; }
+      .dash { stroke-dasharray: 5 8; }
+    </style>
   </defs>
-  <rect width="1200" height="520" rx="32" fill="url(#bg)"/>
-  <g transform="translate(58 52)">
-    <text x="0" y="0" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="38" font-weight="750" fill="#0f172a">Three demos, one contract</text>
-    <text x="0" y="42" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#475569">Free-text context soup becomes validation, quality scores, replay, and next steps.</text>
+  <rect width="1280" height="640" rx="36" fill="url(#bg)"/>
+  <path d="M72 126H1208" stroke="#cbd5e1" stroke-width="1"/>
+  <path d="M72 568H1208" stroke="#cbd5e1" stroke-width="1"/>
+
+  <g transform="translate(72 62)">
+    <rect width="190" height="34" rx="17" fill="#e0f2fe" stroke="#bae6fd"/>
+    <text x="20" y="23" class="mono metricLabel" fill="#0369a1">REAL DEMOS / NO API KEY</text>
+    <text x="0" y="88" class="sans h">Three demos, one contract</text>
+    <text x="0" y="124" class="sans lead">Coding, support, and research workflows all preserve the same inspectable HandoffState shape.</text>
   </g>
-  <g transform="translate(58 142)" filter="url(#shadow)">
-    <rect width="330" height="282" rx="20" fill="#ffffff"/>
-    <rect x="0" y="0" width="330" height="8" rx="4" fill="#2563eb"/>
-    <text x="28" y="52" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="24" font-weight="750" fill="#0f172a">Coding agents</text>
-    <text x="28" y="86" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#334155">Architect → Coder → Reviewer → Tester</text>
-    <line x1="28" y1="116" x2="302" y2="116" stroke="#e2e8f0"/>
-    <text x="28" y="150" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#475569">Preserves files, decisions, errors, review fixes, and test commands.</text>
-    <g transform="translate(28 190)">
-      <rect width="80" height="34" rx="17" fill="#dbeafe"/>
-      <text x="19" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#1d4ed8">A score</text>
-      <rect x="96" width="90" height="34" rx="17" fill="#dcfce7"/>
-      <text x="117" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#166534">3 handoffs</text>
-      <rect x="202" width="88" height="34" rx="17" fill="#fef3c7"/>
-      <text x="226" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#92400e">replay</text>
+
+  <g transform="translate(72 172)" filter="url(#shadow)">
+    <rect width="352" height="334" rx="24" class="card"/>
+    <rect x="0" y="0" width="352" height="10" rx="5" fill="url(#blueGreen)"/>
+    <text x="26" y="52" class="sans title">Coding agents</text>
+    <text x="26" y="82" class="sans copy">Architect -> Coder -> Reviewer -> Tester</text>
+    <g transform="translate(26 116)">
+      <rect width="78" height="34" rx="17" fill="#2563eb"/><text x="18" y="22" class="sans agent">Plan</text>
+      <path d="M86 17H118" stroke="#94a3b8" stroke-width="2.5"/><path d="M112 9L122 17L112 25" stroke="#94a3b8" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="130" width="78" height="34" rx="17" fill="#0891b2"/><text x="149" y="22" class="sans agent">Build</text>
+      <path d="M216 17H248" stroke="#94a3b8" stroke-width="2.5"/><path d="M242 9L252 17L242 25" stroke="#94a3b8" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="260" width="66" height="34" rx="17" fill="#059669"/><text x="279" y="22" class="sans agent">Test</text>
+    </g>
+    <rect x="26" y="180" width="300" height="74" rx="16" fill="#f8fafc" stroke="#e2e8f0"/>
+    <text x="46" y="210" class="sans copy">Preserves files, review fixes, error paths, and exact test commands.</text>
+    <g transform="translate(26 278)">
+      <text x="0" y="0" class="sans metric">1.000</text><text x="0" y="22" class="sans metricLabel">QUALITY</text>
+      <text x="106" y="0" class="sans metric">3</text><text x="106" y="22" class="sans metricLabel">HANDOFFS</text>
+      <text x="212" y="0" class="sans metric">4</text><text x="212" y="22" class="sans metricLabel">TRACE STEPS</text>
     </g>
   </g>
-  <g transform="translate(435 142)" filter="url(#shadow)">
-    <rect width="330" height="282" rx="20" fill="#ffffff"/>
-    <rect x="0" y="0" width="330" height="8" rx="4" fill="#0f766e"/>
-    <text x="28" y="52" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="24" font-weight="750" fill="#0f172a">Support escalation</text>
-    <text x="28" y="86" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#334155">Triage → Billing → Refund → Supervisor</text>
-    <line x1="28" y1="116" x2="302" y2="116" stroke="#e2e8f0"/>
-    <text x="28" y="150" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#475569">Keeps charge IDs, policy checks, correction notes, and approval reasons.</text>
-    <g transform="translate(28 190)">
-      <rect width="80" height="34" rx="17" fill="#ccfbf1"/>
-      <text x="19" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#0f766e">0.925</text>
-      <rect x="96" width="90" height="34" rx="17" fill="#dcfce7"/>
-      <text x="117" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#166534">3 handoffs</text>
-      <rect x="202" width="88" height="34" rx="17" fill="#fef3c7"/>
-      <text x="226" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#92400e">audit</text>
+
+  <g transform="translate(464 172)" filter="url(#shadow)">
+    <rect width="352" height="334" rx="24" class="card"/>
+    <rect x="0" y="0" width="352" height="10" rx="5" fill="url(#amberRose)"/>
+    <text x="26" y="52" class="sans title">Support escalation</text>
+    <text x="26" y="82" class="sans copy">Triage -> Billing -> Refund -> Supervisor</text>
+    <g transform="translate(26 116)">
+      <rect width="78" height="34" rx="17" fill="#e11d48"/><text x="20" y="22" class="sans agent">Triage</text>
+      <path d="M86 17H118" stroke="#94a3b8" stroke-width="2.5"/><path d="M112 9L122 17L112 25" stroke="#94a3b8" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="130" width="78" height="34" rx="17" fill="#f59e0b"/><text x="146" y="22" class="sans agent">Billing</text>
+      <path d="M216 17H248" stroke="#94a3b8" stroke-width="2.5"/><path d="M242 9L252 17L242 25" stroke="#94a3b8" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="260" width="66" height="34" rx="17" fill="#0f766e"/><text x="277" y="22" class="sans agent">Audit</text>
+    </g>
+    <rect x="26" y="180" width="300" height="74" rx="16" fill="#fff7ed" stroke="#fed7aa"/>
+    <text x="46" y="210" class="sans copy">Keeps charge IDs, policy checks, refund reasons, and supervisor approval.</text>
+    <g transform="translate(26 278)">
+      <text x="0" y="0" class="sans metric">0.925</text><text x="0" y="22" class="sans metricLabel">QUALITY</text>
+      <text x="106" y="0" class="sans metric">3</text><text x="106" y="22" class="sans metricLabel">HANDOFFS</text>
+      <text x="212" y="0" class="sans metric">audit</text><text x="212" y="22" class="sans metricLabel">REPORT</text>
     </g>
   </g>
-  <g transform="translate(812 142)" filter="url(#shadow)">
-    <rect width="330" height="282" rx="20" fill="#ffffff"/>
-    <rect x="0" y="0" width="330" height="8" rx="4" fill="url(#blue)"/>
-    <text x="28" y="52" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="24" font-weight="750" fill="#0f172a">Research workflow</text>
-    <text x="28" y="86" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#334155">Researcher → Extractor → Fact-checker → Writer</text>
-    <line x1="28" y1="116" x2="302" y2="116" stroke="#e2e8f0"/>
-    <text x="28" y="150" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#475569">Tracks sources, claims, confidence, corrections, and writer constraints.</text>
-    <g transform="translate(28 190)">
-      <rect width="80" height="34" rx="17" fill="#e0e7ff"/>
-      <text x="19" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#3730a3">0.912</text>
-      <rect x="96" width="90" height="34" rx="17" fill="#dcfce7"/>
-      <text x="117" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#166534">3 handoffs</text>
-      <rect x="202" width="88" height="34" rx="17" fill="#fef3c7"/>
-      <text x="222" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#92400e">sources</text>
+
+  <g transform="translate(856 172)" filter="url(#shadow)">
+    <rect width="352" height="334" rx="24" class="card"/>
+    <rect x="0" y="0" width="352" height="10" rx="5" fill="url(#violetCyan)"/>
+    <text x="26" y="52" class="sans title">Research workflow</text>
+    <text x="26" y="82" class="sans copy">Researcher -> Extractor -> Fact-checker -> Writer</text>
+    <g transform="translate(26 116)">
+      <rect width="78" height="34" rx="17" fill="#7c3aed"/><text x="14" y="22" class="sans agent">Research</text>
+      <path d="M86 17H118" stroke="#94a3b8" stroke-width="2.5"/><path d="M112 9L122 17L112 25" stroke="#94a3b8" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="130" width="78" height="34" rx="17" fill="#2563eb"/><text x="146" y="22" class="sans agent">Extract</text>
+      <path d="M216 17H248" stroke="#94a3b8" stroke-width="2.5"/><path d="M242 9L252 17L242 25" stroke="#94a3b8" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="260" width="66" height="34" rx="17" fill="#0891b2"/><text x="279" y="22" class="sans agent">Write</text>
+    </g>
+    <rect x="26" y="180" width="300" height="74" rx="16" fill="#f5f3ff" stroke="#ddd6fe"/>
+    <text x="46" y="210" class="sans copy">Tracks sources, claims, confidence, corrections, and writer constraints.</text>
+    <g transform="translate(26 278)">
+      <text x="0" y="0" class="sans metric">0.912</text><text x="0" y="22" class="sans metricLabel">QUALITY</text>
+      <text x="106" y="0" class="sans metric">3</text><text x="106" y="22" class="sans metricLabel">HANDOFFS</text>
+      <text x="212" y="0" class="sans metric">src</text><text x="212" y="22" class="sans metricLabel">EVIDENCE</text>
     </g>
   </g>
-  <g transform="translate(58 462)">
-    <rect width="1084" height="1" fill="#cbd5e1"/>
-    <text x="0" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17" fill="#0f172a">handoffkit init coding-review  ·  python coding_review.py  ·  handoffkit report runs/latest</text>
+
+  <g transform="translate(72 586)">
+    <text x="0" y="0" class="mono lead" font-size="17">handoffkit init coding-review  ->  python coding_review.py  ->  handoffkit report runs/latest</text>
   </g>
 </svg>
