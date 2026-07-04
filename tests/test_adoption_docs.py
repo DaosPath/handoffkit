@@ -9,11 +9,15 @@ def test_readme_links_showcases_post_and_integrations() -> None:
     text = Path("README.md").read_text(encoding="utf-8")
 
     assert "docs/assets/handoffkit-showcases.svg" in text
+    assert "docs/assets/coding-review-terminal.svg" in text
     assert "reports/coding_review.md" in text
     assert "Context Soup vs Contract Handoffs" in text
+    assert "docs/launch/CONTEXT_SOUP_LAUNCH_KIT.md" in text
     assert "docs/integrations/LANGGRAPH.md" in text
     assert "docs/integrations/OPENAI_AGENTS.md" in text
     assert "docs/integrations/PYDANTIC_AI.md" in text
+    assert "examples/langgraph_integration.py" in text
+    assert "examples/openai_agents_sdk_integration.py" in text
 
 
 def test_context_soup_post_exists() -> None:
@@ -37,6 +41,15 @@ def test_integration_docs_are_explicit_and_offline() -> None:
             assert term in text
 
 
+def test_launch_kit_has_channel_specific_copy() -> None:
+    text = Path("docs/launch/CONTEXT_SOUP_LAUNCH_KIT.md").read_text(encoding="utf-8")
+
+    for term in ["Hacker News", "r/Python", "r/LocalLLaMA", "X / Twitter", "LinkedIn"]:
+        assert term in text
+    assert "pip install handoffkit" in text
+    assert "handoffkit report runs/latest" in text
+
+
 def test_showcase_svg_asset_exists() -> None:
     text = Path("docs/assets/handoffkit-showcases.svg").read_text(encoding="utf-8")
 
@@ -44,3 +57,12 @@ def test_showcase_svg_asset_exists() -> None:
     assert "Coding agents" in text
     assert "Support escalation" in text
     assert "Research workflow" in text
+
+
+def test_coding_review_terminal_asset_exists() -> None:
+    text = Path("docs/assets/coding-review-terminal.svg").read_text(encoding="utf-8")
+
+    assert "<svg" in text
+    assert "pip install handoffkit" in text
+    assert "Before: vague summary" in text
+    assert "After: HandoffState" in text

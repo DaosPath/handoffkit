@@ -44,6 +44,8 @@ def test_showcase_examples_run_without_api_key(tmp_path: Path) -> None:
         "examples/coding_review.py",
         "examples/support_escalation.py",
         "examples/research_workflow.py",
+        "examples/langgraph_integration.py",
+        "examples/openai_agents_sdk_integration.py",
     ]:
         completed = subprocess.run(
             [sys.executable, script],
@@ -53,4 +55,4 @@ def test_showcase_examples_run_without_api_key(tmp_path: Path) -> None:
             check=False,
         )
         assert completed.returncode == 0, completed.stdout + completed.stderr
-        assert "Free-text Summary Loses" in completed.stdout
+        assert "Handoff" in completed.stdout or "Free-text Summary Loses" in completed.stdout

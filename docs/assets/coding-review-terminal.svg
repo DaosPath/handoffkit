@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">HandoffKit coding-review terminal demo</title>
+  <desc id="desc">A terminal-style walkthrough showing a vague summary losing context and HandoffKit preserving decisions, files, errors, next steps, and reports.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0b1020"/>
+      <stop offset="52%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#102a2a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="48%" stop-color="#a7f3d0"/>
+      <stop offset="100%" stop-color="#facc15"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <style>
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+      .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .muted { fill: #94a3b8; }
+      .text { fill: #e5e7eb; }
+      .green { fill: #86efac; }
+      .blue { fill: #7dd3fc; }
+      .yellow { fill: #fde68a; }
+      .red { fill: #fca5a5; }
+      .panel { fill: rgba(15, 23, 42, 0.88); stroke: rgba(148, 163, 184, 0.28); stroke-width: 1; }
+      .line { opacity: 0; animation: show 12s infinite; }
+      .l1 { animation-delay: 0.2s; }
+      .l2 { animation-delay: 1.2s; }
+      .l3 { animation-delay: 2.2s; }
+      .l4 { animation-delay: 3.2s; }
+      .l5 { animation-delay: 4.2s; }
+      .l6 { animation-delay: 5.2s; }
+      .l7 { animation-delay: 6.2s; }
+      .l8 { animation-delay: 7.2s; }
+      .l9 { animation-delay: 8.2s; }
+      .pulse { animation: pulse 2.4s infinite ease-in-out; }
+      @keyframes show {
+        0%, 6% { opacity: 0; transform: translateY(8px); }
+        10%, 86% { opacity: 1; transform: translateY(0); }
+        92%, 100% { opacity: 0; transform: translateY(0); }
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 0.62; }
+        50% { opacity: 1; }
+      }
+    </style>
+  </defs>
+
+  <rect width="1200" height="720" rx="34" fill="url(#bg)"/>
+  <circle cx="1010" cy="122" r="180" fill="#0f766e" opacity="0.18"/>
+  <circle cx="190" cy="610" r="220" fill="#1d4ed8" opacity="0.13"/>
+
+  <text x="72" y="76" class="sans text" font-size="34" font-weight="760">Wow in 5 minutes</text>
+  <text x="72" y="112" class="sans muted" font-size="18">Context soup vs contract handoffs, running locally from the installed package.</text>
+  <rect x="72" y="137" width="1056" height="7" rx="4" fill="url(#accent)" opacity="0.9"/>
+
+  <g filter="url(#shadow)">
+    <rect x="72" y="176" width="1056" height="240" rx="18" class="panel"/>
+    <rect x="72" y="176" width="1056" height="44" rx="18" fill="#020617"/>
+    <circle cx="100" cy="198" r="7" fill="#f87171"/>
+    <circle cx="124" cy="198" r="7" fill="#fbbf24"/>
+    <circle cx="148" cy="198" r="7" fill="#34d399"/>
+    <text x="184" y="204" class="mono muted" font-size="14">terminal</text>
+
+    <text x="100" y="256" class="mono blue line l1" font-size="19">$ pip install handoffkit</text>
+    <text x="100" y="289" class="mono green line l2" font-size="19">Successfully installed handoffkit-1.1.0</text>
+    <text x="100" y="322" class="mono blue line l3" font-size="19">$ handoffkit init coding-review</text>
+    <text x="100" y="355" class="mono blue line l4" font-size="19">$ cd coding-review &amp;&amp; python coding_review.py</text>
+    <text x="100" y="388" class="mono blue line l5" font-size="19">$ handoffkit report runs/latest</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="72" y="448" width="504" height="202" rx="18" class="panel"/>
+    <text x="102" y="492" class="sans red" font-size="23" font-weight="720">Before: vague summary</text>
+    <text x="102" y="532" class="sans text" font-size="19">“Calculator basically done.</text>
+    <text x="102" y="560" class="sans text" font-size="19">Reviewer found one issue.</text>
+    <text x="102" y="588" class="sans text" font-size="19">Tester should run it.”</text>
+    <text x="102" y="623" class="mono red pulse" font-size="16">lost: files, decisions, errors, next steps</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="624" y="448" width="504" height="202" rx="18" class="panel"/>
+    <text x="654" y="492" class="sans green" font-size="23" font-weight="720">After: HandoffState</text>
+    <text x="654" y="528" class="mono text line l6" font-size="16">decisions: ["Use argparse", "Pure functions"]</text>
+    <text x="654" y="558" class="mono text line l7" font-size="16">files: ["calculator.py", "tests/test_calculator.py"]</text>
+    <text x="654" y="588" class="mono text line l8" font-size="16">errors: ["division-by-zero path checked"]</text>
+    <text x="654" y="618" class="mono yellow line l9" font-size="16">report: validation + quality + replay evidence</text>
+  </g>
+</svg>
