@@ -28,3 +28,12 @@ def coder_node(state: dict) -> dict:
 
 Use LangGraph for graph control flow. Use HandoffKit for the contract carried
 between nodes.
+
+## Runnable Example
+
+See [`examples/langgraph_integration.py`](../../examples/langgraph_integration.py).
+
+The example uses LangGraph-style node functions and runs offline without
+requiring LangGraph as a dependency. If your application already uses LangGraph,
+drop the same node functions into your graph and keep `HandoffState` as the
+payload between nodes.
