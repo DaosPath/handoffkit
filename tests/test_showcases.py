@@ -46,6 +46,7 @@ def test_showcase_examples_run_without_api_key(tmp_path: Path) -> None:
         "examples/research_workflow.py",
         "examples/langgraph_integration.py",
         "examples/openai_agents_sdk_integration.py",
+        "examples/pydantic_ai_integration.py",
     ]:
         completed = subprocess.run(
             [sys.executable, script],

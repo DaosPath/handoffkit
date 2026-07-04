@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0
+
+- Added `handoffkit demos` to list real-world offline showcases.
+- Added `handoffkit showcase <slug>` to run a showcase and write `runs/latest`.
+- Improved showcase template output with next commands after `handoffkit init`.
+- Added report gallery documentation and SVG assets for README/PyPI.
+- Added offline Pydantic AI integration example.
+- Expanded integration docs with copy/paste adapter snippets.
+
 ## 1.1.0
 
 - Added real-world coding, support escalation, and research workflow showcases.
