@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">HandoffKit real-world workflow showcases</title>
+  <desc id="desc">Three HandoffKit demos showing coding agents, customer support escalation, and research workflow handoffs with quality and replay reports.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#eef6ff"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="520" rx="32" fill="url(#bg)"/>
+  <g transform="translate(58 52)">
+    <text x="0" y="0" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="38" font-weight="750" fill="#0f172a">Three demos, one contract</text>
+    <text x="0" y="42" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" fill="#475569">Free-text context soup becomes validation, quality scores, replay, and next steps.</text>
+  </g>
+  <g transform="translate(58 142)" filter="url(#shadow)">
+    <rect width="330" height="282" rx="20" fill="#ffffff"/>
+    <rect x="0" y="0" width="330" height="8" rx="4" fill="#2563eb"/>
+    <text x="28" y="52" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="24" font-weight="750" fill="#0f172a">Coding agents</text>
+    <text x="28" y="86" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#334155">Architect → Coder → Reviewer → Tester</text>
+    <line x1="28" y1="116" x2="302" y2="116" stroke="#e2e8f0"/>
+    <text x="28" y="150" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#475569">Preserves files, decisions, errors, review fixes, and test commands.</text>
+    <g transform="translate(28 190)">
+      <rect width="80" height="34" rx="17" fill="#dbeafe"/>
+      <text x="19" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#1d4ed8">A score</text>
+      <rect x="96" width="90" height="34" rx="17" fill="#dcfce7"/>
+      <text x="117" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#166534">3 handoffs</text>
+      <rect x="202" width="88" height="34" rx="17" fill="#fef3c7"/>
+      <text x="226" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#92400e">replay</text>
+    </g>
+  </g>
+  <g transform="translate(435 142)" filter="url(#shadow)">
+    <rect width="330" height="282" rx="20" fill="#ffffff"/>
+    <rect x="0" y="0" width="330" height="8" rx="4" fill="#0f766e"/>
+    <text x="28" y="52" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="24" font-weight="750" fill="#0f172a">Support escalation</text>
+    <text x="28" y="86" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#334155">Triage → Billing → Refund → Supervisor</text>
+    <line x1="28" y1="116" x2="302" y2="116" stroke="#e2e8f0"/>
+    <text x="28" y="150" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#475569">Keeps charge IDs, policy checks, correction notes, and approval reasons.</text>
+    <g transform="translate(28 190)">
+      <rect width="80" height="34" rx="17" fill="#ccfbf1"/>
+      <text x="19" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#0f766e">0.925</text>
+      <rect x="96" width="90" height="34" rx="17" fill="#dcfce7"/>
+      <text x="117" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#166534">3 handoffs</text>
+      <rect x="202" width="88" height="34" rx="17" fill="#fef3c7"/>
+      <text x="226" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#92400e">audit</text>
+    </g>
+  </g>
+  <g transform="translate(812 142)" filter="url(#shadow)">
+    <rect width="330" height="282" rx="20" fill="#ffffff"/>
+    <rect x="0" y="0" width="330" height="8" rx="4" fill="url(#blue)"/>
+    <text x="28" y="52" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="24" font-weight="750" fill="#0f172a">Research workflow</text>
+    <text x="28" y="86" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#334155">Researcher → Extractor → Fact-checker → Writer</text>
+    <line x1="28" y1="116" x2="302" y2="116" stroke="#e2e8f0"/>
+    <text x="28" y="150" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" fill="#475569">Tracks sources, claims, confidence, corrections, and writer constraints.</text>
+    <g transform="translate(28 190)">
+      <rect width="80" height="34" rx="17" fill="#e0e7ff"/>
+      <text x="19" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#3730a3">0.912</text>
+      <rect x="96" width="90" height="34" rx="17" fill="#dcfce7"/>
+      <text x="117" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#166534">3 handoffs</text>
+      <rect x="202" width="88" height="34" rx="17" fill="#fef3c7"/>
+      <text x="222" y="23" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#92400e">sources</text>
+    </g>
+  </g>
+  <g transform="translate(58 462)">
+    <rect width="1084" height="1" fill="#cbd5e1"/>
+    <text x="0" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17" fill="#0f172a">handoffkit init coding-review  ·  python coding_review.py  ·  handoffkit report runs/latest</text>
+  </g>
+</svg>
