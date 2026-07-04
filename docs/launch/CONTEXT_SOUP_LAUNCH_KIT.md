@@ -7,15 +7,36 @@ problem it solves.
 Canonical asset:
 
 - Post: [`docs/CONTEXT_SOUP_VS_CONTRACT_HANDOFFS.md`](../CONTEXT_SOUP_VS_CONTRACT_HANDOFFS.md)
+- Gallery: [`docs/SHOWCASE_GALLERY.md`](../SHOWCASE_GALLERY.md)
 - Demo command:
 
 ```bash
 pip install handoffkit
+handoffkit demos
+handoffkit showcase coding-review
+handoffkit report runs/latest
+```
+
+- Template command:
+
+```bash
 handoffkit init coding-review
 cd coding-review
 python coding_review.py
 handoffkit report runs/latest
 ```
+
+## Screenshot / GIF Caption
+
+Short caption:
+
+> HandoffKit turns vague multi-agent summaries into structured contracts:
+> decisions, files, errors, next steps, validation, quality, and replay reports.
+
+Terminal caption:
+
+> One command runs the showcase, one command renders the report:
+> `handoffkit showcase coding-review` then `handoffkit report runs/latest`.
 
 ## Hacker News
 
