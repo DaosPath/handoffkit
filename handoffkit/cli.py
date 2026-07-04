@@ -24,7 +24,7 @@ from handoffkit.recipes import RecipeRunner
 from handoffkit.replay import ReplayRunner
 from handoffkit.reports import load_report_json
 from handoffkit.runner import Team
-from handoffkit.showcases import load_showcase_report, run_showcase
+from handoffkit.showcases import build_showcase, load_showcase_report, run_showcase, showcase_names
 from handoffkit.structured import StructuredOutputSchema
 from handoffkit.templates import TemplateScaffolder
 from handoffkit.tool import tool
@@ -370,19 +370,34 @@ def render_report(path: str) -> str:
     return load_showcase_report(path)
 
 
+def list_showcases() -> str:
+    """List the offline real-world showcases."""
+    lines = ["HandoffKit showcases", ""]
+    for slug in showcase_names():
+        showcase = build_showcase(slug)
+        lines.append(f"- {slug}: {showcase.title}")
+        lines.append(f"  command: handoffkit showcase {slug}")
+    return "\n".join(lines)
+
+
+def run_named_showcase(slug: str) -> str:
+    """Run one named showcase and write runs/latest artifacts."""
+    return run_showcase(slug).to_markdown()
+
+
 def run_coding_review_demo() -> str:
     """Run the real-world coding agents showcase."""
-    return run_showcase("coding-review").to_markdown()
+    return run_named_showcase("coding-review")
 
 
 def run_support_escalation_demo() -> str:
     """Run the real-world support escalation showcase."""
-    return run_showcase("support-escalation").to_markdown()
+    return run_named_showcase("support-escalation")
 
 
 def run_research_workflow_demo() -> str:
     """Run the real-world research workflow showcase."""
-    return run_showcase("research-workflow").to_markdown()
+    return run_named_showcase("research-workflow")
 
 
 def init_project(
@@ -403,7 +418,18 @@ def init_project(
         output=output,
         force=force,
     )
-    return result.to_markdown()
+    rendered = result.to_markdown()
+    if selected_template in showcase_names():
+        script = selected_template.replace("-", "_") + ".py"
+        rendered += (
+            "\n## Next Commands\n\n"
+            "```bash\n"
+            f"cd {project_name}\n"
+            f"python {script}\n"
+            "handoffkit report runs/latest\n"
+            "```\n"
+        )
+    return rendered
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -420,6 +446,9 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("demo-quality", help="Run a local handoff quality demo.")
     subparsers.add_parser("demo-validators", help="Run local contract validator demos.")
     subparsers.add_parser("demo-provider-formats", help="Run local provider format demos.")
+    subparsers.add_parser("demos", help="List real-world offline showcases.")
+    showcase_parser = subparsers.add_parser("showcase", help="Run one real-world showcase.")
+    showcase_parser.add_argument("slug", choices=showcase_names(), help="Showcase slug.")
     subparsers.add_parser("demo-coding-review", help="Run the coding agents showcase.")
     subparsers.add_parser("demo-support", help="Run the support escalation showcase.")
     subparsers.add_parser("demo-research", help="Run the research workflow showcase.")
@@ -469,6 +498,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "demo-provider-formats":
         print(run_provider_formats_demo())
+        return 0
+    if args.command == "demos":
+        print(list_showcases())
+        return 0
+    if args.command == "showcase":
+        print(run_named_showcase(args.slug))
         return 0
     if args.command == "demo-coding-review":
         print(run_coding_review_demo())
