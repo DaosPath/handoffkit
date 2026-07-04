@@ -3,12 +3,14 @@ import pytest
 from handoffkit.cli import (
     evaluate_report,
     init_project,
+    list_showcases,
     main,
     render_report,
     run_async_demo,
     run_coding_review_demo,
     run_demo,
     run_extension_demo,
+    run_named_showcase,
     run_provider_formats_demo,
     run_provider_tools_demo,
     run_quality_demo,
@@ -37,7 +39,7 @@ def test_cli_version(capsys) -> None:  # type: ignore[no-untyped-def]
     captured = capsys.readouterr()
 
     assert exc_info.value.code == 0
-    assert "handoffkit 1.1.0" in captured.out
+    assert "handoffkit 1.2.0" in captured.out
 
 
 def test_run_demo_reports_handoff_count() -> None:
@@ -122,12 +124,27 @@ def test_real_world_cli_demos_write_reports(tmp_path, monkeypatch) -> None:  # t
     assert "Research Workflow" in render_report(str(tmp_path / "runs" / "latest"))
 
 
+def test_showcase_list_and_named_showcase_write_reports(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+
+    listing = list_showcases()
+    output = run_named_showcase("coding-review")
+
+    assert "handoffkit showcase coding-review" in listing
+    assert "support-escalation" in listing
+    assert "Coding Agents" in output
+    assert (tmp_path / "runs" / "latest" / "trace.json").exists()
+    assert (tmp_path / "runs" / "latest" / "report.md").exists()
+    assert (tmp_path / "runs" / "latest" / "report.json").exists()
+
+
 def test_new_cli_commands_run(capsys) -> None:  # type: ignore[no-untyped-def]
     for command in [
         "demo-async",
         "demo-quality",
         "demo-validators",
         "demo-provider-formats",
+        "demos",
         "demo-coding-review",
         "demo-support",
         "demo-research",
@@ -136,6 +153,17 @@ def test_new_cli_commands_run(capsys) -> None:  # type: ignore[no-untyped-def]
         captured = capsys.readouterr()
         assert exit_code == 0
         assert captured.out
+
+
+def test_showcase_cli_command_runs(tmp_path, monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+
+    exit_code = main(["showcase", "support-escalation"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Customer Support" in captured.out
+    assert (tmp_path / "runs" / "latest" / "report.json").exists()
 
 
 def test_evaluate_report_command(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -165,4 +193,7 @@ def test_init_project_uses_showcase_template_name_directly(tmp_path) -> None:  #
     output = init_project("coding-review", output=str(tmp_path))
 
     assert "coding-review" in output
+    assert "cd coding-review" in output
+    assert "python coding_review.py" in output
+    assert "handoffkit report runs/latest" in output
     assert (tmp_path / "coding-review" / "coding_review.py").exists()
