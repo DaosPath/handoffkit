@@ -137,12 +137,12 @@
       <text x="580" y="58" class="sans nodeSub">tests</text>
     </g>
 
-    <g transform="translate(48 266)">
-      <rect width="588" height="160" rx="28" fill="#0a1322" stroke="url(#stateStroke)" stroke-width="2.8"/>
+    <g transform="translate(48 252)">
+      <rect width="588" height="184" rx="28" fill="#0a1322" stroke="url(#stateStroke)" stroke-width="2.8"/>
       <text x="30" y="47" class="sans panelTitle">HandoffState</text>
       <text x="30" y="77" class="sans panelSub">structured state transfer: decisions, files, errors, next steps</text>
 
-      <g transform="translate(30 116)">
+      <g transform="translate(30 132)">
         <rect width="118" height="34" rx="17" fill="#082f49" stroke="#0ea5e9"/>
         <circle cx="23" cy="17" r="5" fill="#38bdf8"/>
         <text x="43" y="22" class="mono chipText">files</text>
@@ -168,7 +168,7 @@
       </g>
     </g>
 
-    <g transform="translate(48 470)">
+    <g transform="translate(48 480)">
       <rect width="170" height="70" rx="22" fill="#050816" stroke="#26364f"/>
       <text x="25" y="34" class="sans metric">4 steps</text>
       <text x="25" y="54" class="mono metricLabel">RunTrace</text>
