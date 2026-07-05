@@ -154,6 +154,10 @@
         <rect x="296" width="126" height="34" rx="17" fill="#2a1a05" stroke="#b45309"/>
         <circle cx="319" cy="17" r="5" fill="#f59e0b"/>
         <text x="339" y="22" class="mono chipText">errors</text>
+
+        <rect x="438" width="120" height="34" rx="17" fill="#271805" stroke="#b45309"/>
+        <circle cx="461" cy="17" r="5" fill="#f59e0b"/>
+        <text x="479" y="22" class="mono chipText">replay</text>
       </g>
 
       <g transform="translate(430 28)">
@@ -161,8 +165,6 @@
         <text x="32" y="23" class="mono chipText">validated</text>
         <rect y="46" width="128" height="36" rx="18" fill="#172554" stroke="#2563eb"/>
         <text x="33" y="69" class="mono chipText">quality A</text>
-        <rect y="92" width="128" height="36" rx="18" fill="#2a1a05" stroke="#b45309"/>
-        <text x="31" y="115" class="mono chipText">replayable</text>
       </g>
     </g>
 
