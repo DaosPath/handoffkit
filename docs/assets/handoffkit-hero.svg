@@ -142,7 +142,7 @@
       <text x="30" y="47" class="sans panelTitle">HandoffState</text>
       <text x="30" y="77" class="sans panelSub">structured state transfer: decisions, files, errors, next steps</text>
 
-      <g transform="translate(30 105)">
+      <g transform="translate(30 116)">
         <rect width="118" height="34" rx="17" fill="#082f49" stroke="#0ea5e9"/>
         <circle cx="23" cy="17" r="5" fill="#38bdf8"/>
         <text x="43" y="22" class="mono chipText">files</text>
