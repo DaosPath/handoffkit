@@ -138,26 +138,26 @@
     </g>
 
     <g transform="translate(48 252)">
-      <rect width="588" height="184" rx="28" fill="#0a1322" stroke="url(#stateStroke)" stroke-width="2.8"/>
+      <rect width="588" height="190" rx="28" fill="#0a1322" stroke="url(#stateStroke)" stroke-width="2.8"/>
       <text x="30" y="47" class="sans panelTitle">HandoffState</text>
       <text x="30" y="77" class="sans panelSub">structured state transfer: decisions, files, errors, next steps</text>
 
-      <g transform="translate(30 132)">
-        <rect width="118" height="34" rx="17" fill="#082f49" stroke="#0ea5e9"/>
+      <g transform="translate(30 134)">
+        <rect width="112" height="34" rx="17" fill="#082f49" stroke="#0ea5e9"/>
         <circle cx="23" cy="17" r="5" fill="#38bdf8"/>
         <text x="43" y="22" class="mono chipText">files</text>
 
-        <rect x="134" width="146" height="34" rx="17" fill="#172554" stroke="#2563eb"/>
-        <circle cx="157" cy="17" r="5" fill="#60a5fa"/>
-        <text x="176" y="22" class="mono chipText">decisions</text>
+        <rect x="128" width="138" height="34" rx="17" fill="#172554" stroke="#2563eb"/>
+        <circle cx="151" cy="17" r="5" fill="#60a5fa"/>
+        <text x="170" y="22" class="mono chipText">decisions</text>
 
-        <rect x="296" width="126" height="34" rx="17" fill="#2a1a05" stroke="#b45309"/>
-        <circle cx="319" cy="17" r="5" fill="#f59e0b"/>
-        <text x="339" y="22" class="mono chipText">errors</text>
+        <rect x="282" width="116" height="34" rx="17" fill="#2a1a05" stroke="#b45309"/>
+        <circle cx="305" cy="17" r="5" fill="#f59e0b"/>
+        <text x="325" y="22" class="mono chipText">errors</text>
 
-        <rect x="438" width="120" height="34" rx="17" fill="#271805" stroke="#b45309"/>
-        <circle cx="461" cy="17" r="5" fill="#f59e0b"/>
-        <text x="479" y="22" class="mono chipText">replay</text>
+        <rect x="414" width="116" height="34" rx="17" fill="#271805" stroke="#b45309"/>
+        <circle cx="437" cy="17" r="5" fill="#f59e0b"/>
+        <text x="455" y="22" class="mono chipText">replay</text>
       </g>
 
       <g transform="translate(430 28)">
@@ -168,7 +168,7 @@
       </g>
     </g>
 
-    <g transform="translate(48 480)">
+    <g transform="translate(48 490)">
       <rect width="170" height="70" rx="22" fill="#050816" stroke="#26364f"/>
       <text x="25" y="34" class="sans metric">4 steps</text>
       <text x="25" y="54" class="mono metricLabel">RunTrace</text>
