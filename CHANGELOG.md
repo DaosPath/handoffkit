@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0
+
+- Added declarative tool creation helpers with `ToolSpec`, `ToolFactory`,
+  `DeclarativeTool`, and `HttpJsonTool`.
+- Added built-in public medical evidence lookup tools for PubMed,
+  ClinicalTrials.gov, and DailyMed.
+- Added clinical MAI-style MiMo benchmark runner with multi-stage diagnostic
+  handoffs, label normalization, and report generation.
+- Kept medical tools educational/research-only; no patient-care automation.
+
 ## 1.2.0
 
 - Added `handoffkit demos` to list real-world offline showcases.
