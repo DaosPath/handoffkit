@@ -56,6 +56,7 @@ from handoffkit.tool_execution import (
     ToolRegistry,
     ToolResult,
 )
+from handoffkit.tool_factory import DeclarativeTool, HttpJsonTool, ToolFactory, ToolSpec
 from handoffkit.tracing import FileTraceStore, RunTrace, TraceEvent, TraceStep
 from handoffkit.validation import (
     HandoffStateValidator,
@@ -65,7 +66,7 @@ from handoffkit.validation import (
     ValidationReport,
 )
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 __all__ = [
     "Agent",
@@ -73,6 +74,7 @@ __all__ = [
     "ContextPack",
     "ContextRetriever",
     "ContextRunResult",
+    "DeclarativeTool",
     "Extension",
     "ExtensionRegistry",
     "EvaluationCheck",
@@ -85,6 +87,7 @@ __all__ = [
     "HandoffQualityReport",
     "HandoffState",
     "HandoffStateValidator",
+    "HttpJsonTool",
     "JsonMemoryStore",
     "JsonOutputParser",
     "MemoryItem",
@@ -117,8 +120,10 @@ __all__ = [
     "ToolCall",
     "ToolCallParser",
     "ToolExecutionReport",
+    "ToolFactory",
     "ToolRegistry",
     "ToolResult",
+    "ToolSpec",
     "TraceEvent",
     "TraceStep",
     "ToolSchemaValidator",

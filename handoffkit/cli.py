@@ -1,4 +1,4 @@
-"""Command-line interface."""
+﻿"""Command-line interface."""
 
 from __future__ import annotations
 
@@ -13,9 +13,11 @@ from pathlib import Path
 from handoffkit import __version__
 from handoffkit.agent import Agent
 from handoffkit.builtins import plan_execute_review_recipe
+from handoffkit.doctor_benchmark import run_doctor_benchmark as execute_doctor_benchmark
 from handoffkit.evaluation import WorkflowEvaluator
 from handoffkit.extensions import Extension, ExtensionRegistry
 from handoffkit.handoff import HandoffState
+from handoffkit.mai_benchmark import run_mai_style_benchmark
 from handoffkit.protocol import HandoffProtocol
 from handoffkit.provider_adapters import ProviderToolAdapter
 from handoffkit.providers import BaseProvider
@@ -400,6 +402,22 @@ def run_research_workflow_demo() -> str:
     return run_named_showcase("research-workflow")
 
 
+
+def run_doctor_benchmark_demo(limit: int = 30) -> str:
+    """Run the real-case offline doctor benchmark harness."""
+    return execute_doctor_benchmark(limit).to_markdown()
+
+
+def run_mai_style_doctor_benchmark_demo(limit: int = 30) -> str:
+    """Run the public MAI-style sequential doctor benchmark."""
+    return run_mai_style_benchmark(limit).to_markdown()
+
+
+def run_doctor_orchestrator_demo() -> str:
+    """Run the educational doctor-orchestrator showcase."""
+    return run_named_showcase("doctor-orchestrator")
+
+
 def init_project(
     project_name: str,
     *,
@@ -452,6 +470,27 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("demo-coding-review", help="Run the coding agents showcase.")
     subparsers.add_parser("demo-support", help="Run the support escalation showcase.")
     subparsers.add_parser("demo-research", help="Run the research workflow showcase.")
+    subparsers.add_parser("demo-doctor", help="Run the educational doctor-orchestrator showcase.")
+    benchmark_doctor_parser = subparsers.add_parser(
+        "benchmark-doctor",
+        help="Run the real-case doctor benchmark harness.",
+    )
+    benchmark_doctor_parser.add_argument(
+        "--cases",
+        type=int,
+        default=30,
+        help="Number of bundled real cases to replay.",
+    )
+    benchmark_doctor_mai_parser = subparsers.add_parser(
+        "benchmark-doctor-mai",
+        help="Run public MAI-style sequential doctor benchmark.",
+    )
+    benchmark_doctor_mai_parser.add_argument(
+        "--cases",
+        type=int,
+        default=30,
+        help="Number of bundled real cases to replay.",
+    )
     subparsers.add_parser("doctor", help="Run local package diagnostics.")
     subparsers.add_parser("api", help="Show stable API candidates.")
     subparsers.add_parser("demo-trace", help="Run a local run trace demo.")
@@ -514,6 +553,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "demo-research":
         print(run_research_workflow_demo())
         return 0
+    if args.command == "demo-doctor":
+        print(run_doctor_orchestrator_demo())
+        return 0
+    if args.command == "benchmark-doctor":
+        print(run_doctor_benchmark_demo(args.cases))
+        return 0
+    if args.command == "benchmark-doctor-mai":
+        print(run_mai_style_doctor_benchmark_demo(args.cases))
+        return 0
     if args.command == "doctor":
         print(run_doctor())
         return 0
@@ -552,3 +600,6 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+

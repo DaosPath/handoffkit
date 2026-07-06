@@ -10,12 +10,12 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback.
     import tomli as tomllib
 
 
-def test_pyproject_is_stable_120() -> None:
+def test_pyproject_is_130_prerelease() -> None:
     data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
     project = data["project"]
     classifiers = project["classifiers"]
 
-    assert project["version"] == "1.2.0"
+    assert project["version"] == "1.3.0"
     assert "Development Status :: 5 - Production/Stable" in classifiers
     assert not any("Alpha" in item or "Beta" in item for item in classifiers)
 

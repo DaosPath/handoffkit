@@ -1,4 +1,4 @@
-"""Tests for real-world showcase demos."""
+﻿"""Tests for real-world showcase demos."""
 
 from __future__ import annotations
 
@@ -11,7 +11,12 @@ from handoffkit.showcases import load_showcase_report
 
 
 def test_showcase_names_are_available() -> None:
-    assert showcase_names() == ["coding-review", "support-escalation", "research-workflow"]
+    assert showcase_names() == [
+        "coding-review",
+        "support-escalation",
+        "research-workflow",
+        "doctor-orchestrator",
+    ]
 
 
 def test_build_showcase_contains_structured_handoffs() -> None:
@@ -44,6 +49,8 @@ def test_showcase_examples_run_without_api_key(tmp_path: Path) -> None:
         "examples/coding_review.py",
         "examples/support_escalation.py",
         "examples/research_workflow.py",
+        "examples/doctor_orchestrator.py",
+        "examples/doctor_benchmark.py",
         "examples/langgraph_integration.py",
         "examples/openai_agents_sdk_integration.py",
         "examples/pydantic_ai_integration.py",
@@ -57,3 +64,4 @@ def test_showcase_examples_run_without_api_key(tmp_path: Path) -> None:
         )
         assert completed.returncode == 0, completed.stdout + completed.stderr
         assert "Handoff" in completed.stdout or "Free-text Summary Loses" in completed.stdout
+

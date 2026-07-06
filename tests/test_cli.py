@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 
 from handoffkit.cli import (
     evaluate_report,
@@ -9,7 +9,10 @@ from handoffkit.cli import (
     run_async_demo,
     run_coding_review_demo,
     run_demo,
+    run_doctor_benchmark_demo,
+    run_doctor_orchestrator_demo,
     run_extension_demo,
+    run_mai_style_doctor_benchmark_demo,
     run_named_showcase,
     run_provider_formats_demo,
     run_provider_tools_demo,
@@ -39,7 +42,7 @@ def test_cli_version(capsys) -> None:  # type: ignore[no-untyped-def]
     captured = capsys.readouterr()
 
     assert exc_info.value.code == 0
-    assert "handoffkit 1.2.0" in captured.out
+    assert "handoffkit 1.3.0" in captured.out
 
 
 def test_run_demo_reports_handoff_count() -> None:
@@ -115,13 +118,15 @@ def test_real_world_cli_demos_write_reports(tmp_path, monkeypatch) -> None:  # t
         run_coding_review_demo(),
         run_support_escalation_demo(),
         run_research_workflow_demo(),
+        run_doctor_orchestrator_demo(),
     ]
 
     assert "Architect -> Coder -> Reviewer -> Tester" in outputs[0]
     assert "Triage -> Billing -> Refund -> Supervisor" in outputs[1]
     assert "Researcher -> Extractor -> Fact-checker -> Writer" in outputs[2]
+    assert "Doctor Orchestrator" in outputs[3]
     assert (tmp_path / "runs" / "latest" / "report.json").exists()
-    assert "Research Workflow" in render_report(str(tmp_path / "runs" / "latest"))
+    assert "Doctor Orchestrator" in render_report(str(tmp_path / "runs" / "latest"))
 
 
 def test_showcase_list_and_named_showcase_write_reports(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -148,6 +153,7 @@ def test_new_cli_commands_run(capsys) -> None:  # type: ignore[no-untyped-def]
         "demo-coding-review",
         "demo-support",
         "demo-research",
+        "demo-doctor",
     ]:
         exit_code = main([command])
         captured = capsys.readouterr()
@@ -163,6 +169,45 @@ def test_showcase_cli_command_runs(tmp_path, monkeypatch, capsys) -> None:  # ty
 
     assert exit_code == 0
     assert "Customer Support" in captured.out
+    assert (tmp_path / "runs" / "latest" / "report.json").exists()
+
+
+def test_doctor_showcase_cli_command_runs(tmp_path, monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+
+    exit_code = main(["showcase", "doctor-orchestrator"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Doctor Orchestrator" in captured.out
+    assert "not medical advice" in captured.out
+    assert (tmp_path / "runs" / "latest" / "report.json").exists()
+
+def test_doctor_benchmark_cli_command_runs(tmp_path, monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+
+    output = run_doctor_benchmark_demo(3)
+    exit_code = main(["benchmark-doctor", "--cases", "3"])
+    captured = capsys.readouterr()
+
+    assert "Doctor Benchmark" in output
+    assert "MedCaseReasoning" in output
+    assert exit_code == 0
+    assert "Doctor Benchmark" in captured.out
+    assert (tmp_path / "runs" / "latest" / "report.json").exists()
+
+
+def test_mai_style_doctor_benchmark_cli_command_runs(tmp_path, monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+
+    output = run_mai_style_doctor_benchmark_demo(3)
+    exit_code = main(["benchmark-doctor-mai", "--cases", "3"])
+    captured = capsys.readouterr()
+
+    assert "MAI-Style Public Doctor Benchmark" in output
+    assert "private NEJM SDBench data" in output
+    assert exit_code == 0
+    assert "MAI-Style Public Doctor Benchmark" in captured.out
     assert (tmp_path / "runs" / "latest" / "report.json").exists()
 
 
@@ -197,3 +242,5 @@ def test_init_project_uses_showcase_template_name_directly(tmp_path) -> None:  #
     assert "python coding_review.py" in output
     assert "handoffkit report runs/latest" in output
     assert (tmp_path / "coding-review" / "coding_review.py").exists()
+
+

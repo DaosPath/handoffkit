@@ -13,6 +13,7 @@ def test_builtin_templates_are_listed() -> None:
     assert scaffolder.list_templates() == [
         "basic-agent",
         "coding-review",
+        "doctor-orchestrator",
         "recipe-workflow",
         "research-workflow",
         "support-escalation",

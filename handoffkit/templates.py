@@ -172,6 +172,7 @@ def builtin_templates() -> list[ProjectTemplate]:
         _recipe_workflow_template(),
         _support_escalation_template(),
         _research_workflow_template(),
+        _doctor_orchestrator_template(),
     ]
 
 
@@ -365,4 +366,16 @@ def _research_workflow_template() -> ProjectTemplate:
         title="Research Workflow Showcase",
         description="Researcher -> Extractor -> Fact-checker -> Writer with traceable sources.",
         script="research_workflow.py",
+    )
+
+
+def _doctor_orchestrator_template() -> ProjectTemplate:
+    return _showcase_template(
+        name="doctor-orchestrator",
+        title="Doctor Orchestrator Showcase",
+        description=(
+            "Educational virtual doctor-panel flow with uncertainty, red-flag, "
+            "test-cost, and safety-boundary handoffs."
+        ),
+        script="doctor_orchestrator.py",
     )
