@@ -5,6 +5,7 @@ Requires OPENCODE_API_KEY. No secrets are printed.
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 
@@ -18,10 +19,25 @@ def _configure_stdout() -> None:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
-def main() -> None:
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Run HandoffKit against OpenCode Zen.")
+    parser.add_argument(
+        "--model",
+        default=os.getenv("OPENCODE_ZEN_MODEL", DEFAULT_OPENCODE_ZEN_MODEL),
+        help="OpenCode Zen model id.",
+    )
+    parser.add_argument(
+        "--task",
+        default="Create a concise architecture plan for a Python CLI calculator.",
+        help="Task prompt.",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
     _configure_stdout()
+    args = _parser().parse_args(argv)
     api_key = os.getenv("OPENCODE_API_KEY")
-    model = os.getenv("OPENCODE_ZEN_MODEL", DEFAULT_OPENCODE_ZEN_MODEL)
     if not api_key:
         print("OPENCODE_API_KEY is not set.")
         print('Set it with: $env:OPENCODE_API_KEY="..."')
@@ -30,19 +46,19 @@ def main() -> None:
         return
 
     try:
-        provider = OpenCodeZenProvider(model=model, api_key=api_key)
+        provider = OpenCodeZenProvider(model=args.model, api_key=api_key)
         agent = Agent(
             name="OpenCodeZenArchitect",
             role="Create concise coding architecture plans.",
             provider=provider,
         )
-        response = agent.run("Create a concise architecture plan for a Python CLI calculator.")
+        response = agent.run(args.task)
     except (ProviderConfigurationError, ProviderExecutionError) as exc:
         print(f"OpenCode Zen unavailable: {exc}")
         return
 
     print("Provider: OpenCode Zen")
-    print(f"Model: {model}")
+    print(f"Model: {args.model}")
     print(response)
 
 

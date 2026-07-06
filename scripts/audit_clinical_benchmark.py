@@ -80,6 +80,49 @@ def audit_report(path: str | Path) -> dict[str, Any]:
     return result
 
 
+def aggregate_audits(paths: list[str | Path]) -> dict[str, Any]:
+    """Aggregate metrics across multiple clinical benchmark reports."""
+    audits = [audit_report(path) for path in paths]
+    rows = [row for audit in audits for row in audit["rows"]]
+    final_correct = sum(1 for row in rows if row["final_correct"])
+    base_correct = sum(1 for row in rows if row["base_correct"])
+    infra_rows = [row for row in rows if row["infra_error"]]
+    clean_rows = [row for row in rows if not row["infra_error"]]
+    attempted_rows = [row for row in rows if row["rescue_attempted"]]
+    corrected_by_rescue = [
+        row for row in attempted_rows if not row["base_correct"] and row["final_correct"]
+    ]
+    harmful_rescues = [
+        row for row in attempted_rows if row["base_correct"] and not row["final_correct"]
+    ]
+    return {
+        "source_reports": [str(Path(path)) for path in paths],
+        "case_count": len(rows),
+        "global_correct": final_correct,
+        "global_accuracy": _ratio(final_correct, len(rows)),
+        "clean_case_count": len(clean_rows),
+        "clean_correct": sum(1 for row in clean_rows if row["final_correct"]),
+        "clean_accuracy": _ratio(
+            sum(1 for row in clean_rows if row["final_correct"]),
+            len(clean_rows),
+        ),
+        "infra_error_count": len(infra_rows),
+        "infra_error_rate": _ratio(len(infra_rows), len(rows)),
+        "rate_limit_count": sum(1 for row in rows if row["rate_limit_error"]),
+        "empty_stage_count": sum(1 for row in rows if row["empty_stage_error"]),
+        "base_correct": base_correct,
+        "base_accuracy": _ratio(base_correct, len(rows)),
+        "rescue_attempted": len(attempted_rows),
+        "rescue_gain": final_correct - base_correct,
+        "rescue_precision": _ratio(len(corrected_by_rescue), len(attempted_rows)),
+        "harmful_rescue_count": len(harmful_rescues),
+        "harmful_rescue_rate": _ratio(len(harmful_rescues), len(attempted_rows)),
+        "label_normalization_gain": sum(1 for row in rows if row["normalizer_gain"]),
+        "label_normalization_loss": sum(1 for row in rows if row["normalizer_loss"]),
+        "rows": rows,
+    }
+
+
 def audit_to_markdown(audit: dict[str, Any]) -> str:
     """Render audit as Markdown."""
     infra_rows = "\n".join(
@@ -93,8 +136,9 @@ def audit_to_markdown(audit: dict[str, Any]) -> str:
         if row["infra_error"]
     )
     return (
-        f"# Clinical Benchmark Audit\n\n"
-        f"- Source: `{audit['source_report']}`\n"
+        "# Clinical Benchmark Audit\n\n"
+        f"- Source: `{audit.get('source_report', 'aggregate')}`\n"
+        f"- Source reports: `{len(audit.get('source_reports', []))}`\n"
         f"- Global accuracy: `{audit['global_correct']}/{audit['case_count']}` "
         f"= `{audit['global_accuracy']:.3f}`\n"
         f"- Clean accuracy: `{audit['clean_correct']}/{audit['clean_case_count']}` "
@@ -240,13 +284,18 @@ def _ratio(numerator: int, denominator: int) -> float:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("report")
+    parser.add_argument("report", nargs="+")
+    parser.add_argument("--aggregate", action="store_true")
     parser.add_argument("--output-dir", default="reports")
     args = parser.parse_args()
-    audit = audit_report(args.report)
+    audit = aggregate_audits(args.report) if args.aggregate else audit_report(args.report[0])
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    stem = Path(args.report).stem + "_audit"
+    stem = (
+        "clinical_benchmark_aggregate_audit"
+        if args.aggregate
+        else Path(args.report[0]).stem + "_audit"
+    )
     json_path = output_dir / f"{stem}.json"
     md_path = output_dir / f"{stem}.md"
     json_path.write_text(json.dumps(audit, ensure_ascii=False, indent=2), encoding="utf-8")

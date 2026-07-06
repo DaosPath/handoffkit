@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.0
+
+- Added experimental provider registry, model candidates, selector, probe
+  results, and provider router.
+- Added provider CLI commands for offline provider/model inspection and
+  real opt-in probing.
+- Improved OpenCode Go/Zen model routing with explicit model catalogs,
+  retry/backoff, and updated provider diagnostics.
+- Added provider documentation focused on OpenCode-first workflows.
+- Kept clinical benchmark tooling research-only and opt-in.
+
 ## 1.3.0
 
 - Added declarative tool creation helpers with `ToolSpec`, `ToolFactory`,

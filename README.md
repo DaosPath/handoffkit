@@ -199,6 +199,51 @@ clinical_trials_search.run(condition="systemic sclerosis", max_results=3)
 dailymed_drug_search.run(drug_name="ibuprofen", max_results=3)
 ```
 
+## What 1.4.0 Adds
+
+HandoffKit 1.4.0 adds experimental provider routing:
+
+- provider registry entries for OpenCode Go, OpenCode Zen, OpenAI-compatible
+  endpoints, and Ollama,
+- `ProviderSelector` for offline model lists and real opt-in probes,
+- `ProviderRouter` for ordered fallback between model candidates,
+- retry/backoff for transient OpenCode `429`, `5xx`, and transport failures,
+- `handoffkit providers ...` CLI commands that never call real APIs unless
+  `--real` is passed.
+
+```bash
+handoffkit providers list
+handoffkit providers models --provider opencode-go
+handoffkit providers select --provider opencode-go --models mimo-v2.5,deepseek-v4-flash --json
+```
+
+Real probes require an explicit flag and a scoped provider key:
+
+```powershell
+$env:OPENCODE_API_KEY="..."
+handoffkit providers probe --provider opencode-go --models mimo-v2.5,deepseek-v4-flash --real
+```
+
+## Provider Registry and Model Routing
+
+The provider registry is experimental in 1.4.0. It is intended for diagnostics,
+model selection, and fallback without adding heavy provider SDKs.
+
+```python
+from handoffkit.providers import ModelCandidate, ProviderRouter
+
+router = ProviderRouter(
+    [
+        ModelCandidate("opencode-go", "mimo-v2.5"),
+        ModelCandidate("opencode-go", "deepseek-v4-flash"),
+    ]
+)
+
+print(router.generate("Create a concise release checklist."))
+```
+
+Docs: [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
+
 ## What 1.1.0 Adds
 
 HandoffKit 1.1.0 focuses on adoption:
@@ -224,6 +269,8 @@ Use it as the contract and reporting layer beside orchestration frameworks:
 - [`Pydantic AI`](docs/integrations/PYDANTIC_AI.md): typed outputs become workflow handoff state,
 - [`OpenCode Go / Zen`](docs/integrations/OPENCODE.md): provider adapters route
   OpenCode model families to their matching API endpoint styles.
+- [`Provider Registry`](docs/PROVIDERS.md): experimental provider listing,
+  probing, model selection, and fallback routing.
 
 Runnable offline examples:
 [`examples/langgraph_integration.py`](examples/langgraph_integration.py),
@@ -1053,6 +1100,9 @@ handoffkit demo-trace
 handoffkit demo-replay
 handoffkit validate-report reports/trace_demo.json
 handoffkit evaluate reports/trace_demo.json
+handoffkit providers list
+handoffkit providers models --provider opencode-go
+handoffkit providers select --provider opencode-go --models mimo-v2.5,deepseek-v4-flash --json
 handoffkit init my-agent --template basic-agent --output .
 ```
 
