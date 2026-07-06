@@ -4,6 +4,8 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.cache/
+.local-tests/
 .build-tmp/
 .build-artifacts/
 .build-noiso/
@@ -26,5 +28,11 @@ reports/extension_demo.*
 reports/memory_demo.*
 reports/project_context_demo.*
 reports/recipe_demo.*
+reports/*partial.json
+reports/*runner_*.log
+reports/opencode_*
+reports/doctor_benchmark_3.*
+reports/doctor_benchmark_400.*
+reports/mai_style_doctor_benchmark_3.*
 tests/_tmp_tool_execution/
 tests/_tmp_memory_context/
