@@ -8,6 +8,7 @@ from handoffkit.errors import ProviderConfigurationError, ProviderExecutionError
 from handoffkit.providers import (
     OpenCodeGoProvider,
     OpenCodeZenProvider,
+    RetryPolicy,
     infer_opencode_api_style,
     list_opencode_models,
 )
@@ -47,6 +48,7 @@ def test_opencode_zen_gpt_uses_responses_endpoint(monkeypatch) -> None:  # type:
         captured["url"] = request.full_url
         captured["data"] = request.data
         captured["auth"] = request.headers["Authorization"]
+        captured["user_agent"] = request.headers["User-agent"]
         captured["timeout"] = timeout
         return FakeResponse({"output_text": "zen response"})
 
@@ -59,6 +61,7 @@ def test_opencode_zen_gpt_uses_responses_endpoint(monkeypatch) -> None:  # type:
     assert response == "zen response"
     assert captured["url"] == "https://opencode.ai/zen/v1/responses"
     assert captured["auth"] == "Bearer test-secret"
+    assert captured["user_agent"] == "handoffkit/1.4 OpenCodeProvider"
     assert captured["timeout"] == 3.0
     assert payload["model"] == "gpt-5.4"
     assert payload["input"] == "Plan this"
@@ -206,10 +209,78 @@ def test_list_opencode_models(monkeypatch) -> None:  # type: ignore[no-untyped-d
     assert captured["auth"] == "Bearer test-secret"
 
 
+def test_list_opencode_models_parses_list_response(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> FakeResponse:
+        return FakeResponse(["opencode-go/mimo-v2.5", "glm-5.2"])
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    assert list_opencode_models(catalog="go", api_key="test-secret") == [
+        "mimo-v2.5",
+        "glm-5.2",
+    ]
+
+
+def test_opencode_retries_transient_http_errors(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    calls = 0
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> FakeResponse:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise urllib.error.HTTPError(
+                url=request.full_url,
+                code=429,
+                msg="Too Many Requests",
+                hdrs=None,
+                fp=FakeErrorBody(b"rate limit"),
+            )
+        return FakeResponse({"choices": [{"message": {"content": "ok after retry"}}]})
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    provider = OpenCodeGoProvider(
+        model="mimo-v2.5",
+        api_key="test-secret",
+        retry_policy=RetryPolicy(max_attempts=2, backoff_seconds=0),
+    )
+
+    assert provider.generate("hello") == "ok after retry"
+    assert calls == 2
+
+
+def test_opencode_does_not_retry_auth_errors(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    calls = 0
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> FakeResponse:
+        nonlocal calls
+        calls += 1
+        raise urllib.error.HTTPError(
+            url=request.full_url,
+            code=401,
+            msg="Unauthorized",
+            hdrs=None,
+            fp=FakeErrorBody(b"unauthorized"),
+        )
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    provider = OpenCodeGoProvider(
+        model="mimo-v2.5",
+        api_key="test-secret",
+        retry_policy=RetryPolicy(max_attempts=3, backoff_seconds=0),
+    )
+
+    with pytest.raises(ProviderExecutionError, match="HTTP 401"):
+        provider.generate("hello")
+    assert calls == 1
+
+
 def test_infer_opencode_api_style() -> None:
     assert infer_opencode_api_style("gpt-5.4", "zen") == "openai_responses"
     assert infer_opencode_api_style("claude-sonnet-5", "zen") == "anthropic_messages"
     assert infer_opencode_api_style("deepseek-v4-flash", "zen") == "openai_chat"
+    assert infer_opencode_api_style("mimo-v2.5", "go") == "openai_chat"
     assert infer_opencode_api_style("qwen3.7-plus", "go") == "anthropic_messages"
     assert infer_opencode_api_style("qwen3.7-max", "go") == "anthropic_messages"
     assert infer_opencode_api_style("glm-5.2", "go") == "openai_chat"

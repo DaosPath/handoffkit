@@ -20,7 +20,7 @@ from handoffkit.handoff import HandoffState
 from handoffkit.mai_benchmark import run_mai_style_benchmark
 from handoffkit.protocol import HandoffProtocol
 from handoffkit.provider_adapters import ProviderToolAdapter
-from handoffkit.providers import BaseProvider
+from handoffkit.providers import BaseProvider, ProviderSelector
 from handoffkit.quality import HandoffQualityEvaluator
 from handoffkit.recipes import RecipeRunner
 from handoffkit.replay import ReplayRunner
@@ -382,6 +382,90 @@ def list_showcases() -> str:
     return "\n".join(lines)
 
 
+def _split_models(value: str | None) -> list[str] | None:
+    if not value:
+        return None
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def list_providers(*, json_output: bool = False) -> str:
+    """List experimental provider registry entries."""
+    selector = ProviderSelector()
+    specs = [spec.to_dict() for spec in selector.list_providers()]
+    if json_output:
+        return json.dumps({"providers": specs}, indent=2, sort_keys=True)
+    lines = ["HandoffKit providers", ""]
+    for spec in selector.list_providers():
+        lines.append(f"- {spec.name}: {spec.description}")
+        lines.append(f"  default: {spec.default_model}")
+        lines.append(f"  models: {', '.join(spec.suggested_models)}")
+        lines.append(f"  env: {', '.join(spec.env_vars)}")
+    return "\n".join(lines)
+
+
+def list_provider_models(provider: str, *, real: bool = False, json_output: bool = False) -> str:
+    """List known provider models without network unless real=True."""
+    selector = ProviderSelector()
+    models = selector.list_models(provider, real=real)
+    payload = {"provider": provider, "real": real, "models": models}
+    if json_output:
+        return json.dumps(payload, indent=2, sort_keys=True)
+    mode = "real" if real else "offline"
+    return (
+        f"HandoffKit provider models ({mode})\n"
+        f"Provider: {provider}\n"
+        + "\n".join(f"- {model}" for model in models)
+    )
+
+
+def probe_provider_models(
+    provider: str,
+    *,
+    models: str | None = None,
+    real: bool = False,
+    json_output: bool = False,
+) -> str:
+    """Probe provider model candidates."""
+    selector = ProviderSelector()
+    results = [
+        selector.probe(candidate, real=real)
+        for candidate in selector.candidates(provider, _split_models(models))
+    ]
+    payload = {"provider": provider, "real": real, "results": [item.to_dict() for item in results]}
+    if json_output:
+        return json.dumps(payload, indent=2, sort_keys=True)
+    mode = "real" if real else "offline"
+    lines = [f"HandoffKit provider probe ({mode})", f"Provider: {provider}"]
+    for result in results:
+        status = "ok" if result.success else "failed"
+        suffix = f" error={result.error}" if result.error else ""
+        lines.append(f"- {result.model}: {status} {result.latency_seconds:.3f}s{suffix}")
+    return "\n".join(lines)
+
+
+def select_provider_model(
+    provider: str,
+    *,
+    models: str | None = None,
+    real: bool = False,
+    json_output: bool = False,
+) -> str:
+    """Select the first working provider model."""
+    selector = ProviderSelector()
+    result = selector.select(provider, _split_models(models), real=real)
+    payload = result.to_dict()
+    if json_output:
+        return json.dumps(payload, indent=2, sort_keys=True)
+    mode = "real" if real else "offline"
+    return (
+        f"HandoffKit provider select ({mode})\n"
+        f"Provider: {result.provider}\n"
+        f"Model: {result.model}\n"
+        f"Success: {result.success}\n"
+        f"Latency: {result.latency_seconds:.3f}s"
+    )
+
+
 def run_named_showcase(slug: str) -> str:
     """Run one named showcase and write runs/latest artifacts."""
     return run_showcase(slug).to_markdown()
@@ -471,6 +555,42 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("demo-support", help="Run the support escalation showcase.")
     subparsers.add_parser("demo-research", help="Run the research workflow showcase.")
     subparsers.add_parser("demo-doctor", help="Run the educational doctor-orchestrator showcase.")
+    providers_parser = subparsers.add_parser("providers", help="Inspect provider registry.")
+    providers_subparsers = providers_parser.add_subparsers(dest="providers_command")
+    providers_list_parser = providers_subparsers.add_parser("list", help="List providers.")
+    providers_list_parser.add_argument("--json", action="store_true", help="Print JSON.")
+    providers_models_parser = providers_subparsers.add_parser(
+        "models",
+        help="List provider models.",
+    )
+    providers_models_parser.add_argument("--provider", required=True, help="Provider name.")
+    providers_models_parser.add_argument(
+        "--real",
+        action="store_true",
+        help="Call provider endpoint.",
+    )
+    providers_models_parser.add_argument("--json", action="store_true", help="Print JSON.")
+    providers_probe_parser = providers_subparsers.add_parser("probe", help="Probe provider models.")
+    providers_probe_parser.add_argument("--provider", required=True, help="Provider name.")
+    providers_probe_parser.add_argument("--models", default=None, help="Comma-separated models.")
+    providers_probe_parser.add_argument(
+        "--real",
+        action="store_true",
+        help="Call provider endpoint.",
+    )
+    providers_probe_parser.add_argument("--json", action="store_true", help="Print JSON.")
+    providers_select_parser = providers_subparsers.add_parser(
+        "select",
+        help="Select a provider model.",
+    )
+    providers_select_parser.add_argument("--provider", required=True, help="Provider name.")
+    providers_select_parser.add_argument("--models", default=None, help="Comma-separated models.")
+    providers_select_parser.add_argument(
+        "--real",
+        action="store_true",
+        help="Call provider endpoint.",
+    )
+    providers_select_parser.add_argument("--json", action="store_true", help="Print JSON.")
     benchmark_doctor_parser = subparsers.add_parser(
         "benchmark-doctor",
         help="Run the real-case doctor benchmark harness.",
@@ -556,6 +676,34 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "demo-doctor":
         print(run_doctor_orchestrator_demo())
         return 0
+    if args.command == "providers":
+        if args.providers_command == "list":
+            print(list_providers(json_output=args.json))
+            return 0
+        if args.providers_command == "models":
+            print(list_provider_models(args.provider, real=args.real, json_output=args.json))
+            return 0
+        if args.providers_command == "probe":
+            print(
+                probe_provider_models(
+                    args.provider,
+                    models=args.models,
+                    real=args.real,
+                    json_output=args.json,
+                )
+            )
+            return 0
+        if args.providers_command == "select":
+            print(
+                select_provider_model(
+                    args.provider,
+                    models=args.models,
+                    real=args.real,
+                    json_output=args.json,
+                )
+            )
+            return 0
+        parser.error("providers requires a subcommand")
     if args.command == "benchmark-doctor":
         print(run_doctor_benchmark_demo(args.cases))
         return 0

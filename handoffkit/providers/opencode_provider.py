@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from handoffkit.errors import ProviderConfigurationError, ProviderExecutionError
@@ -18,6 +20,53 @@ DEFAULT_OPENCODE_ZEN_BASE_URL = "https://opencode.ai/zen/v1"
 DEFAULT_OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1"
 DEFAULT_OPENCODE_ZEN_MODEL = "gpt-5.4"
 DEFAULT_OPENCODE_GO_MODEL = "deepseek-v4-flash"
+OPENCODE_USER_AGENT = "handoffkit/1.4 OpenCodeProvider"
+
+OPENCODE_GO_MODELS = (
+    "mimo-v2.5",
+    "deepseek-v4-flash",
+    "deepseek-v4-pro",
+    "glm-5.2",
+    "qwen3.7-max",
+    "qwen3.7-plus",
+    "kimi-k2.7-code",
+    "minimax-m3",
+)
+
+OPENCODE_ZEN_MODELS = (
+    "gpt-5.4",
+    "claude-sonnet-5",
+    "qwen3.7-max",
+    "qwen3.7-plus",
+    "deepseek-v4-flash",
+    "deepseek-v4-pro",
+    "glm-5.2",
+    "kimi-k2.7-code",
+    "minimax-m3",
+)
+
+
+@dataclass(frozen=True)
+class RetryPolicy:
+    """Retry policy for transient provider failures."""
+
+    max_attempts: int = 3
+    backoff_seconds: float = 0.5
+    retry_status_codes: tuple[int, ...] = (429, 500, 502, 503, 504)
+
+    def should_retry_status(self, status_code: int, attempt: int) -> bool:
+        """Return whether this HTTP status should be retried."""
+        return attempt < self.max_attempts and status_code in self.retry_status_codes
+
+    def should_retry_url_error(self, attempt: int) -> bool:
+        """Return whether this URL-level error should be retried."""
+        return attempt < self.max_attempts
+
+    def sleep(self, attempt: int) -> None:
+        """Sleep before the next retry attempt."""
+        delay = self.backoff_seconds * max(0, attempt - 1)
+        if delay > 0:
+            time.sleep(delay)
 
 _GO_ANTHROPIC_MODELS = {
     "minimax-m3",
@@ -92,7 +141,7 @@ def list_opencode_models(
             "Authorization": f"Bearer {resolved_key}",
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "User-Agent": "handoffkit/1.2 OpenCodeProvider",
+            "User-Agent": OPENCODE_USER_AGENT,
         },
         method="GET",
     )
@@ -110,7 +159,13 @@ def list_opencode_models(
             f"OpenCode {resolved_catalog} models request failed for "
             f"{resolved_base_url}: {exc.reason}"
         ) from exc
-    data = body.get("data", body if isinstance(body, list) else [])
+    data = (
+        body.get("data", [])
+        if isinstance(body, dict)
+        else body
+        if isinstance(body, list)
+        else []
+    )
     models: list[str] = []
     if isinstance(data, list):
         for item in data:
@@ -133,6 +188,7 @@ class OpenCodeProvider(BaseProvider):
         base_url: str | None = None,
         api_style: OpenCodeAPIStyle = "auto",
         timeout: float = 60.0,
+        retry_policy: RetryPolicy | None = None,
     ) -> None:
         self.catalog = _normalize_catalog(catalog)
         self.model = _strip_opencode_prefix(
@@ -143,6 +199,7 @@ class OpenCodeProvider(BaseProvider):
         self.base_url = _resolve_base_url(self.catalog, base_url)
         self.api_style = infer_opencode_api_style(self.model, self.catalog, api_style)
         self.timeout = timeout
+        self.retry_policy = retry_policy or RetryPolicy()
         if not self.api_key:
             raise ProviderConfigurationError(
                 "OPENCODE_API_KEY is required for OpenCodeProvider. "
@@ -227,7 +284,7 @@ class OpenCodeProvider(BaseProvider):
             "Authorization": f"Bearer {self.api_key}",
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "User-Agent": "handoffkit/1.2 OpenCodeProvider",
+            "User-Agent": OPENCODE_USER_AGENT,
         }
         if extra_headers:
             headers.update(extra_headers)
@@ -237,19 +294,29 @@ class OpenCodeProvider(BaseProvider):
             headers=headers,
             method="POST",
         )
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                body = json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")
-            raise ProviderExecutionError(
-                f"OpenCode {self.catalog} request failed with HTTP {exc.code}: "
-                f"{_sanitize_error_detail(detail, self.api_key)}"
-            ) from exc
-        except urllib.error.URLError as exc:
-            raise ProviderExecutionError(
-                f"OpenCode {self.catalog} request failed for {self.base_url}: {exc.reason}"
-            ) from exc
+        for attempt in range(1, self.retry_policy.max_attempts + 1):
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                    body = json.loads(response.read().decode("utf-8"))
+                break
+            except urllib.error.HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="replace")
+                if self.retry_policy.should_retry_status(exc.code, attempt):
+                    self.retry_policy.sleep(attempt)
+                    continue
+                raise ProviderExecutionError(
+                    f"OpenCode {self.catalog} request failed with HTTP {exc.code}: "
+                    f"{_sanitize_error_detail(detail, self.api_key)}"
+                ) from exc
+            except urllib.error.URLError as exc:
+                if self.retry_policy.should_retry_url_error(attempt):
+                    self.retry_policy.sleep(attempt)
+                    continue
+                raise ProviderExecutionError(
+                    f"OpenCode {self.catalog} request failed for {self.base_url}: {exc.reason}"
+                ) from exc
+        else:  # pragma: no cover - defensive fallback.
+            raise ProviderExecutionError(f"OpenCode {self.catalog} request failed.")
         if not isinstance(body, dict):
             raise ProviderExecutionError(
                 f"OpenCode {self.catalog} response was not a JSON object."
