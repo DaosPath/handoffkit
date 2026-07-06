@@ -3,8 +3,11 @@
 from handoffkit.cli import (
     evaluate_report,
     init_project,
+    list_provider_models,
+    list_providers,
     list_showcases,
     main,
+    probe_provider_models,
     render_report,
     run_async_demo,
     run_coding_review_demo,
@@ -22,6 +25,7 @@ from handoffkit.cli import (
     run_structured_demo,
     run_support_escalation_demo,
     run_validators_demo,
+    select_provider_model,
 )
 
 
@@ -42,7 +46,7 @@ def test_cli_version(capsys) -> None:  # type: ignore[no-untyped-def]
     captured = capsys.readouterr()
 
     assert exc_info.value.code == 0
-    assert "handoffkit 1.3.0" in captured.out
+    assert "handoffkit 1.4.0" in captured.out
 
 
 def test_run_demo_reports_handoff_count() -> None:
@@ -111,6 +115,18 @@ def test_run_provider_formats_demo_reports_provider_shapes() -> None:
     assert "Anthropic call: add" in output
 
 
+def test_provider_registry_cli_helpers_are_offline() -> None:
+    listing = list_providers()
+    models = list_provider_models("opencode-go")
+    probe = probe_provider_models("opencode-go", models="mimo-v2.5")
+    selected = select_provider_model("opencode-go", models="mimo-v2.5", json_output=True)
+
+    assert "opencode-go" in listing
+    assert "mimo-v2.5" in models
+    assert "provider probe (offline)" in probe
+    assert '"model": "mimo-v2.5"' in selected
+
+
 def test_real_world_cli_demos_write_reports(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.chdir(tmp_path)
 
@@ -156,6 +172,29 @@ def test_new_cli_commands_run(capsys) -> None:  # type: ignore[no-untyped-def]
         "demo-doctor",
     ]:
         exit_code = main([command])
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert captured.out
+
+
+def test_provider_cli_commands_run_offline(capsys) -> None:  # type: ignore[no-untyped-def]
+    commands = [
+        ["providers", "list"],
+        ["providers", "models", "--provider", "opencode-go"],
+        ["providers", "probe", "--provider", "opencode-go", "--models", "mimo-v2.5"],
+        [
+            "providers",
+            "select",
+            "--provider",
+            "opencode-go",
+            "--models",
+            "mimo-v2.5,deepseek-v4-flash",
+            "--json",
+        ],
+    ]
+
+    for command in commands:
+        exit_code = main(command)
         captured = capsys.readouterr()
         assert exit_code == 0
         assert captured.out

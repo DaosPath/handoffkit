@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "handoffkit"
-version = "1.3.0"
+version = "1.4.0"
 description = "A lightweight Python framework for building multi-agent workflows with structured state transfer protocols."
 readme = "README.md"
 requires-python = ">=3.10"

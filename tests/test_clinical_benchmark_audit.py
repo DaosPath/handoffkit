@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.audit_clinical_benchmark import audit_report  # noqa: E402
+from scripts.audit_clinical_benchmark import aggregate_audits, audit_report  # noqa: E402
 
 
 def test_audit_report_separates_infra_and_rescue_metrics(tmp_path: Path) -> None:
@@ -45,3 +45,25 @@ def test_audit_report_separates_infra_and_rescue_metrics(tmp_path: Path) -> None
     assert audit["rate_limit_count"] == 1
     assert audit["rescue_gain"] == 1
     assert audit["rescue_precision"] == 1.0
+
+
+def test_aggregate_audits_combines_multiple_shards(tmp_path: Path) -> None:
+    report_a = {
+        "case_count": 1,
+        "rows": [{"case_id": "a", "gold": "A", "prediction": "A", "correct": True}],
+    }
+    report_b = {
+        "case_count": 1,
+        "rows": [{"case_id": "b", "gold": "B", "prediction": "C", "correct": False}],
+    }
+    path_a = tmp_path / "a.json"
+    path_b = tmp_path / "b.json"
+    path_a.write_text(json.dumps(report_a), encoding="utf-8")
+    path_b.write_text(json.dumps(report_b), encoding="utf-8")
+
+    audit = aggregate_audits([path_a, path_b])
+
+    assert audit["case_count"] == 2
+    assert audit["global_correct"] == 1
+    assert audit["global_accuracy"] == 0.5
+    assert len(audit["source_reports"]) == 2
