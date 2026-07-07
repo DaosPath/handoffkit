@@ -26,9 +26,26 @@ pip install handoffkit
   </tr>
 </table>
 
+<p>
+  <strong>1.3.0:</strong> tool creation, OpenCode providers, and research-only evidence tools.<br>
+  <strong>1.4.0:</strong> provider registry, model selection, fallback routing, and diagnostics CLI.
+</p>
+
 </div>
 
 ---
+
+## Contents
+
+- [Quickstart](#quickstart)
+- [Provider Registry and Model Routing](#provider-registry-and-model-routing)
+- [Tool Creation and Evidence Tools](#tool-creation-and-evidence-tools)
+- [Wow in 5 Minutes](#wow-in-5-minutes)
+- [Research-only Benchmarks](#research-only-benchmarks)
+- [Integrations](#integrations)
+- [Stable API Surface](#stable-api-surface)
+- [Development](#development)
+- [Publishing](#publishing)
 
 ## What It Is
 
@@ -161,21 +178,6 @@ HandoffKit is built around three ideas:
 | Quality control | `ValidationReport`, `HandoffQualityReport` | Handoffs can be validated, scored, serialized, and reviewed. |
 | Audit trail | `RunTrace`, `FileTraceStore`, `ReplayRunner` | Runs can be stored and replay-inspected without providers, tools, or shell. |
 
-## What 1.2.0 Adds
-
-HandoffKit 1.2.0 improves the public demo experience:
-
-- `handoffkit demos` lists the real-world offline showcases,
-- `handoffkit showcase <slug>` runs a showcase and writes `runs/latest`,
-- `handoffkit init coding-review` now prints the next commands to run,
-- report gallery docs and SVG assets make README/PyPI easier to inspect,
-- real-case doctor benchmark harness with 30 MedCaseReasoning / PMC Open Access cases,
-- MAI/SDBench-style public sequential doctor benchmark with gatekeeper, costs,
-  trace, and replay,
-- Pydantic AI now has a runnable offline integration example,
-- integration docs include copy/paste adapter blocks for LangGraph, OpenAI
-  Agents SDK, and Pydantic AI.
-
 ## What 1.3.0 Adds
 
 HandoffKit 1.3.0 is focused on stronger tool creation and
@@ -198,6 +200,36 @@ pubmed_search.run(query="scleroderma renal crisis case report", max_results=3)
 clinical_trials_search.run(condition="systemic sclerosis", max_results=3)
 dailymed_drug_search.run(drug_name="ibuprofen", max_results=3)
 ```
+
+## Tool Creation and Evidence Tools
+
+HandoffKit 1.3.0 makes tool creation explicit and testable. Use declarative
+tool specs for local workflows, HTTP JSON wrappers for public APIs, and
+provider-ready schemas when an agent needs tool calls.
+
+```python
+from handoffkit import ToolFactory
+
+factory = ToolFactory()
+tool = factory.from_function(
+    name="summarize_file",
+    description="Summarize a project file for the next agent.",
+    func=lambda path: f"summary for {path}",
+)
+
+print(tool.to_schema())
+```
+
+Research/evidence helpers are opt-in and public-data only:
+
+```bash
+python examples/medical_tools_demo.py
+python examples/opencode_go_agent.py --help
+python examples/opencode_zen_agent.py --help
+```
+
+Medical and benchmark tooling is for research workflows only. It is not
+clinical validation, not patient care, and not a diagnostic system.
 
 ## What 1.4.0 Adds
 
@@ -244,20 +276,19 @@ print(router.generate("Create a concise release checklist."))
 
 Docs: [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
 
-## What 1.1.0 Adds
+## Research-only Benchmarks
 
-HandoffKit 1.1.0 focuses on adoption:
+HandoffKit includes benchmark tooling to stress-test handoff contracts,
+traceability, report generation, and model routing. These workflows are
+educational and research-only.
 
-- coding agents demo: `Architect -> Coder -> Reviewer -> Tester`,
-- customer support demo: `Triage -> Billing -> Refund -> Supervisor`,
-- research demo: `Researcher -> Extractor -> Fact-checker -> Writer`,
-- educational doctor-orchestrator demo: `Intake -> Hypothesis -> Challenger ->
-  Test Steward -> Checklist -> Final Reviewer`,
-- direct templates through `handoffkit init coding-review`,
-  `handoffkit init support-escalation`, `handoffkit init research-workflow`,
-  and `handoffkit init doctor-orchestrator`,
-- `handoffkit report runs/latest` for rendering generated run reports,
-- deterministic showcase reports that work offline and require no API key.
+| Run | Model | Cases | Correct | Accuracy | Report |
+|---|---|---:|---:|---:|---|
+| MAI-style clinical panel | `mimo-v2.5` | 400 | 233 | 58.25% | [`clinical_benchmark_400_summary.md`](reports/clinical_benchmark_400_summary.md) |
+
+This is not a medical device, not clinical validation, not patient care, and
+not a diagnostic claim. Full model outputs, partials, logs, and OpenCode live
+artifacts are intentionally kept out of Git and PyPI.
 
 ## Integrations
 
@@ -277,127 +308,20 @@ Runnable offline examples:
 [`examples/openai_agents_sdk_integration.py`](examples/openai_agents_sdk_integration.py),
 and [`examples/pydantic_ai_integration.py`](examples/pydantic_ai_integration.py).
 
-## What 1.0.1 Adds
+## Release Highlights
 
-HandoffKit 1.0.1 is a release-trust patch:
+Older releases built the stable base that 1.3.0 and 1.4.0 sit on:
 
-- PyPI/TestPyPI publishing is documented around GitHub Actions Trusted Publishing,
-- package tokens are not stored in the repository or workflow secrets,
-- release steps are captured in `docs/RELEASE_PROCESS.md`,
-- security reporting is documented in `SECURITY.md`,
-- the stable 1.x public API remains unchanged.
+| Release | Highlight |
+|---|---|
+| 1.2.0 | Showcase CLI, report gallery, better onboarding, and integration examples. |
+| 1.1.0 | Three real-world demos: coding agents, support escalation, and research workflow. |
+| 1.0.x | Stable API, Trusted Publishing docs, security docs, async runtime, templates, and evaluator reports. |
+| 0.8-0.9 | Trace/replay, stable API docs, compatibility tests, and stronger provider validation. |
+| 0.6-0.7 | Structured outputs, provider tool adapters, contract validators, and quality reports. |
+| 0.3-0.5 | Tool execution loop, memory/project context, recipes, and extension APIs. |
 
-## What 1.0.0 Adds
-
-HandoffKit 1.0.0 is the first stable release:
-
-- production/stable package metadata,
-- frozen public API documentation for the 1.x series,
-- offline `WorkflowEvaluator` reports for traces, handoffs, teams, recipes, and tools,
-- async runtime helpers for `Agent`, `Team`, and `RecipeRunner`,
-- safe built-in project templates through `TemplateScaffolder` and `handoffkit init`,
-- migration notes from 0.9.x to 1.0.0.
-
-## What 0.9.0 Adds
-
-HandoffKit 0.9.0 is the final pre-1.0 stabilization release:
-
-- beta package metadata,
-- final public API documentation for 1.0 candidates,
-- migration notes from 0.8.x to 0.9.x,
-- compatibility documentation for Python, providers, and dependencies,
-- stronger public API signature and import compatibility tests,
-- local wheel install smoke coverage,
-- hardened malformed provider tool-call validation.
-
-## What 0.8.0 Adds
-
-HandoffKit 0.8.0 prepares the package for the road to 1.0 with traceable,
-replayable workflow evidence:
-
-- `RunTrace`, `TraceStep`, and `TraceEvent` for serializable run traces,
-- `FileTraceStore` for local trace storage,
-- `ReplayRunner` and `ReplaySummary` for replay inspection without re-execution,
-- `write_report_files()` and `load_report_json()` for report IO,
-- `HandoffState.json_schema()`, `ValidationReport.json_schema()`, and
-  `RunTrace.json_schema()`,
-- configurable `HandoffQualityEvaluator(min_score=..., required_metrics=...)`,
-- CLI commands for `doctor`, `api`, `demo-trace`, `demo-replay`, and
-  `validate-report`,
-- stable API documentation for the path to 1.0.
-
-## What 0.7.0 Adds
-
-HandoffKit 0.7.0 adds reusable validation and quality layers for mature
-multi-agent workflows:
-
-- `ValidationIssue` and `ValidationReport` for reusable contract reports,
-- `HandoffStateValidator`, `StructuredOutputValidator`, and `ToolSchemaValidator`,
-- `validate_report(...)` helpers while keeping existing `validate()` behavior,
-- `HandoffQualityEvaluator` with deterministic handoff quality scoring,
-- quality metrics for completeness, clarity, actionability, traceability, and error awareness,
-- provider-native tool schemas for `handoffkit`, `openai`, and `anthropic`,
-- provider-style tool call parsing with call ID preservation,
-- `provider_adapter` support in `Agent.run_with_tools(...)`,
-- offline quality, validator, and provider-format demos with JSON/Markdown reports.
-
-## What 0.6.0 Adds
-
-HandoffKit 0.6.0 adds structured outputs and provider-neutral tool adapters:
-
-- `StructuredOutputSchema` for lightweight schemas without Pydantic,
-- `StructuredOutputResult` for validated model output reports,
-- `JsonOutputParser` for clean, fenced, or embedded JSON,
-- `OutputRepairer` for simple JSON cleanup,
-- `Agent.run_structured()` for schema-guided agent runs,
-- `ProviderCapabilities` for serializable provider feature flags,
-- `ProviderToolAdapter` for normalizing provider tool schemas and calls,
-- `ToolCallParser` for provider-style tool call payloads,
-- `provider_json` mode in `Agent.run_with_tools()`,
-- structured demos and tests that run without API keys.
-
-## What 0.5.0 Added
-
-HandoffKit 0.5.0 adds reusable workflow building blocks:
-
-- `RecipeStep` for one named workflow step,
-- `Recipe` for reusable agent workflows,
-- `RecipeRunner` and `RecipeRunResult` for execution and reports,
-- `WorkflowTemplate` for common workflow patterns,
-- `Extension` and `ExtensionRegistry` for safe local extension bundles,
-- built-in recipe factories,
-- recipe and extension demos,
-- Markdown/JSON recipe reports.
-
-This keeps HandoffKit general. Repo agents, research agents, coding agents, and
-business agents can be built on top of HandoffKit without turning the core into
-a GitHub- or repository-specific package.
-
-## What 0.4.0 Added
-
-HandoffKit 0.4.0 adds a lightweight memory and project context engine:
-
-- `MemoryItem`, `MemoryStore`, and `JsonMemoryStore` for structured memory,
-- `ProjectIndexer` for scanning local project files,
-- `ContextRetriever` for deterministic keyword retrieval,
-- `ContextPack` for bundling relevant files and memories,
-- `Agent.run_with_context()` for context-aware agent runs,
-- `HandoffState.context_refs` so agents can pass explicit context references.
-
-No vector database. No heavy dependency stack. Just transparent, inspectable
-context for agent workflows.
-
-## What 0.3.0 Added
-
-HandoffKit 0.3.0 adds a real tool execution loop:
-
-- `ToolCall` and `ToolResult` models,
-- `ToolRegistry` for registering and executing tools by name,
-- `Agent.run_with_tools()` for structured tool loops,
-- deterministic local tool execution with `EchoProvider`,
-- provider JSON tool-call mode for fake or real providers,
-- basic safety checks for shell and write operations,
-- `ToolExecutionReport` with JSON and Markdown export.
+For detailed release notes, see [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Why HandoffKit?
 
@@ -1049,7 +973,8 @@ Use temporary or scoped provider tokens. Do not commit API keys.
 
 HandoffKit can call OpenCode Go and OpenCode Zen without adding provider SDK
 dependencies. Use one `OPENCODE_API_KEY`; choose the catalog-specific model with
-`OPENCODE_GO_MODEL` or `OPENCODE_ZEN_MODEL`.
+`OPENCODE_GO_MODEL` or `OPENCODE_ZEN_MODEL`. For offline model lists, probes,
+selection, and fallback routing, use the provider registry commands above.
 
 ```powershell
 $env:OPENCODE_API_KEY="..."
@@ -1063,23 +988,9 @@ $env:OPENCODE_ZEN_MODEL="gpt-5.4"
 python examples/opencode_zen_agent.py
 ```
 
-Supported routing:
-
-| Provider | Model family | Endpoint style |
-|---|---|---|
-| OpenCode Go | GLM, Kimi, MiMo, DeepSeek | `/chat/completions` |
-| OpenCode Go | MiniMax, Qwen | `/messages` |
-| OpenCode Zen | GPT | `/responses` |
-| OpenCode Zen | Claude, Qwen | `/messages` |
-| OpenCode Zen | DeepSeek, MiniMax, GLM, Kimi, Grok, free models | `/chat/completions` |
-
-Model ids may use OpenCode config prefixes such as `opencode-go/kimi-k2.7-code`
-or `opencode/gpt-5.4`; HandoffKit strips those prefixes before sending requests.
-Gemini models use OpenCode's Google-style endpoint and currently fail with a
-clear configuration error.
-
 Docs:
-[`docs/integrations/OPENCODE.md`](docs/integrations/OPENCODE.md).
+[`docs/integrations/OPENCODE.md`](docs/integrations/OPENCODE.md) and
+[`docs/PROVIDERS.md`](docs/PROVIDERS.md).
 
 ## CLI
 
