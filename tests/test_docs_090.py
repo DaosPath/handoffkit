@@ -21,8 +21,9 @@ def test_stable_docs_exist_and_cover_required_topics() -> None:
 def test_readme_documents_100_and_stable_api() -> None:
     text = Path("README.md").read_text(encoding="utf-8")
 
-    assert "## What 1.0.0 Adds" in text
-    assert "## What 0.9.0 Adds" in text
+    assert "## Release Highlights" in text
+    assert "1.0.x" in text
+    assert "0.8-0.9" in text
     assert "## Road to 1.0" in text
     assert "docs/PUBLIC_API.md" in text
     assert "docs/MIGRATION_1_0.md" in text
