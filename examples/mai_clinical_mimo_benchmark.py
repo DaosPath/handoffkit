@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -67,6 +68,12 @@ CLINICAL_EQUIVALENCE_ALIASES = {
     "tuberculosis": ["tuberculous orchiepididymitis"],
     "vanishingbonedisease": ["gorham's disease", "gorhams disease"],
 }
+
+
+def _configure_output_encoding() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 def _compact(value: str) -> str:
@@ -824,6 +831,7 @@ Judge:
 
 
 def main() -> int:
+    _configure_output_encoding()
     parser = argparse.ArgumentParser()
     parser.add_argument("--cases", type=int, default=3)
     parser.add_argument("--model", default=os.getenv("OPENCODE_GO_MODEL", DEFAULT_MODEL))

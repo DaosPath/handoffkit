@@ -1,0 +1,43 @@
+{
+  "name": "Clinical Benchmark 400 Summary",
+  "date_completed": "2026-07-07",
+  "safety_note": "Research-only educational benchmark. Not medical advice, not clinical validation, not for patient care.",
+  "provider": "OpenCode Go",
+  "model": "mimo-v2.5",
+  "orchestration": "MAI-style HandoffKit clinical panel",
+  "max_tokens_per_stage": 32768,
+  "cases": 400,
+  "correct": 233,
+  "misses": 167,
+  "accuracy": 0.5825,
+  "missing_cases": 0,
+  "shards": 16,
+  "total_seconds": 71082.21,
+  "total_hours": 19.75,
+  "detailed_artifact_glob": "reports\\opencode_mimo_clinical_mai_400_*.json",
+  "shard_scores": [
+    {"shard": "0001-0025", "cases": 25, "correct": 16, "accuracy": 0.64},
+    {"shard": "0026-0050", "cases": 25, "correct": 16, "accuracy": 0.64},
+    {"shard": "0051-0075", "cases": 25, "correct": 16, "accuracy": 0.64},
+    {"shard": "0076-0100", "cases": 25, "correct": 14, "accuracy": 0.56},
+    {"shard": "0101-0125", "cases": 25, "correct": 14, "accuracy": 0.56},
+    {"shard": "0126-0150", "cases": 25, "correct": 13, "accuracy": 0.52},
+    {"shard": "0151-0175", "cases": 25, "correct": 14, "accuracy": 0.56},
+    {"shard": "0176-0200", "cases": 25, "correct": 18, "accuracy": 0.72},
+    {"shard": "0201-0225", "cases": 25, "correct": 15, "accuracy": 0.60},
+    {"shard": "0226-0250", "cases": 25, "correct": 18, "accuracy": 0.72},
+    {"shard": "0251-0275", "cases": 25, "correct": 13, "accuracy": 0.52},
+    {"shard": "0276-0300", "cases": 25, "correct": 14, "accuracy": 0.56},
+    {"shard": "0301-0325", "cases": 25, "correct": 12, "accuracy": 0.48},
+    {"shard": "0326-0350", "cases": 25, "correct": 13, "accuracy": 0.52},
+    {"shard": "0351-0375", "cases": 25, "correct": 12, "accuracy": 0.48},
+    {"shard": "0376-0400", "cases": 25, "correct": 15, "accuracy": 0.60}
+  ],
+  "share_policy": {
+    "commit_summary": true,
+    "commit_full_outputs": false,
+    "commit_partials": false,
+    "commit_logs": false,
+    "commit_cache": false
+  }
+}
