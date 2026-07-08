@@ -33,7 +33,24 @@ def test_provider_selector_lists_known_providers_offline() -> None:
     selector = ProviderSelector()
     names = {spec.name for spec in selector.list_providers()}
 
-    assert {"opencode-go", "opencode-zen", "openai-compatible", "ollama"} <= names
+    assert {
+        "opencode-go",
+        "opencode-zen",
+        "openai-compatible",
+        "ollama",
+        "nvidia",
+        "openrouter",
+        "groq",
+        "grok",
+        "together",
+        "fireworks",
+        "deepinfra",
+        "perplexity",
+        "mistral",
+        "cerebras",
+        "sambanova",
+        "zai",
+    } <= names
     assert "mimo-v2.5" in selector.known_models("opencode-go")
 
 

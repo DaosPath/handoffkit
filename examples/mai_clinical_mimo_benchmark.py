@@ -19,7 +19,7 @@ from typing import Any
 
 from handoffkit.handoff import HandoffState
 from handoffkit.mai_benchmark import SequentialDoctorCase, build_sequential_doctor_cases
-from handoffkit.providers import OpenCodeGoProvider
+from handoffkit.providers import BaseProvider, NativeOpenAIProvider, OpenCodeGoProvider
 from handoffkit.quality import HandoffQualityEvaluator
 from handoffkit.reports import write_report_files
 from handoffkit.tracing import RunTrace, TraceEvent, TraceStep
@@ -189,13 +189,22 @@ class ClinicalMimoPanel:
         self,
         *,
         model: str,
+        provider_name: str = "opencode-go",
         max_tokens: int,
         timeout: float,
+        rpm: float = 0.0,
+        retries: int = 0,
+        retry_backoff: float = 30.0,
         cache_dir: str | Path | None = ".cache/handoffkit/clinical_mimo",
     ) -> None:
         self.model = model
+        self.provider_name = provider_name
         self.max_tokens = max_tokens
-        self.provider = OpenCodeGoProvider(model=model, timeout=timeout)
+        self.provider = _make_provider(provider_name, model, timeout)
+        self.min_request_interval = 60.0 / rpm if rpm > 0 else 0.0
+        self.retries = max(0, retries)
+        self.retry_backoff = max(0.0, retry_backoff)
+        self._last_request_at = 0.0
         self.cache_dir = Path(cache_dir) if cache_dir is not None else None
         if self.cache_dir is not None:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -361,6 +370,7 @@ class ClinicalMimoPanel:
 
     def _cached_generate(self, stage: str, prompt: str) -> str:
         payload = {
+            "provider": self.provider_name,
             "model": self.model,
             "stage": stage,
             "prompt": prompt,
@@ -372,27 +382,63 @@ class ClinicalMimoPanel:
             cached = _read_json(path)
             if cached is not None and isinstance(cached.get("raw"), str):
                 return str(cached["raw"])
-        raw = self.provider.generate(prompt, temperature=0, max_tokens=self.max_tokens)
+        raw = self._generate_with_retries(prompt)
         if self.cache_dir is not None:
-            _safe_write_json(path, {"model": self.model, "stage": stage, "raw": raw})
+            _safe_write_json(
+                path,
+                {"provider": self.provider_name, "model": self.model, "stage": stage, "raw": raw},
+            )
         return raw
+
+    def _generate_with_retries(self, prompt: str) -> str:
+        last_error: Exception | None = None
+        for attempt in range(self.retries + 1):
+            self._respect_rate_limit()
+            try:
+                return self.provider.generate(prompt, temperature=0, max_tokens=self.max_tokens)
+            except Exception as exc:  # pragma: no cover - real provider path
+                last_error = exc
+                if attempt >= self.retries or not _is_transient_provider_error(str(exc)):
+                    raise
+                time.sleep(self.retry_backoff * (attempt + 1))
+        if last_error is not None:
+            raise last_error
+        return ""
+
+    def _respect_rate_limit(self) -> None:
+        if self.min_request_interval <= 0:
+            return
+        now = time.time()
+        elapsed = now - self._last_request_at
+        if elapsed < self.min_request_interval:
+            time.sleep(self.min_request_interval - elapsed)
+        self._last_request_at = time.time()
 
 
 def run_clinical_mimo_benchmark(
     *,
     cases: int,
+    provider_name: str,
     model: str,
     max_tokens: int,
     timeout: float,
+    rpm: float,
+    retries: int = 0,
+    retry_backoff: float = 30.0,
+    rerun_empty: bool = False,
     reports_dir: str | Path = "reports",
     start: int = 1,
     end: int | None = None,
     cache_dir: str | Path | None = ".cache/handoffkit/clinical_mimo",
 ) -> dict[str, Any]:
     panel = ClinicalMimoPanel(
+        provider_name=provider_name,
         model=model,
         max_tokens=max_tokens,
         timeout=timeout,
+        rpm=rpm,
+        retries=retries,
+        retry_backoff=retry_backoff,
         cache_dir=cache_dir,
     )
     all_cases = build_sequential_doctor_cases(cases)
@@ -405,14 +451,19 @@ def run_clinical_mimo_benchmark(
     reports_path = Path(reports_dir)
     reports_path.mkdir(parents=True, exist_ok=True)
     shard_suffix = f"{cases}_{start_index:04d}_{end_index:04d}"
-    partial_path = reports_path / f"opencode_mimo_clinical_mai_{shard_suffix}.partial.json"
+    safe_provider = provider_name.replace("-", "_")
+    safe_model = _compact(model) or "model"
+    artifact_prefix = f"{safe_provider}_{safe_model}_mt{max_tokens}_clinical_mai_{shard_suffix}"
+    partial_path = reports_path / f"{artifact_prefix}.partial.json"
     cached_rows = _load_partial_rows(partial_path)
     for offset, case in enumerate(selected, start=start_index):
         cached_row = cached_rows.get(case.case_id)
-        if cached_row is not None:
+        if cached_row is not None and not (rerun_empty and _row_needs_rerun(cached_row)):
             rows.append(cached_row)
             print(f"{offset}/{cases} {case.case_id}: CACHED")
             continue
+        if cached_row is not None:
+            print(f"{offset}/{cases} {case.case_id}: RERUN")
         result = panel.run_case(case)
         all_handoffs.extend(result["handoffs"])
         public_row = {
@@ -430,10 +481,12 @@ def run_clinical_mimo_benchmark(
         _safe_write_json(
             partial_path,
             {
-                "name": f"OpenCode MiMo Clinical MAI-style Benchmark {cases}",
+                "name": f"{provider_name} {model} Clinical MAI-style Benchmark {cases}",
                 "mode": "live_model_clinical_panel_partial",
+                "provider": provider_name,
                 "model": model,
                 "max_tokens": max_tokens,
+                "rpm": rpm,
                 "source_case_count": cases,
                 "case_count": len(rows),
                 "start": start_index,
@@ -444,13 +497,15 @@ def run_clinical_mimo_benchmark(
             },
         )
     quality = HandoffQualityEvaluator(min_score=0.6).evaluate_many(all_handoffs)
-    trace = _make_trace(rows, all_handoffs, model)
+    trace = _make_trace(rows, all_handoffs, model, provider_name)
     correct = sum(1 for row in rows if row["correct"])
     report = {
-        "name": f"OpenCode MiMo Clinical MAI-style Benchmark {cases}",
+        "name": f"{provider_name} {model} Clinical MAI-style Benchmark {cases}",
         "mode": "live_model_clinical_panel",
+        "provider": provider_name,
         "model": model,
         "max_tokens": max_tokens,
+        "rpm": rpm,
         "source_case_count": cases,
         "case_count": len(rows),
         "start": start_index,
@@ -463,7 +518,7 @@ def run_clinical_mimo_benchmark(
         "trace": trace.to_dict(),
         "rows": rows,
     }
-    name = f"opencode_mimo_clinical_mai_{shard_suffix}"
+    name = artifact_prefix
     json_path = reports_path / f"{name}.json"
     md_path = reports_path / f"{name}.md"
     json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -484,6 +539,31 @@ class _ReportAdapter:
 
     def to_markdown(self) -> str:
         return _to_markdown(self.data)
+
+
+def _is_transient_provider_error(error: str) -> bool:
+    transient_markers = (
+        "HTTP 429",
+        "Too Many Requests",
+        "HTTP 500",
+        "HTTP 502",
+        "HTTP 503",
+        "HTTP 504",
+        "timed out",
+        "temporarily unavailable",
+    )
+    return any(marker in error for marker in transient_markers)
+
+
+def _row_needs_rerun(row: dict[str, Any]) -> bool:
+    prediction = str(row.get("prediction") or "").strip()
+    if not prediction:
+        return True
+    for stage in row.get("stages") or []:
+        error = str(stage.get("error") or "")
+        if _is_transient_provider_error(error):
+            return True
+    return False
 
 
 def _handoff(
@@ -546,7 +626,18 @@ def _prediction_from_stage(stage: dict[str, Any]) -> str:
     return raw.strip().splitlines()[0][:180] if raw.strip() else ""
 
 
-def _make_trace(rows: list[dict[str, Any]], handoffs: list[HandoffState], model: str) -> RunTrace:
+def _make_provider(provider_name: str, model: str, timeout: float) -> BaseProvider:
+    if provider_name == "opencode-go":
+        return OpenCodeGoProvider(model=model, timeout=timeout)
+    return NativeOpenAIProvider(provider_name, model=model, timeout=timeout)
+
+
+def _make_trace(
+    rows: list[dict[str, Any]],
+    handoffs: list[HandoffState],
+    model: str,
+    provider_name: str,
+) -> RunTrace:
     steps = [
         TraceStep(
             name=row["case_id"],
@@ -567,13 +658,18 @@ def _make_trace(rows: list[dict[str, Any]], handoffs: list[HandoffState], model:
         for row in rows
     ]
     return RunTrace(
-        run_id=f"opencode-mimo-clinical-mai-{len(rows)}",
-        name="OpenCode MiMo Clinical MAI-style Benchmark",
+        run_id=f"{provider_name}-{_compact(model)}-clinical-mai-{len(rows)}",
+        name=f"{provider_name} {model} Clinical MAI-style Benchmark",
         success=True,
         final_output=f"{sum(1 for row in rows if row['correct'])}/{len(rows)} correct.",
         steps=steps,
         handoffs=handoffs,
-        metadata={"model": model, "case_count": len(rows), "mode": "live_model_clinical_panel"},
+        metadata={
+            "provider": provider_name,
+            "model": model,
+            "case_count": len(rows),
+            "mode": "live_model_clinical_panel",
+        },
     )
 
 
@@ -593,8 +689,10 @@ def _to_markdown(report: dict[str, Any]) -> str:
         f"# {report['name']}\n\n"
         f"> {report['safety_note']}\n\n"
         "## Summary\n\n"
+        f"- Provider: `{report['provider']}`\n"
         f"- Model: `{report['model']}`\n"
         f"- Max tokens per stage: `{report['max_tokens']}`\n"
+        f"- RPM limit: `{report['rpm']}`\n"
         f"- Cases: `{report['case_count']}`\n"
         f"- Correct: `{report['correct']}`\n"
         f"- Accuracy: `{report['accuracy']:.3f}`\n"
@@ -834,21 +932,41 @@ def main() -> int:
     _configure_output_encoding()
     parser = argparse.ArgumentParser()
     parser.add_argument("--cases", type=int, default=3)
+    parser.add_argument(
+        "--provider",
+        default=os.getenv("CLINICAL_BENCHMARK_PROVIDER", "opencode-go"),
+    )
     parser.add_argument("--model", default=os.getenv("OPENCODE_GO_MODEL", DEFAULT_MODEL))
     parser.add_argument("--max-tokens", type=int, default=DEFAULT_MAX_TOKENS)
     parser.add_argument("--timeout", type=float, default=300.0)
+    parser.add_argument(
+        "--rpm",
+        type=float,
+        default=0.0,
+        help="Optional requests-per-minute limiter; use <=40 for NVIDIA free tier.",
+    )
     parser.add_argument("--start", type=int, default=1)
     parser.add_argument("--end", type=int)
     parser.add_argument("--cache-dir", default=".cache/handoffkit/clinical_mimo")
     parser.add_argument("--no-cache", action="store_true")
+    parser.add_argument("--retries", type=int, default=0)
+    parser.add_argument("--retry-backoff", type=float, default=30.0)
+    parser.add_argument("--rerun-empty", action="store_true")
     args = parser.parse_args()
-    if not os.getenv("OPENCODE_API_KEY"):
+    if args.provider == "opencode-go" and not os.getenv("OPENCODE_API_KEY"):
         raise SystemExit("OPENCODE_API_KEY is required.")
+    if args.provider == "nvidia" and not os.getenv("NVIDIA_API_KEY"):
+        raise SystemExit("NVIDIA_API_KEY is required.")
     report = run_clinical_mimo_benchmark(
         cases=args.cases,
+        provider_name=args.provider,
         model=args.model,
         max_tokens=args.max_tokens,
         timeout=args.timeout,
+        rpm=args.rpm,
+        retries=args.retries,
+        retry_backoff=args.retry_backoff,
+        rerun_empty=args.rerun_empty,
         start=args.start,
         end=args.end,
         cache_dir=None if args.no_cache else args.cache_dir,

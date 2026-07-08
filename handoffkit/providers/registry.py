@@ -11,6 +11,11 @@ from typing import Any
 
 from handoffkit.errors import ProviderConfigurationError, ProviderExecutionError
 from handoffkit.providers.base import BaseProvider
+from handoffkit.providers.native_openai import (
+    NATIVE_OPENAI_PROVIDER_CONFIGS,
+    NativeOpenAIProvider,
+    list_native_provider_models,
+)
 from handoffkit.providers.ollama_provider import OllamaProvider
 from handoffkit.providers.openai_compatible import list_openai_compatible_models
 from handoffkit.providers.openai_provider import OpenAIProvider
@@ -179,7 +184,7 @@ class ProviderSelector:
             kwargs: dict[str, Any] = {}
             if timeout is not None and hasattr(provider, "timeout"):
                 provider.timeout = timeout
-            response = provider.generate(prompt, temperature=0)
+            response = provider.generate(prompt, temperature=0, max_tokens=8)
             latency = round(time.perf_counter() - start, 3)
             return ProviderProbeResult(
                 provider=candidate.provider,
@@ -257,6 +262,21 @@ class ProviderRouter(BaseProvider):
 
 def default_provider_specs() -> list[ProviderSpec]:
     """Return built-in experimental provider specs."""
+    native_specs = [
+        ProviderSpec(
+            name=config.name,
+            description=f"{config.display_name} OpenAI-compatible provider.",
+            env_vars=(config.api_key_env, config.base_url_env),
+            model_env_vars=(config.model_env,),
+            default_model=config.default_model,
+            suggested_models=config.suggested_models,
+            supports_models_endpoint=config.supports_models_endpoint,
+            factory=lambda model, provider=name: NativeOpenAIProvider(provider, model=model),
+            list_models=lambda provider=name: list_native_provider_models(provider),
+            metadata={"native": True, "experimental": True, **config.metadata},
+        )
+        for name, config in NATIVE_OPENAI_PROVIDER_CONFIGS.items()
+    ]
     return [
         ProviderSpec(
             name="opencode-go",
@@ -305,6 +325,7 @@ def default_provider_specs() -> list[ProviderSpec]:
             factory=lambda model: OllamaProvider(model=model or "llama3.1"),
             metadata={"local": True, "experimental": True},
         ),
+        *native_specs,
     ]
 
 
@@ -313,4 +334,5 @@ def _redact_secret_like_text(text: str) -> str:
     redacted = re.sub(r"sk-[A-Za-z0-9_-]{8,}", "[redacted-api-key]", text)
     redacted = re.sub(r"pypi-[A-Za-z0-9_-]{8,}", "[redacted-api-key]", redacted)
     redacted = re.sub(r"secret-[A-Za-z0-9_-]{3,}", "[redacted-secret]", redacted)
+    redacted = re.sub(r"user_[A-Za-z0-9_-]{8,}", "[redacted-user-id]", redacted)
     return redacted

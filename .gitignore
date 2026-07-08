@@ -36,3 +36,6 @@ reports/doctor_benchmark_400.*
 reports/mai_style_doctor_benchmark_3.*
 tests/_tmp_tool_execution/
 tests/_tmp_memory_context/
+
+# Web folder
+web/
