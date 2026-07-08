@@ -3,6 +3,6 @@
 Workspace packages live here.
 
 - `python/`: published Python package (`handoffkit` on PyPI).
-- `core/`: reserved for a future TypeScript implementation of the contract layer.
+- `core/`: JavaScript/TypeScript contract layer (`@handoffkit/core`).
 - `next/`: reserved for future Next.js helpers.
 - `providers/`: reserved for future provider routing helpers.

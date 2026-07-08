@@ -3,6 +3,8 @@
   "private": true,
   "packageManager": "pnpm@11.1.1",
   "scripts": {
+    "core:check": "pnpm --dir packages/core run check",
+    "core:test": "pnpm --dir packages/core run test",
     "python:install": "cd packages/python && python -m pip install -e \".[dev]\"",
     "python:lint": "cd packages/python && python -m ruff check --no-cache .",
     "python:test": "cd packages/python && python -m pytest -q",

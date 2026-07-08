@@ -1,0 +1,29 @@
+{
+  "name": "@handoffkit/core",
+  "version": "0.1.0",
+  "description": "JavaScript contract layer for multi-agent workflows with structured handoffs.",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "check": "node --check src/index.js && node --check test/core.test.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
