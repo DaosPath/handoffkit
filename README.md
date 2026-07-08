@@ -1,4 +1,4 @@
-# HandoffKit
+﻿# HandoffKit
 
 Structured state transfer for multi-agent workflows.
 
@@ -8,6 +8,7 @@ This repository is a monorepo:
 handoffkit/
   packages/
     python/          # Python package published to PyPI as handoffkit
+    core/            # JavaScript contract package: @handoffkit/core
   apps/
     web/             # Next.js demo and docs workspace
   package.json       # pnpm workspace commands
@@ -46,6 +47,15 @@ pnpm install
 pnpm web:dev
 pnpm web:lint
 pnpm web:build
+```
+
+## JavaScript Core
+
+The first JavaScript package lives in [`packages/core`](packages/core).
+
+```bash
+pnpm core:check
+pnpm core:test
 ```
 
 ## Package README
