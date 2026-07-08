@@ -13,6 +13,9 @@ a small dependency-free ESM package:
 - `HandoffQualityEvaluator`
 - `RunTrace`
 - `ReplayRunner`
+- `FileTraceStore`
+- `ProviderToolAdapter`
+- `ToolRegistry`
 - `defineTool`
 
 ## Install
@@ -44,6 +47,42 @@ const replay = new ReplayRunner(trace).summary();
 
 console.log(result.handoffs[0].toJSON());
 console.log(replay);
+```
+
+## Async Runtime
+
+```js
+const result = await team.arun("Build a small calculator CLI.");
+console.log(result.finalOutput);
+```
+
+## Provider Tool Formats
+
+```js
+import { ProviderToolAdapter, defineTool } from "@handoffkit/core";
+
+const add = defineTool({
+  name: "add",
+  description: "Add two numbers.",
+  parameters: { type: "object" },
+  execute: ({ a, b }) => a + b,
+});
+
+const adapter = new ProviderToolAdapter();
+const openaiTools = adapter.toolsToProviderFormat([add], "openai");
+const anthropicTools = adapter.toolsToProviderFormat([add], "anthropic");
+
+console.log(openaiTools, anthropicTools);
+```
+
+## Trace Reports
+
+```js
+import { FileTraceStore, RunTrace, writeReportFiles } from "@handoffkit/core";
+
+const trace = RunTrace.fromTeamResult(result);
+await new FileTraceStore({ root: "traces" }).save(trace, "latest");
+await writeReportFiles(trace, "latest", "reports");
 ```
 
 ## Design Notes

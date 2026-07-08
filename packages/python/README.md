@@ -27,6 +27,7 @@ pip install handoffkit
 </table>
 
 <p>
+  <strong>1.6.0:</strong> JavaScript core package with async runtime, provider tool formats, traces, and reports.<br>
   <strong>1.5.0:</strong> media workflow contracts for audiobook and translated video dubbing demos.<br>
   <strong>1.3.0:</strong> tool creation, OpenCode providers, and research-only evidence tools.<br>
   <strong>1.4.5:</strong> native NVIDIA, OpenRouter, Groq, Grok, and OpenAI-compatible provider routing.
@@ -40,6 +41,7 @@ pip install handoffkit
 
 - [Quickstart](#quickstart)
 - [Provider Registry and Model Routing](#provider-registry-and-model-routing)
+- [JavaScript Core](#javascript-core)
 - [Media Workflows](#media-workflows)
 - [Tool Creation and Evidence Tools](#tool-creation-and-evidence-tools)
 - [Wow in 5 Minutes](#wow-in-5-minutes)
@@ -236,6 +238,65 @@ HandoffKit is built around three ideas:
 | State transfer | `HandoffState`, `HandoffProtocol`, `Team` | Agents receive explicit task, decisions, files, errors, and next steps. |
 | Quality control | `ValidationReport`, `HandoffQualityReport` | Handoffs can be validated, scored, serialized, and reviewed. |
 | Audit trail | `RunTrace`, `FileTraceStore`, `ReplayRunner` | Runs can be stored and replay-inspected without providers, tools, or shell. |
+
+## What 1.6.0 Adds
+
+HandoffKit 1.6.0 starts the JavaScript/TypeScript contract layer:
+
+- `@handoffkit/core` for JS apps that need the same handoff contract shape,
+- async `Agent.arun()` and `Team.arun()` helpers,
+- `ToolRegistry`, `ToolCall`, `ToolResult`, and `Agent.runWithTools()`,
+- `ProviderToolAdapter` for HandoffKit, OpenAI, and Anthropic-style tool
+  schemas/calls,
+- `FileTraceStore`, `writeReportFiles()`, and `loadReportJSON()` for Node
+  trace/report workflows.
+
+The JS package is dependency-free and tested offline. Provider SDKs and network
+calls are intentionally left to adapter packages or app code.
+
+```bash
+pnpm core:check
+pnpm core:test
+```
+
+## JavaScript Core
+
+Use `@handoffkit/core` when your Next.js/Node app needs structured agent
+handoffs without pulling in the Python runtime:
+
+```js
+import {
+  Agent,
+  HandoffProtocol,
+  ProviderToolAdapter,
+  RunTrace,
+  Team,
+  defineTool,
+} from "@handoffkit/core";
+
+const add = defineTool({
+  name: "add",
+  description: "Add two numbers.",
+  parameters: {
+    type: "object",
+    properties: { a: { type: "number" }, b: { type: "number" } },
+    required: ["a", "b"],
+  },
+  execute: ({ a, b }) => a + b,
+});
+
+const openaiTools = new ProviderToolAdapter().toolsToProviderFormat([add], "openai");
+
+const team = new Team({
+  agents: [new Agent({ name: "Architect" }), new Agent({ name: "Coder" })],
+  protocol: new HandoffProtocol(),
+});
+
+const result = await team.arun("Build a calculator.");
+const trace = RunTrace.fromTeamResult(result);
+```
+
+Package source: [`packages/core`](https://github.com/DaosPath/handoffkit/tree/main/packages/core).
 
 ## What 1.5.0 Adds
 
