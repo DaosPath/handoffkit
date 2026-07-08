@@ -85,6 +85,22 @@ Stable sync methods remain the compatibility baseline. Async helpers
 - `write_report_files`
 - `load_report_json`
 
+## Media Workflows
+
+- `MediaAsset`
+- `TranscriptSegment`
+- `SpeakerProfile`
+- `DubbingSegment`
+- `MediaWorkflowReport`
+- `build_dubbing_plan`
+- `format_srt_timestamp`
+- `write_srt`
+- `write_transcript_json`
+- `read_transcript_json`
+- `ffmpeg_available`
+- `extract_audio`
+- `mux_audio`
+
 ## Compatibility Promise
 
 These APIs should not be removed or receive breaking signature changes in 1.x
