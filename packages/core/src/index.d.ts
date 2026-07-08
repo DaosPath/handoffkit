@@ -33,6 +33,13 @@ export class ValidationReport {
   raiseIfFailed(): this;
 }
 
+export class BaseProvider {
+  model: string;
+  constructor(init?: { model?: string });
+  generate(prompt: string, kwargs?: Record<string, unknown>): string;
+  agenerate(prompt: string, kwargs?: Record<string, unknown>): Promise<string>;
+}
+
 export interface HandoffStateInit {
   task?: string;
   fromAgent?: string;
@@ -66,19 +73,20 @@ export class HandoffState {
   toMarkdown(): string;
 }
 
-export class EchoProvider {
-  model: string;
+export class EchoProvider extends BaseProvider {
   constructor(init?: { model?: string });
-  generate(prompt: string, kwargs?: Record<string, unknown>): string;
 }
 
 export class Agent {
   name: string;
   role: string;
-  provider: { generate(prompt: string, kwargs?: Record<string, unknown>): string; model?: string };
+  provider: { generate(prompt: string, kwargs?: Record<string, unknown>): string; agenerate?(prompt: string, kwargs?: Record<string, unknown>): Promise<string>; model?: string };
   metadata: Record<string, unknown>;
-  constructor(init: { name: string; role?: string; provider?: EchoProvider; metadata?: Record<string, unknown> });
+  constructor(init: { name: string; role?: string; provider?: BaseProvider | EchoProvider; metadata?: Record<string, unknown> });
   run(task: string, options?: { context?: string | null }): AgentRunResult;
+  arun(task: string, options?: { context?: string | null }): Promise<AgentRunResult>;
+  runWithTools(task: string, options?: { tools?: ReturnType<typeof defineTool>[]; toolCalls?: ToolCall[] | Record<string, unknown>; providerAdapter?: ProviderToolAdapter }): ToolAgentRunResult;
+  arunWithTools(task: string, options?: { tools?: ReturnType<typeof defineTool>[]; toolCalls?: ToolCall[] | Record<string, unknown>; providerAdapter?: ProviderToolAdapter }): Promise<ToolAgentRunResult>;
 }
 
 export class AgentRunResult {
@@ -104,6 +112,7 @@ export class Team {
   metadata: Record<string, unknown>;
   constructor(init: { agents: Agent[]; protocol?: HandoffProtocol; metadata?: Record<string, unknown> });
   run(task: string): TeamRunResult;
+  arun(task: string): Promise<TeamRunResult>;
 }
 
 export class TeamRunResult {
@@ -166,6 +175,73 @@ export class ReplayRunner {
     metadata: Record<string, unknown>;
   };
 }
+
+export class FileTraceStore {
+  root: string;
+  constructor(init?: { root?: string });
+  save(trace: RunTrace | Record<string, unknown>, name?: string): Promise<string>;
+  load(nameOrPath: string): Promise<RunTrace>;
+  list(): Promise<string[]>;
+}
+
+export class ToolCall {
+  name: string;
+  arguments: Record<string, unknown>;
+  callId: string;
+  provider: string;
+  metadata: Record<string, unknown>;
+  constructor(init?: { name: string; arguments?: Record<string, unknown>; callId?: string; provider?: string; metadata?: Record<string, unknown> });
+  toJSON(): Record<string, unknown>;
+}
+
+export class ToolResult {
+  name: string;
+  callId: string;
+  success: boolean;
+  output: unknown;
+  error: string;
+  metadata: Record<string, unknown>;
+  constructor(init?: { name: string; callId?: string; success?: boolean; output?: unknown; error?: string; metadata?: Record<string, unknown> });
+  toJSON(): Record<string, unknown>;
+}
+
+export class ToolRegistry {
+  constructor(tools?: ReturnType<typeof defineTool>[]);
+  register(tool: ReturnType<typeof defineTool>): this;
+  get(name: string): ReturnType<typeof defineTool> | null;
+  list(): ReturnType<typeof defineTool>[];
+  execute(call: ToolCall | { name: string; arguments?: Record<string, unknown>; callId?: string }): ToolResult;
+  aexecute(call: ToolCall | { name: string; arguments?: Record<string, unknown>; callId?: string }): Promise<ToolResult>;
+}
+
+export class ToolAgentRunResult {
+  agentResult: AgentRunResult;
+  toolResults: ToolResult[];
+  success: boolean;
+  constructor(init: { agentResult: AgentRunResult; toolResults?: ToolResult[] });
+  toJSON(): Record<string, unknown>;
+}
+
+export type ProviderToolFormat = "handoffkit" | "openai" | "anthropic";
+
+export class ProviderToolAdapter {
+  providerFormat: ProviderToolFormat;
+  constructor(init?: { providerFormat?: ProviderToolFormat });
+  toolsToProviderFormat(tools: Array<ReturnType<typeof defineTool> | Record<string, unknown>>, providerFormat?: ProviderToolFormat): Record<string, unknown>[];
+  parseToolCalls(payload: unknown, providerFormat?: ProviderToolFormat): ToolCall[];
+}
+
+export class RetryPolicy {
+  maxAttempts: number;
+  baseDelayMs: number;
+  retryStatusCodes: number[];
+  constructor(init?: { maxAttempts?: number; baseDelayMs?: number; retryStatusCodes?: number[] });
+  shouldRetry(error: unknown, attempt: number): boolean;
+  run<T>(operation: (context: { attempt: number }) => Promise<T>): Promise<T>;
+}
+
+export function writeReportFiles(report: { toJSON?: () => unknown; toMarkdown?: () => string } | unknown, name: string, outputDir?: string): Promise<{ jsonPath: string; markdownPath: string }>;
+export function loadReportJSON(path: string): Promise<unknown>;
 
 export function defineTool(init: {
   name: string;

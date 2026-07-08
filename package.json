@@ -13,5 +13,8 @@
     "web:dev": "pnpm --dir apps/web exec next dev -p 3000",
     "web:lint": "pnpm --dir apps/web run lint",
     "web:build": "pnpm --dir apps/web run build"
+  },
+  "devDependencies": {
+    "@handoffkit/core": "workspace:*"
   }
 }

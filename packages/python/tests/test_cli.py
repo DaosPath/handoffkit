@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 
 from handoffkit.cli import (
     evaluate_report,
@@ -48,7 +48,7 @@ def test_cli_version(capsys) -> None:  # type: ignore[no-untyped-def]
     captured = capsys.readouterr()
 
     assert exc_info.value.code == 0
-    assert "handoffkit 1.5.0" in captured.out
+    assert "handoffkit 1.6.0" in captured.out
 
 
 def test_run_demo_reports_handoff_count() -> None:
@@ -324,5 +324,3 @@ def test_init_project_uses_showcase_template_name_directly(tmp_path) -> None:  #
     assert "python coding_review.py" in output
     assert "handoffkit report runs/latest" in output
     assert (tmp_path / "coding-review" / "coding_review.py").exists()
-
-

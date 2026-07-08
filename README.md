@@ -51,7 +51,9 @@ pnpm web:build
 
 ## JavaScript Core
 
-The first JavaScript package lives in [`packages/core`](packages/core).
+The JavaScript/TypeScript contract package lives in [`packages/core`](packages/core).
+It includes offline agents/teams, async runs, tool schema adapters, traces, and
+report helpers for Next.js and Node apps.
 
 ```bash
 pnpm core:check
