@@ -15,6 +15,7 @@ from handoffkit.cli import (
     run_doctor_benchmark_demo,
     run_doctor_orchestrator_demo,
     run_extension_demo,
+    run_fusion_style_demo,
     run_mai_style_doctor_benchmark_demo,
     run_named_showcase,
     run_provider_formats_demo,
@@ -46,7 +47,7 @@ def test_cli_version(capsys) -> None:  # type: ignore[no-untyped-def]
     captured = capsys.readouterr()
 
     assert exc_info.value.code == 0
-    assert "handoffkit 1.4.0" in captured.out
+    assert "handoffkit 1.4.5" in captured.out
 
 
 def test_run_demo_reports_handoff_count() -> None:
@@ -88,6 +89,17 @@ def test_run_provider_tools_demo_reports_tool_result() -> None:
 
     assert "provider tool adapter demo" in output
     assert "label:demo" in output
+
+
+def test_run_fusion_style_demo_writes_report(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+
+    output = run_fusion_style_demo()
+
+    assert "Fusion-style panel demo" in output
+    assert "offline-deterministic-panel" in output
+    assert (tmp_path / "reports" / "fusion_style_demo.json").exists()
+    assert (tmp_path / "reports" / "fusion_style_demo.md").exists()
 
 
 
@@ -170,6 +182,7 @@ def test_new_cli_commands_run(capsys) -> None:  # type: ignore[no-untyped-def]
         "demo-support",
         "demo-research",
         "demo-doctor",
+        "demo-fusion",
     ]:
         exit_code = main([command])
         captured = capsys.readouterr()

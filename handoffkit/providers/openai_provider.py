@@ -13,6 +13,7 @@ from handoffkit.providers.base import BaseProvider
 
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+DEFAULT_USER_AGENT = "handoffkit/1.4.5"
 
 
 class OpenAIProvider(BaseProvider):
@@ -24,12 +25,14 @@ class OpenAIProvider(BaseProvider):
         *,
         api_key: str | None = None,
         base_url: str | None = None,
+        headers: dict[str, str] | None = None,
         timeout: float = 60.0,
     ) -> None:
         self.model = model or os.getenv("OPENAI_MODEL") or DEFAULT_OPENAI_MODEL
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         configured_base_url = base_url or os.getenv("OPENAI_BASE_URL") or DEFAULT_OPENAI_BASE_URL
         self.base_url = configured_base_url.rstrip("/")
+        self.headers = dict(headers or {})
         self.timeout = timeout
         if not self.api_key:
             raise ProviderConfigurationError(
@@ -51,6 +54,8 @@ class OpenAIProvider(BaseProvider):
             headers={
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
+                "User-Agent": DEFAULT_USER_AGENT,
+                **self.headers,
             },
             method="POST",
         )

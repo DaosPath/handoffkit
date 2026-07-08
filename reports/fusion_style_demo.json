@@ -1,0 +1,87 @@
+{
+  "success": true,
+  "task": "Design a next-pass strategy for a research-only clinical benchmark that scored 233/400 with MiMo. Improve reliability without using gold labels or making clinical claims.",
+  "mode": "offline-deterministic-panel",
+  "safety_note": "Research-only orchestration demo. Not medical advice, not clinical validation, and not for patient care.",
+  "panel": [
+    {
+      "model": "mimo-v2.5/offline",
+      "role": "broad diagnostician",
+      "answer": "Use a domain router before expensive reasoning: pathology, infection, endocrine/electrolyte, neuro, drug reaction, and rare syndrome.",
+      "strengths": [
+        "broad recall",
+        "cheap first pass",
+        "good label variety"
+      ],
+      "risks": [
+        "may overfit to plausible broad diagnoses"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "model": "deepseek-v4-pro/offline",
+      "role": "mechanism checker",
+      "answer": "Require every final label to cite case evidence and a competing diagnosis it ruled out. Penalize answers without mechanism.",
+      "strengths": [
+        "mechanistic reasoning",
+        "contradiction spotting"
+      ],
+      "risks": [
+        "can be slow or verbose"
+      ],
+      "confidence": "medium-high"
+    },
+    {
+      "model": "glm-5.2/offline",
+      "role": "adversarial reviewer",
+      "answer": "Run rescue only on low-confidence or disagreement cases. Generic reruns waste budget and did not move the score enough.",
+      "strengths": [
+        "skeptical review",
+        "cost control"
+      ],
+      "risks": [
+        "may reject useful rare-disease guesses"
+      ],
+      "confidence": "high"
+    },
+    {
+      "model": "qwen3.7-max/offline",
+      "role": "retrieval planner",
+      "answer": "Generate 3-5 retrieval queries per case, then build a compact evidence packet before the panel votes.",
+      "strengths": [
+        "query planning",
+        "structured extraction"
+      ],
+      "risks": [
+        "retrieval quality can dominate outcome"
+      ],
+      "confidence": "medium-high"
+    }
+  ],
+  "analysis": {
+    "consensus": [
+      "Use multiple specialist perspectives instead of one generic rerun.",
+      "Run retrieval before final voting, not only inside the final prompt.",
+      "Reserve rescue for failed, low-confidence, or disagreement cases."
+    ],
+    "contradictions": [
+      "Breadth-first diagnosis can increase recall but also broad false positives.",
+      "Mechanism-heavy review improves precision but may miss rare presentations."
+    ],
+    "coverage_gaps": [
+      "Need per-domain error taxonomy before claiming improvement.",
+      "Need clean infra metrics separated from clinical misses."
+    ],
+    "unique_insights": [
+      "mimo-v2.5/offline: Use a domain router before expensive reasoning: pathology, infection, endocrine/electrolyte, neuro, drug reaction, and rare syndrome.",
+      "deepseek-v4-pro/offline: Require every final label to cite case evidence and a competing diagnosis it ruled out. Penalize answers without mechanism.",
+      "glm-5.2/offline: Run rescue only on low-confidence or disagreement cases. Generic reruns waste budget and did not move the score enough.",
+      "qwen3.7-max/offline: Generate 3-5 retrieval queries per case, then build a compact evidence packet before the panel votes."
+    ],
+    "blind_spots": [
+      "No benchmark score should be marketed as clinical capability.",
+      "Fusion can improve consistency, but it can also amplify shared false assumptions."
+    ]
+  },
+  "final_answer": "Build HandoffKit Fusion as a research orchestrator: evidence planner -> parallel model panel -> contradiction judge -> targeted rescue -> final label normalizer. Track accuracy, clean accuracy, rescue gain, harmful rescue rate, and infra failures separately. Start offline/deterministic; enable real providers only with --real and cached shards."
+}

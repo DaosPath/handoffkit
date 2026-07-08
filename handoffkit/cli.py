@@ -16,6 +16,7 @@ from handoffkit.builtins import plan_execute_review_recipe
 from handoffkit.doctor_benchmark import run_doctor_benchmark as execute_doctor_benchmark
 from handoffkit.evaluation import WorkflowEvaluator
 from handoffkit.extensions import Extension, ExtensionRegistry
+from handoffkit.fusion import run_fusion_demo
 from handoffkit.handoff import HandoffState
 from handoffkit.mai_benchmark import run_mai_style_benchmark
 from handoffkit.protocol import HandoffProtocol
@@ -502,6 +503,19 @@ def run_doctor_orchestrator_demo() -> str:
     return run_named_showcase("doctor-orchestrator")
 
 
+def run_fusion_style_demo() -> str:
+    """Run the local Fusion-style panel demo."""
+    report, json_path, markdown_path = run_fusion_demo(output_dir=Path("reports"))
+    return (
+        "HandoffKit Fusion-style panel demo\n"
+        f"Mode: {report.mode}\n"
+        f"Panel models: {', '.join(item.model for item in report.panel)}\n"
+        f"Markdown report: {markdown_path}\n"
+        f"JSON report: {json_path}\n\n"
+        f"{report.to_markdown()}"
+    )
+
+
 def init_project(
     project_name: str,
     *,
@@ -555,6 +569,7 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("demo-support", help="Run the support escalation showcase.")
     subparsers.add_parser("demo-research", help="Run the research workflow showcase.")
     subparsers.add_parser("demo-doctor", help="Run the educational doctor-orchestrator showcase.")
+    subparsers.add_parser("demo-fusion", help="Run the local Fusion-style panel demo.")
     providers_parser = subparsers.add_parser("providers", help="Inspect provider registry.")
     providers_subparsers = providers_parser.add_subparsers(dest="providers_command")
     providers_list_parser = providers_subparsers.add_parser("list", help="List providers.")
@@ -675,6 +690,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "demo-doctor":
         print(run_doctor_orchestrator_demo())
+        return 0
+    if args.command == "demo-fusion":
+        print(run_fusion_style_demo())
         return 0
     if args.command == "providers":
         if args.providers_command == "list":

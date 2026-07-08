@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.5
+
+- Added native OpenAI-compatible provider wrappers for NVIDIA NIM, OpenRouter,
+  Groq, xAI Grok, Together AI, Fireworks AI, DeepInfra, Perplexity, Mistral AI,
+  Cerebras, SambaNova Cloud, and Z.ai / GLM.
+- Added provider-specific environment variables and model defaults without
+  adding provider SDK dependencies.
+- Added `/models` discovery for native providers through the existing
+  opt-in `handoffkit providers ... --real` workflow.
+- Added a Fusion-style offline panel demo and `handoffkit demo-fusion`.
+
 ## 1.4.0
 
 - Added experimental provider registry, model candidates, selector, probe
