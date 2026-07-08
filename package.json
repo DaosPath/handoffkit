@@ -3,6 +3,7 @@
   "private": true,
   "packageManager": "pnpm@11.1.1",
   "scripts": {
+    "contracts:test": "pnpm core:test && pnpm python:test",
     "core:check": "pnpm --dir packages/core run check",
     "core:test": "pnpm --dir packages/core run test",
     "python:install": "cd packages/python && python -m pip install -e \".[dev]\"",

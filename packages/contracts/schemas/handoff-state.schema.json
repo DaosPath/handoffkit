@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/handoff-state.schema.json",
+  "title": "HandoffState",
+  "type": "object",
+  "required": ["task", "from_agent", "to_agent"],
+  "properties": {
+    "task": { "type": "string" },
+    "from_agent": { "type": "string" },
+    "to_agent": { "type": "string" },
+    "summary": { "type": "string" },
+    "decisions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "important_files": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "errors": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "next_steps": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "context_refs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

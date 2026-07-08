@@ -163,6 +163,25 @@ export class HandoffState {
   }
 
   toJSON() {
+    return this.toWire();
+  }
+
+  toWire() {
+    return {
+      task: this.task,
+      from_agent: this.fromAgent,
+      to_agent: this.toAgent,
+      summary: this.summary,
+      decisions: [...this.decisions],
+      important_files: [...this.importantFiles],
+      errors: [...this.errors],
+      next_steps: [...this.nextSteps],
+      context_refs: [...this.contextRefs],
+      metadata: { ...this.metadata },
+    };
+  }
+
+  toCamelJSON() {
     return {
       task: this.task,
       fromAgent: this.fromAgent,
@@ -292,9 +311,9 @@ export class AgentRunResult {
 
   toJSON() {
     return {
-      agentName: this.agentName,
+      agent_name: this.agentName,
       task: this.task,
-      finalOutput: this.finalOutput,
+      final_output: this.finalOutput,
       success: this.success,
       provider: this.provider,
       model: this.model,
@@ -430,8 +449,8 @@ export class TeamRunResult {
     return {
       success: this.success,
       task: this.task,
-      finalOutput: this.finalOutput,
-      stepResults: this.stepResults.map((result) => result.toJSON()),
+      final_output: this.finalOutput,
+      step_results: this.stepResults.map((result) => result.toJSON()),
       handoffs: this.handoffs.map((handoff) => handoff.toJSON()),
       metadata: { ...this.metadata },
     };
@@ -518,14 +537,26 @@ export class TraceEvent {
 }
 
 export class TraceStep {
-  constructor({ name, agent = "", task = "", mode = "", success = true, output = "", handoff = null, toolResults = [], events = [], metadata = {} }) {
+  constructor(init) {
+    const {
+      name,
+      agent = "",
+      task = "",
+      mode = "",
+      success = true,
+      output = "",
+      handoff = null,
+      toolResults = init?.tool_results ?? [],
+      events = [],
+      metadata = {},
+    } = init ?? {};
     this.name = name;
     this.agent = agent;
     this.task = task;
     this.mode = mode;
     this.success = Boolean(success);
     this.output = output;
-    this.handoff = handoff;
+    this.handoff = handoff instanceof HandoffState ? handoff : (handoff ? HandoffState.fromJSON(handoff) : null);
     this.toolResults = [...toolResults];
     this.events = events.map((event) => event instanceof TraceEvent ? event : new TraceEvent(event));
     this.metadata = { ...metadata };
@@ -540,7 +571,7 @@ export class TraceStep {
       success: this.success,
       output: this.output,
       handoff: this.handoff?.toJSON?.() ?? this.handoff,
-      toolResults: [...this.toolResults],
+      tool_results: this.toolResults.map((result) => result?.toJSON?.() ?? result),
       events: this.events.map((event) => event.toJSON()),
       metadata: { ...this.metadata },
     };
@@ -548,11 +579,22 @@ export class TraceStep {
 }
 
 export class RunTrace {
-  constructor({ runId = cryptoRandomId(), name = "run", success = true, finalOutput = "", steps = [], handoffs = [], metadata = {} } = {}) {
-    this.runId = runId;
+  constructor(init = {}) {
+    const {
+      runId,
+      run_id,
+      name = "run",
+      success = true,
+      finalOutput,
+      final_output,
+      steps = [],
+      handoffs = [],
+      metadata = {},
+    } = init;
+    this.runId = runId || run_id || cryptoRandomId();
     this.name = name;
     this.success = Boolean(success);
-    this.finalOutput = finalOutput;
+    this.finalOutput = finalOutput || final_output || "";
     this.steps = steps.map((step) => step instanceof TraceStep ? step : new TraceStep(step));
     this.handoffs = handoffs.map((handoff) => handoff instanceof HandoffState ? handoff : HandoffState.fromJSON(handoff));
     this.metadata = { ...metadata };
@@ -584,10 +626,10 @@ export class RunTrace {
 
   toJSON() {
     return {
-      runId: this.runId,
+      run_id: this.runId,
       name: this.name,
       success: this.success,
-      finalOutput: this.finalOutput,
+      final_output: this.finalOutput,
       steps: this.steps.map((step) => step.toJSON()),
       handoffs: this.handoffs.map((handoff) => handoff.toJSON()),
       metadata: { ...this.metadata },
@@ -660,10 +702,11 @@ export class FileTraceStore {
 
 export class ToolCall {
   constructor({ name, arguments: args = {}, callId = "", provider = "", metadata = {} } = {}) {
+    const init = arguments[0] ?? {};
     if (!name) throw new TypeError("ToolCall name is required.");
     this.name = name;
     this.arguments = { ...args };
-    this.callId = callId;
+    this.callId = callId || init.call_id || init.id || "";
     this.provider = provider;
     this.metadata = { ...metadata };
   }
@@ -672,7 +715,7 @@ export class ToolCall {
     return {
       name: this.name,
       arguments: { ...this.arguments },
-      callId: this.callId,
+      call_id: this.callId,
       provider: this.provider,
       metadata: { ...this.metadata },
     };
@@ -681,8 +724,9 @@ export class ToolCall {
 
 export class ToolResult {
   constructor({ name, callId = "", success = true, output = null, error = "", metadata = {} } = {}) {
+    const init = arguments[0] ?? {};
     this.name = name;
-    this.callId = callId;
+    this.callId = callId || init.call_id || "";
     this.success = Boolean(success);
     this.output = output;
     this.error = error;
@@ -692,7 +736,7 @@ export class ToolResult {
   toJSON() {
     return {
       name: this.name,
-      callId: this.callId,
+      call_id: this.callId,
       success: this.success,
       output: this.output,
       error: this.error,
@@ -789,8 +833,8 @@ export class ToolAgentRunResult {
   toJSON() {
     return {
       success: this.success,
-      agentResult: this.agentResult.toJSON(),
-      toolResults: this.toolResults.map((result) => result.toJSON()),
+      agent_result: this.agentResult.toJSON(),
+      tool_results: this.toolResults.map((result) => result.toJSON()),
     };
   }
 }

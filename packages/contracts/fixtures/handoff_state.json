@@ -1,0 +1,28 @@
+{
+  "task": "Build a calculator CLI.",
+  "from_agent": "Architect",
+  "to_agent": "Coder",
+  "summary": "Use a small command parser, keep math operations pure, and add tests for divide-by-zero.",
+  "decisions": [
+    "Use argparse-style commands.",
+    "Keep arithmetic functions separate from CLI parsing."
+  ],
+  "important_files": [
+    "calculator.py",
+    "tests/test_calculator.py"
+  ],
+  "errors": [
+    "Divide-by-zero path must return a clear error."
+  ],
+  "next_steps": [
+    "Implement calculator.py.",
+    "Run pytest -q."
+  ],
+  "context_refs": [
+    "README.md#quickstart"
+  ],
+  "metadata": {
+    "contract_version": "1.7.0",
+    "runtime": "shared"
+  }
+}

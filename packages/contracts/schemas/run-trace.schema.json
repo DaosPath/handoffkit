@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/run-trace.schema.json",
+  "title": "RunTrace",
+  "type": "object",
+  "required": ["run_id", "name", "success", "final_output", "steps", "handoffs"],
+  "properties": {
+    "run_id": { "type": "string" },
+    "name": { "type": "string" },
+    "success": { "type": "boolean" },
+    "final_output": { "type": "string" },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "success"],
+        "properties": {
+          "name": { "type": "string" },
+          "agent": { "type": "string" },
+          "task": { "type": "string" },
+          "mode": { "type": "string" },
+          "success": { "type": "boolean" },
+          "output": { "type": "string" },
+          "handoff": {
+            "oneOf": [
+              { "$ref": "handoff-state.schema.json" },
+              { "type": "null" }
+            ]
+          },
+          "tool_results": { "type": "array" },
+          "events": { "type": "array" },
+          "metadata": { "type": "object" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "handoffs": {
+      "type": "array",
+      "items": { "$ref": "handoff-state.schema.json" }
+    },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

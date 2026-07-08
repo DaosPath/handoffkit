@@ -7,6 +7,7 @@ This repository is a monorepo:
 ```text
 handoffkit/
   packages/
+    contracts/       # Shared JSON schemas and cross-runtime fixtures
     python/          # Python package published to PyPI as handoffkit
     core/            # JavaScript contract package: @handoffkit/core
   apps/
@@ -59,6 +60,12 @@ report helpers for Next.js and Node apps.
 pnpm core:check
 pnpm core:test
 ```
+
+## Shared Contracts
+
+Python and JavaScript share canonical JSON fixtures and schemas in
+[`packages/contracts`](packages/contracts). Wire JSON uses `snake_case` so
+`HandoffState` and `RunTrace` can move between runtimes without adapters.
 
 ## Package README
 
