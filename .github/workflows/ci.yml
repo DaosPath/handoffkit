@@ -66,6 +66,12 @@ jobs:
       - name: Install web dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check JavaScript core package
+        run: pnpm core:check
+
+      - name: Test JavaScript core package
+        run: pnpm core:test
+
       - name: Lint web app
         run: pnpm web:lint
 
