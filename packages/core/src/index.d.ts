@@ -53,6 +53,19 @@ export interface HandoffStateInit {
   metadata?: Record<string, unknown>;
 }
 
+export interface HandoffStateWire {
+  task: string;
+  from_agent: string;
+  to_agent: string;
+  summary: string;
+  decisions: string[];
+  important_files: string[];
+  errors: string[];
+  next_steps: string[];
+  context_refs: string[];
+  metadata: Record<string, unknown>;
+}
+
 export class HandoffState {
   task: string;
   fromAgent: string;
@@ -68,7 +81,9 @@ export class HandoffState {
   static fromJSON(value: string | Record<string, unknown>): HandoffState;
   validateReport(): ValidationReport;
   validate(): this;
-  toJSON(): Required<HandoffStateInit>;
+  toJSON(): HandoffStateWire;
+  toWire(): HandoffStateWire;
+  toCamelJSON(): Required<HandoffStateInit>;
   toJSONString(space?: number): string;
   toMarkdown(): string;
 }
@@ -97,7 +112,7 @@ export class AgentRunResult {
   provider: string;
   model: string;
   constructor(init: { agentName: string; task: string; finalOutput: string; success?: boolean; provider?: string; model?: string });
-  toJSON(): Record<string, unknown>;
+  toJSON(): { agent_name: string; task: string; final_output: string; success: boolean; provider: string; model: string };
 }
 
 export class HandoffProtocol {
@@ -151,12 +166,12 @@ export class TraceEvent {
 }
 
 export class TraceStep {
-  constructor(init: { name: string; agent?: string; task?: string; mode?: string; success?: boolean; output?: string; handoff?: HandoffState | null; toolResults?: unknown[]; events?: TraceEvent[]; metadata?: Record<string, unknown> });
+  constructor(init: { name: string; agent?: string; task?: string; mode?: string; success?: boolean; output?: string; handoff?: HandoffState | null; toolResults?: unknown[]; tool_results?: unknown[]; events?: TraceEvent[]; metadata?: Record<string, unknown> });
   toJSON(): Record<string, unknown>;
 }
 
 export class RunTrace {
-  constructor(init?: { runId?: string; name?: string; success?: boolean; finalOutput?: string; steps?: TraceStep[]; handoffs?: HandoffState[]; metadata?: Record<string, unknown> });
+  constructor(init?: { runId?: string; run_id?: string; name?: string; success?: boolean; finalOutput?: string; final_output?: string; steps?: TraceStep[]; handoffs?: HandoffState[]; metadata?: Record<string, unknown> });
   static fromTeamResult(result: TeamRunResult, options?: { name?: string }): RunTrace;
   static fromJSON(value: string | Record<string, unknown>): RunTrace;
   toJSON(): Record<string, unknown>;

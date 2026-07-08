@@ -71,7 +71,7 @@ def test_new_public_helpers_import_from_public_namespace() -> None:
     assert callable(write_report_files)
 
 
-def test_version_is_160() -> None:
+def test_version_is_170() -> None:
     from handoffkit import __version__  # noqa: PLC0415
 
-    assert __version__ == "1.6.0"
+    assert __version__ == "1.7.0"
