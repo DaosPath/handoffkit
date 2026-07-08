@@ -17,6 +17,21 @@ from handoffkit.evaluation import (
 )
 from handoffkit.extensions import Extension, ExtensionRegistry
 from handoffkit.handoff import HandoffState
+from handoffkit.media import (
+    DubbingSegment,
+    MediaAsset,
+    MediaWorkflowReport,
+    SpeakerProfile,
+    TranscriptSegment,
+    build_dubbing_plan,
+    extract_audio,
+    ffmpeg_available,
+    format_srt_timestamp,
+    mux_audio,
+    read_transcript_json,
+    write_srt,
+    write_transcript_json,
+)
 from handoffkit.memory import JsonMemoryStore, MemoryItem, MemoryReport, MemoryStore
 from handoffkit.protocol import HandoffProtocol
 from handoffkit.provider_adapters import (
@@ -66,7 +81,7 @@ from handoffkit.validation import (
     ValidationReport,
 )
 
-__version__ = "1.4.5"
+__version__ = "1.5.0"
 
 __all__ = [
     "Agent",
@@ -75,6 +90,7 @@ __all__ = [
     "ContextRetriever",
     "ContextRunResult",
     "DeclarativeTool",
+    "DubbingSegment",
     "Extension",
     "ExtensionRegistry",
     "EvaluationCheck",
@@ -90,6 +106,8 @@ __all__ = [
     "HttpJsonTool",
     "JsonMemoryStore",
     "JsonOutputParser",
+    "MediaAsset",
+    "MediaWorkflowReport",
     "MemoryItem",
     "MemoryReport",
     "MemoryStore",
@@ -109,6 +127,7 @@ __all__ = [
     "RunTrace",
     "ScaffoldResult",
     "ShowcaseResult",
+    "SpeakerProfile",
     "StructuredOutputResult",
     "StructuredOutputSchema",
     "StructuredOutputValidator",
@@ -126,6 +145,7 @@ __all__ = [
     "ToolSpec",
     "TraceEvent",
     "TraceStep",
+    "TranscriptSegment",
     "ToolSchemaValidator",
     "ValidationIssue",
     "ValidationReport",
@@ -133,10 +153,18 @@ __all__ = [
     "WorkflowEvaluator",
     "WorkflowTemplate",
     "__version__",
+    "build_dubbing_plan",
     "load_report_json",
     "build_showcase",
+    "extract_audio",
+    "ffmpeg_available",
+    "format_srt_timestamp",
+    "mux_audio",
+    "read_transcript_json",
     "tool",
     "run_showcase",
     "showcase_names",
     "write_report_files",
+    "write_srt",
+    "write_transcript_json",
 ]

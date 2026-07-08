@@ -19,13 +19,24 @@ from handoffkit.extensions import Extension, ExtensionRegistry
 from handoffkit.fusion import run_fusion_demo
 from handoffkit.handoff import HandoffState
 from handoffkit.mai_benchmark import run_mai_style_benchmark
+from handoffkit.media import (
+    MediaAsset,
+    MediaWorkflowReport,
+    SpeakerProfile,
+    TranscriptSegment,
+    build_dubbing_plan,
+    ffmpeg_available,
+    read_transcript_json,
+    write_srt,
+    write_transcript_json,
+)
 from handoffkit.protocol import HandoffProtocol
 from handoffkit.provider_adapters import ProviderToolAdapter
 from handoffkit.providers import BaseProvider, ProviderSelector
 from handoffkit.quality import HandoffQualityEvaluator
 from handoffkit.recipes import RecipeRunner
 from handoffkit.replay import ReplayRunner
-from handoffkit.reports import load_report_json
+from handoffkit.reports import load_report_json, write_report_files
 from handoffkit.runner import Team
 from handoffkit.showcases import build_showcase, load_showcase_report, run_showcase, showcase_names
 from handoffkit.structured import StructuredOutputSchema
@@ -310,6 +321,11 @@ def run_api() -> str:
         "ProjectTemplate",
         "TemplateFile",
         "TemplateScaffolder",
+        "MediaAsset",
+        "TranscriptSegment",
+        "SpeakerProfile",
+        "DubbingSegment",
+        "MediaWorkflowReport",
         "Recipe",
         "RecipeStep",
         "RecipeRunner",
@@ -516,6 +532,145 @@ def run_fusion_style_demo() -> str:
     )
 
 
+def build_media_demo_report(output_dir: Path | None = None) -> MediaWorkflowReport:
+    """Build and write a deterministic offline media dubbing report."""
+    target_dir = output_dir or Path("examples") / "output" / "media_dubbing_demo"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    source = MediaAsset(
+        path="examples/input/market_scene_zh.mp4",
+        media_type="video",
+        language="zh",
+        duration_seconds=13.2,
+        metadata={"mode": "offline-demo", "real_video_required": False},
+    )
+    transcript = [
+        TranscriptSegment(
+            index=1,
+            start=0.0,
+            end=3.4,
+            speaker="SPEAKER_01",
+            language="zh",
+            text="我们今天要检查新的库存系统。",
+        ),
+        TranscriptSegment(
+            index=2,
+            start=3.5,
+            end=7.2,
+            speaker="SPEAKER_02",
+            language="zh",
+            text="订单同步失败，但付款记录还在。",
+        ),
+        TranscriptSegment(
+            index=3,
+            start=7.4,
+            end=13.2,
+            speaker="SPEAKER_01",
+            language="zh",
+            text="先保留日志，然后通知技术团队。",
+        ),
+    ]
+    speakers = [
+        SpeakerProfile("SPEAKER_01", "Operations lead", "es-LATAM-calm-lead", "es"),
+        SpeakerProfile("SPEAKER_02", "Support analyst", "es-LATAM-analyst", "es"),
+    ]
+    dubbing_segments = build_dubbing_plan(
+        transcript,
+        {
+            1: "Hoy vamos a revisar el nuevo sistema de inventario.",
+            2: "La sincronización de pedidos falló, pero los registros de pago siguen ahí.",
+            3: "Primero conserva los logs y luego avisa al equipo técnico.",
+        },
+        speakers,
+    )
+    transcript_path = write_transcript_json(transcript, target_dir / "transcript_zh.json")
+    zh_srt = write_srt(transcript, target_dir / "subtitles_zh.srt")
+    es_srt = write_srt(dubbing_segments, target_dir / "subtitles_es.srt", translated=True)
+    handoff = HandoffState(
+        task="Translate and dub a Chinese operations video into Spanish.",
+        from_agent="Transcriber",
+        to_agent="DubbingAdapter",
+        summary="Timestamped Mandarin transcript converted into a Spanish dubbing plan.",
+        decisions=[
+            "Keep timestamps stable for the first pass.",
+            "Assign one Spanish voice profile per detected speaker.",
+            "Write subtitles before generating or muxing audio.",
+        ],
+        important_files=[str(transcript_path), str(zh_srt), str(es_srt)],
+        next_steps=[
+            "Run real transcription with Whisper or another provider.",
+            "Generate one TTS clip per DubbingSegment.",
+            "Mux final Spanish audio into the source video with ffmpeg.",
+        ],
+        metadata={"source_language": "zh", "target_language": "es"},
+    )
+    return MediaWorkflowReport(
+        success=True,
+        source=source,
+        target_language="es",
+        transcript_segments=transcript,
+        speakers=speakers,
+        dubbing_segments=dubbing_segments,
+        output_files=[
+            str(transcript_path),
+            str(zh_srt),
+            str(es_srt),
+            str(target_dir / "dubbed_audio_es.wav"),
+            str(target_dir / "final_video_es.mp4"),
+        ],
+        warnings=[
+            "Offline demo only; no real transcription, TTS, diarization, or muxing was run.",
+            "Review translated dubbing for timing, rights, and voice consent before publishing.",
+        ],
+        metadata={"handoff": handoff.to_dict(), "ffmpeg_available": ffmpeg_available()},
+    )
+
+
+def run_media_demo() -> str:
+    """Run the local media dubbing demo."""
+    report = build_media_demo_report()
+    json_path, markdown_path = write_report_files(report, "media_dubbing_demo", "reports")
+    return (
+        "HandoffKit media dubbing demo\n"
+        "Pipeline: Extract -> Transcribe -> Speaker Map -> Translate -> TTS -> Mux\n"
+        f"Segments: {len(report.transcript_segments)}\n"
+        f"Speakers: {len(report.speakers)}\n"
+        f"ffmpeg available: {ffmpeg_available()}\n"
+        f"Markdown report: {markdown_path}\n"
+        f"JSON report: {json_path}\n\n"
+        f"{report.to_markdown()}"
+    )
+
+
+def inspect_media_transcript(path: str) -> str:
+    """Inspect a transcript JSON file."""
+    segments = read_transcript_json(path)
+    speakers = sorted({segment.speaker for segment in segments if segment.speaker})
+    duration = max((segment.end for segment in segments), default=0.0)
+    return (
+        "HandoffKit media transcript inspection\n"
+        f"Path: {path}\n"
+        f"Segments: {len(segments)}\n"
+        f"Speakers: {', '.join(speakers) if speakers else 'none'}\n"
+        f"Duration seconds: {duration:.2f}"
+    )
+
+
+def plan_media_dubbing(video_path: str, *, source_language: str, target_language: str) -> str:
+    """Return an offline media dubbing plan."""
+    return (
+        "HandoffKit media dubbing plan\n"
+        f"Video: {video_path}\n"
+        f"Language: {source_language} -> {target_language}\n"
+        f"ffmpeg available: {ffmpeg_available()}\n\n"
+        "1. Extract original audio with ffmpeg.\n"
+        "2. Transcribe audio with timestamps and speaker labels.\n"
+        "3. Translate segments while preserving timing constraints.\n"
+        "4. Generate one voice clip per speaker/segment.\n"
+        "5. Mux the translated audio back into the source video.\n"
+        "6. Export transcript JSON, subtitles, final video, and HandoffKit report."
+    )
+
+
 def init_project(
     project_name: str,
     *,
@@ -570,6 +725,15 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("demo-research", help="Run the research workflow showcase.")
     subparsers.add_parser("demo-doctor", help="Run the educational doctor-orchestrator showcase.")
     subparsers.add_parser("demo-fusion", help="Run the local Fusion-style panel demo.")
+    subparsers.add_parser("demo-media", help="Run the local media dubbing workflow demo.")
+    media_parser = subparsers.add_parser("media", help="Inspect and plan media workflows.")
+    media_subparsers = media_parser.add_subparsers(dest="media_command")
+    media_inspect_parser = media_subparsers.add_parser("inspect", help="Inspect transcript JSON.")
+    media_inspect_parser.add_argument("path", help="Path to transcript JSON.")
+    media_plan_parser = media_subparsers.add_parser("plan", help="Plan a video dubbing workflow.")
+    media_plan_parser.add_argument("video_path", help="Input video path.")
+    media_plan_parser.add_argument("--from", dest="source_language", default="auto")
+    media_plan_parser.add_argument("--to", dest="target_language", default="es")
     providers_parser = subparsers.add_parser("providers", help="Inspect provider registry.")
     providers_subparsers = providers_parser.add_subparsers(dest="providers_command")
     providers_list_parser = providers_subparsers.add_parser("list", help="List providers.")
@@ -694,6 +858,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "demo-fusion":
         print(run_fusion_style_demo())
         return 0
+    if args.command == "demo-media":
+        print(run_media_demo())
+        return 0
+    if args.command == "media":
+        if args.media_command == "inspect":
+            print(inspect_media_transcript(args.path))
+            return 0
+        if args.media_command == "plan":
+            print(
+                plan_media_dubbing(
+                    args.video_path,
+                    source_language=args.source_language,
+                    target_language=args.target_language,
+                )
+            )
+            return 0
+        parser.error("media requires a subcommand")
     if args.command == "providers":
         if args.providers_command == "list":
             print(list_providers(json_output=args.json))

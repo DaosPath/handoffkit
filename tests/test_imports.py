@@ -13,6 +13,8 @@ def test_backward_compatible_public_imports() -> None:
         HandoffStateValidator,
         JsonMemoryStore,
         JsonOutputParser,
+        MediaAsset,
+        MediaWorkflowReport,
         MemoryItem,
         MemoryStore,
         OutputRepairer,
@@ -27,6 +29,7 @@ def test_backward_compatible_public_imports() -> None:
         ReplayRunner,
         ReplaySummary,
         RunTrace,
+        SpeakerProfile,
         StructuredOutputResult,
         StructuredOutputSchema,
         StructuredOutputValidator,
@@ -38,12 +41,14 @@ def test_backward_compatible_public_imports() -> None:
         ToolSchemaValidator,
         TraceEvent,
         TraceStep,
+        TranscriptSegment,
         ValidationIssue,
         ValidationReport,
         WorkflowTemplate,
         load_report_json,
         tool,
         write_report_files,
+        write_srt,
     )
 
     assert Agent.__name__ == "Agent"
@@ -73,6 +78,10 @@ def test_backward_compatible_public_imports() -> None:
     assert StructuredOutputSchema.__name__ == "StructuredOutputSchema"
     assert StructuredOutputResult.__name__ == "StructuredOutputResult"
     assert JsonOutputParser.__name__ == "JsonOutputParser"
+    assert MediaAsset.__name__ == "MediaAsset"
+    assert MediaWorkflowReport.__name__ == "MediaWorkflowReport"
+    assert SpeakerProfile.__name__ == "SpeakerProfile"
+    assert TranscriptSegment.__name__ == "TranscriptSegment"
     assert OutputRepairer.__name__ == "OutputRepairer"
     assert ProviderCapabilities.__name__ == "ProviderCapabilities"
     assert ProviderToolAdapter.__name__ == "ProviderToolAdapter"
@@ -88,5 +97,6 @@ def test_backward_compatible_public_imports() -> None:
     assert ValidationIssue.__name__ == "ValidationIssue"
     assert ValidationReport.__name__ == "ValidationReport"
     assert callable(load_report_json)
+    assert callable(write_srt)
     assert callable(tool)
     assert callable(write_report_files)
