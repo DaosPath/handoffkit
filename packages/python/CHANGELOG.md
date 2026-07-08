@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.0
+
+- Added shared language-neutral contracts under `packages/contracts`.
+- Canonicalized cross-runtime JSON wire format on snake_case keys.
+- Added shared `HandoffState` and `RunTrace` fixtures used by both Python and
+  JavaScript tests.
+- Updated `@handoffkit/core` to read/write the same canonical contracts as the
+  Python package while keeping JS-friendly camelCase properties in memory.
+- Added cross-runtime contract tests so Python and JavaScript stay aligned.
+- Updated docs to describe HandoffKit as a unified Python + JavaScript
+  monorepo.
+
 ## 1.6.0
 
 - Expanded the monorepo JavaScript package `@handoffkit/core`.

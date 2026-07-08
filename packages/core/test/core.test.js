@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -24,6 +24,12 @@ import {
   loadReportJSON,
   writeReportFiles,
 } from "../src/index.js";
+
+const contractsRoot = join(import.meta.dirname, "..", "..", "contracts");
+
+async function readContractFixture(name) {
+  return JSON.parse(await readFile(join(contractsRoot, "fixtures", name), "utf8"));
+}
 
 test("validation report serializes and raises", () => {
   const issue = new ValidationIssue({
@@ -53,6 +59,15 @@ test("handoff state validates and roundtrips", () => {
 
   assert.equal(state.validate(), state);
   assert.equal(HandoffState.fromJSON(state.toJSONString()).task, "Build a CLI");
+});
+
+test("handoff state reads and writes shared Python/JS contract fixture", async () => {
+  const fixture = await readContractFixture("handoff_state.json");
+  const state = HandoffState.fromJSON(fixture);
+
+  assert.deepEqual(state.toJSON(), fixture);
+  assert.equal(state.fromAgent, "Architect");
+  assert.equal(state.toCamelJSON().fromAgent, "Architect");
 });
 
 test("handoff protocol creates validated state", () => {
@@ -128,6 +143,15 @@ test("run trace and replay summary do not execute work", () => {
   assert.equal(replay.stepCount, 2);
   assert.equal(replay.handoffCount, 1);
   assert.equal(replay.metadata.replayed, true);
+});
+
+test("run trace reads and writes shared Python/JS contract fixture", async () => {
+  const fixture = await readContractFixture("run_trace.json");
+  const trace = RunTrace.fromJSON(fixture);
+
+  assert.deepEqual(trace.toJSON(), fixture);
+  assert.equal(trace.runId, "shared-contract-demo");
+  assert.equal(trace.steps[1].handoff.fromAgent, "Architect");
 });
 
 test("file trace store and report utilities write deterministic files", async () => {

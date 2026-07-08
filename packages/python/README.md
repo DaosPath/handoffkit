@@ -27,6 +27,7 @@ pip install handoffkit
 </table>
 
 <p>
+  <strong>1.7.0:</strong> shared Python + JavaScript contracts with canonical JSON fixtures.<br>
   <strong>1.6.0:</strong> JavaScript core package with async runtime, provider tool formats, traces, and reports.<br>
   <strong>1.5.0:</strong> media workflow contracts for audiobook and translated video dubbing demos.<br>
   <strong>1.3.0:</strong> tool creation, OpenCode providers, and research-only evidence tools.<br>
@@ -40,6 +41,7 @@ pip install handoffkit
 ## Contents
 
 - [Quickstart](#quickstart)
+- [Unified Python and JavaScript Contracts](#unified-python-and-javascript-contracts)
 - [Provider Registry and Model Routing](#provider-registry-and-model-routing)
 - [JavaScript Core](#javascript-core)
 - [Media Workflows](#media-workflows)
@@ -85,6 +87,38 @@ Tester
 
 That makes agent workflows easier to inspect, test, replay, and improve.
 
+## Unified Python and JavaScript Contracts
+
+HandoffKit 1.7.0 makes the Python and JavaScript runtimes speak the same wire
+format. The canonical JSON contracts live in
+[`packages/contracts`](https://github.com/DaosPath/handoffkit/tree/main/packages/contracts).
+
+- Python uses `HandoffState.to_dict()` and `RunTrace.to_dict()`.
+- JavaScript uses `toJSON()` / `JSON.stringify()`.
+- The shared wire format uses `snake_case`: `from_agent`, `to_agent`,
+  `important_files`, `next_steps`, `run_id`, `final_output`, and
+  `tool_results`.
+- JavaScript still exposes ergonomic camelCase properties in memory, such as
+  `state.fromAgent` and `trace.finalOutput`.
+
+```python
+from handoffkit import HandoffState
+
+state = HandoffState.from_dict(shared_json)
+state.validate()
+```
+
+```js
+import { HandoffState } from "@handoffkit/core";
+
+const state = HandoffState.fromJSON(sharedJson);
+console.log(state.fromAgent);
+console.log(JSON.stringify(state));
+```
+
+The Python and JS test suites both read the same fixture files, so contract
+drift becomes a CI failure instead of a surprise for users.
+
 ## Repository Layout
 
 HandoffKit is organized as a clean monorepo. The Python package published to
@@ -93,6 +127,8 @@ PyPI lives in `packages/python`:
 ```text
 handoffkit/
   packages/
+    contracts/       # Shared JSON schemas and cross-runtime fixtures
+    core/            # JavaScript/TypeScript package: @handoffkit/core
     python/
       handoffkit/      # Python package published to PyPI
       examples/        # Python examples and demos

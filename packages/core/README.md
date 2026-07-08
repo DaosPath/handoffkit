@@ -2,8 +2,9 @@
 
 JavaScript contract layer for multi-agent workflows with structured handoffs.
 
-This is the first JS package for HandoffKit. It mirrors the Python concepts in
-a small dependency-free ESM package:
+This package mirrors the Python HandoffKit contracts in a small dependency-free
+ESM package. Both runtimes share canonical JSON fixtures in
+`packages/contracts`.
 
 - `HandoffState`
 - `HandoffProtocol`
@@ -48,6 +49,25 @@ const replay = new ReplayRunner(trace).summary();
 console.log(result.handoffs[0].toJSON());
 console.log(replay);
 ```
+
+## Shared Python/JS Contract
+
+Wire JSON uses `snake_case`, matching the Python runtime:
+
+```js
+const state = new HandoffState({
+  task: "Build a CLI",
+  fromAgent: "Architect",
+  toAgent: "Coder",
+  summary: "Use structured handoffs.",
+});
+
+console.log(state.fromAgent); // JS ergonomics
+console.log(JSON.stringify(state)); // {"from_agent":"Architect", ...}
+```
+
+`HandoffState.fromJSON()` and `RunTrace.fromJSON()` accept both snake_case and
+camelCase inputs, but `toJSON()` always emits the shared canonical format.
 
 ## Async Runtime
 
