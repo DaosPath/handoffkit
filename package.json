@@ -1,0 +1,15 @@
+{
+  "name": "handoffkit-monorepo",
+  "private": true,
+  "packageManager": "pnpm@11.1.1",
+  "scripts": {
+    "python:install": "cd packages/python && python -m pip install -e \".[dev]\"",
+    "python:lint": "cd packages/python && python -m ruff check --no-cache .",
+    "python:test": "cd packages/python && python -m pytest -q",
+    "python:build": "cd packages/python && python -m build",
+    "python:twine": "cd packages/python && python -m twine check dist/*",
+    "web:dev": "pnpm --dir apps/web exec next dev -p 3000",
+    "web:lint": "pnpm --dir apps/web run lint",
+    "web:build": "pnpm --dir apps/web run build"
+  }
+}
