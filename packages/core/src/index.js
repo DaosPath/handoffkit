@@ -1,3 +1,6 @@
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 const DEFAULT_PROTOCOL_MODE = "hybrid_state";
 
 export class HandoffValidationError extends Error {
@@ -197,9 +200,23 @@ export class HandoffState {
   }
 }
 
-export class EchoProvider {
-  constructor({ model = "echo-js" } = {}) {
+export class BaseProvider {
+  constructor({ model = "" } = {}) {
     this.model = model;
+  }
+
+  generate() {
+    throw new Error(`${this.constructor.name}.generate() is not implemented.`);
+  }
+
+  async agenerate(prompt, kwargs = {}) {
+    return this.generate(prompt, kwargs);
+  }
+}
+
+export class EchoProvider extends BaseProvider {
+  constructor({ model = "echo-js" } = {}) {
+    super({ model });
   }
 
   generate(prompt) {
@@ -228,6 +245,38 @@ export class Agent {
       provider: this.provider.constructor?.name ?? "Provider",
       model: this.provider.model ?? "",
     });
+  }
+
+  async arun(task, { context = null } = {}) {
+    const prompt = context ? `${this.role}\n\nTask: ${task}\n\nContext:\n${context}` : `${this.role}\n\nTask: ${task}`;
+    const generate = this.provider.agenerate?.bind(this.provider) ?? this.provider.generate.bind(this.provider);
+    const finalOutput = await generate(prompt, { agent: this, task, context });
+    return new AgentRunResult({
+      agentName: this.name,
+      task,
+      finalOutput,
+      provider: this.provider.constructor?.name ?? "Provider",
+      model: this.provider.model ?? "",
+    });
+  }
+
+  runWithTools(task, { tools = [], toolCalls = [], providerAdapter = new ProviderToolAdapter() } = {}) {
+    const result = this.run(task);
+    const registry = new ToolRegistry(tools);
+    const calls = Array.isArray(toolCalls) ? toolCalls : providerAdapter.parseToolCalls(toolCalls);
+    const toolResults = calls.map((call) => registry.execute(call));
+    return new ToolAgentRunResult({ agentResult: result, toolResults });
+  }
+
+  async arunWithTools(task, { tools = [], toolCalls = [], providerAdapter = new ProviderToolAdapter() } = {}) {
+    const result = await this.arun(task);
+    const registry = new ToolRegistry(tools);
+    const calls = Array.isArray(toolCalls) ? toolCalls : providerAdapter.parseToolCalls(toolCalls);
+    const toolResults = [];
+    for (const call of calls) {
+      toolResults.push(await registry.aexecute(call));
+    }
+    return new ToolAgentRunResult({ agentResult: result, toolResults });
   }
 }
 
@@ -293,6 +342,47 @@ export class Team {
 
     for (const agent of this.agents) {
       const result = agent.run(currentTask, {
+        context: previousResult?.finalOutput ?? null,
+      });
+      stepResults.push(result);
+
+      if (previousAgent) {
+        handoffs.push(
+          this.protocol.transfer({
+            fromAgent: previousAgent,
+            toAgent: agent,
+            task: currentTask,
+            summary: previousResult.finalOutput,
+            decisions: [`${previousAgent.name} completed its step.`],
+            nextSteps: [`${agent.name} should continue from structured state.`],
+          }),
+        );
+      }
+
+      previousAgent = agent;
+      previousResult = result;
+      currentTask = result.finalOutput;
+    }
+
+    return new TeamRunResult({
+      success: stepResults.every((result) => result.success),
+      task,
+      finalOutput: stepResults.at(-1)?.finalOutput ?? "",
+      stepResults,
+      handoffs,
+      metadata: this.metadata,
+    });
+  }
+
+  async arun(task) {
+    const stepResults = [];
+    const handoffs = [];
+    let currentTask = task;
+    let previousAgent = null;
+    let previousResult = null;
+
+    for (const agent of this.agents) {
+      const result = await agent.arun(currentTask, {
         context: previousResult?.finalOutput ?? null,
       });
       stepResults.push(result);
@@ -538,6 +628,254 @@ export class ReplayRunner {
   }
 }
 
+export class FileTraceStore {
+  constructor({ root = "traces" } = {}) {
+    this.root = root;
+  }
+
+  async save(trace, name = "") {
+    const runTrace = trace instanceof RunTrace ? trace : RunTrace.fromJSON(trace);
+    await mkdir(this.root, { recursive: true });
+    const fileName = `${safeFileName(name || runTrace.runId)}.json`;
+    const path = join(this.root, fileName);
+    await writeFile(path, runTrace.toJSONString(2), "utf8");
+    return path;
+  }
+
+  async load(nameOrPath) {
+    const path = nameOrPath.endsWith(".json") ? nameOrPath : join(this.root, `${safeFileName(nameOrPath)}.json`);
+    return RunTrace.fromJSON(await readFile(path, "utf8"));
+  }
+
+  async list() {
+    try {
+      const entries = await readdir(this.root, { withFileTypes: true });
+      return entries.filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => join(this.root, entry.name));
+    } catch (error) {
+      if (error?.code === "ENOENT") return [];
+      throw error;
+    }
+  }
+}
+
+export class ToolCall {
+  constructor({ name, arguments: args = {}, callId = "", provider = "", metadata = {} } = {}) {
+    if (!name) throw new TypeError("ToolCall name is required.");
+    this.name = name;
+    this.arguments = { ...args };
+    this.callId = callId;
+    this.provider = provider;
+    this.metadata = { ...metadata };
+  }
+
+  toJSON() {
+    return {
+      name: this.name,
+      arguments: { ...this.arguments },
+      callId: this.callId,
+      provider: this.provider,
+      metadata: { ...this.metadata },
+    };
+  }
+}
+
+export class ToolResult {
+  constructor({ name, callId = "", success = true, output = null, error = "", metadata = {} } = {}) {
+    this.name = name;
+    this.callId = callId;
+    this.success = Boolean(success);
+    this.output = output;
+    this.error = error;
+    this.metadata = { ...metadata };
+  }
+
+  toJSON() {
+    return {
+      name: this.name,
+      callId: this.callId,
+      success: this.success,
+      output: this.output,
+      error: this.error,
+      metadata: { ...this.metadata },
+    };
+  }
+}
+
+export class ToolRegistry {
+  constructor(tools = []) {
+    this.tools = new Map();
+    for (const tool of tools) {
+      this.register(tool);
+    }
+  }
+
+  register(tool) {
+    if (!tool?.name) throw new TypeError("Tool name is required.");
+    if (typeof tool.execute !== "function") throw new TypeError(`Tool ${tool.name} requires execute().`);
+    this.tools.set(tool.name, tool);
+    return this;
+  }
+
+  get(name) {
+    return this.tools.get(name) ?? null;
+  }
+
+  list() {
+    return [...this.tools.values()];
+  }
+
+  execute(call) {
+    const toolCall = call instanceof ToolCall ? call : new ToolCall(call);
+    const tool = this.get(toolCall.name);
+    if (!tool) {
+      return new ToolResult({
+        name: toolCall.name,
+        callId: toolCall.callId,
+        success: false,
+        error: `Tool not found: ${toolCall.name}`,
+      });
+    }
+    try {
+      return new ToolResult({
+        name: toolCall.name,
+        callId: toolCall.callId,
+        output: tool.execute(toolCall.arguments),
+      });
+    } catch (error) {
+      return new ToolResult({
+        name: toolCall.name,
+        callId: toolCall.callId,
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  async aexecute(call) {
+    const toolCall = call instanceof ToolCall ? call : new ToolCall(call);
+    const tool = this.get(toolCall.name);
+    if (!tool) {
+      return new ToolResult({
+        name: toolCall.name,
+        callId: toolCall.callId,
+        success: false,
+        error: `Tool not found: ${toolCall.name}`,
+      });
+    }
+    try {
+      return new ToolResult({
+        name: toolCall.name,
+        callId: toolCall.callId,
+        output: await tool.execute(toolCall.arguments),
+      });
+    } catch (error) {
+      return new ToolResult({
+        name: toolCall.name,
+        callId: toolCall.callId,
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+}
+
+export class ToolAgentRunResult {
+  constructor({ agentResult, toolResults = [] }) {
+    this.agentResult = agentResult;
+    this.toolResults = toolResults.map((result) => result instanceof ToolResult ? result : new ToolResult(result));
+    this.success = agentResult.success && this.toolResults.every((result) => result.success);
+  }
+
+  toJSON() {
+    return {
+      success: this.success,
+      agentResult: this.agentResult.toJSON(),
+      toolResults: this.toolResults.map((result) => result.toJSON()),
+    };
+  }
+}
+
+export class ProviderToolAdapter {
+  constructor({ providerFormat = "handoffkit" } = {}) {
+    this.providerFormat = providerFormat;
+  }
+
+  toolsToProviderFormat(tools, providerFormat = this.providerFormat) {
+    const list = tools.map((tool) => normalizeToolSchema(tool));
+    if (providerFormat === "handoffkit") return list;
+    if (providerFormat === "openai") {
+      return list.map((tool) => ({
+        type: "function",
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        },
+      }));
+    }
+    if (providerFormat === "anthropic") {
+      return list.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        input_schema: tool.parameters,
+      }));
+    }
+    throw new TypeError(`Unsupported provider tool format: ${providerFormat}`);
+  }
+
+  parseToolCalls(payload, providerFormat = this.providerFormat) {
+    if (payload == null) return [];
+    if (providerFormat === "handoffkit") return parseHandoffKitToolCalls(payload);
+    if (providerFormat === "openai") return parseOpenAIToolCalls(payload);
+    if (providerFormat === "anthropic") return parseAnthropicToolCalls(payload);
+    throw new TypeError(`Unsupported provider tool format: ${providerFormat}`);
+  }
+}
+
+export class RetryPolicy {
+  constructor({ maxAttempts = 3, baseDelayMs = 250, retryStatusCodes = [429, 500, 502, 503, 504] } = {}) {
+    this.maxAttempts = maxAttempts;
+    this.baseDelayMs = baseDelayMs;
+    this.retryStatusCodes = [...retryStatusCodes];
+  }
+
+  shouldRetry(error, attempt) {
+    if (attempt >= this.maxAttempts) return false;
+    const status = error?.status ?? error?.statusCode;
+    if (status) return this.retryStatusCodes.includes(status);
+    return Boolean(error?.retryable);
+  }
+
+  async run(operation) {
+    let attempt = 1;
+    for (;;) {
+      try {
+        return await operation({ attempt });
+      } catch (error) {
+        if (!this.shouldRetry(error, attempt)) throw error;
+        await sleep(this.baseDelayMs * attempt);
+        attempt += 1;
+      }
+    }
+  }
+}
+
+export async function writeReportFiles(report, name, outputDir = "reports") {
+  await mkdir(outputDir, { recursive: true });
+  const base = join(outputDir, safeFileName(name));
+  const jsonPath = `${base}.json`;
+  const markdownPath = `${base}.md`;
+  const data = report?.toJSON?.() ?? report;
+  const markdown = report?.toMarkdown?.() ?? `# ${name}\n\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\`\n`;
+  await writeFile(jsonPath, JSON.stringify(data, null, 2), "utf8");
+  await writeFile(markdownPath, markdown, "utf8");
+  return { jsonPath, markdownPath };
+}
+
+export async function loadReportJSON(path) {
+  return JSON.parse(await readFile(path, "utf8"));
+}
+
 export function defineTool({ name, description = "", parameters = {}, execute }) {
   if (!name) {
     throw new TypeError("Tool name is required.");
@@ -584,4 +922,71 @@ function cryptoRandomId() {
   const random = globalThis.crypto?.randomUUID?.();
   if (random) return random;
   return `trace-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeToolSchema(tool) {
+  const schema = tool?.toSchema?.() ?? tool;
+  if (!schema?.name) throw new TypeError("Tool schema name is required.");
+  return {
+    name: schema.name,
+    description: schema.description ?? "",
+    parameters: schema.parameters ?? {},
+  };
+}
+
+function parseHandoffKitToolCalls(payload) {
+  const calls = Array.isArray(payload) ? payload : (payload.toolCalls ?? payload.tool_calls ?? [payload]);
+  return calls.filter(Boolean).map((call) => new ToolCall({
+    name: call.name,
+    arguments: call.arguments ?? call.args ?? {},
+    callId: call.callId ?? call.call_id ?? call.id ?? "",
+    provider: "handoffkit",
+    metadata: call.metadata ?? {},
+  }));
+}
+
+function parseOpenAIToolCalls(payload) {
+  const calls = payload.choices?.[0]?.message?.tool_calls ?? payload.message?.tool_calls ?? payload.tool_calls ?? [];
+  if (!Array.isArray(calls)) throw new TypeError("OpenAI tool_calls must be an array.");
+  return calls.map((call) => {
+    const fn = call.function ?? {};
+    if (!fn.name) throw new TypeError("OpenAI tool call function.name is required.");
+    return new ToolCall({
+      name: fn.name,
+      arguments: parseArgumentsObject(fn.arguments, "OpenAI function.arguments"),
+      callId: call.id ?? "",
+      provider: "openai",
+      metadata: { type: call.type ?? "function" },
+    });
+  });
+}
+
+function parseAnthropicToolCalls(payload) {
+  const content = payload.content ?? payload.message?.content ?? [];
+  if (!Array.isArray(content)) throw new TypeError("Anthropic content must be an array.");
+  return content.filter((block) => block?.type === "tool_use").map((block) => {
+    if (!block.name) throw new TypeError("Anthropic tool_use name is required.");
+    return new ToolCall({
+      name: block.name,
+      arguments: parseArgumentsObject(block.input ?? {}, "Anthropic tool_use.input"),
+      callId: block.id ?? "",
+      provider: "anthropic",
+    });
+  });
+}
+
+function parseArgumentsObject(value, label) {
+  const parsed = typeof value === "string" ? JSON.parse(value || "{}") : value;
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+    throw new TypeError(`${label} must be a JSON object.`);
+  }
+  return parsed;
+}
+
+function safeFileName(value) {
+  return String(value || "report").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "report";
+}
+
+function sleep(ms) {
+  return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 }

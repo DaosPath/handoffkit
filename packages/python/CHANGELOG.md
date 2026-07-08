@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.0
+
+- Expanded the monorepo JavaScript package `@handoffkit/core`.
+- Added JS async Agent and Team runtime helpers.
+- Added JS tool registry, tool calls, tool results, and provider tool adapters
+  for HandoffKit, OpenAI, and Anthropic-style formats.
+- Added JS FileTraceStore plus report read/write utilities.
+- Added retry policy helpers for provider/router packages to build on.
+- Kept Python runtime API stable while preparing the cross-language contract
+  layer.
+
 ## 1.5.0
 
 - Added lightweight media workflow contracts for transcript, speaker, dubbing,
