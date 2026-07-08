@@ -1,0 +1,149 @@
+{
+  "success": true,
+  "source": {
+    "path": "examples/input/market_scene_zh.mp4",
+    "media_type": "video",
+    "language": "zh",
+    "duration_seconds": 13.2,
+    "metadata": {
+      "mode": "offline-demo",
+      "real_video_required": false
+    }
+  },
+  "target_language": "es",
+  "transcript_segments": [
+    {
+      "index": 1,
+      "start": 0.0,
+      "end": 3.4,
+      "text": "我们今天要检查新的库存系统。",
+      "speaker": "SPEAKER_01",
+      "language": "zh",
+      "metadata": {}
+    },
+    {
+      "index": 2,
+      "start": 3.5,
+      "end": 7.2,
+      "text": "订单同步失败，但付款记录还在。",
+      "speaker": "SPEAKER_02",
+      "language": "zh",
+      "metadata": {}
+    },
+    {
+      "index": 3,
+      "start": 7.4,
+      "end": 13.2,
+      "text": "先保留日志，然后通知技术团队。",
+      "speaker": "SPEAKER_01",
+      "language": "zh",
+      "metadata": {}
+    }
+  ],
+  "speakers": [
+    {
+      "speaker_id": "SPEAKER_01",
+      "label": "Operations lead",
+      "voice": "es-LATAM-calm-lead",
+      "language": "es",
+      "notes": [],
+      "metadata": {}
+    },
+    {
+      "speaker_id": "SPEAKER_02",
+      "label": "Support analyst",
+      "voice": "es-LATAM-analyst",
+      "language": "es",
+      "notes": [],
+      "metadata": {}
+    }
+  ],
+  "dubbing_segments": [
+    {
+      "index": 1,
+      "start": 0.0,
+      "end": 3.4,
+      "speaker": "SPEAKER_01",
+      "source_text": "我们今天要检查新的库存系统。",
+      "target_text": "Hoy vamos a revisar el nuevo sistema de inventario.",
+      "voice": "es-LATAM-calm-lead",
+      "audio_path": "",
+      "notes": [
+        "preserve timing",
+        "review lip-sync manually"
+      ],
+      "metadata": {}
+    },
+    {
+      "index": 2,
+      "start": 3.5,
+      "end": 7.2,
+      "speaker": "SPEAKER_02",
+      "source_text": "订单同步失败，但付款记录还在。",
+      "target_text": "La sincronización de pedidos falló, pero los registros de pago siguen ahí.",
+      "voice": "es-LATAM-analyst",
+      "audio_path": "",
+      "notes": [
+        "preserve timing",
+        "review lip-sync manually"
+      ],
+      "metadata": {}
+    },
+    {
+      "index": 3,
+      "start": 7.4,
+      "end": 13.2,
+      "speaker": "SPEAKER_01",
+      "source_text": "先保留日志，然后通知技术团队。",
+      "target_text": "Primero conserva los logs y luego avisa al equipo técnico.",
+      "voice": "es-LATAM-calm-lead",
+      "audio_path": "",
+      "notes": [
+        "preserve timing",
+        "review lip-sync manually"
+      ],
+      "metadata": {}
+    }
+  ],
+  "output_files": [
+    "examples\\output\\media_dubbing_demo\\transcript_zh.json",
+    "examples\\output\\media_dubbing_demo\\subtitles_zh.srt",
+    "examples\\output\\media_dubbing_demo\\subtitles_es.srt",
+    "examples\\output\\media_dubbing_demo\\dubbed_audio_es.wav",
+    "examples\\output\\media_dubbing_demo\\final_video_es.mp4"
+  ],
+  "warnings": [
+    "Offline demo only; no real transcription, TTS, diarization, or muxing was run.",
+    "Review translated dubbing for timing, rights, and voice consent before publishing."
+  ],
+  "metadata": {
+    "handoff": {
+      "task": "Translate and dub a Chinese operations video into Spanish.",
+      "from_agent": "Transcriber",
+      "to_agent": "DubbingAdapter",
+      "summary": "Timestamped Mandarin transcript converted into a Spanish dubbing plan.",
+      "decisions": [
+        "Keep timestamps stable for the first pass.",
+        "Assign one Spanish voice profile per detected speaker.",
+        "Write subtitles before generating or muxing audio."
+      ],
+      "important_files": [
+        "examples\\output\\media_dubbing_demo\\transcript_zh.json",
+        "examples\\output\\media_dubbing_demo\\subtitles_zh.srt",
+        "examples\\output\\media_dubbing_demo\\subtitles_es.srt"
+      ],
+      "errors": [],
+      "next_steps": [
+        "Run real transcription with Whisper or another provider.",
+        "Generate one TTS clip per DubbingSegment.",
+        "Mux final Spanish audio into the source video with ffmpeg."
+      ],
+      "context_refs": [],
+      "metadata": {
+        "source_language": "zh",
+        "target_language": "es"
+      }
+    },
+    "ffmpeg_available": true
+  }
+}

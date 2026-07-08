@@ -9,6 +9,7 @@ def test_stable_api_candidates_import_from_public_namespace() -> None:
         HandoffProtocol,
         HandoffQualityReport,
         HandoffState,
+        MediaWorkflowReport,
         ProviderToolAdapter,
         Recipe,
         RecipeRunner,
@@ -28,6 +29,7 @@ def test_stable_api_candidates_import_from_public_namespace() -> None:
     assert Team.__name__ == "Team"
     assert HandoffState.__name__ == "HandoffState"
     assert HandoffProtocol.__name__ == "HandoffProtocol"
+    assert MediaWorkflowReport.__name__ == "MediaWorkflowReport"
     assert Tool.__name__ == "Tool"
     assert ToolCall.__name__ == "ToolCall"
     assert ToolResult.__name__ == "ToolResult"
@@ -69,7 +71,7 @@ def test_new_public_helpers_import_from_public_namespace() -> None:
     assert callable(write_report_files)
 
 
-def test_version_is_145() -> None:
+def test_version_is_150() -> None:
     from handoffkit import __version__  # noqa: PLC0415
 
-    assert __version__ == "1.4.5"
+    assert __version__ == "1.5.0"

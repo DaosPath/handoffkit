@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.0
+
+- Added lightweight media workflow contracts for transcript, speaker, dubbing,
+  audiobook, and translated video workflows.
+- Added SRT and transcript JSON helpers.
+- Added optional ffmpeg wrappers for audio extraction and video/audio muxing.
+- Added offline media dubbing demo and `handoffkit demo-media`.
+- Added `handoffkit media inspect` and `handoffkit media plan`.
+- Kept transcription, TTS, diarization, source separation, and real video
+  processing opt-in with no new runtime dependencies.
+
 ## 1.4.5
 
 - Added native OpenAI-compatible provider wrappers for NVIDIA NIM, OpenRouter,
