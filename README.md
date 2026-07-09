@@ -124,6 +124,24 @@ All runtimes share the same `snake_case` JSON wire format so a `HandoffState` wr
 
 ---
 
+## What 1.8.7 Adds
+
+HandoffKit 1.8.7 turns the C++ and Rust packages from early contract layers into
+tested peers of the Python and JavaScript runtimes:
+
+- Rust and C++ now roundtrip shared `ValidationReport`, `HandoffQualityReport`,
+  `ToolCall`, and `ToolResult` fixtures,
+- all four runtimes expose a contract parity report for deterministic inventory
+  checks,
+- CI now validates Python, JavaScript, Rust, and C++ instead of only the first
+  two runtimes.
+
+```bash
+pnpm contracts:test
+```
+
+---
+
 ## State-Transfer Protocols
 
 Choose how state is transferred between agents:

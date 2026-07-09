@@ -2,10 +2,12 @@
 
 This folder is the language-neutral contract layer for HandoffKit.
 
-Both runtimes must treat these JSON shapes as canonical:
+All runtimes must treat these JSON shapes as canonical:
 
 - Python package: `packages/python`
-- JavaScript package: `packages/core`
+- JavaScript package: `packages/js`
+- Rust package: `packages/rust`
+- C++ package: `packages/cpp`
 
 Rules:
 
@@ -14,6 +16,7 @@ Rules:
   canonical fixtures,
 - normal tests stay offline and deterministic,
 - provider payloads and secrets do not belong here.
+- contract parity reports should stay deterministic and offline.
 
 ## Files
 

@@ -304,4 +304,209 @@ ContextRunResult ContextRunResult::from_json(const nlohmann::json& j) {
     return res;
 }
 
+nlohmann::json ValidationIssue::to_json() const {
+    nlohmann::json j = nlohmann::json::object();
+    j["code"] = code;
+    j["message"] = message;
+    j["field"] = field;
+    j["severity"] = severity;
+    return j;
+}
+
+ValidationIssue ValidationIssue::from_json(const nlohmann::json& j) {
+    ValidationIssue issue;
+    issue.code = j.value("code", "");
+    issue.message = j.value("message", "");
+    issue.field = j.value("field", "");
+    issue.severity = j.value("severity", "error");
+    return issue;
+}
+
+nlohmann::json ValidationReport::to_json() const {
+    nlohmann::json j = nlohmann::json::object();
+    j["success"] = success;
+    nlohmann::json issues_json = nlohmann::json::array();
+    for (const auto& issue : issues) {
+        issues_json.push_back(issue.to_json());
+    }
+    j["issues"] = issues_json;
+    j["metadata"] = metadata.is_null() ? nlohmann::json::object() : metadata;
+    return j;
+}
+
+ValidationReport ValidationReport::from_json(const nlohmann::json& j) {
+    ValidationReport report;
+    report.success = j.value("success", true);
+    if (j.contains("issues") && j["issues"].is_array()) {
+        for (const auto& issue : j["issues"]) {
+            report.issues.push_back(ValidationIssue::from_json(issue));
+        }
+    }
+    report.metadata = j.value("metadata", nlohmann::json::object());
+    return report;
+}
+
+std::string ValidationReport::to_markdown() const {
+    std::stringstream ss;
+    ss << "# Validation Report\n\n";
+    ss << "Success: " << (success ? "true" : "false") << "\n";
+    if (issues.empty()) {
+        ss << "\nNo issues.\n";
+        return ss.str();
+    }
+    ss << "\n| Severity | Code | Field | Message |\n";
+    ss << "|---|---|---|---|\n";
+    for (const auto& issue : issues) {
+        ss << "| " << issue.severity << " | " << issue.code << " | "
+           << (issue.field.empty() ? "-" : issue.field) << " | "
+           << issue.message << " |\n";
+    }
+    return ss.str();
+}
+
+nlohmann::json HandoffQualityMetric::to_json() const {
+    nlohmann::json j = nlohmann::json::object();
+    j["name"] = name;
+    j["score"] = score;
+    j["weight"] = weight;
+    j["notes"] = notes;
+    return j;
+}
+
+HandoffQualityMetric HandoffQualityMetric::from_json(const nlohmann::json& j) {
+    HandoffQualityMetric metric;
+    metric.name = j.value("name", "");
+    metric.score = j.value("score", 0.0);
+    metric.weight = j.value("weight", 1.0);
+    metric.notes = j.value("notes", std::vector<std::string>{});
+    return metric;
+}
+
+nlohmann::json HandoffQualityReport::to_json() const {
+    nlohmann::json j = nlohmann::json::object();
+    j["success"] = success;
+    j["score"] = score;
+    j["grade"] = grade;
+    nlohmann::json metrics_json = nlohmann::json::array();
+    for (const auto& metric : metrics) {
+        metrics_json.push_back(metric.to_json());
+    }
+    j["metrics"] = metrics_json;
+    j["recommendations"] = recommendations;
+    j["validation"] = validation.to_json();
+    j["metadata"] = metadata.is_null() ? nlohmann::json::object() : metadata;
+    return j;
+}
+
+HandoffQualityReport HandoffQualityReport::from_json(const nlohmann::json& j) {
+    HandoffQualityReport report;
+    report.success = j.value("success", true);
+    report.score = j.value("score", 0.0);
+    report.grade = j.value("grade", "");
+    if (j.contains("metrics") && j["metrics"].is_array()) {
+        for (const auto& metric : j["metrics"]) {
+            report.metrics.push_back(HandoffQualityMetric::from_json(metric));
+        }
+    }
+    report.recommendations = j.value("recommendations", std::vector<std::string>{});
+    report.validation = ValidationReport::from_json(j.value("validation", nlohmann::json::object()));
+    report.metadata = j.value("metadata", nlohmann::json::object());
+    return report;
+}
+
+std::string HandoffQualityReport::to_markdown() const {
+    std::stringstream ss;
+    ss << "# Handoff Quality Report\n\n";
+    ss << "Success: " << (success ? "true" : "false") << "\n";
+    ss << "Score: " << score << " (" << grade << ")\n\n";
+    ss << "## Metrics\n";
+    if (metrics.empty()) {
+        ss << "-\n";
+    } else {
+        for (const auto& metric : metrics) {
+            ss << "- `" << metric.name << "` score=" << metric.score
+               << " weight=" << metric.weight << "\n";
+        }
+    }
+    return ss.str();
+}
+
+nlohmann::json ToolCall::to_json() const {
+    nlohmann::json j = nlohmann::json::object();
+    j["tool_name"] = tool_name;
+    j["arguments"] = arguments.is_null() ? nlohmann::json::object() : arguments;
+    j["call_id"] = call_id;
+    j["metadata"] = metadata.is_null() ? nlohmann::json::object() : metadata;
+    return j;
+}
+
+ToolCall ToolCall::from_json(const nlohmann::json& j) {
+    ToolCall call;
+    call.tool_name = j.value("tool_name", j.value("name", ""));
+    call.arguments = j.value("arguments", nlohmann::json::object());
+    call.call_id = j.value("call_id", j.value("id", ""));
+    call.metadata = j.value("metadata", nlohmann::json::object());
+    return call;
+}
+
+nlohmann::json ToolResult::to_json() const {
+    nlohmann::json j = nlohmann::json::object();
+    j["tool_name"] = tool_name;
+    j["success"] = success;
+    j["result"] = result;
+    j["error"] = error;
+    j["call_id"] = call_id;
+    j["metadata"] = metadata.is_null() ? nlohmann::json::object() : metadata;
+    return j;
+}
+
+ToolResult ToolResult::from_json(const nlohmann::json& j) {
+    ToolResult result_data;
+    result_data.tool_name = j.value("tool_name", j.value("name", ""));
+    result_data.success = j.value("success", true);
+    result_data.result = j.contains("result") ? j["result"] : j.value("output", nlohmann::json());
+    result_data.error = j.contains("error") ? j["error"] : nlohmann::json();
+    result_data.call_id = j.value("call_id", "");
+    result_data.metadata = j.value("metadata", nlohmann::json::object());
+    return result_data;
+}
+
+nlohmann::json ContractParityReport::to_json() const {
+    nlohmann::json j = nlohmann::json::object();
+    j["runtime"] = runtime;
+    j["version"] = version;
+    j["success"] = success;
+    j["fixture_count"] = fixture_count;
+    j["schema_count"] = schema_count;
+    j["supported_contracts"] = supported_contracts;
+    return j;
+}
+
+ContractParityReport ContractParityReport::from_inventory(
+    const std::string& runtime,
+    const std::string& version,
+    const std::vector<std::string>& fixtures,
+    const std::vector<std::string>& schemas
+) {
+    ContractParityReport report;
+    report.runtime = runtime;
+    report.version = version;
+    report.success = !fixtures.empty() && !schemas.empty();
+    report.fixture_count = fixtures.size();
+    report.schema_count = schemas.size();
+    report.supported_contracts = fixtures;
+    return report;
+}
+
+std::string ContractParityReport::to_markdown() const {
+    std::stringstream ss;
+    ss << "# Contract Parity Report\n\n";
+    ss << "Runtime: " << runtime << "\n";
+    ss << "Version: " << version << "\n";
+    ss << "Success: " << (success ? "true" : "false") << "\n";
+    ss << "Fixtures: " << fixture_count << "\n";
+    ss << "Schemas: " << schema_count << "\n";
+    return ss.str();
+}
+
 } // namespace handoffkit

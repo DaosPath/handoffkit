@@ -28,11 +28,29 @@ impl HandoffState {
             "# HandoffState".to_string(),
             "".to_string(),
             format!("Task: {}", self.task),
-            format!("From: {}", if self.from_agent.is_empty() { "-" } else { &self.from_agent }),
-            format!("To: {}", if self.to_agent.is_empty() { "-" } else { &self.to_agent }),
+            format!(
+                "From: {}",
+                if self.from_agent.is_empty() {
+                    "-"
+                } else {
+                    &self.from_agent
+                }
+            ),
+            format!(
+                "To: {}",
+                if self.to_agent.is_empty() {
+                    "-"
+                } else {
+                    &self.to_agent
+                }
+            ),
             "".to_string(),
             "## Summary".to_string(),
-            if self.summary.is_empty() { "-".to_string() } else { self.summary.clone() },
+            if self.summary.is_empty() {
+                "-".to_string()
+            } else {
+                self.summary.clone()
+            },
             "".to_string(),
         ];
 
@@ -176,7 +194,10 @@ pub struct RunTrace {
 impl RunTrace {
     pub fn to_timeline(&self) -> String {
         let mut lines = vec![
-            format!("# Execution Timeline: {} (Run ID: {})", self.name, self.run_id),
+            format!(
+                "# Execution Timeline: {} (Run ID: {})",
+                self.name, self.run_id
+            ),
             format!("- Success: {}", self.success),
             format!("- Total Steps: {}", self.steps.len()),
             format!("- Total Handoffs: {}", self.handoffs.len()),
@@ -186,9 +207,23 @@ impl RunTrace {
 
         for (i, step) in self.steps.iter().enumerate() {
             let step_num = i + 1;
-            let agent_name = if step.agent.is_empty() { "Unknown" } else { &step.agent };
-            lines.push(format!("{}. [{}] -> Task: {}", step_num, agent_name, step.task));
-            lines.push(format!("   - Mode: {}", if step.mode.is_empty() { "default" } else { &step.mode }));
+            let agent_name = if step.agent.is_empty() {
+                "Unknown"
+            } else {
+                &step.agent
+            };
+            lines.push(format!(
+                "{}. [{}] -> Task: {}",
+                step_num, agent_name, step.task
+            ));
+            lines.push(format!(
+                "   - Mode: {}",
+                if step.mode.is_empty() {
+                    "default"
+                } else {
+                    &step.mode
+                }
+            ));
             lines.push(format!("   - Success: {}", step.success));
             lines.push(format!("   - Tools Used: {}", step.tool_results.len()));
             if !step.output.is_empty() {
@@ -200,7 +235,10 @@ impl RunTrace {
                 lines.push(format!("   - Output Preview: {}", preview));
             }
             if let Some(ref handoff) = step.handoff {
-                lines.push(format!("   - [Handoff] -> {} to {}", handoff.from_agent, handoff.to_agent));
+                lines.push(format!(
+                    "   - [Handoff] -> {} to {}",
+                    handoff.from_agent, handoff.to_agent
+                ));
             }
         }
 
@@ -239,4 +277,180 @@ pub struct ContextRunResult {
     #[serde(default)]
     pub memories_used: Vec<serde_json::Value>,
     pub success: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct ValidationIssue {
+    pub code: String,
+    pub message: String,
+    #[serde(default)]
+    pub field: String,
+    #[serde(default = "default_error_severity")]
+    pub severity: String,
+}
+
+fn default_error_severity() -> String {
+    "error".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct ValidationReport {
+    pub success: bool,
+    #[serde(default)]
+    pub issues: Vec<ValidationIssue>,
+    #[serde(default)]
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+impl ValidationReport {
+    pub fn to_markdown(&self) -> String {
+        let mut lines = vec![
+            "# Validation Report".to_string(),
+            "".to_string(),
+            format!("Success: {}", self.success),
+        ];
+        if self.issues.is_empty() {
+            lines.push("No issues.".to_string());
+            return lines.join("\n");
+        }
+        lines.push("".to_string());
+        lines.push("| Severity | Code | Field | Message |".to_string());
+        lines.push("|---|---|---|---|".to_string());
+        for issue in &self.issues {
+            lines.push(format!(
+                "| {} | {} | {} | {} |",
+                issue.severity,
+                issue.code,
+                if issue.field.is_empty() {
+                    "-"
+                } else {
+                    &issue.field
+                },
+                issue.message
+            ));
+        }
+        lines.join("\n")
+    }
+
+    pub fn raise_if_failed(&self) -> Result<&Self, String> {
+        if self.success {
+            Ok(self)
+        } else {
+            let messages: Vec<String> = self
+                .issues
+                .iter()
+                .filter(|issue| issue.severity == "error")
+                .map(|issue| issue.message.clone())
+                .collect();
+            Err(if messages.is_empty() {
+                "validation failed".to_string()
+            } else {
+                messages.join("; ")
+            })
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct HandoffQualityMetric {
+    pub name: String,
+    pub score: f64,
+    pub weight: f64,
+    #[serde(default)]
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct HandoffQualityReport {
+    pub success: bool,
+    pub score: f64,
+    pub grade: String,
+    #[serde(default)]
+    pub metrics: Vec<HandoffQualityMetric>,
+    #[serde(default)]
+    pub recommendations: Vec<String>,
+    #[serde(default)]
+    pub validation: ValidationReport,
+    #[serde(default)]
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+impl HandoffQualityReport {
+    pub fn to_markdown(&self) -> String {
+        let mut lines = vec![
+            "# Handoff Quality Report".to_string(),
+            "".to_string(),
+            format!("Success: {}", self.success),
+            format!("Score: {:.3} ({})", self.score, self.grade),
+            "".to_string(),
+            "## Metrics".to_string(),
+        ];
+        if self.metrics.is_empty() {
+            lines.push("-".to_string());
+        } else {
+            for metric in &self.metrics {
+                lines.push(format!(
+                    "- `{}` score={:.3} weight={:.3}",
+                    metric.name, metric.score, metric.weight
+                ));
+            }
+        }
+        lines.join("\n")
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct ToolCall {
+    pub tool_name: String,
+    #[serde(default)]
+    pub arguments: HashMap<String, serde_json::Value>,
+    #[serde(default)]
+    pub call_id: String,
+    #[serde(default)]
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct ToolResult {
+    pub tool_name: String,
+    pub success: bool,
+    #[serde(default)]
+    pub result: serde_json::Value,
+    #[serde(default)]
+    pub error: Option<String>,
+    #[serde(default)]
+    pub call_id: String,
+    #[serde(default)]
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct ContractParityReport {
+    pub runtime: String,
+    pub version: String,
+    pub success: bool,
+    pub fixture_count: usize,
+    pub schema_count: usize,
+    #[serde(default)]
+    pub supported_contracts: Vec<String>,
+}
+
+impl ContractParityReport {
+    pub fn new(runtime: &str, version: &str, fixtures: &[&str], schemas: &[&str]) -> Self {
+        Self {
+            runtime: runtime.to_string(),
+            version: version.to_string(),
+            success: !fixtures.is_empty() && !schemas.is_empty(),
+            fixture_count: fixtures.len(),
+            schema_count: schemas.len(),
+            supported_contracts: fixtures.iter().map(|name| name.to_string()).collect(),
+        }
+    }
+
+    pub fn to_markdown(&self) -> String {
+        format!(
+            "# Contract Parity Report\n\nRuntime: {}\nVersion: {}\nSuccess: {}\nFixtures: {}\nSchemas: {}\n",
+            self.runtime, self.version, self.success, self.fixture_count, self.schema_count
+        )
+    }
 }

@@ -87,4 +87,88 @@ struct ContextRunResult {
     static ContextRunResult from_json(const nlohmann::json& j);
 };
 
+struct ValidationIssue {
+    std::string code;
+    std::string message;
+    std::string field;
+    std::string severity = "error";
+
+    nlohmann::json to_json() const;
+    static ValidationIssue from_json(const nlohmann::json& j);
+};
+
+struct ValidationReport {
+    bool success = true;
+    std::vector<ValidationIssue> issues;
+    nlohmann::json metadata;
+
+    std::string to_markdown() const;
+    nlohmann::json to_json() const;
+    static ValidationReport from_json(const nlohmann::json& j);
+};
+
+struct HandoffQualityMetric {
+    std::string name;
+    double score = 0.0;
+    double weight = 1.0;
+    std::vector<std::string> notes;
+
+    nlohmann::json to_json() const;
+    static HandoffQualityMetric from_json(const nlohmann::json& j);
+};
+
+struct HandoffQualityReport {
+    bool success = true;
+    double score = 0.0;
+    std::string grade;
+    std::vector<HandoffQualityMetric> metrics;
+    std::vector<std::string> recommendations;
+    ValidationReport validation;
+    nlohmann::json metadata;
+
+    std::string to_markdown() const;
+    nlohmann::json to_json() const;
+    static HandoffQualityReport from_json(const nlohmann::json& j);
+};
+
+struct ToolCall {
+    std::string tool_name;
+    nlohmann::json arguments;
+    std::string call_id;
+    nlohmann::json metadata;
+
+    nlohmann::json to_json() const;
+    static ToolCall from_json(const nlohmann::json& j);
+};
+
+struct ToolResult {
+    std::string tool_name;
+    bool success = true;
+    nlohmann::json result;
+    nlohmann::json error;
+    std::string call_id;
+    nlohmann::json metadata;
+
+    nlohmann::json to_json() const;
+    static ToolResult from_json(const nlohmann::json& j);
+};
+
+struct ContractParityReport {
+    std::string runtime;
+    std::string version;
+    bool success = true;
+    std::size_t fixture_count = 0;
+    std::size_t schema_count = 0;
+    std::vector<std::string> supported_contracts;
+
+    std::string to_markdown() const;
+    nlohmann::json to_json() const;
+    static ContractParityReport from_inventory(
+        const std::string& runtime,
+        const std::string& version,
+        const std::vector<std::string>& fixtures,
+        const std::vector<std::string>& schemas
+    );
+};
+
 } // namespace handoffkit

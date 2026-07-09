@@ -4,6 +4,24 @@ import fs from "node:fs";
 import path from "node:path";
 
 const DEFAULT_PROTOCOL_MODE = "hybrid_state";
+const DEFAULT_CONTRACT_FIXTURES = [
+  "handoff_state.json",
+  "run_trace.json",
+  "validation_report.json",
+  "quality_report.json",
+  "tool_call.json",
+  "tool_result.json",
+  "provider_tool_schema.json",
+];
+const DEFAULT_CONTRACT_SCHEMAS = [
+  "handoff-state.schema.json",
+  "run-trace.schema.json",
+  "validation-report.schema.json",
+  "quality-report.schema.json",
+  "tool-call.schema.json",
+  "tool-result.schema.json",
+  "provider-tool-schema.schema.json",
+];
 
 export class HandoffValidationError extends Error {
   constructor(message, report) {
@@ -11,6 +29,111 @@ export class HandoffValidationError extends Error {
     this.name = "HandoffValidationError";
     this.report = report;
   }
+}
+
+export class ContractParityReport {
+  constructor({
+    runtime,
+    version,
+    success,
+    fixtureCount = 0,
+    schemaCount = 0,
+    supportedContracts = [],
+    missingFixtures = [],
+    missingSchemas = [],
+    metadata = {},
+  } = {}) {
+    this.runtime = runtime || "";
+    this.version = version || "";
+    this.success = Boolean(success);
+    this.fixtureCount = Number(fixtureCount || 0);
+    this.schemaCount = Number(schemaCount || 0);
+    this.supportedContracts = Array.isArray(supportedContracts) ? [...supportedContracts] : [];
+    this.missingFixtures = Array.isArray(missingFixtures) ? [...missingFixtures] : [];
+    this.missingSchemas = Array.isArray(missingSchemas) ? [...missingSchemas] : [];
+    this.metadata = metadata ? { ...metadata } : {};
+  }
+
+  toJSON() {
+    return {
+      runtime: this.runtime,
+      version: this.version,
+      success: this.success,
+      fixture_count: this.fixtureCount,
+      schema_count: this.schemaCount,
+      supported_contracts: [...this.supportedContracts],
+      missing_fixtures: [...this.missingFixtures],
+      missing_schemas: [...this.missingSchemas],
+      metadata: { ...this.metadata },
+    };
+  }
+
+  toJSONString(space = 2) {
+    return JSON.stringify(this.toJSON(), null, space);
+  }
+
+  toMarkdown() {
+    const contracts = this.supportedContracts.map((name) => `- \`${name}\``).join("\n") || "- none";
+    const missingFixtures = this.missingFixtures.map((name) => `- \`${name}\``).join("\n") || "- none";
+    const missingSchemas = this.missingSchemas.map((name) => `- \`${name}\``).join("\n") || "- none";
+    return [
+      "# Contract Parity Report",
+      "",
+      `Runtime: \`${this.runtime}\``,
+      "",
+      `Version: \`${this.version}\``,
+      "",
+      `Success: \`${this.success}\``,
+      "",
+      `Fixtures: \`${this.fixtureCount}\``,
+      "",
+      `Schemas: \`${this.schemaCount}\``,
+      "",
+      "## Supported Contracts",
+      "",
+      contracts,
+      "",
+      "## Missing Fixtures",
+      "",
+      missingFixtures,
+      "",
+      "## Missing Schemas",
+      "",
+      missingSchemas,
+    ].join("\n");
+  }
+}
+
+export async function buildContractParityReport({
+  runtime = "javascript",
+  version = "1.8.7",
+  contractsRoot,
+  expectedFixtures = DEFAULT_CONTRACT_FIXTURES,
+  expectedSchemas = DEFAULT_CONTRACT_SCHEMAS,
+} = {}) {
+  const root = contractsRoot || join(import.meta.dirname, "..", "..", "contracts");
+  const missingFixtures = [];
+  const missingSchemas = [];
+  for (const name of expectedFixtures) {
+    if (!fs.existsSync(join(root, "fixtures", name))) missingFixtures.push(name);
+  }
+  for (const name of expectedSchemas) {
+    if (!fs.existsSync(join(root, "schemas", name))) missingSchemas.push(name);
+  }
+  const supportedContracts = expectedFixtures
+    .filter((name) => !missingFixtures.includes(name))
+    .map((name) => name.replace(/\.json$/, ""));
+  return new ContractParityReport({
+    runtime,
+    version,
+    success: missingFixtures.length === 0 && missingSchemas.length === 0,
+    fixtureCount: expectedFixtures.length - missingFixtures.length,
+    schemaCount: expectedSchemas.length - missingSchemas.length,
+    supportedContracts,
+    missingFixtures,
+    missingSchemas,
+    metadata: { contractsRoot: root },
+  });
 }
 
 export class ValidationIssue {
@@ -385,7 +508,7 @@ export class OpenAIProvider extends BaseProvider {
         headers: {
           "Authorization": `Bearer ${this.apiKey}`,
           "Content-Type": "application/json",
-          "User-Agent": "handoffkit/1.7.5",
+          "User-Agent": "handoffkit/1.8.7",
           ...this.headers,
         },
         body: JSON.stringify(payload),

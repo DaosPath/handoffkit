@@ -14,6 +14,7 @@ from handoffkit import (
     ToolCall,
     ToolResult,
     ValidationReport,
+    build_contract_parity_report,
 )
 
 CONTRACTS_ROOT = Path(__file__).resolve().parents[2] / "contracts"
@@ -122,3 +123,20 @@ def test_shared_contract_schemas_are_present_and_canonical() -> None:
     assert call_schema["required"] == ["tool_name", "arguments", "call_id"]
     assert res_schema["required"] == ["tool_name", "success", "call_id"]
     assert tool_schema["required"] == ["name", "description", "parameters"]
+
+
+def test_contract_parity_report_covers_shared_contract_inventory() -> None:
+    if not CONTRACTS_ROOT.exists():
+        pytest.skip("shared contracts folder is not present in this source layout")
+
+    report = build_contract_parity_report(
+        runtime="python",
+        version="1.8.7",
+        contracts_root=CONTRACTS_ROOT,
+    )
+
+    assert report.success is True
+    assert report.fixture_count == 7
+    assert report.schema_count == 7
+    assert "handoff_state" in report.supported_contracts
+    assert "Contract Parity Report" in report.to_markdown()
