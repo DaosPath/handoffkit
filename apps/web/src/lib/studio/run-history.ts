@@ -1,7 +1,14 @@
 /**
  * Local filesystem run history for Studio MAI panel.
  * Stored under apps/web/.data/mai-runs/ (gitignored).
- * Designed so later aggregate exports can power public benchmarks.
+ *
+ * IMPORTANT — not database-backed yet.
+ * This is a single-node bootstrap for demos and early traffic.
+ * Multi-user / multi-instance / durable history → Postgres (or similar)
+ * is tracked as P0 in ROADMAP.md before a public MAI benchmark.
+ *
+ * Export path for future scoring:
+ *   GET /api/demos/mai-panel/runs?export=benchmark
  */
 
 import { createHash } from "node:crypto";

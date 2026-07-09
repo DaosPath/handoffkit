@@ -314,11 +314,30 @@ handoffkit init my-agent --template basic-agent --output .
 
 ## Roadmap
 
-| Version | Feature |
+Full detail: **[ROADMAP.md](ROADMAP.md)**.
+
+### Done (Studio / recent)
+- Handoff Kit **Studio** (`apps/web`): demos hub + live **MAI-style expert panel**
+- Providers: **NVIDIA NIM** (free trial) and **Groq** (metered), per-agent models
+- Local **run history** (filesystem) + `export=benchmark` API for future scoring
+- CI: Python matrix + JS tests + web lint/typecheck/studio tests + build
+
+### Next (priority)
+| Priority | Item | Notes |
+|---|---|---|
+| **P0** | **Database-backed run history** | Today history is local disk only (`.data/mai-runs/`). DB is required before multi-user scale and public benchmarks. |
+| P1 | Auth / workspace-scoped runs | Multi-user Studio without a flat shared log |
+| P1 | Run detail / replay from history | Reload rankings, handoffs, costs |
+| P2 | Live demos beyond MAI panel | Coding / support still mock in the hub |
+| Later | **Public MAI-style benchmark** | Built from high-volume DB history + gold cases + leaderboard |
+
+### Runtimes
+| Surface | Status |
 |---|---|
-| `1.9.0` | Go (Golang) runtime package |
-| `1.9.x` | Cross-runtime benchmark suite |
-| `2.0.0` | Interactive RunTrace web visualizer (Next.js) |
+| Python | Primary, stable |
+| TypeScript / JS | Core stable; Studio live |
+| Rust / C++ | Contracts today; fuller runtime later |
+| Go package | Planned (optional) |
 
 ---
 
