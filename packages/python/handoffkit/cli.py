@@ -10,7 +10,7 @@ import platform
 import sys
 from pathlib import Path
 
-from handoffkit import __version__
+from handoffkit._version import __version__
 from handoffkit.agent import Agent
 from handoffkit.recipes.builtins import plan_execute_review_recipe
 from handoffkit.benchmarks.doctor import run_doctor_benchmark as execute_doctor_benchmark
@@ -30,6 +30,7 @@ from handoffkit.recipes.media import (
     write_srt,
     write_transcript_json,
 )
+from handoffkit.context import ProjectIndexer
 from handoffkit.protocol import HandoffProtocol
 from handoffkit.provider_adapters import ProviderToolAdapter
 from handoffkit.providers import BaseProvider, ProviderSelector
@@ -862,6 +863,62 @@ def list_keys() -> str:
     return "Configured Keys:\n" + "\n".join(rows)
 
 
+def write_project_report(
+    project_path: str = ".",
+    *,
+    output_dir: str = "reports",
+    query: str = "handoffkit",
+) -> str:
+    """Index a project directory and write a JSON + Markdown report.
+
+    Args:
+        project_path: Root directory to index (default: current directory).
+        output_dir:   Directory that receives the generated report files.
+        query:        Search term used to filter the indexed documents.
+
+    Returns:
+        A short status string with the paths of the written files.
+    """
+    root = Path(project_path).resolve()
+    docs = ProjectIndexer(root=str(root)).index()
+
+    class _Report:
+        def to_json(self) -> dict:  # type: ignore[override]
+            return {
+                "kind": "handoffkit-project-report",
+                "root": str(root),
+                "query": query,
+                "document_count": len(docs),
+                "documents": [
+                    doc.to_json() if hasattr(doc, "to_json") else vars(doc)
+                    for doc in docs[:20]
+                ],
+            }
+
+        def to_markdown(self) -> str:
+            rows = "\n".join(
+                f"- `{doc.path}`: {doc.summary}" for doc in docs[:20]
+            ) or "- none"
+            return "\n".join([
+                "# HandoffKit Project Report",
+                "",
+                f"Root: {root}",
+                f"Documents: {len(docs)}",
+                "",
+                "## Documents",
+                "",
+                rows,
+            ])
+
+    report = _Report()
+    json_path, markdown_path = write_report_files(report, "project-report", output_dir)
+    return (
+        f"HandoffKit project report\n"
+        f"JSON: {json_path}\n"
+        f"Markdown: {markdown_path}"
+    )
+
+
 def create_extension(name: str, output: str = ".", force: bool = False) -> str:
     """Scaffold a custom HandoffKit extension directory."""
     ext_dir = Path(output) / name
@@ -1026,7 +1083,8 @@ def main(argv: list[str] | None = None) -> int:
     providers_select_parser.add_argument("--json", action="store_true", help="Print JSON.")
     benchmark_doctor_parser = subparsers.add_parser(
         "benchmark-doctor",
-        help="Run the real-case doctor benchmark harness.",
+        aliases=["doctor-benchmark", "doctor-b", "-d"],
+        help="Run the real-case doctor benchmark harness (alias: doctor-benchmark, -d).",
     )
     benchmark_doctor_parser.add_argument(
         "--cases",
@@ -1036,7 +1094,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     benchmark_doctor_mai_parser = subparsers.add_parser(
         "benchmark-doctor-mai",
-        help="Run public MAI-style sequential doctor benchmark.",
+        aliases=["mai-benchmark", "mai-b", "-m"],
+        help="Run public MAI-style sequential doctor benchmark (alias: mai-benchmark, -m).",
     )
     benchmark_doctor_mai_parser.add_argument(
         "--cases",
@@ -1066,7 +1125,27 @@ def main(argv: list[str] | None = None) -> int:
     init_parser.add_argument("--output", default=".", help="Parent output directory.")
     init_parser.add_argument("--force", action="store_true", help="Overwrite existing files.")
 
-    create_ext_parser = subparsers.add_parser("create-extension", help="Scaffold a HandoffKit extension boilerplate.")
+    project_report_parser = subparsers.add_parser(
+        "project-report",
+        help="Index a project directory and write a JSON + Markdown report.",
+    )
+    project_report_parser.add_argument(
+        "project_path",
+        nargs="?",
+        default=".",
+        help="Root directory to index (default: current directory).",
+    )
+    project_report_parser.add_argument(
+        "--output", default="reports", help="Directory for output files."
+    )
+    project_report_parser.add_argument(
+        "--query", default="handoffkit", help="Search query for index filter."
+    )
+    create_ext_parser = subparsers.add_parser(
+        "create-extension",
+        aliases=["init-extension"],
+        help="Scaffold a HandoffKit extension boilerplate (alias: init-extension).",
+    )
     create_ext_parser.add_argument("name", help="Extension name.")
     create_ext_parser.add_argument("--output", default=".", help="Parent output directory.")
     create_ext_parser.add_argument("--force", action="store_true", help="Overwrite existing files.")
@@ -1227,6 +1306,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "create-extension":
         print(create_extension(args.name, output=args.output, force=args.force))
+        return 0
+    if args.command == "project-report":
+        print(
+            write_project_report(
+                args.project_path,
+                output_dir=args.output,
+                query=args.query,
+            )
+        )
         return 0
     if args.command == "keys":
         if args.keys_command == "set":

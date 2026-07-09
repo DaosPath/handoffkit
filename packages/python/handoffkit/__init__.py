@@ -1,4 +1,4 @@
-﻿"""Public API for HandoffKit."""
+"""Public API for HandoffKit."""
 
 from handoffkit.agent import Agent
 from handoffkit.context import (
@@ -86,8 +86,23 @@ from handoffkit.validation import (
     ValidationIssue,
     ValidationReport,
 )
+from handoffkit.cli import (
+    create_extension,
+    delete_key,
+    init_project,
+    init_project_interactive,
+    list_keys,
+    list_providers,
+    load_dynamic_extensions,
+    render_report,
+    run_demo,
+    run_named_showcase,
+    run_recipe_demo,
+    set_key,
+    write_project_report,
+)
 
-__version__ = "1.12.0"
+from handoffkit._version import __version__
 
 __all__ = [
     "Agent",
@@ -162,6 +177,13 @@ __all__ = [
     "__version__",
     "build_dubbing_plan",
     "build_contract_parity_report",
+    "create_extension",
+    "delete_key",
+    "init_project",
+    "init_project_interactive",
+    "list_keys",
+    "list_providers",
+    "load_dynamic_extensions",
     "load_report_json",
     "build_showcase",
     "extract_audio",
@@ -169,10 +191,16 @@ __all__ = [
     "format_srt_timestamp",
     "mux_audio",
     "read_transcript_json",
+    "render_report",
+    "run_demo",
+    "run_named_showcase",
+    "run_recipe_demo",
+    "set_key",
     "tool",
     "run_showcase",
     "render_report_html",
     "showcase_names",
+    "write_project_report",
     "write_report_html",
     "write_report_files",
     "write_srt",

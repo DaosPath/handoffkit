@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 
 from handoffkit.cli import (
     create_extension,
@@ -30,6 +30,7 @@ from handoffkit.cli import (
     run_support_escalation_demo,
     run_validators_demo,
     select_provider_model,
+    write_project_report,
 )
 
 
@@ -431,3 +432,34 @@ def test_create_extension_cli_route(tmp_path, monkeypatch, capsys) -> None:  # t
     assert code == 0
     assert "cli_plugin" in captured.out
     assert (tmp_path / "cli_plugin" / "__init__.py").exists()
+
+
+def test_write_project_report_writes_files(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """write_project_report writes project-report JSON and MD files."""
+    # Write a dummy python file to index
+    (tmp_path / "dummy.py").write_text("# handoffkit example\n", encoding="utf-8")
+
+    out_dir = tmp_path / "reports"
+    result = write_project_report(str(tmp_path), output_dir=str(out_dir))
+
+    assert "project-report" in result
+    assert (out_dir / "project-report.json").exists()
+    assert (out_dir / "project-report.md").exists()
+
+    md_content = (out_dir / "project-report.md").read_text(encoding="utf-8")
+    assert "HandoffKit Project Report" in md_content
+    assert "dummy.py" in md_content
+
+
+def test_project_report_cli_route(tmp_path, monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
+    """main([project-report ...]) runs successfully and exits 0."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "sample.py").write_text("# handoffkit sample\n", encoding="utf-8")
+
+    code = main(["project-report", str(tmp_path), "--output", str(tmp_path / "out")])
+    captured = capsys.readouterr()
+
+    assert code == 0
+    assert "HandoffKit project report" in captured.out
+    assert (tmp_path / "out" / "project-report.json").exists()
+
