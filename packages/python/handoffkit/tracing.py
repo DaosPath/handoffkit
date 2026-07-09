@@ -177,7 +177,11 @@ class RunTrace:
             lines.append(f"   - Tools Used: {len(step.tool_results)}")
             if step.output:
                 cleaned_output = step.output.replace("\n", " ")
-                preview = cleaned_output[:60] + "..." if len(cleaned_output) > 60 else cleaned_output
+                preview = (
+                    cleaned_output[:60] + "..."
+                    if len(cleaned_output) > 60
+                    else cleaned_output
+                )
                 lines.append(f"   - Output Preview: {preview}")
             if step.handoff:
                 h = step.handoff
