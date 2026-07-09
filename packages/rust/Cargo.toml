@@ -1,6 +1,6 @@
 [package]
 name = "handoffkit"
-version = "1.8.8"
+version = "1.8.9"
 edition = "2021"
 authors = ["DaosPath <daospath@gmail.com>"]
 description = "Rust contract layer for multi-agent workflows with structured handoffs"

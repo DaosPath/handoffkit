@@ -28,7 +28,8 @@ pip install handoffkit
 </table>
 
 <p>
-  <strong>1.8.8:</strong> Rust and C++ contract parity with installed-package-safe parity reports.<br>
+  <strong>1.8.9:</strong> browser-safe `@handoffkit/core` plus Node-only `@handoffkit/node` filesystem helpers.<br>
+  <strong>1.8.8:</strong> installed-package-safe contract parity reports.<br>
   <strong>1.7.0:</strong> shared Python + JavaScript contracts with canonical JSON fixtures.<br>
   <strong>1.6.0:</strong> JavaScript core package with async runtime, provider tool formats, traces, and reports.<br>
   <strong>1.5.0:</strong> media workflow contracts for audiobook and translated video dubbing demos.<br>
@@ -91,7 +92,7 @@ That makes agent workflows easier to inspect, test, replay, and improve.
 
 ## Unified Cross-runtime Contracts
 
-HandoffKit 1.8.8 makes the Python, JavaScript, Rust, and C++ runtimes speak the
+HandoffKit 1.8.x makes the Python, JavaScript, Rust, and C++ runtimes speak the
 same wire format. The canonical JSON contracts live in
 [`packages/contracts`](https://github.com/DaosPath/handoffkit/tree/main/packages/contracts).
 
@@ -126,7 +127,7 @@ so contract drift becomes a CI failure instead of a surprise for users.
 ```python
 from handoffkit import build_contract_parity_report
 
-report = build_contract_parity_report(runtime="python", version="1.8.8")
+report = build_contract_parity_report(runtime="python", version="1.8.9")
 print(report.to_markdown())
 ```
 
@@ -290,22 +291,26 @@ HandoffKit is built around three ideas:
 
 ## What 1.6.0 Adds
 
-HandoffKit 1.6.0 starts the JavaScript/TypeScript contract layer:
+HandoffKit 1.8.9 splits the JavaScript/TypeScript layer into browser-safe core
+and Node-only helpers:
 
-- `@handoffkit/core` for JS apps that need the same handoff contract shape,
+- `@handoffkit/core` for JS apps that need the same handoff contract shape in
+  browsers, Next.js client components, Vite, Workers, Deno, Bun, or Node,
+- `@handoffkit/node` for local filesystem helpers,
 - async `Agent.arun()` and `Team.arun()` helpers,
 - `ToolRegistry`, `ToolCall`, `ToolResult`, and `Agent.runWithTools()`,
 - `ProviderToolAdapter` for HandoffKit, OpenAI, and Anthropic-style tool
   schemas/calls,
-- `FileTraceStore`, `writeReportFiles()`, and `loadReportJSON()` for Node
-  trace/report workflows.
+- `FileTraceStore`, `writeReportFiles()`, `loadReportJSON()`, and
+  `ProjectIndexer` live in `@handoffkit/node`.
 
-The JS package is dependency-free and tested offline. Provider SDKs and network
-calls are intentionally left to adapter packages or app code.
+The JS core package is dependency-free, browser-safe, and tested offline.
+Provider SDKs and filesystem features are intentionally left to adapter packages
+or app code.
 
 ```bash
-pnpm core:check
-pnpm core:test
+pnpm js:check
+pnpm js:test
 ```
 
 ## JavaScript Core
@@ -378,7 +383,7 @@ The state passed between stages can include:
 from handoffkit import TranscriptSegment, SpeakerProfile, build_dubbing_plan, write_srt
 
 segments = [
-    TranscriptSegment(1, 0.0, 2.5, "你好", speaker="SPEAKER_01", language="zh"),
+    TranscriptSegment(1, 0.0, 2.5, "ä½ å¥½", speaker="SPEAKER_01", language="zh"),
 ]
 speakers = [SpeakerProfile("SPEAKER_01", "Narrator", "es-LATAM-calm", "es")]
 dubbing = build_dubbing_plan(segments, {1: "Hola."}, speakers)

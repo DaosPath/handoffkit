@@ -42,6 +42,7 @@ export function buildContractParityReport(init?: {
   runtime?: string;
   version?: string;
   contractsRoot?: string;
+  contractInventory?: { fixtures?: string[]; schemas?: string[] } | null;
   expectedFixtures?: string[];
   expectedSchemas?: string[];
 }): Promise<ContractParityReport>;
@@ -254,14 +255,6 @@ export class ReplayRunner {
   };
 }
 
-export class FileTraceStore {
-  root: string;
-  constructor(init?: { root?: string });
-  save(trace: RunTrace | Record<string, unknown>, name?: string): Promise<string>;
-  load(nameOrPath: string): Promise<RunTrace>;
-  list(): Promise<string[]>;
-}
-
 export class ToolCall {
   name: string;
   arguments: Record<string, unknown>;
@@ -320,9 +313,6 @@ export class RetryPolicy {
   run<T>(operation: (context: { attempt: number }) => Promise<T>): Promise<T>;
 }
 
-export function writeReportFiles(report: { toJSON?: () => unknown; toMarkdown?: () => string } | unknown, name: string, outputDir?: string): Promise<{ jsonPath: string; markdownPath: string }>;
-export function loadReportJSON(path: string): Promise<unknown>;
-
 export function defineTool(init: {
   name: string;
   description?: string;
@@ -352,14 +342,6 @@ export class ContextDocument {
   toDict(): Record<string, unknown>;
   toJSON(): Record<string, unknown>;
   toJSONString(space?: number): string;
-}
-
-export class ProjectIndexer {
-  root: string;
-  allowedExtensions: Set<string>;
-  maxFileSize: number;
-  constructor(init?: { root?: string; allowedExtensions?: string[]; maxFileSize?: number });
-  index(): ContextDocument[];
 }
 
 export class ContextRetriever {

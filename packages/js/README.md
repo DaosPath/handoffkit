@@ -6,6 +6,10 @@ This package mirrors the Python HandoffKit contracts in a small dependency-free
 ESM package. Both runtimes share canonical JSON fixtures in
 `packages/contracts`.
 
+`@handoffkit/core` is browser-safe: it does not import `fs`, `path`, or any
+Node.js builtin. Use it in browsers, Next.js client components, Vite,
+Cloudflare Workers, Deno, Bun, and plain Node.js scripts.
+
 - `HandoffState`
 - `HandoffProtocol`
 - `Agent`
@@ -14,18 +18,21 @@ ESM package. Both runtimes share canonical JSON fixtures in
 - `HandoffQualityEvaluator`
 - `RunTrace`
 - `ReplayRunner`
-- `FileTraceStore`
 - `ProviderToolAdapter`
 - `ToolRegistry`
 - `defineTool`
 
 ## Install
 
-Not published yet. In the monorepo:
+```bash
+pnpm add @handoffkit/core
+```
+
+In the monorepo:
 
 ```bash
-pnpm core:test
-pnpm core:check
+pnpm js:test
+pnpm js:check
 ```
 
 ## Quick Example
@@ -95,10 +102,13 @@ const anthropicTools = adapter.toolsToProviderFormat([add], "anthropic");
 console.log(openaiTools, anthropicTools);
 ```
 
-## Trace Reports
+## Node.js Trace Files
 
 ```js
-import { FileTraceStore, RunTrace, writeReportFiles } from "@handoffkit/core";
+import { Agent, FileTraceStore, RunTrace, Team, writeReportFiles } from "@handoffkit/node";
+
+const team = new Team({ agents: [new Agent({ name: "Architect" }), new Agent({ name: "Coder" })] });
+const result = team.run("Build a small calculator CLI.");
 
 const trace = RunTrace.fromTeamResult(result);
 await new FileTraceStore({ root: "traces" }).save(trace, "latest");
@@ -110,5 +120,6 @@ await writeReportFiles(trace, "latest", "reports");
 - No runtime dependencies.
 - Offline deterministic tests.
 - ESM-first.
-- Browser-compatible core shapes where possible.
-- Provider/network adapters should live in separate packages later.
+- Browser-compatible core by default.
+- Local filesystem helpers live in `@handoffkit/node`.
+- Future React/database integrations should be separate packages, not core.

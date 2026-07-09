@@ -1,13 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile, mkdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 
 import {
   Agent,
   EchoProvider,
-  FileTraceStore,
   HandoffProtocol,
   HandoffQualityEvaluator,
   HandoffQualityReport,
@@ -27,12 +25,9 @@ import {
   ValidationIssue,
   ValidationReport,
   defineTool,
-  loadReportJSON,
-  writeReportFiles,
   OpenAIProvider,
   OllamaProvider,
   ContextDocument,
-  ProjectIndexer,
   ContextRetriever,
   ContextPack,
   ContextRunResult,
@@ -45,6 +40,16 @@ const contractsRoot = join(import.meta.dirname, "..", "..", "contracts");
 async function readContractFixture(name) {
   return JSON.parse(await readFile(join(contractsRoot, "fixtures", name), "utf8"));
 }
+
+test("core source stays browser-safe and has no Node builtins", async () => {
+  const source = await readFile(join(import.meta.dirname, "..", "src", "index.js"), "utf8");
+
+  assert.doesNotMatch(source, /from "node:/);
+  assert.doesNotMatch(source, /from 'node:/);
+  assert.doesNotMatch(source, /\bfs\./);
+  assert.doesNotMatch(source, /node:fs/);
+  assert.doesNotMatch(source, /node:path/);
+});
 
 test("validation report serializes and raises", () => {
   const issue = new ValidationIssue({
@@ -63,8 +68,28 @@ test("validation report serializes and raises", () => {
 test("contract parity report summarizes shared contract inventory", async () => {
   const report = await buildContractParityReport({
     runtime: "javascript",
-    version: "1.8.8",
+    version: "1.8.9",
     contractsRoot,
+    contractInventory: {
+      fixtures: [
+        "handoff_state.json",
+        "run_trace.json",
+        "validation_report.json",
+        "quality_report.json",
+        "tool_call.json",
+        "tool_result.json",
+        "provider_tool_schema.json",
+      ],
+      schemas: [
+        "handoff-state.schema.json",
+        "run-trace.schema.json",
+        "validation-report.schema.json",
+        "quality-report.schema.json",
+        "tool-call.schema.json",
+        "tool-result.schema.json",
+        "provider-tool-schema.schema.json",
+      ],
+    },
   });
 
   assert.equal(report instanceof ContractParityReport, true);
@@ -73,6 +98,18 @@ test("contract parity report summarizes shared contract inventory", async () => 
   assert.equal(report.schemaCount, 7);
   assert.ok(report.supportedContracts.includes("handoff_state"));
   assert.match(report.toMarkdown(), /Contract Parity Report/);
+});
+
+test("core contract parity report uses embedded inventory without filesystem", async () => {
+  const report = await buildContractParityReport({
+    runtime: "browser",
+    version: "1.8.9",
+  });
+
+  assert.equal(report.success, true);
+  assert.equal(report.metadata.source, "embedded_inventory");
+  assert.equal(report.fixtureCount, 7);
+  assert.equal(report.schemaCount, 7);
 });
 
 test("handoff state validates and roundtrips", () => {
@@ -182,23 +219,6 @@ test("run trace reads and writes shared Python/JS contract fixture", async () =>
   assert.deepEqual(trace.toJSON(), fixture);
   assert.equal(trace.runId, "shared-contract-demo");
   assert.equal(trace.steps[1].handoff.fromAgent, "Architect");
-});
-
-test("file trace store and report utilities write deterministic files", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "handoffkit-core-"));
-  const team = new Team({ agents: [new Agent({ name: "A" }), new Agent({ name: "B" })] });
-  const trace = RunTrace.fromTeamResult(team.run("Persist me."), { name: "persist-demo" });
-  const store = new FileTraceStore({ root: dir });
-
-  const saved = await store.save(trace, "latest");
-  const loaded = await store.load(saved);
-  const reports = await writeReportFiles(loaded, "trace-report", dir);
-  const reportJson = await loadReportJSON(reports.jsonPath);
-  const listed = await store.list();
-
-  assert.equal(loaded.name, "persist-demo");
-  assert.equal(reportJson.name, "persist-demo");
-  assert.ok(listed.some((path) => path.endsWith("latest.json")));
 });
 
 test("defineTool creates provider-ready schema shape", () => {
@@ -487,21 +507,19 @@ test("HandoffState fromMarkdown roundtrip in JS", () => {
   assert.deepEqual(loaded.nextSteps, ["Implement tests"]);
 });
 
-test("ProjectIndexer indexes files and ContextRetriever searches them in JS", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "handoffkit-context-test-"));
-  await writeFile(join(dir, "a.txt"), "The quick brown fox jumps over the lazy dog.");
-  await writeFile(join(dir, "b.py"), "def foo():\n    return 'bar'");
-  // Ignored directory
-  await mkdir(join(dir, "node_modules"));
-  await writeFile(join(dir, "node_modules", "c.txt"), "ignoring this content");
-
-  const indexer = new ProjectIndexer({ root: dir });
-  const docs = indexer.index();
-
-  assert.equal(docs.length, 2);
-  assert.equal(docs[0].path, "a.txt");
-  assert.equal(docs[1].path, "b.py");
-  assert.match(docs[0].content, /quick brown fox/);
+test("ContextRetriever searches browser-provided documents in JS core", () => {
+  const docs = [
+    new ContextDocument({
+      path: "a.txt",
+      content: "The quick brown fox jumps over the lazy dog.",
+      summary: "Animal sentence.",
+    }),
+    new ContextDocument({
+      path: "b.py",
+      content: "def foo():\n    return 'bar'",
+      summary: "Python snippet.",
+    }),
+  ];
 
   const retriever = new ContextRetriever(docs);
   const searchResults = retriever.search("fox dog");
