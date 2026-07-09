@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -31,6 +31,11 @@ import {
   writeReportFiles,
   OpenAIProvider,
   OllamaProvider,
+  ContextDocument,
+  ProjectIndexer,
+  ContextRetriever,
+  ContextPack,
+  ContextRunResult,
 } from "../src/index.js";
 
 const contractsRoot = join(import.meta.dirname, "..", "..", "contracts");
@@ -439,4 +444,52 @@ test("OpenAIProvider constructor requires API Key", () => {
     if (origEnv) process.env.OPENAI_API_KEY = origEnv;
   }
 });
+
+test("HandoffState fromMarkdown roundtrip in JS", () => {
+  const state = new HandoffState({
+    task: "Build package",
+    fromAgent: "Architect",
+    toAgent: "Coder",
+    summary: "Plan complete",
+    decisions: ["Use ES Modules"],
+    importantFiles: ["package.json"],
+    errors: ["none"],
+    nextSteps: ["Implement tests"],
+  });
+
+  const md = state.toMarkdown();
+  const loaded = HandoffState.fromMarkdown(md);
+
+  assert.equal(loaded.task, "Build package");
+  assert.equal(loaded.fromAgent, "Architect");
+  assert.equal(loaded.toAgent, "Coder");
+  assert.equal(loaded.summary, "Plan complete");
+  assert.deepEqual(loaded.decisions, ["Use ES Modules"]);
+  assert.deepEqual(loaded.importantFiles, ["package.json"]);
+  assert.deepEqual(loaded.errors, ["none"]);
+  assert.deepEqual(loaded.nextSteps, ["Implement tests"]);
+});
+
+test("ProjectIndexer indexes files and ContextRetriever searches them in JS", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "handoffkit-context-test-"));
+  await writeFile(join(dir, "a.txt"), "The quick brown fox jumps over the lazy dog.");
+  await writeFile(join(dir, "b.py"), "def foo():\n    return 'bar'");
+  // Ignored directory
+  await mkdir(join(dir, "node_modules"));
+  await writeFile(join(dir, "node_modules", "c.txt"), "ignoring this content");
+
+  const indexer = new ProjectIndexer({ root: dir });
+  const docs = indexer.index();
+
+  assert.equal(docs.length, 2);
+  assert.equal(docs[0].path, "a.txt");
+  assert.equal(docs[1].path, "b.py");
+  assert.match(docs[0].content, /quick brown fox/);
+
+  const retriever = new ContextRetriever(docs);
+  const searchResults = retriever.search("fox dog");
+  assert.equal(searchResults.length, 1);
+  assert.equal(searchResults[0].path, "a.txt");
+});
+
 
