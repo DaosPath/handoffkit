@@ -1,11 +1,11 @@
-# HandoffKit Shared Contracts
+﻿# HandoffKit Shared Contracts
 
 This folder is the language-neutral contract layer for HandoffKit.
 
 All runtimes must treat these JSON shapes as canonical:
 
 - Python package: `packages/python`
-- JavaScript package: `packages/js`
+- JavaScript package: `packages/js/core`
 - Rust package: `packages/rust`
 - C++ package: `packages/cpp`
 

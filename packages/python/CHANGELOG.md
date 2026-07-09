@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.10
+
+- Reorganized JavaScript packages under `packages/js/core` and
+  `packages/js/node`.
+- Kept npm package names stable as `@handoffkit/core` and `@handoffkit/node`.
+- Updated pnpm workspace, CI, publishing, and docs for the nested JavaScript
+  package layout.
+
 ## 1.8.9
 
 - Split JavaScript filesystem utilities into `@handoffkit/node`.

@@ -1,7 +1,7 @@
 {
-  "name": "@handoffkit/node",
-  "version": "1.8.9",
-  "description": "Node.js filesystem utilities for HandoffKit traces, reports, and project context.",
+  "name": "@handoffkit/core",
+  "version": "1.8.10",
+  "description": "Browser-safe JavaScript contract layer for multi-agent workflows with structured handoffs.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DaosPath/handoffkit.git"
@@ -21,11 +21,8 @@
   ],
   "license": "MIT",
   "scripts": {
-    "check": "node --check src/index.js && node --check test/node.test.js",
+    "check": "node --check src/index.js && node --check test/core.test.js",
     "test": "node --test"
-  },
-  "dependencies": {
-    "@handoffkit/core": "workspace:*"
   },
   "engines": {
     "node": ">=18"
