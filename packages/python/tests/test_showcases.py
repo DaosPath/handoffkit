@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from handoffkit import build_showcase, run_showcase, showcase_names
-from handoffkit.showcases import load_showcase_report
+from handoffkit.recipes.showcases import load_showcase_report
 
 
 def test_showcase_names_are_available() -> None:

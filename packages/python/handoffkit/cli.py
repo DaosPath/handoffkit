@@ -12,14 +12,14 @@ from pathlib import Path
 
 from handoffkit import __version__
 from handoffkit.agent import Agent
-from handoffkit.builtins import plan_execute_review_recipe
-from handoffkit.doctor_benchmark import run_doctor_benchmark as execute_doctor_benchmark
+from handoffkit.recipes.builtins import plan_execute_review_recipe
+from handoffkit.benchmarks.doctor import run_doctor_benchmark as execute_doctor_benchmark
 from handoffkit.evaluation import WorkflowEvaluator
 from handoffkit.extensions import Extension, ExtensionRegistry
-from handoffkit.fusion import run_fusion_demo
+from handoffkit.recipes.fusion import run_fusion_demo
 from handoffkit.handoff import HandoffState
-from handoffkit.mai_benchmark import run_mai_style_benchmark
-from handoffkit.media import (
+from handoffkit.benchmarks.mai import run_mai_style_benchmark
+from handoffkit.recipes.media import (
     MediaAsset,
     MediaWorkflowReport,
     SpeakerProfile,
@@ -38,7 +38,7 @@ from handoffkit.recipes import RecipeRunner
 from handoffkit.replay import ReplayRunner
 from handoffkit.reports import load_report_json, write_report_files, write_report_html
 from handoffkit.runner import Team
-from handoffkit.showcases import build_showcase, load_showcase_report, run_showcase, showcase_names
+from handoffkit.recipes.showcases import build_showcase, load_showcase_report, run_showcase, showcase_names
 from handoffkit.structured import StructuredOutputSchema
 from handoffkit.templates import TemplateScaffolder
 from handoffkit.tool import tool

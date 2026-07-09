@@ -14,6 +14,7 @@ import {
   buildNodeContractParityReport,
   loadReportJSON,
   writeReportFiles,
+  JsonMemoryStore,
 } from "../src/index.js";
 
 test("node package writes traces and reports", async () => {
@@ -52,7 +53,7 @@ test("node package can inspect monorepo contract inventory", async () => {
   const contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts");
   const report = await buildNodeContractParityReport({
     runtime: "node",
-    version: "1.10.0",
+    version: "1.11.0",
     contractsRoot,
   });
 
@@ -69,4 +70,17 @@ test("node package reexports core API", async () => {
   const content = JSON.parse(await readFile(reportPath, "utf8"));
 
   assert.equal(content.steps.length, 1);
+});
+
+test("node package JsonMemoryStore persists data to disk", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "handoffkit-json-memory-"));
+  const filePath = join(dir, "memory_store.json");
+  
+  const store1 = new JsonMemoryStore(filePath);
+  store1.add("Persisted facts are awesome", { kind: "fact", tags: ["cool"] });
+  
+  const store2 = new JsonMemoryStore(filePath);
+  const list = store2.list();
+  assert.equal(list.length, 1);
+  assert.equal(list[0].content, "Persisted facts are awesome");
 });

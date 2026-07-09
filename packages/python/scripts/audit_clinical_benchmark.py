@@ -13,7 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from examples.mai_clinical_mimo_benchmark import _is_match, _prediction_from_stage  # noqa: E402
-from handoffkit.mai_benchmark import build_sequential_doctor_cases  # noqa: E402
+from handoffkit.benchmarks.mai import build_sequential_doctor_cases  # noqa: E402
 
 RATE_LIMIT_MARKERS = ("429", "rate limit", "rate_limit", "too many requests")
 CRITICAL_STAGES = {

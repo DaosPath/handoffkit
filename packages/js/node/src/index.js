@@ -74,7 +74,7 @@ export async function loadReportJSON(filePath) {
 
 export async function buildNodeContractParityReport({
   runtime = "node",
-  version = "1.10.0",
+  version = "1.11.0",
   contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts"),
   expectedFixtures,
   expectedSchemas,
@@ -176,4 +176,38 @@ async function readDirectoryNames(dir) {
 
 function safeFileName(value) {
   return String(value || "report").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "report";
+}
+
+import { MemoryStore, MemoryItem } from "@handoffkit/core";
+
+export class JsonMemoryStore extends MemoryStore {
+  constructor(filePath) {
+    if (!filePath) throw new Error("filePath is required for JsonMemoryStore");
+    const dir = path.dirname(filePath);
+    fs.mkdirSync(dir, { recursive: true });
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, "[]", "utf8");
+    }
+    const raw = fs.readFileSync(filePath, "utf8").trim();
+    let items = [];
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) {
+          throw new Error("JSON memory store must contain a list");
+        }
+        items = parsed.map(item => MemoryItem.fromDict(item));
+      } catch (error) {
+        throw new Error(`Invalid JSON memory store: ${filePath} (${error.message})`);
+      }
+    }
+    super({ items });
+    this.filePath = filePath;
+  }
+
+  _save() {
+    if (!this.filePath) return;
+    const serialized = JSON.stringify(this.list().map(item => item.toDict()), null, 2);
+    fs.writeFileSync(this.filePath, serialized, "utf8");
+  }
 }

@@ -8,7 +8,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from handoffkit.fusion import (
+from handoffkit.recipes.fusion import (
     DEFAULT_FUSION_MODELS,
     DEFAULT_FUSION_TASK,
     configure_stdout,

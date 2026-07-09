@@ -37,3 +37,8 @@ export class ProjectIndexer {
   constructor(init?: { root?: string; allowedExtensions?: string[]; maxFileSize?: number });
   index(): ContextDocument[];
 }
+
+export class JsonMemoryStore extends import("@handoffkit/core").MemoryStore {
+  filePath: string;
+  constructor(filePath: string);
+}

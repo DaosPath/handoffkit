@@ -1,6 +1,6 @@
 export type Severity = "error" | "warning";
 
-export const HANDOFFKIT_CORE_VERSION: "1.10.0";
+export const HANDOFFKIT_CORE_VERSION: "1.11.0";
 
 export function toJSONValue(value: unknown): unknown;
 export function toJSONString(value: unknown, space?: number): string;
@@ -225,6 +225,7 @@ export class HandoffQualityEvaluator {
   minScore: number;
   constructor(init?: { minScore?: number });
   evaluate(state: HandoffState | Record<string, unknown>): HandoffQualityReport;
+  evaluateMany(states: Array<HandoffState | Record<string, unknown>>): HandoffQualityReport;
 }
 
 export class HandoffQualityReport {
@@ -469,4 +470,80 @@ export class WorkflowEvaluator {
   constructor(init?: { minScore?: number; handoffMinScore?: number });
   evaluate(target: unknown): WorkflowEvaluationReport;
   evaluateMany(targets: unknown[]): WorkflowEvaluationReport;
+}
+
+export class MemoryEntry {
+  role: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  constructor(init?: { role: string; content: string; metadata?: Record<string, unknown>; createdAt?: string });
+  toDict(): Record<string, unknown>;
+  static fromDict(data: Record<string, unknown>): MemoryEntry;
+}
+
+export class AgentMemory {
+  entries: MemoryEntry[];
+  constructor(init?: { entries?: MemoryEntry[] });
+  add(role: string, content: string, metadata?: Record<string, unknown>): MemoryEntry;
+  last(count?: number): MemoryEntry[];
+  toText(count?: number): string;
+  clear(): void;
+}
+
+export class MemoryItem {
+  id: string;
+  content: string;
+  kind: string;
+  tags: string[];
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string | null;
+  constructor(init?: { id?: string | null; content: string; kind?: string; tags?: string[]; metadata?: Record<string, unknown>; createdAt?: string | null; updatedAt?: string | null });
+  toDict(): Record<string, unknown>;
+  toJS(): Record<string, unknown>;
+  static fromDict(data: Record<string, unknown>): MemoryItem;
+}
+
+export class MemoryStore {
+  constructor(init?: { items?: MemoryItem[] });
+  add(content: string, options?: { kind?: string; tags?: string[]; metadata?: Record<string, unknown> }): MemoryItem;
+  list(): MemoryItem[];
+  get(memoryId: string): MemoryItem | null;
+  search(query: string, options?: { limit?: number | null }): MemoryItem[];
+  delete(memoryId: string): boolean;
+  clear(): void;
+}
+
+export class MemoryReport {
+  memoriesStored: MemoryItem[];
+  searchesExecuted: string[];
+  contextDocumentsUsed: string[];
+  finalResult: string;
+  constructor(init?: { memoriesStored?: MemoryItem[]; searchesExecuted?: string[]; contextDocumentsUsed?: string[]; finalResult?: string });
+  toDict(): Record<string, unknown>;
+  toJS(): Record<string, unknown>;
+  toMarkdown(): string;
+}
+
+export class Extension {
+  name: string;
+  description: string;
+  version: string;
+  recipes: unknown[];
+  tools: unknown[];
+  metadata: Record<string, unknown>;
+  constructor(init?: { name: string; description: string; version: string; recipes?: unknown[]; tools?: unknown[]; metadata?: Record<string, unknown> });
+  validate(): this;
+  toDict(): Record<string, unknown>;
+  toJS(): Record<string, unknown>;
+}
+
+export class ExtensionRegistry {
+  constructor();
+  register(extension: Extension | Record<string, unknown>): Extension;
+  get(name: string): Extension;
+  list(): Extension[];
+  recipes(): unknown[];
+  tools(): unknown[];
 }

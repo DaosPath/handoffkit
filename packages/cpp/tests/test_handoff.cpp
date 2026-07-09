@@ -107,7 +107,7 @@ void test_shared_tool_call_and_result_fixtures_roundtrip() {
 void test_contract_parity_report_marks_supported_contracts() {
     ContractParityReport report = ContractParityReport::from_inventory(
         "cpp",
-        "1.10.0",
+        "1.11.0",
         {"handoff_state", "run_trace", "validation_report", "quality_report"},
         {"handoff-state", "run-trace", "validation-report", "quality-report"}
     );

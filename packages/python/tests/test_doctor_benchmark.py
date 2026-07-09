@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from handoffkit.doctor_benchmark import (
+from handoffkit.benchmarks.doctor import (
     build_doctor_benchmark,
     load_doctor_benchmark_cases,
     run_doctor_benchmark,

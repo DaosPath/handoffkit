@@ -11,9 +11,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from handoffkit.doctor_cases_30 import DOCTOR_CASES_30
-from handoffkit.doctor_cases_100 import DOCTOR_CASES_100
-from handoffkit.doctor_cases_400 import DOCTOR_CASES_400
+from handoffkit.benchmarks.doctor_cases_30 import DOCTOR_CASES_30
+from handoffkit.benchmarks.doctor_cases_100 import DOCTOR_CASES_100
+from handoffkit.benchmarks.doctor_cases_400 import DOCTOR_CASES_400
 from handoffkit.handoff import HandoffState
 from handoffkit.quality import HandoffQualityEvaluator, HandoffQualityReport
 from handoffkit.replay import ReplayRunner

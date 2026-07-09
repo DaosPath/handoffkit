@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from handoffkit import ContextPack, ContextRetriever, ProjectIndexer, RecipeRunner
-from handoffkit.builtins import coding_review_recipe
+from handoffkit.recipes.builtins import coding_review_recipe
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "examples" / "output" / "coding_review_recipe"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from handoffkit.mai_benchmark import (
+from handoffkit.benchmarks.mai import (
     MAIAction,
     MAIGatekeeper,
     build_mai_style_benchmark,

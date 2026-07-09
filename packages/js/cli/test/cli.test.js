@@ -114,3 +114,22 @@ test("keys management commands work correctly", async () => {
     process.chdir(cwd);
   }
 });
+
+test("main routes doctor-benchmark and mai-benchmark", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "handoffkit-js-bench-"));
+  const cwd = process.cwd();
+  const stdout = [];
+  process.chdir(dir);
+  try {
+    const codeDoc = await main(["doctor", "3"], { stdout: (text) => stdout.push(text) });
+    assert.equal(codeDoc, 0);
+    
+    const codeMai = await main(["mai", "3"], { stdout: (text) => stdout.push(text) });
+    assert.equal(codeMai, 0);
+    
+    assert.ok(stdout.some((text) => text.includes("Doctor Benchmark: 3 Real Open-Access Cases")));
+    assert.ok(stdout.some((text) => text.includes("MAI-Style Public Doctor Benchmark: 3 Cases")));
+  } finally {
+    process.chdir(cwd);
+  }
+});
