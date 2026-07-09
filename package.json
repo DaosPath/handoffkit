@@ -16,6 +16,6 @@
     "web:build": "pnpm --dir apps/web run build"
   },
   "devDependencies": {
-    "handoffkit": "workspace:*"
+    "@handoffkit/core": "workspace:*"
   }
 }
