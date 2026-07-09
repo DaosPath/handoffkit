@@ -29,6 +29,8 @@ import {
   defineTool,
   loadReportJSON,
   writeReportFiles,
+  OpenAIProvider,
+  OllamaProvider,
 } from "../src/index.js";
 
 const contractsRoot = join(import.meta.dirname, "..", "..", "contracts");
@@ -378,3 +380,63 @@ test("hardened constructors safely handle null or non-array values", () => {
   const format = adapter.toolsToProviderFormat(null);
   assert.deepEqual(format, []);
 });
+
+test("OpenAIProvider handles successful completions", async () => {
+  const originalFetch = global.fetch;
+  let fetchCall = null;
+  global.fetch = async (url, options) => {
+    fetchCall = { url, options };
+    return {
+      ok: true,
+      json: async () => ({
+        choices: [
+          { message: { content: "Hello from mock OpenAI!" } }
+        ]
+      })
+    };
+  };
+
+  try {
+    const provider = new OpenAIProvider({ apiKey: "mock-key" });
+    const response = await provider.agenerate("Hello");
+    assert.equal(response, "Hello from mock OpenAI!");
+    assert.equal(fetchCall.url, "https://api.openai.com/v1/chat/completions");
+    assert.equal(fetchCall.options.headers["Authorization"], "Bearer mock-key");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("OllamaProvider handles successful completions", async () => {
+  const originalFetch = global.fetch;
+  let fetchCall = null;
+  global.fetch = async (url, options) => {
+    fetchCall = { url, options };
+    return {
+      ok: true,
+      json: async () => ({
+        response: "Hello from mock Ollama!"
+      })
+    };
+  };
+
+  try {
+    const provider = new OllamaProvider();
+    const response = await provider.agenerate("Hello");
+    assert.equal(response, "Hello from mock Ollama!");
+    assert.equal(fetchCall.url, "http://localhost:11434/api/generate");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("OpenAIProvider constructor requires API Key", () => {
+  const origEnv = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  try {
+    assert.throws(() => new OpenAIProvider(), /apiKey is required/);
+  } finally {
+    if (origEnv) process.env.OPENAI_API_KEY = origEnv;
+  }
+});
+
