@@ -1047,20 +1047,22 @@ export class RunTrace {
   }
 
   static fromTeamResult(result, { name = "team-run" } = {}) {
+    const handoffs = result.handoffs || result.handoffStates || [];
+    const stepResults = result.stepResults || [];
     return new RunTrace({
       name,
       success: result.success,
       finalOutput: result.finalOutput,
-      steps: result.stepResults.map((step, index) => new TraceStep({
-        name: `step-${index + 1}`,
-        agent: step.agentName,
+      steps: stepResults.map((step, index) => new TraceStep({
+        name: step.name || step.step_name || `step-${index + 1}`,
+        agent: step.agentName || step.agent_name,
         task: step.task,
         mode: "agent",
         success: step.success,
-        output: step.finalOutput,
-        handoff: result.handoffs[index - 1] ?? null,
+        output: step.finalOutput || step.output,
+        handoff: handoffs[index - 1] ?? null,
       })),
-      handoffs: result.handoffs,
+      handoffs: handoffs,
       metadata: result.metadata,
     });
   }

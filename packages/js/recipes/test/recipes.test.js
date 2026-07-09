@@ -53,3 +53,19 @@ test("built-in recipe is useful offline", () => {
   assert.equal(result.recipeName, "plan-execute-review");
   assert.match(result.finalOutput, /Echo/);
 });
+
+test("recipe runner executes async with arun", async () => {
+  const recipe = WorkflowTemplate.planExecuteReview({
+    name: "release-async",
+    task: "Ship JS CLI async.",
+    planner: new Agent({ name: "Planner" }),
+    executor: new Agent({ name: "Executor" }),
+    reviewer: new Agent({ name: "Reviewer" }),
+  });
+  const result = await new RecipeRunner(recipe).arun("Prepare release async.");
+
+  assert.equal(result.success, true);
+  assert.equal(result.stepResults.length, 3);
+  assert.equal(result.handoffStates.length, 2);
+  assert.equal(result.handoffStates[0].fromAgent, "Planner");
+});

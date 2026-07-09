@@ -240,6 +240,77 @@ export class RecipeRunner {
       metadata: { step_count: this.recipe.steps.length },
     });
   }
+
+  async arun(initialTask = "") {
+    const stepResults = [];
+    const handoffStates = [];
+    let previousOutput = "";
+    let success = true;
+
+    for (let index = 0; index < this.recipe.steps.length; index += 1) {
+      const step = this.recipe.steps[index];
+      const agent = step.agent || new Agent({ name: step.name, role: `Execute ${step.name}.` });
+      const task = buildStepTask(step, initialTask, previousOutput, index);
+      let result;
+      try {
+        result = await agent.arun(task, { context: step.useContext ? previousOutput : null });
+      } catch (error) {
+        result = {
+          agentName: agent.name,
+          task,
+          finalOutput: error instanceof Error ? error.message : String(error),
+          success: false,
+          toJSON() {
+            return {
+              agent_name: this.agentName,
+              task: this.task,
+              final_output: this.finalOutput,
+              success: this.success,
+            };
+          },
+        };
+      }
+
+      success = success && result.success;
+      stepResults.push({
+        step_name: step.name,
+        agent_name: agent.name,
+        task,
+        output: result.finalOutput,
+        success: result.success,
+        metadata: { ...step.metadata },
+      });
+
+      const nextStep = this.recipe.steps[index + 1];
+      if (nextStep) {
+        const nextAgent = nextStep.agent || new Agent({ name: nextStep.name });
+        handoffStates.push(this.protocol.transfer({
+          fromAgent: agent,
+          toAgent: nextAgent,
+          task: nextStep.task,
+          summary: result.finalOutput,
+          decisions: [`Step ${step.name} completed with success=${result.success}.`],
+          nextSteps: [nextStep.task],
+          metadata: {
+            recipe: this.recipe.name,
+            fromStep: step.name,
+            toStep: nextStep.name,
+          },
+        }));
+      }
+
+      previousOutput = result.finalOutput;
+    }
+
+    return new RecipeRunResult({
+      recipeName: this.recipe.name,
+      success,
+      finalOutput: stepResults.at(-1)?.output ?? "",
+      stepResults,
+      handoffStates,
+      metadata: { step_count: this.recipe.steps.length },
+    });
+  }
 }
 
 export class WorkflowTemplate {
