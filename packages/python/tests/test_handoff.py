@@ -32,3 +32,31 @@ def test_handoff_json_roundtrip() -> None:
     assert loaded.task == state.task
     assert loaded.summary == state.summary
     assert loaded.context_refs == ["README.md", "pyproject.toml"]
+
+
+def test_handoff_markdown_roundtrip() -> None:
+    state = HandoffState(
+        task="Build package",
+        from_agent="Architect",
+        to_agent="Coder",
+        summary="Plan complete",
+        decisions=["Use dataclasses"],
+        important_files=["pyproject.toml"],
+        errors=["None"],
+        next_steps=["Implement"],
+        context_refs=["README.md"],
+    )
+
+    md = state.to_markdown()
+    loaded = HandoffState.from_markdown(md)
+
+    assert loaded.task == "Build package"
+    assert loaded.from_agent == "Architect"
+    assert loaded.to_agent == "Coder"
+    assert loaded.summary == "Plan complete"
+    assert loaded.decisions == ["Use dataclasses"]
+    assert loaded.important_files == ["pyproject.toml"]
+    assert loaded.errors == ["None"]
+    assert loaded.next_steps == ["Implement"]
+    assert loaded.context_refs == ["README.md"]
+

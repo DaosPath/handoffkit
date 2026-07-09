@@ -100,3 +100,107 @@ class HandoffState:
         if not isinstance(data, dict):
             raise ValueError("HandoffState JSON must decode to an object.")
         return cls.from_dict(data)
+
+    def to_markdown(self) -> str:
+        """Return a markdown string representing the handoff state."""
+        lines = [
+            "# HandoffState",
+            "",
+            f"Task: {self.task}",
+            f"From: {self.from_agent or '-'}",
+            f"To: {self.to_agent or '-'}",
+            "",
+            "## Summary",
+            self.summary or "-",
+            "",
+        ]
+
+        def add_list_section(title: str, items: list[str]) -> None:
+            lines.append(f"## {title}")
+            if not items:
+                lines.append("-")
+            else:
+                for item in items:
+                    lines.append(f"- {item}")
+            lines.append("")
+
+        add_list_section("Decisions", self.decisions)
+        add_list_section("Files", self.important_files)
+        add_list_section("Errors", self.errors)
+        add_list_section("Next Steps", self.next_steps)
+        add_list_section("Context Refs", self.context_refs)
+
+        return "\n".join(lines).strip()
+
+    @classmethod
+    def from_markdown(cls, text: str) -> HandoffState:
+        """Parse a HandoffState from its markdown representation."""
+        task = ""
+        from_agent = ""
+        to_agent = ""
+        summary = ""
+        decisions: list[str] = []
+        important_files: list[str] = []
+        errors: list[str] = []
+        next_steps: list[str] = []
+        context_refs: list[str] = []
+
+        lines = text.splitlines()
+        current_section = None
+        summary_lines = []
+
+        for line in lines:
+            line_str = line.strip()
+            if not line_str:
+                continue
+
+            if line_str.startswith("Task:"):
+                task = line_str[len("Task:"):].strip()
+                continue
+            if line_str.startswith("From:"):
+                from_agent = line_str[len("From:"):].strip()
+                if from_agent == "-":
+                    from_agent = ""
+                continue
+            if line_str.startswith("To:"):
+                to_agent = line_str[len("To:"):].strip()
+                if to_agent == "-":
+                    to_agent = ""
+                continue
+
+            if line_str.startswith("## "):
+                current_section = line_str[3:].strip().lower()
+                continue
+
+            if current_section == "summary":
+                summary_lines.append(line_str)
+            elif line_str.startswith("-"):
+                val = line_str[1:].strip()
+                if not val or val == "-":
+                    continue
+                if current_section == "decisions":
+                    decisions.append(val)
+                elif current_section in ("files", "important files", "important_files"):
+                    important_files.append(val)
+                elif current_section == "errors":
+                    errors.append(val)
+                elif current_section in ("next steps", "next_steps"):
+                    next_steps.append(val)
+                elif current_section in ("context refs", "context_refs"):
+                    context_refs.append(val)
+
+        summary = "\n".join(summary_lines).strip()
+        if summary == "-":
+            summary = ""
+
+        return cls(
+            task=task,
+            from_agent=from_agent,
+            to_agent=to_agent,
+            summary=summary,
+            decisions=decisions,
+            important_files=important_files,
+            errors=errors,
+            next_steps=next_steps,
+            context_refs=context_refs,
+        )
