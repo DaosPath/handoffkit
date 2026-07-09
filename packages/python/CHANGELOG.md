@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.8
+
+- Added embedded contract inventory fallback so `ContractParityReport` works
+  from installed PyPI/npm packages outside the monorepo.
+- Kept the 1.8.x cross-runtime contract parity feature stable after install.
+
 ## 1.8.7
 
 - Added cross-runtime contract parity reports.

@@ -131,7 +131,7 @@ def test_contract_parity_report_covers_shared_contract_inventory() -> None:
 
     report = build_contract_parity_report(
         runtime="python",
-        version="1.8.7",
+        version="1.8.8",
         contracts_root=CONTRACTS_ROOT,
     )
 
@@ -140,3 +140,19 @@ def test_contract_parity_report_covers_shared_contract_inventory() -> None:
     assert report.schema_count == 7
     assert "handoff_state" in report.supported_contracts
     assert "Contract Parity Report" in report.to_markdown()
+
+
+def test_contract_parity_report_uses_embedded_inventory_when_installed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import handoffkit.contracts as contracts  # noqa: PLC0415
+
+    monkeypatch.setattr(contracts, "_default_contracts_root", lambda: tmp_path / "missing")
+
+    report = contracts.build_contract_parity_report(runtime="python", version="1.8.8")
+
+    assert report.success is True
+    assert report.fixture_count == 7
+    assert report.schema_count == 7
+    assert report.metadata["source"] == "embedded_inventory"

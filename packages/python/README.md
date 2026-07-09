@@ -28,7 +28,7 @@ pip install handoffkit
 </table>
 
 <p>
-  <strong>1.8.7:</strong> Rust and C++ contract parity with shared validation, quality, tool call, and tool result fixtures.<br>
+  <strong>1.8.8:</strong> Rust and C++ contract parity with installed-package-safe parity reports.<br>
   <strong>1.7.0:</strong> shared Python + JavaScript contracts with canonical JSON fixtures.<br>
   <strong>1.6.0:</strong> JavaScript core package with async runtime, provider tool formats, traces, and reports.<br>
   <strong>1.5.0:</strong> media workflow contracts for audiobook and translated video dubbing demos.<br>
@@ -91,7 +91,7 @@ That makes agent workflows easier to inspect, test, replay, and improve.
 
 ## Unified Cross-runtime Contracts
 
-HandoffKit 1.8.7 makes the Python, JavaScript, Rust, and C++ runtimes speak the
+HandoffKit 1.8.8 makes the Python, JavaScript, Rust, and C++ runtimes speak the
 same wire format. The canonical JSON contracts live in
 [`packages/contracts`](https://github.com/DaosPath/handoffkit/tree/main/packages/contracts).
 
@@ -126,7 +126,7 @@ so contract drift becomes a CI failure instead of a surprise for users.
 ```python
 from handoffkit import build_contract_parity_report
 
-report = build_contract_parity_report(runtime="python", version="1.8.7")
+report = build_contract_parity_report(runtime="python", version="1.8.8")
 print(report.to_markdown())
 ```
 

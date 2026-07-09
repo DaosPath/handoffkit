@@ -63,7 +63,7 @@ test("validation report serializes and raises", () => {
 test("contract parity report summarizes shared contract inventory", async () => {
   const report = await buildContractParityReport({
     runtime: "javascript",
-    version: "1.8.7",
+    version: "1.8.8",
     contractsRoot,
   });
 
