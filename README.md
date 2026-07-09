@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 <img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-hero.svg" alt="HandoffKit: structured state transfer for multi-agent workflows" width="100%">
 
@@ -6,7 +6,7 @@
 
 **Language-agnostic, cross-runtime framework for multi-agent workflows with Structured State-Transfer Protocols.**
 
-Build agent chains where each agent receives a clear contract: task, decisions, files, errors, next steps, and metadata ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â across **Python, JavaScript, Rust, and C++**.
+Build agent chains where each agent receives a clear contract: task, decisions, files, errors, next steps, and metadata — across **Python, JavaScript, Rust, and C++**.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/DaosPath/handoffkit/ci.yml?branch=main&label=CI&logo=github&logoColor=white&style=flat-square)](https://github.com/DaosPath/handoffkit/actions)
 [![PyPI](https://img.shields.io/pypi/v/handoffkit.svg?logo=python&logoColor=white&style=flat-square)](https://pypi.org/project/handoffkit/)
@@ -18,7 +18,7 @@ Build agent chains where each agent receives a clear contract: task, decisions, 
 pip install handoffkit          # Python
 npm install @handoffkit/core    # JavaScript
 cargo add handoffkit            # Rust
-# C++ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â CMake FetchContent (see below)
+# C++ — CMake FetchContent (see below)
 ```
 
 <table>
@@ -34,7 +34,7 @@ cargo add handoffkit            # Rust
 
 ---
 
-## The Problem: Context Soup ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Structured Contract
+## The Problem: Context Soup → Structured Contract
 
 <img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-state-flow.svg" alt="HandoffKit turns fragile free-text handoffs into structured HandoffState contracts" width="100%">
 
@@ -53,7 +53,7 @@ Architect
   files: ["calculator.py", "test_calculator.py"]
   next_steps: ["Implement CLI", "Run pytest"]
         |
-        v (HandoffState ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â not a vague paragraph)
+        v (HandoffState — not a vague paragraph)
 Coder
         |
         v
@@ -82,9 +82,9 @@ handoffkit demo
 
 | Demo | Agents | Run |
 |---|---|---|
-| **Coding review** | Architect ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Coder ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Reviewer ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Tester | `python examples/coding_review.py` |
-| **Support escalation** | Triage ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Billing ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Supervisor | `python examples/support_escalation.py` |
-| **Research workflow** | Researcher ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Extractor ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Fact-checker ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Writer | `python examples/research_workflow.py` |
+| **Coding review** | Architect → Coder → Reviewer → Tester | `python examples/coding_review.py` |
+| **Support escalation** | Triage → Billing → Supervisor | `python examples/support_escalation.py` |
+| **Research workflow** | Researcher → Extractor → Fact-checker → Writer | `python examples/research_workflow.py` |
 
 ---
 
@@ -118,7 +118,7 @@ print(trace.to_timeline())
 | <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/python.svg" width="14"/> **Python** | `handoffkit` | `pip install handoffkit` |
 | <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/javascript.svg" width="14"/> **JavaScript / TypeScript** | `@handoffkit/core` | `npm install @handoffkit/core` |
 | <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/rust.svg" width="14"/> **Rust** | `handoffkit` | `cargo add handoffkit` |
-| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/cplusplus.svg" width="14"/> **C++** | `handoffkit` | CMake `FetchContent` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â see `packages/cpp/` |
+| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/cplusplus.svg" width="14"/> **C++** | `handoffkit` | CMake `FetchContent` — see `packages/cpp/` |
 
 All runtimes share the same `snake_case` JSON wire format so a `HandoffState` written in Rust can be read in Python and vice versa.
 
@@ -277,7 +277,7 @@ HandoffState loaded = HandoffState::from_markdown(md);
 
 ### Prerequisites
 
-* **Python** 3.10+ Ãƒâ€šÃ‚Â· **Node.js** v22+ Ãƒâ€šÃ‚Â· **pnpm** v11+ Ãƒâ€šÃ‚Â· **Rust** (Cargo) Ãƒâ€šÃ‚Â· **CMake** v3.15+
+* **Python** 3.10+ · **Node.js** v22+ · **pnpm** v11+ · **Rust** (Cargo) · **CMake** v3.15+
 
 ### Install & Run Tests
 
@@ -324,4 +324,4 @@ handoffkit init my-agent --template basic-agent --output .
 
 ## License
 
-MIT ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
