@@ -94,12 +94,36 @@ export class EchoProvider extends BaseProvider {
   constructor(init?: { model?: string });
 }
 
+export class OpenAIProvider extends BaseProvider {
+  apiKey: string;
+  baseUrl: string;
+  headers: Record<string, string>;
+  timeout: number;
+  constructor(init?: {
+    model?: string;
+    apiKey?: string;
+    baseUrl?: string;
+    headers?: Record<string, string>;
+    timeout?: number;
+  });
+}
+
+export class OllamaProvider extends BaseProvider {
+  baseUrl: string;
+  timeout: number;
+  constructor(init?: {
+    model?: string;
+    baseUrl?: string;
+    timeout?: number;
+  });
+}
+
 export class Agent {
   name: string;
   role: string;
   provider: { generate(prompt: string, kwargs?: Record<string, unknown>): string; agenerate?(prompt: string, kwargs?: Record<string, unknown>): Promise<string>; model?: string };
   metadata: Record<string, unknown>;
-  constructor(init: { name: string; role?: string; provider?: BaseProvider | EchoProvider; metadata?: Record<string, unknown> });
+  constructor(init: { name: string; role?: string; provider?: BaseProvider; metadata?: Record<string, unknown> });
   run(task: string, options?: { context?: string | null }): AgentRunResult;
   arun(task: string, options?: { context?: string | null }): Promise<AgentRunResult>;
   runWithTools(task: string, options?: { tools?: ReturnType<typeof defineTool>[]; toolCalls?: ToolCall[] | Record<string, unknown>; providerAdapter?: ProviderToolAdapter }): ToolAgentRunResult;
