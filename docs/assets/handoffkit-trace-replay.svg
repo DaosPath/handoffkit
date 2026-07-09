@@ -1,123 +1,151 @@
-<svg width="1280" height="460" viewBox="0 0 1280 460" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" role="img" aria-labelledby="title desc">
   <title id="title">HandoffKit trace and replay — cross-runtime</title>
-  <desc id="desc">Trace and replay pipeline showing RunTrace, FileTraceStore, ReplayRunner, and report output — available in Python, JavaScript, Rust, and C++.</desc>
+  <desc id="desc">Trace and replay pipeline across Python, JavaScript, Rust, and C++.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="460" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#08111F"/>
-      <stop offset="1" stop-color="#111827"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#060c1a"/>
+      <stop offset="1" stop-color="#0c1628"/>
     </linearGradient>
-    <linearGradient id="pipe" x1="120" y1="230" x2="1160" y2="230" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#38BDF8"/>
-      <stop offset="0.33" stop-color="#facc15"/>
-      <stop offset="0.66" stop-color="#f97316"/>
-      <stop offset="1" stop-color="#22C55E"/>
+    <linearGradient id="pipe" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#38bdf8"/>
+      <stop offset="0.33" stop-color="#4ade80"/>
+      <stop offset="0.66" stop-color="#fb923c"/>
+      <stop offset="1" stop-color="#a78bfa"/>
     </linearGradient>
+    <linearGradient id="pipeH" x1="110" y1="0" x2="1170" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38bdf8"/>
+      <stop offset="0.33" stop-color="#4ade80"/>
+      <stop offset="0.66" stop-color="#fb923c"/>
+      <stop offset="1" stop-color="#a78bfa"/>
+    </linearGradient>
+    <filter id="shadow" x="-8%" y="-10%" width="116%" height="126%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#1e3a5f" fill-opacity="0.5"/>
+    </pattern>
     <style>
-      .heading { font: 800 36px Inter, ui-sans-serif, system-ui, sans-serif; fill: #F8FAFC; }
-      .sub { font: 500 17px Inter, ui-sans-serif, system-ui, sans-serif; fill: #CBD5E1; }
-      .label { font: 800 20px Inter, ui-sans-serif, system-ui, sans-serif; fill: #F8FAFC; }
-      .body { font: 500 14px Inter, ui-sans-serif, system-ui, sans-serif; fill: #CBD5E1; }
-      .mono { font: 700 13px "JetBrains Mono", "SFMono-Regular", Consolas, monospace; fill: #BAE6FD; }
-      .langTag { font: 800 10px "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+      .f { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+      .m { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
     </style>
   </defs>
 
-  <rect width="1280" height="460" rx="30" fill="url(#bg)"/>
-  <rect x="1.5" y="1.5" width="1277" height="457" rx="28.5" stroke="#334155" stroke-width="3"/>
+  <rect width="1280" height="480" rx="28" fill="url(#bg)"/>
+  <rect width="1280" height="480" rx="28" fill="url(#dots)"/>
+  <rect x="1.5" y="1.5" width="1277" height="477" rx="26.5" fill="none" stroke="#1e3a5f" stroke-width="3"/>
 
-  <text x="70" y="72" class="heading">Trace once. Replay safely. Export anywhere.</text>
-  <text x="70" y="104" class="sub">RunTrace works across Python, JavaScript, Rust, and C++. Replay reads evidence — zero side effects.</text>
+  <!-- Header -->
+  <text x="68" y="66" class="f" font-size="30" font-weight="800" fill="#f8fafc">Trace once. Replay safely. Export anywhere.</text>
+  <text x="68" y="96" class="f" font-size="15" font-weight="500" fill="#64748b">RunTrace works across Python, JavaScript, Rust, and C++. Replay reads evidence — zero side effects.</text>
 
-  <!-- Pipeline line -->
-  <path d="M170 236H1110" stroke="url(#pipe)" stroke-width="8" stroke-linecap="round"/>
+  <!-- Pipeline connector line -->
+  <line x1="110" y1="256" x2="1170" y2="256" stroke="url(#pipeH)" stroke-width="6" stroke-linecap="round"/>
 
-  <!-- Node 1: RunTrace -->
-  <rect x="72" y="168" width="198" height="148" rx="24" fill="#0F172A" stroke="#38BDF8" stroke-width="2"/>
-  <rect x="110" y="134" width="122" height="46" rx="16" fill="#0B1220" stroke="#38BDF8" stroke-width="2"/>
-  <text x="148" y="162" class="mono">01</text>
-  <text x="110" y="216" class="label">RunTrace</text>
-  <text x="106" y="244" class="body">steps, handoffs,</text>
-  <text x="110" y="266" class="body">tool results</text>
-  <!-- Runtime badges -->
-  <g transform="translate(88 284)">
-    <rect width="42" height="18" rx="9" fill="#0e3050"/>
-    <text x="6" y="13" class="langTag" fill="#38bdf8">Py</text>
-    <rect x="48" width="42" height="18" rx="9" fill="#2a2000"/>
-    <text x="54" y="13" class="langTag" fill="#facc15">JS</text>
-    <rect x="96" width="42" height="18" rx="9" fill="#2a1200"/>
-    <text x="102" y="13" class="langTag" fill="#f97316">Rs</text>
-    <rect x="144" width="42" height="18" rx="9" fill="#1e1030"/>
-    <text x="149" y="13" class="langTag" fill="#a78bfa">C++</text>
+  <!-- ── Node helper: each node is 220px wide, 4 nodes, 68px gap ──
+       Node starts: 68, 356, 644, 932
+       Width: 220, total right edge: 932+220=1152, margin right: 1280-1152=128 ✓ -->
+
+  <!-- Node 1: RunTrace (blue) -->
+  <g transform="translate(68 148)">
+    <rect width="220" height="192" rx="20" fill="#0a1428" stroke="#38bdf8" stroke-width="2" filter="url(#shadow)"/>
+    <rect width="220" height="6" rx="3" fill="#38bdf8"/>
+    <!-- Step badge -->
+    <rect x="14" y="20" width="52" height="24" rx="12" fill="#082f49"/>
+    <text x="24" y="36" class="m" font-size="11" font-weight="800" fill="#38bdf8">01</text>
+    <text x="14" y="80" class="f" font-size="18" font-weight="800" fill="#f8fafc">RunTrace</text>
+    <text x="14" y="104" class="f" font-size="13" fill="#94a3b8">steps, handoffs,</text>
+    <text x="14" y="124" class="f" font-size="13" fill="#94a3b8">tool results, events</text>
+    <!-- Lang badges -->
+    <g transform="translate(14 144)">
+      <rect width="40" height="20" rx="10" fill="#0e2a40"/>
+      <text x="8" y="14" class="m" font-size="9" font-weight="800" fill="#38bdf8">Py</text>
+      <rect x="46" width="40" height="20" rx="10" fill="#2a1e00"/>
+      <text x="54" y="14" class="m" font-size="9" font-weight="800" fill="#facc15">JS</text>
+      <rect x="92" width="40" height="20" rx="10" fill="#2a1200"/>
+      <text x="100" y="14" class="m" font-size="9" font-weight="800" fill="#fb923c">Rs</text>
+      <rect x="138" width="40" height="20" rx="10" fill="#1a0d38"/>
+      <text x="144" y="14" class="m" font-size="9" font-weight="800" fill="#a78bfa">C++</text>
+    </g>
   </g>
 
   <!-- Arrow 1 -->
-  <path d="M282 236H338" stroke="#E2E8F0" stroke-width="4" stroke-linecap="round"/>
-  <path d="M326 224L340 236L326 248" stroke="#E2E8F0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M300 256 L344 256" stroke="#1e3a5f" stroke-width="3" stroke-linecap="round"/>
+  <path d="M334 246 L346 256 L334 266" stroke="#1e3a5f" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- Node 2: TraceStore -->
-  <rect x="352" y="168" width="198" height="148" rx="24" fill="#0F172A" stroke="#facc15" stroke-width="2"/>
-  <rect x="390" y="134" width="122" height="46" rx="16" fill="#0B1220" stroke="#facc15" stroke-width="2"/>
-  <text x="428" y="162" class="mono">02</text>
-  <text x="373" y="216" class="label">TraceStore</text>
-  <text x="390" y="244" class="mono">traces/*.json</text>
-  <text x="390" y="266" class="body">durable audit</text>
-  <g transform="translate(368 284)">
-    <rect width="42" height="18" rx="9" fill="#0e3050"/>
-    <text x="6" y="13" class="langTag" fill="#38bdf8">Py</text>
-    <rect x="48" width="42" height="18" rx="9" fill="#2a2000"/>
-    <text x="54" y="13" class="langTag" fill="#facc15">JS</text>
-    <rect x="96" width="42" height="18" rx="9" fill="#2a1200"/>
-    <text x="102" y="13" class="langTag" fill="#f97316">Rs</text>
-    <rect x="144" width="42" height="18" rx="9" fill="#1e1030"/>
-    <text x="149" y="13" class="langTag" fill="#a78bfa">C++</text>
+  <!-- Node 2: TraceStore (green) -->
+  <g transform="translate(356 148)">
+    <rect width="220" height="192" rx="20" fill="#0a1428" stroke="#4ade80" stroke-width="2" filter="url(#shadow)"/>
+    <rect width="220" height="6" rx="3" fill="#4ade80"/>
+    <rect x="14" y="20" width="52" height="24" rx="12" fill="#022c1a"/>
+    <text x="24" y="36" class="m" font-size="11" font-weight="800" fill="#4ade80">02</text>
+    <text x="14" y="80" class="f" font-size="18" font-weight="800" fill="#f8fafc">TraceStore</text>
+    <text x="14" y="104" class="m" font-size="13" fill="#94a3b8">traces/*.json</text>
+    <text x="14" y="124" class="f" font-size="13" fill="#94a3b8">durable audit log</text>
+    <g transform="translate(14 144)">
+      <rect width="40" height="20" rx="10" fill="#0e2a40"/>
+      <text x="8" y="14" class="m" font-size="9" font-weight="800" fill="#38bdf8">Py</text>
+      <rect x="46" width="40" height="20" rx="10" fill="#2a1e00"/>
+      <text x="54" y="14" class="m" font-size="9" font-weight="800" fill="#facc15">JS</text>
+      <rect x="92" width="40" height="20" rx="10" fill="#2a1200"/>
+      <text x="100" y="14" class="m" font-size="9" font-weight="800" fill="#fb923c">Rs</text>
+      <rect x="138" width="40" height="20" rx="10" fill="#1a0d38"/>
+      <text x="144" y="14" class="m" font-size="9" font-weight="800" fill="#a78bfa">C++</text>
+    </g>
   </g>
 
   <!-- Arrow 2 -->
-  <path d="M562 236H618" stroke="#E2E8F0" stroke-width="4" stroke-linecap="round"/>
-  <path d="M606 224L620 236L606 248" stroke="#E2E8F0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M588 256 L632 256" stroke="#1e3a5f" stroke-width="3" stroke-linecap="round"/>
+  <path d="M622 246 L634 256 L622 266" stroke="#1e3a5f" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- Node 3: Timeline -->
-  <rect x="632" y="168" width="198" height="148" rx="24" fill="#0F172A" stroke="#f97316" stroke-width="2"/>
-  <rect x="670" y="134" width="122" height="46" rx="16" fill="#0B1220" stroke="#f97316" stroke-width="2"/>
-  <text x="708" y="162" class="mono">03</text>
-  <text x="658" y="216" class="label">Timeline</text>
-  <text x="660" y="244" class="body">to_timeline()</text>
-  <text x="660" y="266" class="body">toTimeline() JS</text>
-  <g transform="translate(648 284)">
-    <rect width="42" height="18" rx="9" fill="#0e3050"/>
-    <text x="6" y="13" class="langTag" fill="#38bdf8">Py</text>
-    <rect x="48" width="42" height="18" rx="9" fill="#2a2000"/>
-    <text x="54" y="13" class="langTag" fill="#facc15">JS</text>
-    <rect x="96" width="42" height="18" rx="9" fill="#2a1200"/>
-    <text x="102" y="13" class="langTag" fill="#f97316">Rs</text>
-    <rect x="144" width="42" height="18" rx="9" fill="#1e1030"/>
-    <text x="149" y="13" class="langTag" fill="#a78bfa">C++</text>
+  <!-- Node 3: Timeline (orange) -->
+  <g transform="translate(644 148)">
+    <rect width="220" height="192" rx="20" fill="#0a1428" stroke="#fb923c" stroke-width="2" filter="url(#shadow)"/>
+    <rect width="220" height="6" rx="3" fill="#fb923c"/>
+    <rect x="14" y="20" width="52" height="24" rx="12" fill="#1c0e00"/>
+    <text x="24" y="36" class="m" font-size="11" font-weight="800" fill="#fb923c">03</text>
+    <text x="14" y="80" class="f" font-size="18" font-weight="800" fill="#f8fafc">Timeline</text>
+    <text x="14" y="104" class="m" font-size="13" fill="#94a3b8">to_timeline()</text>
+    <text x="14" y="124" class="m" font-size="13" fill="#94a3b8">toTimeline() JS</text>
+    <g transform="translate(14 144)">
+      <rect width="40" height="20" rx="10" fill="#0e2a40"/>
+      <text x="8" y="14" class="m" font-size="9" font-weight="800" fill="#38bdf8">Py</text>
+      <rect x="46" width="40" height="20" rx="10" fill="#2a1e00"/>
+      <text x="54" y="14" class="m" font-size="9" font-weight="800" fill="#facc15">JS</text>
+      <rect x="92" width="40" height="20" rx="10" fill="#2a1200"/>
+      <text x="100" y="14" class="m" font-size="9" font-weight="800" fill="#fb923c">Rs</text>
+      <rect x="138" width="40" height="20" rx="10" fill="#1a0d38"/>
+      <text x="144" y="14" class="m" font-size="9" font-weight="800" fill="#a78bfa">C++</text>
+    </g>
   </g>
 
   <!-- Arrow 3 -->
-  <path d="M842 236H898" stroke="#E2E8F0" stroke-width="4" stroke-linecap="round"/>
-  <path d="M886 224L900 236L886 248" stroke="#E2E8F0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M876 256 L920 256" stroke="#1e3a5f" stroke-width="3" stroke-linecap="round"/>
+  <path d="M910 246 L922 256 L910 266" stroke="#1e3a5f" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- Node 4: Reports -->
-  <rect x="912" y="168" width="198" height="148" rx="24" fill="#0F172A" stroke="#22C55E" stroke-width="2"/>
-  <rect x="950" y="134" width="122" height="46" rx="16" fill="#0B1220" stroke="#22C55E" stroke-width="2"/>
-  <text x="998" y="162" class="mono">04</text>
-  <text x="960" y="216" class="label">Reports</text>
-  <text x="966" y="244" class="mono">JSON</text>
-  <text x="948" y="266" class="mono">Markdown</text>
-  <g transform="translate(928 284)">
-    <rect width="42" height="18" rx="9" fill="#0e3050"/>
-    <text x="6" y="13" class="langTag" fill="#38bdf8">Py</text>
-    <rect x="48" width="42" height="18" rx="9" fill="#2a2000"/>
-    <text x="54" y="13" class="langTag" fill="#facc15">JS</text>
-    <rect x="96" width="42" height="18" rx="9" fill="#2a1200"/>
-    <text x="102" y="13" class="langTag" fill="#f97316">Rs</text>
-    <rect x="144" width="42" height="18" rx="9" fill="#1e1030"/>
-    <text x="149" y="13" class="langTag" fill="#a78bfa">C++</text>
+  <!-- Node 4: Reports (purple) -->
+  <g transform="translate(932 148)">
+    <rect width="220" height="192" rx="20" fill="#0a1428" stroke="#a78bfa" stroke-width="2" filter="url(#shadow)"/>
+    <rect width="220" height="6" rx="3" fill="#a78bfa"/>
+    <rect x="14" y="20" width="52" height="24" rx="12" fill="#1a0d38"/>
+    <text x="24" y="36" class="m" font-size="11" font-weight="800" fill="#a78bfa">04</text>
+    <text x="14" y="80" class="f" font-size="18" font-weight="800" fill="#f8fafc">Reports</text>
+    <text x="14" y="104" class="m" font-size="13" fill="#94a3b8">JSON</text>
+    <text x="14" y="124" class="m" font-size="13" fill="#94a3b8">Markdown</text>
+    <g transform="translate(14 144)">
+      <rect width="40" height="20" rx="10" fill="#0e2a40"/>
+      <text x="8" y="14" class="m" font-size="9" font-weight="800" fill="#38bdf8">Py</text>
+      <rect x="46" width="40" height="20" rx="10" fill="#2a1e00"/>
+      <text x="54" y="14" class="m" font-size="9" font-weight="800" fill="#facc15">JS</text>
+      <rect x="92" width="40" height="20" rx="10" fill="#2a1200"/>
+      <text x="100" y="14" class="m" font-size="9" font-weight="800" fill="#fb923c">Rs</text>
+      <rect x="138" width="40" height="20" rx="10" fill="#1a0d38"/>
+      <text x="144" y="14" class="m" font-size="9" font-weight="800" fill="#a78bfa">C++</text>
+    </g>
   </g>
 
-  <!-- Bottom bar -->
-  <rect x="70" y="374" width="1140" height="50" rx="18" fill="#020617" stroke="#1E293B"/>
-  <text x="96" y="403" class="mono">ReplaySummary = step_count + handoff_count + tool_result_count + final_output</text>
-  <text x="96" y="417" class="mono" font-size="11" fill="#64748b">· Available in Python, JavaScript, Rust, C++ · Shared JSON wire format ·</text>
+  <!-- Bottom summary bar -->
+  <rect x="68" y="372" width="1144" height="52" rx="16" fill="#040d1a" stroke="#1e3a5f" stroke-width="1.5"/>
+  <text x="92" y="402" class="m" font-size="13" fill="#4ade80">ReplaySummary</text>
+  <text x="224" y="402" class="m" font-size="13" fill="#475569"> = step_count + handoff_count + tool_result_count + final_output</text>
+  <text x="92" y="416" class="m" font-size="11" fill="#334155">Shared JSON wire format · Python · JavaScript · Rust · C++ · zero side effects on replay</text>
 </svg>
