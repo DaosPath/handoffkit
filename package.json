@@ -1,11 +1,11 @@
-{
+﻿{
   "name": "handoffkit-monorepo",
   "private": true,
   "packageManager": "pnpm@11.1.1",
   "scripts": {
     "contracts:test": "pnpm js:test && pnpm python:test && pnpm rust:test && pnpm cpp:test",
-    "js:check": "pnpm --dir packages/js run check && pnpm --dir packages/js-node run check",
-    "js:test": "pnpm --dir packages/js run test && pnpm --dir packages/js-node run test",
+    "js:check": "pnpm --dir packages/js/core run check && pnpm --dir packages/js/node run check",
+    "js:test": "pnpm --dir packages/js/core run test && pnpm --dir packages/js/node run test",
     "python:install": "cd packages/python && python -m pip install -e \".[dev]\"",
     "python:lint": "cd packages/python && python -m ruff check --no-cache .",
     "python:test": "cd packages/python && python -m pytest -q",

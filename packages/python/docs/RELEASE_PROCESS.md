@@ -1,4 +1,4 @@
-# Release Process
+﻿# Release Process
 
 HandoffKit releases use GitHub Actions CI for validation and PyPI Trusted
 Publishing for uploads.
@@ -46,10 +46,10 @@ git push -u origin release/X.Y.Z
 10. Verify installation from TestPyPI in a clean environment.
 11. Publish the GitHub Release. This automatically triggers:
     - PyPI Trusted Publishing for `handoffkit` (Python).
-    - NPM publishing with OIDC provenance for `@handoffkit/core` (JS/TS), using the repository secret `NPM_TOKEN`.
+    - NPM publishing with OIDC provenance for `@handoffkit/core` and `@handoffkit/node` (JS/TS), using the repository secret `NPM_TOKEN`.
 12. Verify installation from both PyPI and npm in clean environments.
 
 ## Notes
 
 - HandoffKit 1.0.0 was uploaded manually with `twine`. HandoffKit 1.0.1 and later are prepared for Trusted Publishing.
-- The npm package uses GitHub OIDC provenance linked to the publish workflow, but still requires the `NPM_TOKEN` secret to be set up under repository Secrets in GitHub.
+- The npm packages use GitHub OIDC provenance linked to the publish workflow, but still require the `NPM_TOKEN` secret to be set up under repository Secrets in GitHub.
