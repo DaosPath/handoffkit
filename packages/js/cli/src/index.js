@@ -1,4 +1,4 @@
-﻿import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -668,6 +668,7 @@ function helpText() {
     "  handoffkit-js demo-media",
     "  handoffkit-js demo-fusion",
     "  handoffkit-js report <path>",
+    "  handoffkit-js project-report [path] [--output reports]",
     "  handoffkit-js providers list [--json]",
     "  handoffkit-js init <project-name> [--template basic-agent] [--output .] [--force] [--interactive]",
     "  handoffkit-js create-extension <extension-name> [--output .] [--force]",
