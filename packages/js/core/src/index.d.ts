@@ -1,6 +1,6 @@
 export type Severity = "error" | "warning";
 
-export const HANDOFFKIT_CORE_VERSION: "1.9.0";
+export const HANDOFFKIT_CORE_VERSION: "1.10.0";
 
 export function toJSONValue(value: unknown): unknown;
 export function toJSONString(value: unknown, space?: number): string;
@@ -428,4 +428,45 @@ export class ContextRunResult {
   toJSON(): Record<string, unknown>;
   toJSONString(space?: number): string;
   static fromJSON(value: unknown): ContextRunResult;
+}
+
+export class EvaluationCheck {
+  name: string;
+  passed: boolean;
+  message: string;
+  severity: Severity;
+  metadata: Record<string, unknown>;
+  constructor(init: { name: string; passed: boolean; message: string; severity?: Severity; metadata?: Record<string, unknown> });
+  toJSON(): Record<string, unknown>;
+}
+
+export class EvaluationResult {
+  target: string;
+  success: boolean;
+  checks: EvaluationCheck[];
+  score: number;
+  metadata: Record<string, unknown>;
+  constructor(init: { target: string; success: boolean; checks?: EvaluationCheck[]; score?: number; metadata?: Record<string, unknown> });
+  toJSON(): Record<string, unknown>;
+}
+
+export class WorkflowEvaluationReport {
+  success: boolean;
+  score: number;
+  grade: string;
+  results: EvaluationResult[];
+  recommendations: string[];
+  metadata: Record<string, unknown>;
+  constructor(init: { success: boolean; score: number; grade: string; results?: EvaluationResult[]; recommendations?: string[]; metadata?: Record<string, unknown> });
+  toJSON(): Record<string, unknown>;
+  toJSONString(space?: number): string;
+  toMarkdown(): string;
+}
+
+export class WorkflowEvaluator {
+  minScore: number;
+  handoffMinScore: number;
+  constructor(init?: { minScore?: number; handoffMinScore?: number });
+  evaluate(target: unknown): WorkflowEvaluationReport;
+  evaluateMany(targets: unknown[]): WorkflowEvaluationReport;
 }

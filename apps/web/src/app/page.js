@@ -2,6 +2,111 @@
 
 import { useState, useEffect, useRef } from 'react';
 
+function evaluateTraceClient(trace) {
+  if (!trace) return null;
+  const checks = [];
+  
+  checks.push({
+    name: "trace_success",
+    passed: trace.success !== false,
+    message: trace.success !== false ? "trace succeeded" : "trace indicates failure",
+    severity: "error"
+  });
+  
+  const steps = trace.steps || [];
+  checks.push({
+    name: "trace_steps",
+    passed: steps.length > 0,
+    message: steps.length > 0 ? `trace recorded ${steps.length} steps` : "trace recorded no steps",
+    severity: "error"
+  });
+  
+  const finalOutput = trace.finalOutput || trace.final_output || "";
+  checks.push({
+    name: "trace_final_output",
+    passed: finalOutput.trim().length > 0,
+    message: finalOutput.trim().length > 0 ? "trace has final output" : "trace final output is empty",
+    severity: "error"
+  });
+  
+  const handoffs = trace.handoffs || [];
+  if (handoffs.length === 0) {
+    checks.push({
+      name: "handoffs_present",
+      passed: false,
+      message: "no handoff states were recorded",
+      severity: "warning"
+    });
+  } else {
+    checks.push({
+      name: "handoffs_present",
+      passed: true,
+      message: `${handoffs.length} handoff state(s) recorded`,
+      severity: "info"
+    });
+    
+    handoffs.forEach((h, idx) => {
+      const missingFields = [];
+      if (!h.task) missingFields.push("task");
+      if (!h.fromAgent && !h.from_agent) missingFields.push("fromAgent");
+      if (!h.toAgent && !h.to_agent) missingFields.push("toAgent");
+      if (!h.summary) missingFields.push("summary");
+      
+      const passed = missingFields.length === 0;
+      checks.push({
+        name: `handoff_${idx + 1}_contract`,
+        passed,
+        message: passed ? "contract validation passed" : `missing fields: ${missingFields.join(", ")}`,
+        severity: "error"
+      });
+    });
+  }
+  
+  let toolResultCount = 0;
+  steps.forEach(step => {
+    const toolResults = step.toolResults || step.tool_results || [];
+    toolResults.forEach((tr) => {
+      toolResultCount++;
+      const passed = tr.success !== false;
+      checks.push({
+        name: `tool_result_${toolResultCount}`,
+        passed,
+        message: passed ? `tool ${tr.name || tr.tool_name || "unknown"} succeeded` : `tool ${tr.name || tr.tool_name || "unknown"} failed: ${tr.error || "unknown"}`,
+        severity: "error"
+      });
+    });
+  });
+  
+  const blocking = checks.filter(c => c.severity === "error");
+  const passedCount = blocking.filter(c => c.passed).length;
+  const score = blocking.length > 0 ? passedCount / blocking.length : 1.0;
+  
+  let grade = "F";
+  if (score >= 0.9) grade = "A";
+  else if (score >= 0.75) grade = "B";
+  else if (score >= 0.6) grade = "C";
+  else if (score >= 0.4) grade = "D";
+  
+  const recommendations = [];
+  checks.forEach(c => {
+    if (c.passed || c.severity !== "error") return;
+    if (c.name.includes("handoff")) recommendations.push("Improve handoff contracts and quality before release.");
+    else if (c.name.includes("trace")) recommendations.push("Record complete run traces with steps and final output.");
+    else if (c.name.includes("tool")) recommendations.push("Resolve failed tool calls or tool execution reports.");
+  });
+  if (recommendations.length === 0) {
+    recommendations.push("Workflow artifacts passed offline evaluation.");
+  }
+  
+  return {
+    success: score >= 0.75 && blocking.every(c => c.passed),
+    score,
+    grade,
+    checks,
+    recommendations
+  };
+}
+
 // Static Inspector Data (Landing Page)
 const inspectorStates = {
     architect: {
@@ -316,6 +421,30 @@ export default function Home() {
     const [nvidiaKey, setNvidiaKey] = useState('');
     const [perAgentModels, setPerAgentModels] = useState({});
     const [openDropdowns, setOpenDropdowns] = useState({});
+
+    const [uploadedTrace, setUploadedTrace] = useState(null);
+    const [evaluationReport, setEvaluationReport] = useState(null);
+    const [selectedStepIdx, setSelectedStepIdx] = useState(0);
+
+    const handleTraceUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const json = JSON.parse(event.target.result);
+                setUploadedTrace(json);
+                const report = evaluateTraceClient(json);
+                setEvaluationReport(report);
+                setSelectedStepIdx(0);
+                triggerToast("Trace loaded and evaluated successfully!");
+            } catch (err) {
+                triggerToast("Failed to parse JSON file.");
+            }
+        };
+        reader.readAsText(file);
+    };
 
     const nvidiaModelsList = [
         { id: 'meta/llama-3.1-8b-instruct', name: 'Llama-3.1 8B', desc: 'Fast, Free' },
@@ -883,6 +1012,7 @@ Return ONLY valid JSON. Do not include explanation markdown blocks.`;
                     <nav className="nav">
                         <span className={`nav-link ${activeScreen === 'home' ? 'active' : ''}`} onClick={() => switchActiveScreen('home')}>Home</span>
                         <span className={`nav-link ${activeScreen === 'demos' ? 'active' : ''}`} onClick={() => switchActiveScreen('demos')}>Demos Workspace</span>
+                        <span className={`nav-link ${activeScreen === 'visualizer' ? 'active' : ''}`} onClick={() => switchActiveScreen('visualizer')}>Trace Visualizer</span>
                         <span className={`nav-link ${activeScreen === 'docs' ? 'active' : ''}`} onClick={() => switchActiveScreen('docs')}>CLI & Docs</span>
                     </nav>
                     <div className="header-actions">
@@ -1505,6 +1635,301 @@ Return ONLY valid JSON. Do not include explanation markdown blocks.`;
                                 )}
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* SCREEN 2.5: TRACE VISUALIZER */}
+            {activeScreen === 'visualizer' && (
+                <div id="screen-visualizer" className="screen active" style={{ padding: '40px 0', minHeight: 'calc(100vh - 120px)' }}>
+                    <div className="container" style={{ maxWidth: '1200px' }}>
+                        <div style={{ marginBottom: '32px', textAlign: 'center' }}>
+                            <span className="badge">TRACE PIPELINE VISUALIZER</span>
+                            <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginTop: '12px' }}>
+                                Interactive <span className="gradient-text">RunTrace</span> Analyzer
+                            </h2>
+                            <p style={{ color: 'var(--color-text-muted)', marginTop: '8px', maxWidth: '600px', marginInline: 'auto' }}>
+                                Upload any generated trace JSON file to grade your handoffs, examine step transitions, and audit tool execution paths.
+                            </p>
+                        </div>
+
+                        {/* File Upload Zone */}
+                        <div style={{
+                            background: 'var(--color-bg-card)',
+                            border: '2px dashed var(--color-border)',
+                            borderRadius: '16px',
+                            padding: '40px',
+                            textAlign: 'center',
+                            marginBottom: '40px',
+                            transition: 'all 0.3s ease',
+                            cursor: 'pointer'
+                        }}
+                        onClick={() => document.getElementById('trace-file-input').click()}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                            e.preventDefault();
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (event) => {
+                                    try {
+                                        const json = JSON.parse(event.target.result);
+                                        setUploadedTrace(json);
+                                        const report = evaluateTraceClient(json);
+                                        setEvaluationReport(report);
+                                        setSelectedStepIdx(0);
+                                        triggerToast("Trace loaded and evaluated successfully!");
+                                    } catch (err) {
+                                        triggerToast("Failed to parse JSON file.");
+                                    }
+                                };
+                                reader.readAsText(file);
+                            }
+                        }}
+                        >
+                            <input 
+                                id="trace-file-input" 
+                                type="file" 
+                                accept=".json" 
+                                onChange={handleTraceUpload} 
+                                style={{ display: 'none' }} 
+                            />
+                            <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>📁</div>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '8px' }}>
+                                Drag & drop your trace JSON file here
+                            </h3>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+                                Or click to browse files from your computer (e.g. <code>trace.json</code> or <code>report.json</code>)
+                            </p>
+                        </div>
+
+                        {uploadedTrace ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.5fr', gap: '32px' }}>
+                                {/* Left: Trace & Steps */}
+                                <div>
+                                    {/* Timeline Header */}
+                                    <div className="card" style={{ marginBottom: '32px', padding: '24px' }}>
+                                        <h3 style={{ fontSize: '1.15rem', fontWeight: '700', marginBottom: '24px' }}>
+                                            Timeline Progress
+                                        </h3>
+                                        
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', padding: '0 20px' }}>
+                                            <div style={{ position: 'absolute', top: '18px', left: '20px', right: '20px', height: '3px', background: 'var(--color-border)', zIndex: '0' }}></div>
+                                            {(uploadedTrace.steps || []).map((step, idx) => (
+                                                <div 
+                                                    key={idx} 
+                                                    onClick={() => setSelectedStepIdx(idx)}
+                                                    style={{ 
+                                                        zIndex: '1', 
+                                                        textAlign: 'center', 
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        alignItems: 'center'
+                                                    }}
+                                                >
+                                                    <div style={{
+                                                        width: '36px',
+                                                        height: '36px',
+                                                        borderRadius: '50%',
+                                                        background: selectedStepIdx === idx ? 'var(--color-accent)' : 'var(--color-bg-card)',
+                                                        border: `3px solid ${selectedStepIdx === idx ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                                                        color: selectedStepIdx === idx ? '#fff' : 'var(--color-text-muted)',
+                                                        fontWeight: '700',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        marginBottom: '8px',
+                                                        transition: 'all 0.2s'
+                                                    }}>
+                                                        {idx + 1}
+                                                    </div>
+                                                    <span style={{ fontSize: '0.8rem', fontWeight: '600', color: selectedStepIdx === idx ? 'var(--color-text)' : 'var(--color-text-muted)' }}>
+                                                        {step.agent || step.name || "Agent"}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Active Step Details */}
+                                    {uploadedTrace.steps && uploadedTrace.steps[selectedStepIdx] && (
+                                        <div className="card" style={{ padding: '32px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid var(--color-border)', paddingBottom: '16px' }}>
+                                                <div>
+                                                    <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--color-accent)' }}>
+                                                        STEP {selectedStepIdx + 1}
+                                                    </span>
+                                                    <h3 style={{ fontSize: '1.5rem', fontWeight: '800', marginTop: '6px' }}>
+                                                        {uploadedTrace.steps[selectedStepIdx].agent || uploadedTrace.steps[selectedStepIdx].name}
+                                                    </h3>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <span className={`status-badge ${uploadedTrace.steps[selectedStepIdx].success !== false ? 'status-verified' : 'status-failed'}`}>
+                                                        {uploadedTrace.steps[selectedStepIdx].success !== false ? 'Success' : 'Failed'}
+                                                    </span>
+                                                    <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                                                        Task: {uploadedTrace.steps[selectedStepIdx].task || "Offline Execution"}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Output block */}
+                                            <div style={{ marginBottom: '24px' }}>
+                                                <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '8px', color: 'var(--color-text)' }}>
+                                                    Agent Output
+                                                </h4>
+                                                <div style={{
+                                                    background: 'rgba(0,0,0,0.2)',
+                                                    padding: '16px',
+                                                    borderRadius: '8px',
+                                                    fontFamily: 'monospace',
+                                                    fontSize: '0.9rem',
+                                                    whiteSpace: 'pre-wrap',
+                                                    color: 'var(--color-text-muted)'
+                                                }}>
+                                                    {uploadedTrace.steps[selectedStepIdx].output || "No output generated."}
+                                                </div>
+                                            </div>
+
+                                            {/* Associated Handoff State */}
+                                            {uploadedTrace.handoffs && uploadedTrace.handoffs[selectedStepIdx] && (
+                                                <div style={{ marginTop: '32px', borderTop: '1px solid var(--color-border)', paddingTop: '24px' }}>
+                                                    <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '16px', color: 'var(--color-accent)' }}>
+                                                        👉 Transferred Handoff Contract
+                                                    </h4>
+                                                    
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                                                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px' }}>
+                                                            <strong style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>FROM AGENT</strong>
+                                                            <p style={{ fontWeight: '600', marginTop: '4px' }}>
+                                                                {uploadedTrace.handoffs[selectedStepIdx].fromAgent || uploadedTrace.handoffs[selectedStepIdx].from_agent || "Unknown"}
+                                                            </p>
+                                                        </div>
+                                                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px' }}>
+                                                            <strong style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>TO AGENT</strong>
+                                                            <p style={{ fontWeight: '600', marginTop: '4px' }}>
+                                                                {uploadedTrace.handoffs[selectedStepIdx].toAgent || uploadedTrace.handoffs[selectedStepIdx].to_agent || "Unknown"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{ marginBottom: '16px' }}>
+                                                        <strong style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>SUMMARY</strong>
+                                                        <p style={{ marginTop: '4px', fontSize: '0.95rem' }}>
+                                                            {uploadedTrace.handoffs[selectedStepIdx].summary || "No summary provided."}
+                                                        </p>
+                                                    </div>
+
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                                        <div>
+                                                            <strong style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>DECISIONS MADE</strong>
+                                                            <ul style={{ paddingLeft: '20px', marginTop: '6px', fontSize: '0.9rem' }}>
+                                                                {(uploadedTrace.handoffs[selectedStepIdx].decisions || []).map((d, i) => (
+                                                                    <li key={i} style={{ marginBottom: '4px' }}>{d}</li>
+                                                                ))}
+                                                                {(!uploadedTrace.handoffs[selectedStepIdx].decisions || uploadedTrace.handoffs[selectedStepIdx].decisions.length === 0) && (
+                                                                    <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>None</span>
+                                                                )}
+                                                            </ul>
+                                                        </div>
+                                                        <div>
+                                                            <strong style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>NEXT STEPS</strong>
+                                                            <ul style={{ paddingLeft: '20px', marginTop: '6px', fontSize: '0.9rem' }}>
+                                                                {(uploadedTrace.handoffs[selectedStepIdx].nextSteps || uploadedTrace.handoffs[selectedStepIdx].next_steps || []).map((s, i) => (
+                                                                    <li key={i} style={{ marginBottom: '4px' }}>{s}</li>
+                                                                ))}
+                                                                {(!uploadedTrace.handoffs[selectedStepIdx].nextSteps && !uploadedTrace.handoffs[selectedStepIdx].next_steps) && (
+                                                                    <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>None</span>
+                                                                )}
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Right: Offline Evaluation Report */}
+                                <div>
+                                    {evaluationReport && (
+                                        <div className="card" style={{ padding: '24px', textAlign: 'center' }}>
+                                            <h3 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '20px' }}>
+                                                Evaluation Summary
+                                            </h3>
+                                            
+                                            {/* Circular Progress Ring */}
+                                            <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <svg width="120" height="120">
+                                                    <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-border)" strokeWidth="8" />
+                                                    <circle 
+                                                        cx="60" 
+                                                        cy="60" 
+                                                        r="50" 
+                                                        fill="none" 
+                                                        stroke={evaluationReport.score >= 0.75 ? 'var(--color-accent)' : '#ef4444'} 
+                                                        strokeWidth="8" 
+                                                        strokeDasharray="314"
+                                                        strokeDashoffset={314 - (314 * evaluationReport.score)}
+                                                        strokeLinecap="round"
+                                                        transform="rotate(-90 60 60)"
+                                                    />
+                                                </svg>
+                                                <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '2rem', fontWeight: '800' }}>
+                                                        {evaluationReport.grade}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                                        {(evaluationReport.score * 100).toFixed(0)}% Score
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', marginTop: '16px', textAlign: 'left' }}>
+                                                <h4 style={{ fontSize: '0.9rem', fontWeight: '700', marginBottom: '12px' }}>
+                                                    Offline Quality Checks
+                                                </h4>
+                                                
+                                                {evaluationReport.checks.map((c, i) => (
+                                                    <div key={i} style={{ display: 'flex', alignItems: 'start', gap: '8px', marginBottom: '8px', fontSize: '0.85rem' }}>
+                                                        <span style={{ color: c.passed ? '#10b981' : (c.severity === 'warning' ? '#f59e0b' : '#ef4444') }}>
+                                                            {c.passed ? '✓' : '✗'}
+                                                        </span>
+                                                        <div>
+                                                            <strong style={{ color: 'var(--color-text)' }}>{c.name}</strong>
+                                                            <p style={{ color: 'var(--color-text-muted)' }}>{c.message}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', marginTop: '16px', textAlign: 'left' }}>
+                                                <h4 style={{ fontSize: '0.9rem', fontWeight: '700', marginBottom: '8px', color: '#f59e0b' }}>
+                                                    Actionable Advice
+                                                </h4>
+                                                <ul style={{ paddingLeft: '16px', fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: '0' }}>
+                                                    {evaluationReport.recommendations.map((r, i) => (
+                                                        <li key={i} style={{ marginBottom: '6px' }}>{r}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '80px 20px',
+                                background: 'rgba(255,255,255,0.01)',
+                                border: '1px solid var(--color-border)',
+                                borderRadius: '16px',
+                                color: 'var(--color-text-muted)'
+                            }}>
+                                <p style={{ fontSize: '1.1rem' }}>No trace loaded yet. Drag & drop or browse a run trace file to start analyzing.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

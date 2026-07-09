@@ -16,6 +16,7 @@ from handoffkit.providers.openai_compatible import (
     list_openai_compatible_models,
 )
 from handoffkit.providers.openai_provider import OpenAIProvider
+from handoffkit.providers.fallback import FallbackProvider
 from handoffkit.providers.opencode_provider import (
     DEFAULT_OPENCODE_GO_BASE_URL,
     DEFAULT_OPENCODE_GO_MODEL,
@@ -41,6 +42,7 @@ from handoffkit.providers.registry import (
 
 __all__ = [
     "BaseProvider",
+    "FallbackProvider",
     "EchoProvider",
     "DEFAULT_OPENCODE_GO_BASE_URL",
     "DEFAULT_OPENCODE_GO_MODEL",

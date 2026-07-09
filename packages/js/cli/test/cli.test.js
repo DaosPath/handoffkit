@@ -25,7 +25,7 @@ test("version and help work offline", async () => {
 
   const child = spawnSync(process.execPath, [binPath, "--version"], { encoding: "utf8" });
   assert.equal(child.status, 0);
-  assert.match(child.stdout, /handoffkit-js 1\.9\.0/);
+  assert.match(child.stdout, /handoffkit-js 1\.10\.0/);
 });
 
 test("basic and recipe demos use JS core offline", () => {
@@ -85,6 +85,31 @@ test("main routes requested commands", async () => {
     assert.equal(await main(["report", join(dir, "runs", "latest")], { stdout: (text) => stdout.push(text) }), 0);
     assert.equal(await main(["init", "agent-one", "--output", dir], { stdout: (text) => stdout.push(text) }), 0);
     assert.ok(stdout.some((text) => text.includes("HandoffKit JS providers")));
+  } finally {
+    process.chdir(cwd);
+  }
+});
+
+test("keys management commands work correctly", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "handoffkit-js-keys-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  try {
+    const outSet = [];
+    assert.equal(await main(["keys", "set", "OPENAI_API_KEY", "sk-1234567890"], { stdout: (text) => outSet.push(text) }), 0);
+    assert.match(outSet[0], /Set key OPENAI_API_KEY successfully/);
+
+    const outList = [];
+    assert.equal(await main(["keys", "list"], { stdout: (text) => outList.push(text) }), 0);
+    assert.match(outList[0], /OPENAI_API_KEY=sk-1\.\.\.7890 \(redacted\)/);
+
+    const outDel = [];
+    assert.equal(await main(["keys", "delete", "OPENAI_API_KEY"], { stdout: (text) => outDel.push(text) }), 0);
+    assert.match(outDel[0], /Deleted key OPENAI_API_KEY successfully/);
+
+    const outListEmpty = [];
+    assert.equal(await main(["keys", "list"], { stdout: (text) => outListEmpty.push(text) }), 0);
+    assert.match(outListEmpty[0], /No keys configured/);
   } finally {
     process.chdir(cwd);
   }

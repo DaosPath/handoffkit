@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/cli",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "Autonomous Node.js CLI and offline demos for HandoffKit.",
   "type": "module",
   "main": "./src/index.js",

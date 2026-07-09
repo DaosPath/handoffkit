@@ -68,7 +68,7 @@ test("validation report serializes and raises", () => {
 test("contract parity report summarizes shared contract inventory", async () => {
   const report = await buildContractParityReport({
     runtime: "javascript",
-    version: "1.9.0",
+    version: "1.10.0",
     contractsRoot,
     contractInventory: {
       fixtures: [
@@ -103,7 +103,7 @@ test("contract parity report summarizes shared contract inventory", async () => 
 test("core contract parity report uses embedded inventory without filesystem", async () => {
   const report = await buildContractParityReport({
     runtime: "browser",
-    version: "1.9.0",
+    version: "1.10.0",
   });
 
   assert.equal(report.success, true);
@@ -584,6 +584,45 @@ test("tool safety policies block dangerous commands and require approvals", asyn
   const safeRes = registry.execute({ name: "run_command", arguments: { command: "echo 1" } });
   assert.equal(safeRes.success, true);
   assert.equal(safeRes.output, "Ran: echo 1");
+});
+
+test("WorkflowEvaluator evaluates handoffs and traces deterministically", async () => {
+  const { WorkflowEvaluator, RunTrace, HandoffState } = await import("../src/index.js");
+
+  const trace = new RunTrace({
+    runId: "eval-run",
+    name: "Evaluation Flow",
+    success: true,
+    finalOutput: "Done planning",
+    steps: [
+      {
+        name: "step-1",
+        agent: "Architect",
+        task: "Plan",
+        mode: "agent",
+        success: true,
+        output: "Done planning",
+      }
+    ],
+    handoffs: [
+      new HandoffState({
+        task: "Implement plan",
+        fromAgent: "Architect",
+        toAgent: "Coder",
+        summary: "Plan is ready.",
+        decisions: ["Use TS"],
+        nextSteps: ["Write code"],
+      })
+    ]
+  });
+
+  const evaluator = new WorkflowEvaluator();
+  const report = evaluator.evaluate(trace);
+
+  assert.equal(report.success, true);
+  assert.ok(report.score >= 0.75);
+  assert.equal(report.grade, "A");
+  assert.match(report.toMarkdown(), /# Workflow Evaluation Report/);
 });
 
 
