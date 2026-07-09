@@ -19,6 +19,7 @@ export class ValidationIssue {
   severity: Severity;
   constructor(init: ValidationIssueInit);
   toJSON(): ValidationIssueInit;
+  static fromJSON(value: unknown): ValidationIssue;
 }
 
 export class ValidationReport {
@@ -31,6 +32,7 @@ export class ValidationReport {
   toJSONString(space?: number): string;
   toMarkdown(): string;
   raiseIfFailed(): this;
+  static fromJSON(value: unknown): ValidationReport;
 }
 
 export class BaseProvider {
@@ -158,6 +160,7 @@ export class HandoffQualityReport {
   toJSON(): Record<string, unknown>;
   toJSONString(space?: number): string;
   toMarkdown(): string;
+  static fromJSON(value: unknown): HandoffQualityReport;
 }
 
 export class TraceEvent {
@@ -205,8 +208,9 @@ export class ToolCall {
   callId: string;
   provider: string;
   metadata: Record<string, unknown>;
-  constructor(init?: { name: string; arguments?: Record<string, unknown>; callId?: string; provider?: string; metadata?: Record<string, unknown> });
+  constructor(init?: { name?: string; tool_name?: string; arguments?: Record<string, unknown>; callId?: string; call_id?: string; id?: string; provider?: string; metadata?: Record<string, unknown> });
   toJSON(): Record<string, unknown>;
+  static fromJSON(value: unknown): ToolCall;
 }
 
 export class ToolResult {
@@ -216,8 +220,9 @@ export class ToolResult {
   output: unknown;
   error: string;
   metadata: Record<string, unknown>;
-  constructor(init?: { name: string; callId?: string; success?: boolean; output?: unknown; error?: string; metadata?: Record<string, unknown> });
+  constructor(init?: { name?: string; tool_name?: string; callId?: string; call_id?: string; success?: boolean; output?: unknown; result?: unknown; error?: string; metadata?: Record<string, unknown> });
   toJSON(): Record<string, unknown>;
+  static fromJSON(value: unknown): ToolResult;
 }
 
 export class ToolRegistry {

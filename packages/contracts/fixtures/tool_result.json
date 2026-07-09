@@ -1,0 +1,10 @@
+{
+  "tool_name": "add",
+  "success": true,
+  "result": 15,
+  "error": null,
+  "call_id": "call-12345",
+  "metadata": {
+    "duration_ms": 1.2
+  }
+}

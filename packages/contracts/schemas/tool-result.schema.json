@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/tool-result.schema.json",
+  "title": "ToolResult",
+  "type": "object",
+  "required": ["tool_name", "success", "call_id"],
+  "properties": {
+    "tool_name": { "type": "string" },
+    "success": { "type": "boolean" },
+    "result": {},
+    "error": {
+      "type": ["string", "null"]
+    },
+    "call_id": { "type": "string" },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

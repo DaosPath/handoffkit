@@ -1,6 +1,6 @@
-﻿# HandoffKit
+# HandoffKit
 
-Structured state transfer for multi-agent workflows.
+Structured state transfer for multi-agent workflows (unified Python and JavaScript runtimes).
 
 This repository is a monorepo:
 

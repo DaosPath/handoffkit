@@ -27,15 +27,25 @@ export class ValidationIssue {
       severity: this.severity,
     };
   }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new ValidationIssue({
+      code: data.code,
+      message: data.message,
+      field: data.field,
+      severity: data.severity,
+    });
+  }
 }
 
 export class ValidationReport {
   constructor({ success = true, issues = [], metadata = {} } = {}) {
     this.success = Boolean(success);
-    this.issues = issues.map((issue) =>
+    this.issues = (Array.isArray(issues) ? issues : []).map((issue) =>
       issue instanceof ValidationIssue ? issue : new ValidationIssue(issue),
     );
-    this.metadata = { ...metadata };
+    this.metadata = metadata ? { ...metadata } : {};
   }
 
   static fromIssues(issues, metadata = {}) {
@@ -55,6 +65,16 @@ export class ValidationReport {
       issues: this.issues.map((issue) => issue.toJSON()),
       metadata: { ...this.metadata },
     };
+  }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    const issues = (data.issues || []).map((issue) => ValidationIssue.fromJSON(issue));
+    return new ValidationReport({
+      success: data.success,
+      issues,
+      metadata: data.metadata,
+    });
   }
 
   toJSONString(space = 2) {
@@ -98,15 +118,15 @@ export class HandoffState {
     metadata = {},
   } = {}) {
     this.task = task ?? "";
-    this.fromAgent = fromAgent;
-    this.toAgent = toAgent;
-    this.summary = summary;
-    this.decisions = [...decisions];
-    this.importantFiles = [...importantFiles];
-    this.errors = [...errors];
-    this.nextSteps = [...nextSteps];
-    this.contextRefs = [...contextRefs];
-    this.metadata = { ...metadata };
+    this.fromAgent = fromAgent || "";
+    this.toAgent = toAgent || "";
+    this.summary = summary || "";
+    this.decisions = Array.isArray(decisions) ? [...decisions] : [];
+    this.importantFiles = Array.isArray(importantFiles) ? [...importantFiles] : [];
+    this.errors = Array.isArray(errors) ? [...errors] : [];
+    this.nextSteps = Array.isArray(nextSteps) ? [...nextSteps] : [];
+    this.contextRefs = Array.isArray(contextRefs) ? [...contextRefs] : [];
+    this.metadata = metadata ? { ...metadata } : {};
   }
 
   static fromJSON(value) {
@@ -344,12 +364,13 @@ export class HandoffProtocol {
 
 export class Team {
   constructor({ agents = [], protocol = new HandoffProtocol(), metadata = {} } = {}) {
-    if (agents.length === 0) {
+    const list = Array.isArray(agents) ? agents : [];
+    if (list.length === 0) {
       throw new TypeError("Team requires at least one agent.");
     }
-    this.agents = [...agents];
+    this.agents = [...list];
     this.protocol = protocol;
-    this.metadata = { ...metadata };
+    this.metadata = metadata ? { ...metadata } : {};
   }
 
   run(task) {
@@ -440,9 +461,9 @@ export class TeamRunResult {
     this.success = Boolean(success);
     this.task = task;
     this.finalOutput = finalOutput;
-    this.stepResults = [...stepResults];
-    this.handoffs = [...handoffs];
-    this.metadata = { ...metadata };
+    this.stepResults = Array.isArray(stepResults) ? [...stepResults] : [];
+    this.handoffs = Array.isArray(handoffs) ? [...handoffs] : [];
+    this.metadata = metadata ? { ...metadata } : {};
   }
 
   toJSON() {
@@ -484,13 +505,14 @@ export class HandoffQualityEvaluator {
 }
 
 export class HandoffQualityReport {
-  constructor({ success, score, grade, metrics = [], recommendations = [], validation }) {
+  constructor({ success, score, grade, metrics = [], recommendations = [], validation, metadata = {} }) {
     this.success = Boolean(success);
     this.score = score;
     this.grade = grade;
-    this.metrics = metrics;
-    this.recommendations = recommendations;
-    this.validation = validation;
+    this.metrics = Array.isArray(metrics) ? [...metrics] : [];
+    this.recommendations = Array.isArray(recommendations) ? [...recommendations] : [];
+    this.validation = validation instanceof ValidationReport ? validation : (validation ? ValidationReport.fromJSON(validation) : null);
+    this.metadata = metadata ? { ...metadata } : {};
   }
 
   toJSON() {
@@ -501,7 +523,21 @@ export class HandoffQualityReport {
       metrics: this.metrics,
       recommendations: [...this.recommendations],
       validation: this.validation?.toJSON?.() ?? this.validation,
+      metadata: { ...this.metadata },
     };
+  }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new HandoffQualityReport({
+      success: data.success,
+      score: data.score,
+      grade: data.grade,
+      metrics: data.metrics,
+      recommendations: data.recommendations,
+      validation: data.validation,
+      metadata: data.metadata,
+    });
   }
 
   toJSONString(space = 2) {
@@ -557,9 +593,9 @@ export class TraceStep {
     this.success = Boolean(success);
     this.output = output;
     this.handoff = handoff instanceof HandoffState ? handoff : (handoff ? HandoffState.fromJSON(handoff) : null);
-    this.toolResults = [...toolResults];
-    this.events = events.map((event) => event instanceof TraceEvent ? event : new TraceEvent(event));
-    this.metadata = { ...metadata };
+    this.toolResults = Array.isArray(toolResults) ? [...toolResults] : [];
+    this.events = (Array.isArray(events) ? events : []).map((event) => event instanceof TraceEvent ? event : new TraceEvent(event));
+    this.metadata = metadata ? { ...metadata } : {};
   }
 
   toJSON() {
@@ -595,9 +631,9 @@ export class RunTrace {
     this.name = name;
     this.success = Boolean(success);
     this.finalOutput = finalOutput || final_output || "";
-    this.steps = steps.map((step) => step instanceof TraceStep ? step : new TraceStep(step));
-    this.handoffs = handoffs.map((handoff) => handoff instanceof HandoffState ? handoff : HandoffState.fromJSON(handoff));
-    this.metadata = { ...metadata };
+    this.steps = (Array.isArray(steps) ? steps : []).map((step) => step instanceof TraceStep ? step : new TraceStep(step));
+    this.handoffs = (Array.isArray(handoffs) ? handoffs : []).map((handoff) => handoff instanceof HandoffState ? handoff : HandoffState.fromJSON(handoff));
+    this.metadata = metadata ? { ...metadata } : {};
   }
 
   static fromTeamResult(result, { name = "team-run" } = {}) {
@@ -701,54 +737,68 @@ export class FileTraceStore {
 }
 
 export class ToolCall {
-  constructor({ name, arguments: args = {}, callId = "", provider = "", metadata = {} } = {}) {
+  constructor({ name, tool_name, arguments: args = {}, callId = "", call_id = "", id = "", provider = "", metadata = {} } = {}) {
     const init = arguments[0] ?? {};
-    if (!name) throw new TypeError("ToolCall name is required.");
-    this.name = name;
+    this.name = name || tool_name || init.tool_name || "";
+    if (!this.name) throw new TypeError("ToolCall name is required.");
     this.arguments = { ...args };
-    this.callId = callId || init.call_id || init.id || "";
+    this.callId = callId || call_id || id || init.call_id || init.id || "";
     this.provider = provider;
     this.metadata = { ...metadata };
   }
 
   toJSON() {
-    return {
-      name: this.name,
+    const res = {
+      tool_name: this.name,
       arguments: { ...this.arguments },
       call_id: this.callId,
-      provider: this.provider,
       metadata: { ...this.metadata },
     };
+    if (this.provider) {
+      res.provider = this.provider;
+    }
+    return res;
+  }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new ToolCall(data);
   }
 }
 
 export class ToolResult {
-  constructor({ name, callId = "", success = true, output = null, error = "", metadata = {} } = {}) {
+  constructor({ name, tool_name, callId = "", call_id = "", success = true, output = null, result = null, error = "", metadata = {} } = {}) {
     const init = arguments[0] ?? {};
-    this.name = name;
-    this.callId = callId || init.call_id || "";
+    this.name = name || tool_name || init.tool_name || "";
+    this.callId = callId || call_id || init.call_id || "";
     this.success = Boolean(success);
-    this.output = output;
+    this.output = output !== null ? output : (result !== null ? result : (init.output !== null ? init.output : init.result));
     this.error = error;
     this.metadata = { ...metadata };
   }
 
   toJSON() {
     return {
-      name: this.name,
+      tool_name: this.name,
       call_id: this.callId,
       success: this.success,
-      output: this.output,
+      result: this.output,
       error: this.error,
       metadata: { ...this.metadata },
     };
+  }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new ToolResult(data);
   }
 }
 
 export class ToolRegistry {
   constructor(tools = []) {
     this.tools = new Map();
-    for (const tool of tools) {
+    const list = Array.isArray(tools) ? tools : [];
+    for (const tool of list) {
       this.register(tool);
     }
   }
@@ -845,7 +895,7 @@ export class ProviderToolAdapter {
   }
 
   toolsToProviderFormat(tools, providerFormat = this.providerFormat) {
-    const list = tools.map((tool) => normalizeToolSchema(tool));
+    const list = (Array.isArray(tools) ? tools : []).map((tool) => normalizeToolSchema(tool));
     if (providerFormat === "handoffkit") return list;
     if (providerFormat === "openai") {
       return list.map((tool) => ({
@@ -981,7 +1031,7 @@ function normalizeToolSchema(tool) {
 function parseHandoffKitToolCalls(payload) {
   const calls = Array.isArray(payload) ? payload : (payload.toolCalls ?? payload.tool_calls ?? [payload]);
   return calls.filter(Boolean).map((call) => new ToolCall({
-    name: call.name,
+    name: call.tool_name ?? call.name,
     arguments: call.arguments ?? call.args ?? {},
     callId: call.callId ?? call.call_id ?? call.id ?? "",
     provider: "handoffkit",

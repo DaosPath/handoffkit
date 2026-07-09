@@ -7,7 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from handoffkit import HandoffState, RunTrace
+from handoffkit import (
+    HandoffQualityReport,
+    HandoffState,
+    RunTrace,
+    ToolCall,
+    ToolResult,
+    ValidationReport,
+)
 
 CONTRACTS_ROOT = Path(__file__).resolve().parents[2] / "contracts"
 
@@ -41,6 +48,52 @@ def test_run_trace_reads_and_writes_shared_contract_fixture() -> None:
     assert trace.to_dict() == fixture
 
 
+def test_validation_report_reads_and_writes_shared_contract_fixture() -> None:
+    fixture = load_fixture("validation_report.json")
+
+    report = ValidationReport.from_dict(fixture)
+
+    assert report.success is False
+    assert len(report.issues) == 1
+    assert report.issues[0].code == "missing_task"
+    assert report.to_dict() == fixture
+
+
+def test_quality_report_reads_and_writes_shared_contract_fixture() -> None:
+    fixture = load_fixture("quality_report.json")
+
+    report = HandoffQualityReport.from_dict(fixture)
+
+    assert report.success is True
+    assert report.score == 0.85
+    assert len(report.metrics) == 5
+    assert report.metrics[3].name == "traceability"
+    assert report.to_dict() == fixture
+
+
+def test_tool_call_reads_and_writes_shared_contract_fixture() -> None:
+    fixture = load_fixture("tool_call.json")
+
+    call = ToolCall.from_dict(fixture)
+
+    assert call.tool_name == "add"
+    assert call.arguments["a"] == 5
+    assert call.call_id == "call-12345"
+    assert call.to_dict() == fixture
+
+
+def test_tool_result_reads_and_writes_shared_contract_fixture() -> None:
+    fixture = load_fixture("tool_result.json")
+
+    res = ToolResult.from_dict(fixture)
+
+    assert res.tool_name == "add"
+    assert res.success is True
+    assert res.result == 15
+    assert res.call_id == "call-12345"
+    assert res.to_dict() == fixture
+
+
 def test_shared_contract_schemas_are_present_and_canonical() -> None:
     schema_dir = CONTRACTS_ROOT / "schemas"
     if not schema_dir.exists():
@@ -48,7 +101,24 @@ def test_shared_contract_schemas_are_present_and_canonical() -> None:
 
     handoff_schema = json.loads((schema_dir / "handoff-state.schema.json").read_text())
     trace_schema = json.loads((schema_dir / "run-trace.schema.json").read_text())
+    val_schema = json.loads((schema_dir / "validation-report.schema.json").read_text())
+    qual_schema = json.loads((schema_dir / "quality-report.schema.json").read_text())
+    call_schema = json.loads((schema_dir / "tool-call.schema.json").read_text())
+    res_schema = json.loads((schema_dir / "tool-result.schema.json").read_text())
+    tool_schema = json.loads((schema_dir / "provider-tool-schema.schema.json").read_text())
 
     assert handoff_schema["required"] == ["task", "from_agent", "to_agent"]
     assert "final_output" in trace_schema["properties"]
     assert "run_id" in trace_schema["required"]
+    assert val_schema["required"] == ["success", "issues", "metadata"]
+    assert qual_schema["required"] == [
+        "success",
+        "score",
+        "grade",
+        "metrics",
+        "recommendations",
+        "validation",
+    ]
+    assert call_schema["required"] == ["tool_name", "arguments", "call_id"]
+    assert res_schema["required"] == ["tool_name", "success", "call_id"]
+    assert tool_schema["required"] == ["name", "description", "parameters"]

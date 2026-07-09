@@ -1,0 +1,15 @@
+{
+  "success": false,
+  "issues": [
+    {
+      "code": "missing_task",
+      "message": "task is required",
+      "field": "task",
+      "severity": "error"
+    }
+  ],
+  "metadata": {
+    "contract_version": "1.7.0",
+    "runtime": "shared"
+  }
+}
