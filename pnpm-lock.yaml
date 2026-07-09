@@ -8,7 +8,7 @@ importers:
 
   .:
     devDependencies:
-      '@handoffkit/core':
+      handoffkit:
         specifier: workspace:*
         version: link:packages/core
 
