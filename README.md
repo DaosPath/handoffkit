@@ -6,7 +6,7 @@
 
 **Language-agnostic, cross-runtime framework for multi-agent workflows with Structured State-Transfer Protocols.**
 
-Build agent chains where each agent receives a clear contract: task, decisions, files, errors, next steps, and metadata â€” across **Python, JavaScript, Rust, and C++**.
+Build agent chains where each agent receives a clear contract: task, decisions, files, errors, next steps, and metadata Ã¢â‚¬â€ across **Python, JavaScript, Rust, and C++**.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/DaosPath/handoffkit/ci.yml?branch=main&label=CI&logo=github&logoColor=white&style=flat-square)](https://github.com/DaosPath/handoffkit/actions)
 [![PyPI](https://img.shields.io/pypi/v/handoffkit.svg?logo=python&logoColor=white&style=flat-square)](https://pypi.org/project/handoffkit/)
@@ -18,7 +18,7 @@ Build agent chains where each agent receives a clear contract: task, decisions, 
 pip install handoffkit          # Python
 npm install @handoffkit/core    # JavaScript
 cargo add handoffkit            # Rust
-# C++ â€” CMake FetchContent (see below)
+# C++ Ã¢â‚¬â€ CMake FetchContent (see below)
 ```
 
 <table>
@@ -34,7 +34,7 @@ cargo add handoffkit            # Rust
 
 ---
 
-## The Problem: Context Soup â†’ Structured Contract
+## The Problem: Context Soup Ã¢â€ â€™ Structured Contract
 
 <img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-state-flow.svg" alt="HandoffKit turns fragile free-text handoffs into structured HandoffState contracts" width="100%">
 
@@ -53,7 +53,7 @@ Architect
   files: ["calculator.py", "test_calculator.py"]
   next_steps: ["Implement CLI", "Run pytest"]
         |
-        v (HandoffState â€” not a vague paragraph)
+        v (HandoffState Ã¢â‚¬â€ not a vague paragraph)
 Coder
         |
         v
@@ -82,9 +82,9 @@ handoffkit demo
 
 | Demo | Agents | Run |
 |---|---|---|
-| **Coding review** | Architect â†’ Coder â†’ Reviewer â†’ Tester | `python examples/coding_review.py` |
-| **Support escalation** | Triage â†’ Billing â†’ Supervisor | `python examples/support_escalation.py` |
-| **Research workflow** | Researcher â†’ Extractor â†’ Fact-checker â†’ Writer | `python examples/research_workflow.py` |
+| **Coding review** | Architect Ã¢â€ â€™ Coder Ã¢â€ â€™ Reviewer Ã¢â€ â€™ Tester | `python examples/coding_review.py` |
+| **Support escalation** | Triage Ã¢â€ â€™ Billing Ã¢â€ â€™ Supervisor | `python examples/support_escalation.py` |
+| **Research workflow** | Researcher Ã¢â€ â€™ Extractor Ã¢â€ â€™ Fact-checker Ã¢â€ â€™ Writer | `python examples/research_workflow.py` |
 
 ---
 
@@ -118,20 +118,21 @@ print(trace.to_timeline())
 | <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/python.svg" width="14"/> **Python** | `handoffkit` | `pip install handoffkit` |
 | <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/javascript.svg" width="14"/> **JavaScript / TypeScript** | `@handoffkit/core` | `npm install @handoffkit/core` |
 | <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/rust.svg" width="14"/> **Rust** | `handoffkit` | `cargo add handoffkit` |
-| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/cplusplus.svg" width="14"/> **C++** | `handoffkit` | CMake `FetchContent` â€” see `packages/cpp/` |
+| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/cplusplus.svg" width="14"/> **C++** | `handoffkit` | CMake `FetchContent` Ã¢â‚¬â€ see `packages/cpp/` |
 
 All runtimes share the same `snake_case` JSON wire format so a `HandoffState` written in Rust can be read in Python and vice versa.
 
 ---
 
-## What 1.8.9 Adds
+## What 1.8.10 Adds
 
-HandoffKit 1.8.9 completes the JavaScript packaging split:
+HandoffKit 1.8.10 organizes the JavaScript packages under one clean folder:
 
 - `@handoffkit/core` is now browser-safe and does not import `fs`, `path`, or
   any Node.js builtin,
 - `@handoffkit/node` contains filesystem utilities: `FileTraceStore`,
   `writeReportFiles()`, `loadReportJSON()`, and `ProjectIndexer`,
+- source lives under `packages/js/core` and `packages/js/node`,
 - npm publishing now releases both JS packages together,
 - CI verifies Python, browser-safe JS core, Node JS helpers, Rust, and C++.
 
@@ -165,7 +166,9 @@ handoffkit/
   packages/
     contracts/       # Shared JSON schemas and cross-runtime test fixtures
     python/          # PyPI: handoffkit
-    js/              # npm: @handoffkit/core
+    js/
+      core/          # npm: @handoffkit/core
+      node/          # npm: @handoffkit/node
     rust/            # Cargo: handoffkit
     cpp/             # CMake + Conan: handoffkit (C++17)
   apps/
@@ -274,7 +277,7 @@ HandoffState loaded = HandoffState::from_markdown(md);
 
 ### Prerequisites
 
-* **Python** 3.10+ Â· **Node.js** v22+ Â· **pnpm** v11+ Â· **Rust** (Cargo) Â· **CMake** v3.15+
+* **Python** 3.10+ Ã‚Â· **Node.js** v22+ Ã‚Â· **pnpm** v11+ Ã‚Â· **Rust** (Cargo) Ã‚Â· **CMake** v3.15+
 
 ### Install & Run Tests
 
@@ -283,8 +286,8 @@ git clone https://github.com/DaosPath/handoffkit.git
 cd handoffkit
 pnpm install
 
-pnpm js:test         # JavaScript â€” 26 tests
-pnpm python:test     # Python     â€” 313 tests
+pnpm js:test         # JavaScript core + Node helpers
+pnpm python:test     # Python
 
 cd packages/rust && cargo test               # Rust
 cd packages/cpp && cmake -B build && cmake --build build --config Release
@@ -321,4 +324,4 @@ handoffkit init my-agent --template basic-agent --output .
 
 ## License
 
-MIT â€” see [LICENSE](LICENSE).
+MIT Ã¢â‚¬â€ see [LICENSE](LICENSE).
