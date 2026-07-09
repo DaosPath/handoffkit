@@ -1,4 +1,4 @@
-﻿# HandoffKit Showcase Gallery
+# HandoffKit Showcase Gallery
 
 Offline showcases demonstrate how HandoffKit turns vague context summaries
 into structured handoff contracts, reports, validation, quality scores, and

@@ -1,0 +1,30 @@
+{
+  "name": "@handoffkit/templates",
+  "version": "1.9.0",
+  "description": "Offline JavaScript starter templates for HandoffKit.",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "license": "MIT",
+  "packageManager": "pnpm@11.1.1",
+  "scripts": {
+    "check": "node --check src/index.js && node --check test/templates.test.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

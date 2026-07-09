@@ -1,4 +1,4 @@
-﻿# HandoffKit Shared Contracts
+# HandoffKit Shared Contracts
 
 This folder is the language-neutral contract layer for HandoffKit.
 

@@ -97,11 +97,26 @@ export class ContractParityReport {
       missingSchemas,
     ].join("\n");
   }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new ContractParityReport({
+      runtime: data.runtime,
+      version: data.version,
+      success: data.success,
+      fixtureCount: data.fixtureCount ?? data.fixture_count,
+      schemaCount: data.schemaCount ?? data.schema_count,
+      supportedContracts: data.supportedContracts ?? data.supported_contracts,
+      missingFixtures: data.missingFixtures ?? data.missing_fixtures,
+      missingSchemas: data.missingSchemas ?? data.missing_schemas,
+      metadata: data.metadata,
+    });
+  }
 }
 
 export async function buildContractParityReport({
   runtime = "javascript",
-  version = "1.8.10",
+  version = "1.9.0",
   contractsRoot = "",
   contractInventory = null,
   expectedFixtures = DEFAULT_CONTRACT_FIXTURES,
@@ -508,7 +523,7 @@ export class OpenAIProvider extends BaseProvider {
         headers: {
           "Authorization": `Bearer ${this.apiKey}`,
           "Content-Type": "application/json",
-          "User-Agent": "handoffkit/1.8.10",
+          "User-Agent": "handoffkit/1.9.0",
           ...this.headers,
         },
         body: JSON.stringify(payload),
@@ -682,6 +697,22 @@ export class AgentRunResult {
       model: this.model,
     };
   }
+
+  toJSONString(space = 2) {
+    return JSON.stringify(this.toJSON(), null, space);
+  }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new AgentRunResult({
+      agentName: data.agentName ?? data.agent_name,
+      task: data.task,
+      finalOutput: data.finalOutput ?? data.final_output,
+      success: data.success,
+      provider: data.provider,
+      model: data.model,
+    });
+  }
 }
 
 export class HandoffProtocol {
@@ -819,6 +850,24 @@ export class TeamRunResult {
       metadata: { ...this.metadata },
     };
   }
+
+  toJSONString(space = 2) {
+    return JSON.stringify(this.toJSON(), null, space);
+  }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new TeamRunResult({
+      success: data.success,
+      task: data.task,
+      finalOutput: data.finalOutput ?? data.final_output,
+      stepResults: (Array.isArray(data.stepResults ?? data.step_results) ? data.stepResults ?? data.step_results : [])
+        .map((result) => result instanceof AgentRunResult ? result : AgentRunResult.fromJSON(result)),
+      handoffs: (Array.isArray(data.handoffs) ? data.handoffs : [])
+        .map((handoff) => handoff instanceof HandoffState ? handoff : HandoffState.fromJSON(handoff)),
+      metadata: data.metadata,
+    });
+  }
 }
 
 export class HandoffQualityEvaluator {
@@ -913,6 +962,15 @@ export class TraceEvent {
   toJSON() {
     return { kind: this.kind, message: this.message, timestamp: this.timestamp, metadata: { ...this.metadata } };
   }
+
+  toJSONString(space = 2) {
+    return JSON.stringify(this.toJSON(), null, space);
+  }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new TraceEvent(data);
+  }
 }
 
 export class TraceStep {
@@ -954,6 +1012,15 @@ export class TraceStep {
       events: this.events.map((event) => event.toJSON()),
       metadata: { ...this.metadata },
     };
+  }
+
+  toJSONString(space = 2) {
+    return JSON.stringify(this.toJSON(), null, space);
+  }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new TraceStep(data);
   }
 }
 
@@ -1081,6 +1148,46 @@ export class ReplayRunner {
   }
 }
 
+export class Tool {
+  constructor({ name, description = "", parameters = {}, execute = null, metadata = {} } = {}) {
+    if (!name) throw new TypeError("Tool name is required.");
+    if (execute != null && typeof execute !== "function") {
+      throw new TypeError(`Tool ${name} execute must be a function.`);
+    }
+    this.name = name;
+    this.description = description;
+    this.parameters = parameters && typeof parameters === "object" ? { ...parameters } : {};
+    this.execute = execute;
+    this.metadata = metadata ? { ...metadata } : {};
+  }
+
+  toSchema() {
+    return {
+      name: this.name,
+      description: this.description,
+      parameters: { ...this.parameters },
+    };
+  }
+
+  toJSON() {
+    return {
+      name: this.name,
+      description: this.description,
+      parameters: { ...this.parameters },
+      metadata: { ...this.metadata },
+    };
+  }
+
+  toJSONString(space = 2) {
+    return JSON.stringify(this.toJSON(), null, space);
+  }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new Tool(data);
+  }
+}
+
 export class ToolCall {
   constructor({ name, tool_name, arguments: args = {}, callId = "", call_id = "", id = "", provider = "", metadata = {} } = {}) {
     const init = arguments[0] ?? {};
@@ -1103,6 +1210,10 @@ export class ToolCall {
       res.provider = this.provider;
     }
     return res;
+  }
+
+  toJSONString(space = 2) {
+    return JSON.stringify(this.toJSON(), null, space);
   }
 
   static fromJSON(value) {
@@ -1133,6 +1244,10 @@ export class ToolResult {
     };
   }
 
+  toJSONString(space = 2) {
+    return JSON.stringify(this.toJSON(), null, space);
+  }
+
   static fromJSON(value) {
     const data = typeof value === "string" ? JSON.parse(value) : value;
     return new ToolResult(data);
@@ -1151,7 +1266,8 @@ export class ToolRegistry {
   register(tool) {
     if (!tool?.name) throw new TypeError("Tool name is required.");
     if (typeof tool.execute !== "function") throw new TypeError(`Tool ${tool.name} requires execute().`);
-    this.tools.set(tool.name, tool);
+    const normalized = tool instanceof Tool ? tool : new Tool(tool);
+    this.tools.set(normalized.name, normalized);
     return this;
   }
 
@@ -1161,6 +1277,20 @@ export class ToolRegistry {
 
   list() {
     return [...this.tools.values()];
+  }
+
+  listSchemas() {
+    return this.list().map((tool) => normalizeToolSchema(tool));
+  }
+
+  toJSON() {
+    return {
+      tools: this.list().map((tool) => tool.toJSON?.() ?? normalizeToolSchema(tool)),
+    };
+  }
+
+  toJSONString(space = 2) {
+    return JSON.stringify(this.toJSON(), null, space);
   }
 
   execute(call) {
@@ -1220,9 +1350,9 @@ export class ToolRegistry {
 
 export class ToolAgentRunResult {
   constructor({ agentResult, toolResults = [] }) {
-    this.agentResult = agentResult;
+    this.agentResult = agentResult instanceof AgentRunResult ? agentResult : AgentRunResult.fromJSON(agentResult);
     this.toolResults = toolResults.map((result) => result instanceof ToolResult ? result : new ToolResult(result));
-    this.success = agentResult.success && this.toolResults.every((result) => result.success);
+    this.success = this.agentResult.success && this.toolResults.every((result) => result.success);
   }
 
   toJSON() {
@@ -1231,6 +1361,18 @@ export class ToolAgentRunResult {
       agent_result: this.agentResult.toJSON(),
       tool_results: this.toolResults.map((result) => result.toJSON()),
     };
+  }
+
+  toJSONString(space = 2) {
+    return JSON.stringify(this.toJSON(), null, space);
+  }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new ToolAgentRunResult({
+      agentResult: data.agentResult ?? data.agent_result,
+      toolResults: data.toolResults ?? data.tool_results ?? [],
+    });
   }
 }
 
@@ -1306,15 +1448,7 @@ export function defineTool({ name, description = "", parameters = {}, execute })
   if (typeof execute !== "function") {
     throw new TypeError("Tool execute function is required.");
   }
-  return {
-    name,
-    description,
-    parameters,
-    execute,
-    toSchema() {
-      return { name, description, parameters };
-    },
-  };
+  return new Tool({ name, description, parameters, execute });
 }
 
 function listSection(title, values) {
@@ -1434,6 +1568,11 @@ export class ContextDocument {
   toJSONString(space = 2) {
     return JSON.stringify(this.toJSON(), null, space);
   }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new ContextDocument(data);
+  }
 }
 
 export class ContextRetriever {
@@ -1479,8 +1618,10 @@ export class ContextRetriever {
 export class ContextPack {
   constructor({ query, documents = [], memories = [], summary = "", metadata = {} } = {}) {
     this.query = query;
-    this.documents = [...documents];
-    this.memories = [...memories];
+    this.documents = (Array.isArray(documents) ? documents : []).map((doc) =>
+      doc instanceof ContextDocument ? doc : ContextDocument.fromJSON(doc),
+    );
+    this.memories = Array.isArray(memories) ? [...memories] : [];
     this.summary = summary;
     this.metadata = { ...metadata };
   }
@@ -1522,13 +1663,18 @@ export class ContextPack {
       memoriesStr || "- none",
     ].join("\n");
   }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new ContextPack(data);
+  }
 }
 
 export class ContextRunResult {
   constructor({ finalOutput, contextUsed = null, memoriesUsed = [], success = true } = {}) {
     this.finalOutput = finalOutput;
-    this.contextUsed = contextUsed;
-    this.memoriesUsed = [...memoriesUsed];
+    this.contextUsed = contextUsed instanceof ContextPack ? contextUsed : (contextUsed ? ContextPack.fromJSON(contextUsed) : null);
+    this.memoriesUsed = Array.isArray(memoriesUsed) ? [...memoriesUsed] : [];
     this.success = Boolean(success);
   }
 
@@ -1544,4 +1690,60 @@ export class ContextRunResult {
   toJSON() {
     return this.toDict();
   }
+
+  toJSONString(space = 2) {
+    return JSON.stringify(this.toJSON(), null, space);
+  }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    return new ContextRunResult({
+      finalOutput: data.finalOutput ?? data.final_output,
+      contextUsed: data.contextUsed ?? data.context_used,
+      memoriesUsed: data.memoriesUsed ?? data.memories_used,
+      success: data.success,
+    });
+  }
+}
+export const HANDOFFKIT_CORE_VERSION = "1.9.0";
+export function toJSONValue(value) {
+  if (value == null) return value;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
+  if (typeof value === "bigint") return value.toString();
+  if (Array.isArray(value)) return value.map((item) => toJSONValue(item));
+  if (typeof value.toJSON === "function") return toJSONValue(value.toJSON());
+  if (typeof value !== "object") return undefined;
+
+  const result = {};
+  for (const [key, item] of Object.entries(value)) {
+    const serialized = toJSONValue(item);
+    if (serialized !== undefined) {
+      result[key] = serialized;
+    }
+  }
+  return result;
+}
+
+export function toJSONString(value, space = 2) {
+  return JSON.stringify(toJSONValue(value), null, space);
+}
+
+export function serializeReport(report, { format = "json", space = 2 } = {}) {
+  if (format === "object" || format === "json_object") return toJSONValue(report);
+  if (format === "markdown") {
+    if (typeof report?.toMarkdown !== "function") {
+      throw new TypeError("Report does not implement toMarkdown().");
+    }
+    return report.toMarkdown();
+  }
+  if (format === "json") return toJSONString(report, space);
+  throw new TypeError(`Unsupported report format: ${format}`);
+}
+
+export function deserializeReport(value, ReportClass = ValidationReport) {
+  const data = typeof value === "string" ? JSON.parse(value) : value;
+  if (ReportClass && typeof ReportClass.fromJSON === "function") {
+    return ReportClass.fromJSON(data);
+  }
+  return data;
 }

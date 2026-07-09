@@ -68,7 +68,7 @@ test("validation report serializes and raises", () => {
 test("contract parity report summarizes shared contract inventory", async () => {
   const report = await buildContractParityReport({
     runtime: "javascript",
-    version: "1.8.10",
+    version: "1.9.0",
     contractsRoot,
     contractInventory: {
       fixtures: [
@@ -103,7 +103,7 @@ test("contract parity report summarizes shared contract inventory", async () => 
 test("core contract parity report uses embedded inventory without filesystem", async () => {
   const report = await buildContractParityReport({
     runtime: "browser",
-    version: "1.8.10",
+    version: "1.9.0",
   });
 
   assert.equal(report.success, true);

@@ -4,7 +4,7 @@ from conan.tools.cmake import CMake, cmake_layout, CMakeDeps, CMakeToolchain
 
 class HandoffKitConan(ConanFile):
     name = "handoffkit"
-    version = "1.8.10"
+    version = "1.9.0"
     license = "MIT"
     author = "DaosPath <daospath@gmail.com>"
     url = "https://github.com/DaosPath/handoffkit"
