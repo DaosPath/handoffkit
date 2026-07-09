@@ -53,7 +53,7 @@ def test_local_wheel_installs_and_imports_offline(tmp_path: Path) -> None:
             "--no-index",
             "--find-links",
             str(wheelhouse),
-            "handoffkit==1.8.8",
+            "handoffkit==1.8.9",
         ]
     )
     run_command(
