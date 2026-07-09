@@ -1,8 +1,17 @@
 #include <handoffkit/handoff.hpp>
 #include <cassert>
+#include <fstream>
 #include <iostream>
 
 using namespace handoffkit;
+
+nlohmann::json fixture(const std::string& name) {
+    std::ifstream input("../../contracts/fixtures/" + name);
+    assert(input.good());
+    nlohmann::json data;
+    input >> data;
+    return data;
+}
 
 void test_handoff_state_roundtrip() {
     HandoffState state;
@@ -55,9 +64,68 @@ void test_run_trace_timeline() {
     std::cout << "test_run_trace_timeline passed!" << std::endl;
 }
 
+void test_shared_validation_report_fixture_roundtrip() {
+    nlohmann::json data = fixture("validation_report.json");
+    ValidationReport report = ValidationReport::from_json(data);
+
+    assert(report.success == false);
+    assert(report.issues.size() == 1);
+    assert(report.issues[0].code == "missing_task");
+    assert(report.to_json() == data);
+
+    std::cout << "test_shared_validation_report_fixture_roundtrip passed!" << std::endl;
+}
+
+void test_shared_quality_report_fixture_roundtrip() {
+    nlohmann::json data = fixture("quality_report.json");
+    HandoffQualityReport report = HandoffQualityReport::from_json(data);
+
+    assert(report.success == true);
+    assert(report.grade == "B");
+    assert(report.metrics.size() == 5);
+    assert(report.to_json() == data);
+
+    std::cout << "test_shared_quality_report_fixture_roundtrip passed!" << std::endl;
+}
+
+void test_shared_tool_call_and_result_fixtures_roundtrip() {
+    nlohmann::json call_data = fixture("tool_call.json");
+    nlohmann::json result_data = fixture("tool_result.json");
+    ToolCall call = ToolCall::from_json(call_data);
+    ToolResult result = ToolResult::from_json(result_data);
+
+    assert(call.tool_name == "add");
+    assert(call.call_id == "call-12345");
+    assert(result.success == true);
+    assert(result.result == 15);
+    assert(call.to_json() == call_data);
+    assert(result.to_json() == result_data);
+
+    std::cout << "test_shared_tool_call_and_result_fixtures_roundtrip passed!" << std::endl;
+}
+
+void test_contract_parity_report_marks_supported_contracts() {
+    ContractParityReport report = ContractParityReport::from_inventory(
+        "cpp",
+        "1.8.7",
+        {"handoff_state", "run_trace", "validation_report", "quality_report"},
+        {"handoff-state", "run-trace", "validation-report", "quality-report"}
+    );
+
+    assert(report.success == true);
+    assert(report.fixture_count == 4);
+    assert(report.to_markdown().find("Contract Parity Report") != std::string::npos);
+
+    std::cout << "test_contract_parity_report_marks_supported_contracts passed!" << std::endl;
+}
+
 int main() {
     test_handoff_state_roundtrip();
     test_run_trace_timeline();
+    test_shared_validation_report_fixture_roundtrip();
+    test_shared_quality_report_fixture_roundtrip();
+    test_shared_tool_call_and_result_fixtures_roundtrip();
+    test_contract_parity_report_marks_supported_contracts();
     std::cout << "All C++ tests passed successfully!" << std::endl;
     return 0;
 }

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.8.7
+
+- Added cross-runtime contract parity reports.
+- Expanded Rust contracts with validation reports, quality reports, tool calls,
+  and tool results.
+- Expanded C++ contracts with validation reports, quality reports, tool calls,
+  and tool results.
+- Added Rust and C++ shared fixture roundtrip tests.
+- Added Rust and C++ jobs to CI.
+- Updated package versions across Python, JavaScript, Rust, and C++.
+
 ## 1.7.0
 
 - Added shared language-neutral contracts under `packages/contracts`.

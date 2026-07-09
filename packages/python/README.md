@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/packages/python/docs/assets/handoffkit-hero.svg" alt="HandoffKit: structured state transfer for multi-agent Python and JavaScript workflows" width="100%">
+<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/packages/python/docs/assets/handoffkit-hero.svg" alt="HandoffKit: structured state transfer for multi-agent cross-runtime workflows" width="100%">
 
 # HandoffKit
 
-**Structured state transfer for multi-agent Python and JavaScript workflows.**
+**Structured state transfer for multi-agent Python, JavaScript, Rust, and C++ workflows.**
 
 Build agent chains where each agent receives a clear contract: task, decisions,
 files, errors, next steps, and metadata. No messy context soup.
@@ -21,12 +21,14 @@ pip install handoffkit
 <table>
   <tr>
     <td><strong>Contract-first</strong><br>Agents pass JSON-friendly state instead of vague summaries.</td>
+    <td><strong>Cross-runtime</strong><br>Python, JavaScript, Rust, and C++ share canonical fixtures.</td>
     <td><strong>Replayable</strong><br>Trace team, recipe, and tool runs without re-running side effects.</td>
     <td><strong>Offline by default</strong><br>Tests and demos run locally with deterministic providers.</td>
   </tr>
 </table>
 
 <p>
+  <strong>1.8.7:</strong> Rust and C++ contract parity with shared validation, quality, tool call, and tool result fixtures.<br>
   <strong>1.7.0:</strong> shared Python + JavaScript contracts with canonical JSON fixtures.<br>
   <strong>1.6.0:</strong> JavaScript core package with async runtime, provider tool formats, traces, and reports.<br>
   <strong>1.5.0:</strong> media workflow contracts for audiobook and translated video dubbing demos.<br>
@@ -41,7 +43,7 @@ pip install handoffkit
 ## Contents
 
 - [Quickstart](#quickstart)
-- [Unified Python and JavaScript Contracts](#unified-python-and-javascript-contracts)
+- [Unified Cross-runtime Contracts](#unified-cross-runtime-contracts)
 - [Provider Registry and Model Routing](#provider-registry-and-model-routing)
 - [JavaScript Core](#javascript-core)
 - [Media Workflows](#media-workflows)
@@ -87,14 +89,16 @@ Tester
 
 That makes agent workflows easier to inspect, test, replay, and improve.
 
-## Unified Python and JavaScript Contracts
+## Unified Cross-runtime Contracts
 
-HandoffKit 1.7.0 makes the Python and JavaScript runtimes speak the same wire
-format. The canonical JSON contracts live in
+HandoffKit 1.8.7 makes the Python, JavaScript, Rust, and C++ runtimes speak the
+same wire format. The canonical JSON contracts live in
 [`packages/contracts`](https://github.com/DaosPath/handoffkit/tree/main/packages/contracts).
 
 - Python uses `HandoffState.to_dict()` and `RunTrace.to_dict()`.
 - JavaScript uses `toJSON()` / `JSON.stringify()`.
+- Rust uses serde structs for the shared contract fixtures.
+- C++ uses nlohmann/json adapters for the shared contract fixtures.
 - The shared wire format uses `snake_case`: `from_agent`, `to_agent`,
   `important_files`, `next_steps`, `run_id`, `final_output`, and
   `tool_results`.
@@ -116,8 +120,15 @@ console.log(state.fromAgent);
 console.log(JSON.stringify(state));
 ```
 
-The Python and JS test suites both read the same fixture files, so contract
-drift becomes a CI failure instead of a surprise for users.
+The Python, JavaScript, Rust, and C++ test suites read the same fixture files,
+so contract drift becomes a CI failure instead of a surprise for users.
+
+```python
+from handoffkit import build_contract_parity_report
+
+report = build_contract_parity_report(runtime="python", version="1.8.7")
+print(report.to_markdown())
+```
 
 ## Repository Layout
 
@@ -128,7 +139,9 @@ PyPI lives in `packages/python`:
 handoffkit/
   packages/
     contracts/       # Shared JSON schemas and cross-runtime fixtures
-    core/            # JavaScript/TypeScript package: @handoffkit/core
+    js/              # JavaScript/TypeScript package: @handoffkit/core
+    rust/            # Rust contract package
+    cpp/             # C++17 contract package
     python/
       handoffkit/      # Python package published to PyPI
       examples/        # Python examples and demos
@@ -332,7 +345,7 @@ const result = await team.arun("Build a calculator.");
 const trace = RunTrace.fromTeamResult(result);
 ```
 
-Package source: [`packages/core`](https://github.com/DaosPath/handoffkit/tree/main/packages/core).
+Package source: [`packages/js`](https://github.com/DaosPath/handoffkit/tree/main/packages/js).
 
 ## What 1.5.0 Adds
 

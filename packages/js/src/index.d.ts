@@ -12,6 +12,40 @@ export class HandoffValidationError extends Error {
   constructor(message: string, report: ValidationReport);
 }
 
+export class ContractParityReport {
+  runtime: string;
+  version: string;
+  success: boolean;
+  fixtureCount: number;
+  schemaCount: number;
+  supportedContracts: string[];
+  missingFixtures: string[];
+  missingSchemas: string[];
+  metadata: Record<string, unknown>;
+  constructor(init?: {
+    runtime?: string;
+    version?: string;
+    success?: boolean;
+    fixtureCount?: number;
+    schemaCount?: number;
+    supportedContracts?: string[];
+    missingFixtures?: string[];
+    missingSchemas?: string[];
+    metadata?: Record<string, unknown>;
+  });
+  toJSON(): Record<string, unknown>;
+  toJSONString(space?: number): string;
+  toMarkdown(): string;
+}
+
+export function buildContractParityReport(init?: {
+  runtime?: string;
+  version?: string;
+  contractsRoot?: string;
+  expectedFixtures?: string[];
+  expectedSchemas?: string[];
+}): Promise<ContractParityReport>;
+
 export class ValidationIssue {
   code: string;
   message: string;
