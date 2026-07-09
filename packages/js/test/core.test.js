@@ -492,4 +492,27 @@ test("ProjectIndexer indexes files and ContextRetriever searches them in JS", as
   assert.equal(searchResults[0].path, "a.txt");
 });
 
+test("RunTrace toTimeline works in JS", () => {
+  const trace = new RunTrace({
+    runId: "js-test-run",
+    name: "JS Timeline Flow",
+    success: true,
+    steps: [
+      {
+        name: "step-1",
+        agent: "Architect",
+        task: "Design system",
+        mode: "agent",
+        success: true,
+        output: "Initial design ready",
+      }
+    ]
+  });
+
+  const timeline = trace.toTimeline();
+  assert.match(timeline, /Execution Timeline: JS Timeline Flow/);
+  assert.match(timeline, /1. \[Architect\] -> Task: Design system/);
+});
+
+
 

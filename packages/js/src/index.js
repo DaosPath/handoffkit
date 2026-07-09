@@ -907,6 +907,38 @@ export class RunTrace {
       `Final Output: ${this.finalOutput}`,
     ].join("\n");
   }
+
+  toTimeline() {
+    const lines = [
+      `# Execution Timeline: ${this.name} (Run ID: ${this.runId})`,
+      `- Success: ${this.success}`,
+      `- Total Steps: ${this.steps.length}`,
+      `- Total Handoffs: ${this.handoffs.length}`,
+      "",
+      "## Timeline",
+    ];
+
+    for (let i = 0; i < this.steps.length; i++) {
+      const step = this.steps[i];
+      const agentName = step.agent || "Unknown";
+      lines.push(`${i + 1}. [${agentName}] -> Task: ${step.task}`);
+      lines.push(`   - Mode: ${step.mode || "default"}`);
+      lines.push(`   - Success: ${step.success}`);
+      lines.push(`   - Tools Used: ${step.toolResults?.length ?? 0}`);
+      if (step.output) {
+        const cleanedOutput = step.output.replace(/\r?\n/g, " ");
+        const preview = cleanedOutput.length > 60 ? cleanedOutput.slice(0, 60) + "..." : cleanedOutput;
+        lines.push(`   - Output Preview: ${preview}`);
+      }
+      if (step.handoff) {
+        const fromA = step.handoff.fromAgent || step.handoff.from_agent || "";
+        const toA = step.handoff.toAgent || step.handoff.to_agent || "";
+        lines.push(`   - [Handoff] -> ${fromA} to ${toA}`);
+      }
+    }
+
+    return lines.join("\n");
+  }
 }
 
 export class ReplayRunner {
