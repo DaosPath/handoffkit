@@ -1,4 +1,4 @@
-const DEFAULT_TIMEOUT_MS = 60000;
+﻿const DEFAULT_TIMEOUT_MS = 60000;
 const DEFAULT_RETRY_STATUS_CODES = [408, 409, 425, 429, 500, 502, 503, 504];
 const REDACTED = "[redacted]";
 
@@ -195,7 +195,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
     retryPolicy = null,
     requiresApiKey = undefined,
     allowEnv = true,
-    userAgent = "handoffkit-providers/1.11.0",
+    userAgent = "handoffkit-providers/1.12.0",
     metadata = {},
   } = {}) {
     const resolvedSpec = normalizeSpec(spec ?? provider);

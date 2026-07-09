@@ -1,0 +1,486 @@
+{
+  "slug": "support-escalation",
+  "title": "Customer Support: Triage -> Billing -> Refund -> Supervisor",
+  "command": "pip install handoffkit\nhandoffkit init support-escalation\ncd support-escalation\npython support_escalation.py\nhandoffkit report runs/latest",
+  "pain": "Support handoffs lose policy checks, charge IDs, and what was promised to the customer.",
+  "free_text_summary": "Looks like duplicate billing. Refund team should handle it and maybe tell customer.",
+  "lost_context": [
+    "exact charge IDs",
+    "policy threshold",
+    "lookup mistake already corrected",
+    "whether customer was promised anything",
+    "supervisor approval reason"
+  ],
+  "preserved_context": [
+    "charge evidence",
+    "billing decisions",
+    "customer-safe next steps",
+    "internal errors",
+    "supervisor audit trail"
+  ],
+  "handoffs": [
+    {
+      "task": "Resolve a duplicate-charge refund escalation with audit trail.",
+      "from_agent": "Triage",
+      "to_agent": "Billing",
+      "summary": "Customer reports duplicate annual subscription charge after plan upgrade.",
+      "decisions": [
+        "Classify as billing escalation, not technical support.",
+        "Verify charge IDs before promising refund.",
+        "Keep customer tone apologetic and specific."
+      ],
+      "important_files": [
+        "ticket-1837.json",
+        "charges.csv"
+      ],
+      "errors": [
+        "Customer attached one receipt but mentions two bank entries."
+      ],
+      "next_steps": [
+        "Review charge IDs ch_001 and ch_002",
+        "Check whether upgrade proration created the second charge",
+        "Prepare refund eligibility note"
+      ],
+      "context_refs": [
+        "stripe-event-log",
+        "support-policy#duplicate-charge"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "severity": "high"
+      }
+    },
+    {
+      "task": "Resolve a duplicate-charge refund escalation with audit trail.",
+      "from_agent": "Billing",
+      "to_agent": "Refund",
+      "summary": "Two captures found within 3 minutes; second capture matches duplicate renewal.",
+      "decisions": [
+        "Refund second capture only.",
+        "Do not cancel active subscription.",
+        "Add goodwill credit because customer contacted within 24 hours."
+      ],
+      "important_files": [
+        "billing-ledger.csv",
+        "refund-policy.md"
+      ],
+      "errors": [
+        "First lookup used invoice ID instead of charge ID; corrected query."
+      ],
+      "next_steps": [
+        "Create refund for ch_002",
+        "Add account credit note",
+        "Draft customer response with refund ETA"
+      ],
+      "context_refs": [
+        "billing-query-884",
+        "policy#refund-window"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "refund_amount": "99.00"
+      }
+    },
+    {
+      "task": "Resolve a duplicate-charge refund escalation with audit trail.",
+      "from_agent": "Refund",
+      "to_agent": "Supervisor",
+      "summary": "Refund prepared for duplicate charge ch_002 with account note and customer response.",
+      "decisions": [
+        "Supervisor approval required because amount exceeds auto-refund threshold.",
+        "Customer message should include exact refunded charge ID.",
+        "Keep internal correction note for invoice-vs-charge lookup error."
+      ],
+      "important_files": [
+        "refund-request.json",
+        "customer-reply.md",
+        "account-note.md"
+      ],
+      "errors": [
+        "No customer-facing promise sent before approval."
+      ],
+      "next_steps": [
+        "Approve refund request",
+        "Send customer-reply.md",
+        "Verify refund event appears in ledger"
+      ],
+      "context_refs": [
+        "supervisor-queue",
+        "refund-policy#approval"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "approval_required": true
+      }
+    }
+  ],
+  "trace": {
+    "run_id": "showcase-support-escalation",
+    "name": "Customer Support: Triage -> Billing -> Refund -> Supervisor",
+    "success": true,
+    "final_output": "Refund prepared for duplicate charge ch_002 with account note and customer response.",
+    "steps": [
+      {
+        "name": "step-1",
+        "agent": "Triage",
+        "task": "Resolve a duplicate-charge refund escalation with audit trail.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Triage created the initial plan.",
+        "handoff": null,
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "showcase",
+            "message": "Workflow started.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-2",
+        "agent": "Billing",
+        "task": "Resolve a duplicate-charge refund escalation with audit trail.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Customer reports duplicate annual subscription charge after plan upgrade.",
+        "handoff": {
+          "task": "Resolve a duplicate-charge refund escalation with audit trail.",
+          "from_agent": "Triage",
+          "to_agent": "Billing",
+          "summary": "Customer reports duplicate annual subscription charge after plan upgrade.",
+          "decisions": [
+            "Classify as billing escalation, not technical support.",
+            "Verify charge IDs before promising refund.",
+            "Keep customer tone apologetic and specific."
+          ],
+          "important_files": [
+            "ticket-1837.json",
+            "charges.csv"
+          ],
+          "errors": [
+            "Customer attached one receipt but mentions two bank entries."
+          ],
+          "next_steps": [
+            "Review charge IDs ch_001 and ch_002",
+            "Check whether upgrade proration created the second charge",
+            "Prepare refund eligibility note"
+          ],
+          "context_refs": [
+            "stripe-event-log",
+            "support-policy#duplicate-charge"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "severity": "high"
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-3",
+        "agent": "Refund",
+        "task": "Resolve a duplicate-charge refund escalation with audit trail.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Two captures found within 3 minutes; second capture matches duplicate renewal.",
+        "handoff": {
+          "task": "Resolve a duplicate-charge refund escalation with audit trail.",
+          "from_agent": "Billing",
+          "to_agent": "Refund",
+          "summary": "Two captures found within 3 minutes; second capture matches duplicate renewal.",
+          "decisions": [
+            "Refund second capture only.",
+            "Do not cancel active subscription.",
+            "Add goodwill credit because customer contacted within 24 hours."
+          ],
+          "important_files": [
+            "billing-ledger.csv",
+            "refund-policy.md"
+          ],
+          "errors": [
+            "First lookup used invoice ID instead of charge ID; corrected query."
+          ],
+          "next_steps": [
+            "Create refund for ch_002",
+            "Add account credit note",
+            "Draft customer response with refund ETA"
+          ],
+          "context_refs": [
+            "billing-query-884",
+            "policy#refund-window"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "refund_amount": "99.00"
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-4",
+        "agent": "Supervisor",
+        "task": "Resolve a duplicate-charge refund escalation with audit trail.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Refund prepared for duplicate charge ch_002 with account note and customer response.",
+        "handoff": {
+          "task": "Resolve a duplicate-charge refund escalation with audit trail.",
+          "from_agent": "Refund",
+          "to_agent": "Supervisor",
+          "summary": "Refund prepared for duplicate charge ch_002 with account note and customer response.",
+          "decisions": [
+            "Supervisor approval required because amount exceeds auto-refund threshold.",
+            "Customer message should include exact refunded charge ID.",
+            "Keep internal correction note for invoice-vs-charge lookup error."
+          ],
+          "important_files": [
+            "refund-request.json",
+            "customer-reply.md",
+            "account-note.md"
+          ],
+          "errors": [
+            "No customer-facing promise sent before approval."
+          ],
+          "next_steps": [
+            "Approve refund request",
+            "Send customer-reply.md",
+            "Verify refund event appears in ledger"
+          ],
+          "context_refs": [
+            "supervisor-queue",
+            "refund-policy#approval"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "approval_required": true
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      }
+    ],
+    "handoffs": [
+      {
+        "task": "Resolve a duplicate-charge refund escalation with audit trail.",
+        "from_agent": "Triage",
+        "to_agent": "Billing",
+        "summary": "Customer reports duplicate annual subscription charge after plan upgrade.",
+        "decisions": [
+          "Classify as billing escalation, not technical support.",
+          "Verify charge IDs before promising refund.",
+          "Keep customer tone apologetic and specific."
+        ],
+        "important_files": [
+          "ticket-1837.json",
+          "charges.csv"
+        ],
+        "errors": [
+          "Customer attached one receipt but mentions two bank entries."
+        ],
+        "next_steps": [
+          "Review charge IDs ch_001 and ch_002",
+          "Check whether upgrade proration created the second charge",
+          "Prepare refund eligibility note"
+        ],
+        "context_refs": [
+          "stripe-event-log",
+          "support-policy#duplicate-charge"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "severity": "high"
+        }
+      },
+      {
+        "task": "Resolve a duplicate-charge refund escalation with audit trail.",
+        "from_agent": "Billing",
+        "to_agent": "Refund",
+        "summary": "Two captures found within 3 minutes; second capture matches duplicate renewal.",
+        "decisions": [
+          "Refund second capture only.",
+          "Do not cancel active subscription.",
+          "Add goodwill credit because customer contacted within 24 hours."
+        ],
+        "important_files": [
+          "billing-ledger.csv",
+          "refund-policy.md"
+        ],
+        "errors": [
+          "First lookup used invoice ID instead of charge ID; corrected query."
+        ],
+        "next_steps": [
+          "Create refund for ch_002",
+          "Add account credit note",
+          "Draft customer response with refund ETA"
+        ],
+        "context_refs": [
+          "billing-query-884",
+          "policy#refund-window"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "refund_amount": "99.00"
+        }
+      },
+      {
+        "task": "Resolve a duplicate-charge refund escalation with audit trail.",
+        "from_agent": "Refund",
+        "to_agent": "Supervisor",
+        "summary": "Refund prepared for duplicate charge ch_002 with account note and customer response.",
+        "decisions": [
+          "Supervisor approval required because amount exceeds auto-refund threshold.",
+          "Customer message should include exact refunded charge ID.",
+          "Keep internal correction note for invoice-vs-charge lookup error."
+        ],
+        "important_files": [
+          "refund-request.json",
+          "customer-reply.md",
+          "account-note.md"
+        ],
+        "errors": [
+          "No customer-facing promise sent before approval."
+        ],
+        "next_steps": [
+          "Approve refund request",
+          "Send customer-reply.md",
+          "Verify refund event appears in ledger"
+        ],
+        "context_refs": [
+          "supervisor-queue",
+          "refund-policy#approval"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "approval_required": true
+        }
+      }
+    ],
+    "metadata": {
+      "showcase": "support-escalation",
+      "offline": true
+    }
+  },
+  "replay": {
+    "success": true,
+    "step_count": 4,
+    "handoff_count": 3,
+    "tool_result_count": 0,
+    "final_output": "Refund prepared for duplicate charge ch_002 with account note and customer response.",
+    "metadata": {
+      "run_id": "showcase-support-escalation",
+      "name": "Customer Support: Triage -> Billing -> Refund -> Supervisor",
+      "source": "",
+      "replayed": false
+    }
+  },
+  "validation": {
+    "success": true,
+    "issues": [],
+    "metadata": {
+      "validator": "HandoffStateValidator"
+    }
+  },
+  "quality": {
+    "success": true,
+    "score": 0.925,
+    "grade": "A",
+    "metrics": [
+      {
+        "name": "completeness",
+        "score": 1.0,
+        "weight": 1.4,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      },
+      {
+        "name": "clarity",
+        "score": 1.0,
+        "weight": 1.0,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      },
+      {
+        "name": "actionability",
+        "score": 0.667,
+        "weight": 1.2,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      },
+      {
+        "name": "traceability",
+        "score": 1.0,
+        "weight": 1.0,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      },
+      {
+        "name": "error_awareness",
+        "score": 1.0,
+        "weight": 0.7,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      }
+    ],
+    "recommendations": [
+      "Write next steps as concrete actions."
+    ],
+    "validation": {
+      "success": true,
+      "issues": [],
+      "metadata": {
+        "reports": 3,
+        "successful": 3
+      }
+    },
+    "metadata": {
+      "handoffs": 3,
+      "successful": 3,
+      "failed": 0,
+      "average_score": 0.925,
+      "evaluator": "HandoffQualityEvaluator",
+      "min_score": 0.75,
+      "required_metrics": []
+    }
+  },
+  "artifacts": {
+    "run_trace": "runs\\latest\\trace.json",
+    "run_report_json": "runs\\latest\\report.json",
+    "run_report_md": "runs\\latest\\report.md",
+    "report_json": "reports\\support_escalation.json",
+    "report_md": "reports\\support_escalation.md"
+  }
+}

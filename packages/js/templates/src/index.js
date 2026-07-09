@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+﻿import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export class TemplateFile {
@@ -181,7 +181,7 @@ export function builtinTemplates() {
             "  \"private\": true,",
             "  \"packageManager\": \"pnpm@11.1.1\",",
             "  \"dependencies\": {",
-            "    \"@handoffkit/core\": \"^1.11.0\"",
+            "    \"@handoffkit/core\": \"^1.12.0\"",
             "  },",
             "  \"scripts\": {",
             "    \"start\": \"node main.js\"",

@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
@@ -75,7 +75,7 @@ test("validation report serializes and raises", () => {
 test("contract parity report summarizes shared contract inventory", async () => {
   const report = await buildContractParityReport({
     runtime: "javascript",
-    version: "1.11.0",
+    version: "1.12.0",
     contractsRoot,
     contractInventory: {
       fixtures: [
@@ -110,7 +110,7 @@ test("contract parity report summarizes shared contract inventory", async () => 
 test("core contract parity report uses embedded inventory without filesystem", async () => {
   const report = await buildContractParityReport({
     runtime: "browser",
-    version: "1.11.0",
+    version: "1.12.0",
   });
 
   assert.equal(report.success, true);
@@ -672,7 +672,7 @@ test("Extension and ExtensionRegistry validate, register, and retrieve bundles",
   const extension = new Extension({
     name: "media-localization",
     description: "Dubbing pipelines",
-    version: "1.11.0",
+    version: "1.12.0",
     recipes: [],
     tools: [function testTool() {}],
   });

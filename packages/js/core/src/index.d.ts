@@ -1,6 +1,6 @@
-export type Severity = "error" | "warning";
+﻿export type Severity = "error" | "warning";
 
-export const HANDOFFKIT_CORE_VERSION: "1.11.0";
+export const HANDOFFKIT_CORE_VERSION: "1.12.0";
 
 export function toJSONValue(value: unknown): unknown;
 export function toJSONString(value: unknown, space?: number): string;

@@ -144,6 +144,7 @@ def run_extension_demo() -> str:
     )
     registry = ExtensionRegistry()
     registry.register(extension)
+    load_dynamic_extensions(registry)
     result = RecipeRunner(registry.recipes()[0]).run(initial_task="Show extension workflow.")
     return (
         "HandoffKit extension demo\n"
@@ -861,6 +862,101 @@ def list_keys() -> str:
     return "Configured Keys:\n" + "\n".join(rows)
 
 
+def create_extension(name: str, output: str = ".", force: bool = False) -> str:
+    """Scaffold a custom HandoffKit extension directory."""
+    ext_dir = Path(output) / name
+    if ext_dir.exists() and not force:
+        raise FileExistsError(f"Extension directory {ext_dir} already exists. Use --force to overwrite.")
+        
+    ext_dir.mkdir(parents=True, exist_ok=True)
+    
+    init_content = f'''from handoffkit.extensions import Extension
+from .tools import mi_herramienta
+from .recipes import mi_receta
+
+extension = Extension(
+    name="{name}",
+    description="Plugin personalizado {name}",
+    version="1.0.0",
+    tools=[mi_herramienta],
+    recipes=[mi_receta]
+)
+'''
+
+    tools_content = '''from handoffkit.tool import tool
+
+@tool
+def mi_herramienta(param: str) -> str:
+    """Una herramienta de ejemplo."""
+    return f"Procesado parametro: {param}"
+'''
+
+    recipes_content = '''from handoffkit.recipes import Recipe
+
+mi_receta = Recipe(
+    name="mi_receta_ejemplo",
+    description="Una receta de ejemplo",
+    steps=[]
+)
+'''
+
+    (ext_dir / "__init__.py").write_text(init_content, encoding="utf-8")
+    (ext_dir / "tools.py").write_text(tools_content, encoding="utf-8")
+    (ext_dir / "recipes.py").write_text(recipes_content, encoding="utf-8")
+    
+    return f"Scaffolded extension {name} successfully in {ext_dir}."
+
+
+def load_dynamic_extensions(registry: ExtensionRegistry) -> None:
+    """Load dynamically configured extensions into the registry."""
+    config_path = Path("handoff.config.json")
+    if not config_path.exists():
+        return
+        
+    try:
+        import json
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"Warning: Failed to parse handoff.config.json: {exc}")
+        return
+        
+    extensions = config.get("extensions", [])
+    if not isinstance(extensions, list):
+        return
+        
+    import sys
+    import importlib.util
+    
+    for ext_path_str in extensions:
+        p = Path(ext_path_str)
+        try:
+            if p.is_dir() or ext_path_str.endswith(".py"):
+                ext_dir = p.resolve()
+                module_name = ext_dir.name
+                
+                parent_dir = str(ext_dir.parent)
+                if parent_dir not in sys.path:
+                    sys.path.insert(0, parent_dir)
+                    
+                if (ext_dir / "__init__.py").exists():
+                    spec = importlib.util.spec_from_file_location(module_name, str(ext_dir / "__init__.py"))
+                else:
+                    spec = importlib.util.spec_from_file_location(module_name, str(ext_dir))
+                    
+                if spec and spec.loader:
+                    mod = importlib.util.module_from_spec(spec)
+                    sys.modules[module_name] = mod
+                    spec.loader.exec_module(mod)
+                    if hasattr(mod, "extension"):
+                        registry.register(getattr(mod, "extension"))
+            else:
+                mod = importlib.import_module(ext_path_str)
+                if hasattr(mod, "extension"):
+                    registry.register(getattr(mod, "extension"))
+        except Exception as exc:
+            print(f"Warning: Failed to load extension '{ext_path_str}': {exc}")
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the command-line interface."""
     parser = argparse.ArgumentParser(prog="handoffkit")
@@ -969,6 +1065,11 @@ def main(argv: list[str] | None = None) -> int:
     init_parser.add_argument("--template", default=None, help="Template name.")
     init_parser.add_argument("--output", default=".", help="Parent output directory.")
     init_parser.add_argument("--force", action="store_true", help="Overwrite existing files.")
+
+    create_ext_parser = subparsers.add_parser("create-extension", help="Scaffold a HandoffKit extension boilerplate.")
+    create_ext_parser.add_argument("name", help="Extension name.")
+    create_ext_parser.add_argument("--output", default=".", help="Parent output directory.")
+    create_ext_parser.add_argument("--force", action="store_true", help="Overwrite existing files.")
 
     keys_parser = subparsers.add_parser("keys", help="Manage local API keys in .env.")
     keys_subparsers = keys_parser.add_subparsers(dest="keys_command")
@@ -1123,6 +1224,9 @@ def main(argv: list[str] | None = None) -> int:
                     force=args.force,
                 )
             )
+        return 0
+    if args.command == "create-extension":
+        print(create_extension(args.name, output=args.output, force=args.force))
         return 0
     if args.command == "keys":
         if args.keys_command == "set":

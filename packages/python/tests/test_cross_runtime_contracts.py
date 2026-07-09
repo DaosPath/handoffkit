@@ -1,4 +1,4 @@
-"""Cross-runtime contract tests for Python and JavaScript HandoffKit."""
+﻿"""Cross-runtime contract tests for Python and JavaScript HandoffKit."""
 
 from __future__ import annotations
 
@@ -131,7 +131,7 @@ def test_contract_parity_report_covers_shared_contract_inventory() -> None:
 
     report = build_contract_parity_report(
         runtime="python",
-        version="1.11.0",
+        version="1.12.0",
         contracts_root=CONTRACTS_ROOT,
     )
 
@@ -150,7 +150,7 @@ def test_contract_parity_report_uses_embedded_inventory_when_installed(
 
     monkeypatch.setattr(contracts, "_default_contracts_root", lambda: tmp_path / "missing")
 
-    report = contracts.build_contract_parity_report(runtime="python", version="1.11.0")
+    report = contracts.build_contract_parity_report(runtime="python", version="1.12.0")
 
     assert report.success is True
     assert report.fixture_count == 7
