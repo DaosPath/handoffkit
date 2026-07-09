@@ -1,92 +1,150 @@
-﻿<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
   <title id="title">HandoffKit report gallery</title>
-  <desc id="desc">A polished gallery showing three HandoffKit reports for coding agents, support escalation, and research workflow.</desc>
+  <desc id="desc">Report gallery: three HandoffKit reports for coding agents, support escalation, and research workflow — across Python, JavaScript, Rust, and C++.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="720" gradientUnits="userSpaceOnUse">
       <stop stop-color="#f8fbff"/>
       <stop offset="0.55" stop-color="#eef7ff"/>
       <stop offset="1" stop-color="#f0fdf4"/>
     </linearGradient>
-    <linearGradient id="bar" x1="72" y1="0" x2="1208" y2="0" gradientUnits="userSpaceOnUse">
+    <linearGradient id="barH" x1="68" y1="0" x2="1212" y2="0" gradientUnits="userSpaceOnUse">
       <stop stop-color="#2563eb"/>
-      <stop offset="0.5" stop-color="#0f766e"/>
-      <stop offset="1" stop-color="#f59e0b"/>
+      <stop offset="0.33" stop-color="#059669"/>
+      <stop offset="0.66" stop-color="#ea580c"/>
+      <stop offset="1" stop-color="#7c3aed"/>
     </linearGradient>
-    <filter id="shadow" x="-8%" y="-12%" width="116%" height="130%">
-      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0f172a" flood-opacity="0.14"/>
+    <filter id="card" x="-5%" y="-5%" width="110%" height="116%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.11"/>
+    </filter>
+    <filter id="term" x="-4%" y="-6%" width="108%" height="118%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#0f172a" flood-opacity="0.18"/>
     </filter>
     <style>
-      .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-      .h { fill: #0f172a; font-size: 44px; font-weight: 840; letter-spacing: 0; }
-      .lead { fill: #42526b; font-size: 18px; font-weight: 520; letter-spacing: 0; }
-      .cardTitle { fill: #0f172a; font-size: 24px; font-weight: 820; letter-spacing: 0; }
-      .body { fill: #475569; font-size: 15px; font-weight: 540; letter-spacing: 0; }
-      .label { fill: #64748b; font-size: 11px; font-weight: 820; letter-spacing: 0; }
-      .code { fill: #dbeafe; font-size: 14px; font-weight: 760; letter-spacing: 0; }
-      .metric { fill: #0f172a; font-size: 28px; font-weight: 860; letter-spacing: 0; }
-      .smallCode { fill: #14532d; font-size: 12px; font-weight: 780; letter-spacing: 0; }
+      .f  { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+      .m  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     </style>
   </defs>
 
-  <rect width="1280" height="720" rx="38" fill="url(#bg)"/>
-  <circle cx="1124" cy="108" r="92" fill="#bbf7d0" opacity="0.42"/>
-  <circle cx="1016" cy="86" r="58" fill="#bfdbfe" opacity="0.46"/>
+  <rect width="1280" height="720" rx="32" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="1277" height="717" rx="30.5" fill="none" stroke="#dbe4ef" stroke-width="3"/>
 
-  <g transform="translate(72 54)">
-    <rect width="158" height="32" rx="16" fill="#dbeafe" stroke="#bfdbfe"/>
-    <text x="20" y="21" class="mono label" fill="#1d4ed8">REPORT GALLERY</text>
-    <text x="0" y="86" class="sans h">Reports people can inspect</text>
-    <text x="0" y="122" class="sans lead">Every showcase writes Markdown, JSON, trace, validation, quality, and replay evidence.</text>
-    <path d="M0 158H520" stroke="url(#bar)" stroke-width="5" stroke-linecap="round"/>
+  <!-- Decorative blobs -->
+  <circle cx="1160" cy="100" r="100" fill="#bbf7d0" fill-opacity="0.40"/>
+  <circle cx="1048" cy="78" r="62" fill="#bfdbfe" fill-opacity="0.44"/>
+
+  <!-- Header -->
+  <rect x="68" y="52" width="172" height="30" rx="15" fill="#dbeafe" stroke="#bfdbfe" stroke-width="1"/>
+  <text x="86" y="72" class="m" font-size="11" font-weight="800" fill="#1d4ed8">REPORT GALLERY · 4 RUNTIMES</text>
+  <text x="68" y="134" class="f" font-size="42" font-weight="840" fill="#0f172a">Reports people can inspect</text>
+  <text x="68" y="166" class="f" font-size="17" font-weight="500" fill="#42526b">Every workflow writes Markdown, JSON, trace, validation, quality, and replay evidence.</text>
+
+  <!-- Gradient rule: x=68, w=580 → right=648. OK -->
+  <rect x="68" y="184" width="580" height="5" rx="2.5" fill="url(#barH)"/>
+
+  <!-- ── Card 1: Coding (x=68, w=356 → right=424) ── -->
+  <g transform="translate(68 212)" filter="url(#card)">
+    <rect width="356" height="334" rx="24" fill="#ffffff" stroke="#dbe4ef" stroke-width="1.2"/>
+    <rect width="356" height="6" rx="3" fill="#2563eb"/>
+
+    <rect x="24" y="22" width="82" height="26" rx="13" fill="#dbeafe"/>
+    <text x="36" y="39" class="m" font-size="11" font-weight="800" fill="#1d4ed8">CODING</text>
+
+    <text x="24" y="84" class="f" font-size="20" font-weight="820" fill="#0f172a">coding_review.md</text>
+    <text x="24" y="110" class="f" font-size="13" fill="#475569">Architect → Coder → Reviewer → Tester</text>
+
+    <rect x="24" y="126" width="308" height="78" rx="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="42" y="156" class="f" font-size="14" fill="#475569">Preserves files, decisions, errors,</text>
+    <text x="42" y="178" class="f" font-size="14" fill="#475569">review fixes, and test commands.</text>
+
+    <!-- Runtime badges -->
+    <g transform="translate(24 222)">
+      <rect width="56" height="22" rx="11" fill="#dbeafe"/>
+      <text x="10" y="15" class="m" font-size="10" font-weight="800" fill="#1d4ed8">Python</text>
+      <rect x="64" width="74" height="22" rx="11" fill="#fef9c3"/>
+      <text x="72" y="15" class="m" font-size="10" font-weight="800" fill="#92400e">JavaScript</text>
+      <rect x="146" width="48" height="22" rx="11" fill="#ffedd5"/>
+      <text x="155" y="15" class="m" font-size="10" font-weight="800" fill="#9a3412">Rust</text>
+      <rect x="202" width="44" height="22" rx="11" fill="#f5f3ff"/>
+      <text x="210" y="15" class="m" font-size="10" font-weight="800" fill="#4c1d95">C++</text>
+    </g>
+
+    <!-- Metric -->
+    <line x1="24" y1="264" x2="332" y2="264" stroke="#e2e8f0" stroke-width="1.2"/>
+    <text x="24" y="302" class="f" font-size="30" font-weight="860" fill="#0f172a">A</text>
+    <text x="58" y="302" class="m" font-size="12" font-weight="780" fill="#14532d">quality / 3 handoffs / replay</text>
   </g>
 
-  <g transform="translate(72 242)" filter="url(#shadow)">
-    <rect width="344" height="314" rx="26" fill="#ffffff" stroke="#dbe4ef"/>
-    <rect x="24" y="24" width="92" height="30" rx="15" fill="#dbeafe"/>
-    <text x="44" y="44" class="mono label" fill="#1d4ed8">CODING</text>
-    <text x="24" y="92" class="sans cardTitle">coding_review.md</text>
-    <text x="24" y="126" class="sans body">Architect -> Coder -> Reviewer -> Tester</text>
-    <rect x="24" y="156" width="296" height="74" rx="18" fill="#f8fafc" stroke="#e2e8f0"/>
-    <text x="44" y="185" class="sans body">Preserves files, decisions, errors,</text>
-    <text x="44" y="209" class="sans body">review fixes, and test commands.</text>
-    <text x="24" y="276" class="sans metric">A</text>
-    <text x="62" y="276" class="mono smallCode">quality / 3 handoffs / replay</text>
+  <!-- ── Card 2: Support (x=444, w=356 → right=800) ── -->
+  <g transform="translate(444 212)" filter="url(#card)">
+    <rect width="356" height="334" rx="24" fill="#ffffff" stroke="#dbe4ef" stroke-width="1.2"/>
+    <rect width="356" height="6" rx="3" fill="#0f766e"/>
+
+    <rect x="24" y="22" width="84" height="26" rx="13" fill="#ccfbf1"/>
+    <text x="36" y="39" class="m" font-size="11" font-weight="800" fill="#0f766e">SUPPORT</text>
+
+    <text x="24" y="84" class="f" font-size="20" font-weight="820" fill="#0f172a">support_escalation.md</text>
+    <text x="24" y="110" class="f" font-size="13" fill="#475569">Triage → Billing → Refund → Supervisor</text>
+
+    <rect x="24" y="126" width="308" height="78" rx="16" fill="#ecfdf5" stroke="#bbf7d0" stroke-width="1"/>
+    <text x="42" y="156" class="f" font-size="14" fill="#475569">Keeps charge IDs, policy checks,</text>
+    <text x="42" y="178" class="f" font-size="14" fill="#475569">correction notes, and approvals.</text>
+
+    <g transform="translate(24 222)">
+      <rect width="56" height="22" rx="11" fill="#dbeafe"/>
+      <text x="10" y="15" class="m" font-size="10" font-weight="800" fill="#1d4ed8">Python</text>
+      <rect x="64" width="74" height="22" rx="11" fill="#fef9c3"/>
+      <text x="72" y="15" class="m" font-size="10" font-weight="800" fill="#92400e">JavaScript</text>
+      <rect x="146" width="48" height="22" rx="11" fill="#ffedd5"/>
+      <text x="155" y="15" class="m" font-size="10" font-weight="800" fill="#9a3412">Rust</text>
+      <rect x="202" width="44" height="22" rx="11" fill="#f5f3ff"/>
+      <text x="210" y="15" class="m" font-size="10" font-weight="800" fill="#4c1d95">C++</text>
+    </g>
+
+    <line x1="24" y1="264" x2="332" y2="264" stroke="#e2e8f0" stroke-width="1.2"/>
+    <text x="24" y="302" class="f" font-size="30" font-weight="860" fill="#0f172a">0.925</text>
+    <text x="112" y="302" class="m" font-size="12" font-weight="780" fill="#14532d">quality / audit trail</text>
   </g>
 
-  <g transform="translate(468 242)" filter="url(#shadow)">
-    <rect width="344" height="314" rx="26" fill="#ffffff" stroke="#dbe4ef"/>
-    <rect x="24" y="24" width="102" height="30" rx="15" fill="#ccfbf1"/>
-    <text x="44" y="44" class="mono label" fill="#0f766e">SUPPORT</text>
-    <text x="24" y="92" class="sans cardTitle">support_escalation.md</text>
-    <text x="24" y="126" class="sans body">Triage -> Billing -> Refund -> Supervisor</text>
-    <rect x="24" y="156" width="296" height="74" rx="18" fill="#ecfdf5" stroke="#bbf7d0"/>
-    <text x="44" y="185" class="sans body">Keeps charge IDs, policy checks,</text>
-    <text x="44" y="209" class="sans body">correction notes, and approvals.</text>
-    <text x="24" y="276" class="sans metric">0.925</text>
-    <text x="112" y="276" class="mono smallCode">quality / audit trail</text>
+  <!-- ── Card 3: Research (x=820, w=356 → right=1176) margin=104px ✓ ── -->
+  <g transform="translate(820 212)" filter="url(#card)">
+    <rect width="356" height="334" rx="24" fill="#ffffff" stroke="#dbe4ef" stroke-width="1.2"/>
+    <rect width="356" height="6" rx="3" fill="#7c3aed"/>
+
+    <rect x="24" y="22" width="92" height="26" rx="13" fill="#ede9fe"/>
+    <text x="36" y="39" class="m" font-size="11" font-weight="800" fill="#6d28d9">RESEARCH</text>
+
+    <text x="24" y="84" class="f" font-size="20" font-weight="820" fill="#0f172a">research_workflow.md</text>
+    <text x="24" y="110" class="f" font-size="13" fill="#475569">Researcher → Extractor → Fact-checker</text>
+
+    <rect x="24" y="126" width="308" height="78" rx="16" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
+    <text x="42" y="156" class="f" font-size="14" fill="#475569">Tracks sources, claims, confidence,</text>
+    <text x="42" y="178" class="f" font-size="14" fill="#475569">corrections, and writer constraints.</text>
+
+    <g transform="translate(24 222)">
+      <rect width="56" height="22" rx="11" fill="#dbeafe"/>
+      <text x="10" y="15" class="m" font-size="10" font-weight="800" fill="#1d4ed8">Python</text>
+      <rect x="64" width="74" height="22" rx="11" fill="#fef9c3"/>
+      <text x="72" y="15" class="m" font-size="10" font-weight="800" fill="#92400e">JavaScript</text>
+      <rect x="146" width="48" height="22" rx="11" fill="#ffedd5"/>
+      <text x="155" y="15" class="m" font-size="10" font-weight="800" fill="#9a3412">Rust</text>
+      <rect x="202" width="44" height="22" rx="11" fill="#f5f3ff"/>
+      <text x="210" y="15" class="m" font-size="10" font-weight="800" fill="#4c1d95">C++</text>
+    </g>
+
+    <line x1="24" y1="264" x2="332" y2="264" stroke="#e2e8f0" stroke-width="1.2"/>
+    <text x="24" y="302" class="f" font-size="30" font-weight="860" fill="#0f172a">0.912</text>
+    <text x="112" y="302" class="m" font-size="12" font-weight="780" fill="#14532d">quality / sources</text>
   </g>
 
-  <g transform="translate(864 242)" filter="url(#shadow)">
-    <rect width="344" height="314" rx="26" fill="#ffffff" stroke="#dbe4ef"/>
-    <rect x="24" y="24" width="104" height="30" rx="15" fill="#ede9fe"/>
-    <text x="44" y="44" class="mono label" fill="#6d28d9">RESEARCH</text>
-    <text x="24" y="92" class="sans cardTitle">research_workflow.md</text>
-    <text x="24" y="126" class="sans body">Researcher -> Extractor -> Fact-checker</text>
-    <rect x="24" y="156" width="296" height="74" rx="18" fill="#f5f3ff" stroke="#ddd6fe"/>
-    <text x="44" y="185" class="sans body">Tracks sources, claims, confidence,</text>
-    <text x="44" y="209" class="sans body">corrections, and writer constraints.</text>
-    <text x="24" y="276" class="sans metric">0.912</text>
-    <text x="112" y="276" class="mono smallCode">quality / sources</text>
-  </g>
-
-  <g transform="translate(72 600)" filter="url(#shadow)">
-    <rect width="1136" height="64" rx="22" fill="#0f1220"/>
-    <circle cx="30" cy="32" r="6" fill="#fb7185"/>
-    <circle cx="52" cy="32" r="6" fill="#facc15"/>
-    <circle cx="74" cy="32" r="6" fill="#74d399"/>
-    <text x="112" y="38" class="mono code">$ handoffkit demos</text>
-    <text x="314" y="38" class="mono code">$ handoffkit showcase coding-review</text>
-    <text x="646" y="38" class="mono code">$ handoffkit report runs/latest</text>
+  <!-- Bottom terminal bar: x=68, w=1144 → right=1212. margin=68px ✓ -->
+  <g transform="translate(68 590)" filter="url(#term)">
+    <rect width="1144" height="62" rx="18" fill="#0f1220"/>
+    <circle cx="26" cy="31" r="5" fill="#fb7185"/>
+    <circle cx="44" cy="31" r="5" fill="#facc15"/>
+    <circle cx="62" cy="31" r="5" fill="#4ade80"/>
+    <text x="88" y="26" class="m" font-size="13" font-weight="700" fill="#dbeafe">$ handoffkit demos</text>
+    <text x="300" y="26" class="m" font-size="13" font-weight="700" fill="#dbeafe">$ handoffkit showcase coding-review</text>
+    <text x="656" y="26" class="m" font-size="13" font-weight="700" fill="#dbeafe">$ handoffkit report runs/latest</text>
+    <text x="88" y="48" class="m" font-size="11" fill="#334155">Python · JavaScript · Rust · C++ · Shared JSON wire format · validated · replayable</text>
   </g>
 </svg>
