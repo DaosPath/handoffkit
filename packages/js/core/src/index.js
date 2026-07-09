@@ -1,4 +1,4 @@
-const DEFAULT_PROTOCOL_MODE = "hybrid_state";
+﻿const DEFAULT_PROTOCOL_MODE = "hybrid_state";
 const DEFAULT_CONTRACT_FIXTURES = [
   "handoff_state.json",
   "run_trace.json",
@@ -116,7 +116,7 @@ export class ContractParityReport {
 
 export async function buildContractParityReport({
   runtime = "javascript",
-  version = "1.11.0",
+  version = "1.12.0",
   contractsRoot = "",
   contractInventory = null,
   expectedFixtures = DEFAULT_CONTRACT_FIXTURES,
@@ -523,7 +523,7 @@ export class OpenAIProvider extends BaseProvider {
         headers: {
           "Authorization": `Bearer ${this.apiKey}`,
           "Content-Type": "application/json",
-          "User-Agent": "handoffkit/1.11.0",
+          "User-Agent": "handoffkit/1.12.0",
           ...this.headers,
         },
         body: JSON.stringify(payload),
@@ -1797,7 +1797,7 @@ export class ContextRunResult {
     });
   }
 }
-export const HANDOFFKIT_CORE_VERSION = "1.11.0";
+export const HANDOFFKIT_CORE_VERSION = "1.12.0";
 export function toJSONValue(value) {
   if (value == null) return value;
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;

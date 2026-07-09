@@ -1,4 +1,4 @@
-export const VERSION: "1.11.0";
+﻿export const VERSION: "1.12.0";
 
 export function runDemo(): string;
 export function runRecipeDemo(): string;
@@ -15,6 +15,11 @@ export function initProjectInteractive(defaultProjectName: string, options?: {
   template?: string;
   force?: boolean;
 }): Promise<string>;
+export function createExtension(name: string, options?: {
+  output?: string;
+  force?: boolean;
+}): Promise<string>;
+export function loadDynamicExtensions(registry: any): Promise<void>;
 export function setKey(name: string, value: string): Promise<string>;
 export function deleteKey(name: string): Promise<string>;
 export function listKeys(): Promise<string>;

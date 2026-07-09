@@ -1,0 +1,726 @@
+{
+  "slug": "doctor-orchestrator",
+  "title": "Doctor Orchestrator: Intake -> Hypothesis -> Challenger -> Test Steward -> Checklist -> Final Reviewer",
+  "command": "pip install handoffkit\nhandoffkit init doctor-orchestrator\ncd doctor-orchestrator\npython doctor_orchestrator.py\nhandoffkit report runs/latest",
+  "pain": "Diagnostic panels lose uncertainty, missing questions, red flags, and test-cost reasoning when each specialist writes only a prose summary. This synthetic demo is not medical advice.",
+  "free_text_summary": "Looks viral. Check red flags, maybe test if needed. Reviewer should finalize.",
+  "lost_context": [
+    "which history fields are missing",
+    "differential uncertainty",
+    "red flags not yet answered",
+    "why tests were deferred",
+    "educational safety boundary"
+  ],
+  "preserved_context": [
+    "candidate hypotheses and missing questions",
+    "challenger risk register",
+    "cost-aware test reasoning",
+    "checklist decisions and safety boundary",
+    "replayable evidence for each virtual doctor"
+  ],
+  "handoffs": [
+    {
+      "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+      "from_agent": "Intake",
+      "to_agent": "Dr. Hypothesis",
+      "summary": "Synthetic adult case: fever, sore throat, congestion, mild cough, stable breathing, no reported medication allergies. Demo only.",
+      "decisions": [
+        "Treat this as an educational workflow artifact, not patient care.",
+        "Capture symptoms, duration, risk flags, and missing history first.",
+        "Ask for high-value follow-up details before narrowing the differential."
+      ],
+      "important_files": [
+        "case/intake.json",
+        "case/safety_policy.md"
+      ],
+      "errors": [
+        "Age, pregnancy status, comorbidities, medications, and vitals are incomplete."
+      ],
+      "next_steps": [
+        "List differential hypotheses with explicit uncertainty.",
+        "Name the missing questions needed before any recommendation.",
+        "Preserve red flags separately from routine symptom notes."
+      ],
+      "context_refs": [
+        "synthetic-case-001",
+        "medical-demo-safety-boundary"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "educational_only": true,
+        "inspired_by": "virtual physician panel + cost-aware test selection"
+      }
+    },
+    {
+      "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+      "from_agent": "Dr. Hypothesis",
+      "to_agent": "Dr. Challenger",
+      "summary": "Initial differential for the synthetic case: viral URI most likely, influenza/COVID-like illness possible, streptococcal pharyngitis less likely without exudate or lymph-node data.",
+      "decisions": [
+        "Keep at least three candidate hypotheses with uncertainty.",
+        "Do not collapse the case into a single diagnosis.",
+        "Prioritize questions over treatment because the history is incomplete."
+      ],
+      "important_files": [
+        "case/differential.md",
+        "case/missing_questions.md"
+      ],
+      "errors": [
+        "No oxygen saturation, respiratory effort, dehydration status, or fever duration."
+      ],
+      "next_steps": [
+        "Challenge for red flags and unsafe assumptions.",
+        "Separate emergency warning signs from routine follow-up questions.",
+        "Decide whether any test request is justified in the demo."
+      ],
+      "context_refs": [
+        "intake-to-hypothesis",
+        "differential-v1"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "hypotheses": 3,
+        "educational_only": true
+      }
+    },
+    {
+      "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+      "from_agent": "Dr. Challenger",
+      "to_agent": "Test Steward",
+      "summary": "Safety review: no emergency red flag is asserted by the synthetic data, but the workflow must ask about dyspnea, chest pain, confusion, persistent high fever, dehydration, severe neck stiffness, and immunosuppression.",
+      "decisions": [
+        "Do not infer absence of red flags from missing data.",
+        "Mark missing red-flag answers as unresolved risk, not reassurance.",
+        "Only request tests that change next-step reasoning in the synthetic case."
+      ],
+      "important_files": [
+        "case/red_flags.md",
+        "case/risk_register.md"
+      ],
+      "errors": [
+        "The first pass could understate risk because negative findings were not supplied."
+      ],
+      "next_steps": [
+        "Choose low-cost, high-value test options if needed.",
+        "Explain why each requested datum changes the differential.",
+        "Avoid broad panels in the demo unless justified by the handoff state."
+      ],
+      "context_refs": [
+        "challenger-review",
+        "red-flag-checklist"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "red_flags_unresolved": true
+      }
+    },
+    {
+      "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+      "from_agent": "Test Steward",
+      "to_agent": "Dr. Checklist",
+      "summary": "Cost-aware test plan for the synthetic case: ask targeted history first; consider rapid COVID/flu or strep testing only if exposure, local prevalence, Centor-like features, or visit context makes the result actionable.",
+      "decisions": [
+        "History questions are zero-cost and should precede tests.",
+        "Avoid blanket testing when the result would not change the plan.",
+        "Record cost/utility reasoning beside each proposed test."
+      ],
+      "important_files": [
+        "case/test_plan.md",
+        "case/cost_utility.md"
+      ],
+      "errors": [
+        "No local prevalence, exposure history, exam findings, or availability data."
+      ],
+      "next_steps": [
+        "Validate that no recommendation outruns available evidence.",
+        "Check that uncertainty, missing data, and safety boundaries remain visible.",
+        "Prepare final educational summary with clear non-clinical boundary."
+      ],
+      "context_refs": [
+        "test-stewardship",
+        "cost-check"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "cost_aware": true,
+        "tests_requested": 0
+      }
+    },
+    {
+      "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+      "from_agent": "Dr. Checklist",
+      "to_agent": "Final Reviewer",
+      "summary": "Checklist passed for demo purposes: the flow preserved uncertainty, missing data, red-flag questions, cost-aware test reasoning, and an explicit educational-only boundary.",
+      "decisions": [
+        "Final output must not claim a diagnosis or treatment plan.",
+        "Show how HandoffState preserves decisions, errors, and next steps.",
+        "Frame the demo as orchestration evidence, not medical guidance."
+      ],
+      "important_files": [
+        "case/intake.json",
+        "case/differential.md",
+        "case/red_flags.md",
+        "case/test_plan.md",
+        "case/final_review.md"
+      ],
+      "errors": [
+        "Real clinical use would require licensed clinician oversight and validated workflows."
+      ],
+      "next_steps": [
+        "Render report.json and report.md.",
+        "Replay trace without re-running agents.",
+        "Use the report to inspect what each virtual doctor handed off."
+      ],
+      "context_refs": [
+        "checklist-pass",
+        "final-review-safety"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "educational_only": true,
+        "safety_boundary": "not medical advice"
+      }
+    }
+  ],
+  "trace": {
+    "run_id": "showcase-doctor-orchestrator",
+    "name": "Doctor Orchestrator: Intake -> Hypothesis -> Challenger -> Test Steward -> Checklist -> Final Reviewer",
+    "success": true,
+    "final_output": "Checklist passed for demo purposes: the flow preserved uncertainty, missing data, red-flag questions, cost-aware test reasoning, and an explicit educational-only boundary.",
+    "steps": [
+      {
+        "name": "step-1",
+        "agent": "Intake",
+        "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Intake created the initial plan.",
+        "handoff": null,
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "showcase",
+            "message": "Workflow started.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-2",
+        "agent": "Dr. Hypothesis",
+        "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Synthetic adult case: fever, sore throat, congestion, mild cough, stable breathing, no reported medication allergies. Demo only.",
+        "handoff": {
+          "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+          "from_agent": "Intake",
+          "to_agent": "Dr. Hypothesis",
+          "summary": "Synthetic adult case: fever, sore throat, congestion, mild cough, stable breathing, no reported medication allergies. Demo only.",
+          "decisions": [
+            "Treat this as an educational workflow artifact, not patient care.",
+            "Capture symptoms, duration, risk flags, and missing history first.",
+            "Ask for high-value follow-up details before narrowing the differential."
+          ],
+          "important_files": [
+            "case/intake.json",
+            "case/safety_policy.md"
+          ],
+          "errors": [
+            "Age, pregnancy status, comorbidities, medications, and vitals are incomplete."
+          ],
+          "next_steps": [
+            "List differential hypotheses with explicit uncertainty.",
+            "Name the missing questions needed before any recommendation.",
+            "Preserve red flags separately from routine symptom notes."
+          ],
+          "context_refs": [
+            "synthetic-case-001",
+            "medical-demo-safety-boundary"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "educational_only": true,
+            "inspired_by": "virtual physician panel + cost-aware test selection"
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-3",
+        "agent": "Dr. Challenger",
+        "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Initial differential for the synthetic case: viral URI most likely, influenza/COVID-like illness possible, streptococcal pharyngitis less likely without exudate or lymph-node data.",
+        "handoff": {
+          "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+          "from_agent": "Dr. Hypothesis",
+          "to_agent": "Dr. Challenger",
+          "summary": "Initial differential for the synthetic case: viral URI most likely, influenza/COVID-like illness possible, streptococcal pharyngitis less likely without exudate or lymph-node data.",
+          "decisions": [
+            "Keep at least three candidate hypotheses with uncertainty.",
+            "Do not collapse the case into a single diagnosis.",
+            "Prioritize questions over treatment because the history is incomplete."
+          ],
+          "important_files": [
+            "case/differential.md",
+            "case/missing_questions.md"
+          ],
+          "errors": [
+            "No oxygen saturation, respiratory effort, dehydration status, or fever duration."
+          ],
+          "next_steps": [
+            "Challenge for red flags and unsafe assumptions.",
+            "Separate emergency warning signs from routine follow-up questions.",
+            "Decide whether any test request is justified in the demo."
+          ],
+          "context_refs": [
+            "intake-to-hypothesis",
+            "differential-v1"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "hypotheses": 3,
+            "educational_only": true
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-4",
+        "agent": "Test Steward",
+        "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Safety review: no emergency red flag is asserted by the synthetic data, but the workflow must ask about dyspnea, chest pain, confusion, persistent high fever, dehydration, severe neck stiffness, and immunosuppression.",
+        "handoff": {
+          "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+          "from_agent": "Dr. Challenger",
+          "to_agent": "Test Steward",
+          "summary": "Safety review: no emergency red flag is asserted by the synthetic data, but the workflow must ask about dyspnea, chest pain, confusion, persistent high fever, dehydration, severe neck stiffness, and immunosuppression.",
+          "decisions": [
+            "Do not infer absence of red flags from missing data.",
+            "Mark missing red-flag answers as unresolved risk, not reassurance.",
+            "Only request tests that change next-step reasoning in the synthetic case."
+          ],
+          "important_files": [
+            "case/red_flags.md",
+            "case/risk_register.md"
+          ],
+          "errors": [
+            "The first pass could understate risk because negative findings were not supplied."
+          ],
+          "next_steps": [
+            "Choose low-cost, high-value test options if needed.",
+            "Explain why each requested datum changes the differential.",
+            "Avoid broad panels in the demo unless justified by the handoff state."
+          ],
+          "context_refs": [
+            "challenger-review",
+            "red-flag-checklist"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "red_flags_unresolved": true
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-5",
+        "agent": "Dr. Checklist",
+        "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Cost-aware test plan for the synthetic case: ask targeted history first; consider rapid COVID/flu or strep testing only if exposure, local prevalence, Centor-like features, or visit context makes the result actionable.",
+        "handoff": {
+          "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+          "from_agent": "Test Steward",
+          "to_agent": "Dr. Checklist",
+          "summary": "Cost-aware test plan for the synthetic case: ask targeted history first; consider rapid COVID/flu or strep testing only if exposure, local prevalence, Centor-like features, or visit context makes the result actionable.",
+          "decisions": [
+            "History questions are zero-cost and should precede tests.",
+            "Avoid blanket testing when the result would not change the plan.",
+            "Record cost/utility reasoning beside each proposed test."
+          ],
+          "important_files": [
+            "case/test_plan.md",
+            "case/cost_utility.md"
+          ],
+          "errors": [
+            "No local prevalence, exposure history, exam findings, or availability data."
+          ],
+          "next_steps": [
+            "Validate that no recommendation outruns available evidence.",
+            "Check that uncertainty, missing data, and safety boundaries remain visible.",
+            "Prepare final educational summary with clear non-clinical boundary."
+          ],
+          "context_refs": [
+            "test-stewardship",
+            "cost-check"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "cost_aware": true,
+            "tests_requested": 0
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-6",
+        "agent": "Final Reviewer",
+        "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Checklist passed for demo purposes: the flow preserved uncertainty, missing data, red-flag questions, cost-aware test reasoning, and an explicit educational-only boundary.",
+        "handoff": {
+          "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+          "from_agent": "Dr. Checklist",
+          "to_agent": "Final Reviewer",
+          "summary": "Checklist passed for demo purposes: the flow preserved uncertainty, missing data, red-flag questions, cost-aware test reasoning, and an explicit educational-only boundary.",
+          "decisions": [
+            "Final output must not claim a diagnosis or treatment plan.",
+            "Show how HandoffState preserves decisions, errors, and next steps.",
+            "Frame the demo as orchestration evidence, not medical guidance."
+          ],
+          "important_files": [
+            "case/intake.json",
+            "case/differential.md",
+            "case/red_flags.md",
+            "case/test_plan.md",
+            "case/final_review.md"
+          ],
+          "errors": [
+            "Real clinical use would require licensed clinician oversight and validated workflows."
+          ],
+          "next_steps": [
+            "Render report.json and report.md.",
+            "Replay trace without re-running agents.",
+            "Use the report to inspect what each virtual doctor handed off."
+          ],
+          "context_refs": [
+            "checklist-pass",
+            "final-review-safety"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "educational_only": true,
+            "safety_boundary": "not medical advice"
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      }
+    ],
+    "handoffs": [
+      {
+        "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+        "from_agent": "Intake",
+        "to_agent": "Dr. Hypothesis",
+        "summary": "Synthetic adult case: fever, sore throat, congestion, mild cough, stable breathing, no reported medication allergies. Demo only.",
+        "decisions": [
+          "Treat this as an educational workflow artifact, not patient care.",
+          "Capture symptoms, duration, risk flags, and missing history first.",
+          "Ask for high-value follow-up details before narrowing the differential."
+        ],
+        "important_files": [
+          "case/intake.json",
+          "case/safety_policy.md"
+        ],
+        "errors": [
+          "Age, pregnancy status, comorbidities, medications, and vitals are incomplete."
+        ],
+        "next_steps": [
+          "List differential hypotheses with explicit uncertainty.",
+          "Name the missing questions needed before any recommendation.",
+          "Preserve red flags separately from routine symptom notes."
+        ],
+        "context_refs": [
+          "synthetic-case-001",
+          "medical-demo-safety-boundary"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "educational_only": true,
+          "inspired_by": "virtual physician panel + cost-aware test selection"
+        }
+      },
+      {
+        "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+        "from_agent": "Dr. Hypothesis",
+        "to_agent": "Dr. Challenger",
+        "summary": "Initial differential for the synthetic case: viral URI most likely, influenza/COVID-like illness possible, streptococcal pharyngitis less likely without exudate or lymph-node data.",
+        "decisions": [
+          "Keep at least three candidate hypotheses with uncertainty.",
+          "Do not collapse the case into a single diagnosis.",
+          "Prioritize questions over treatment because the history is incomplete."
+        ],
+        "important_files": [
+          "case/differential.md",
+          "case/missing_questions.md"
+        ],
+        "errors": [
+          "No oxygen saturation, respiratory effort, dehydration status, or fever duration."
+        ],
+        "next_steps": [
+          "Challenge for red flags and unsafe assumptions.",
+          "Separate emergency warning signs from routine follow-up questions.",
+          "Decide whether any test request is justified in the demo."
+        ],
+        "context_refs": [
+          "intake-to-hypothesis",
+          "differential-v1"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "hypotheses": 3,
+          "educational_only": true
+        }
+      },
+      {
+        "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+        "from_agent": "Dr. Challenger",
+        "to_agent": "Test Steward",
+        "summary": "Safety review: no emergency red flag is asserted by the synthetic data, but the workflow must ask about dyspnea, chest pain, confusion, persistent high fever, dehydration, severe neck stiffness, and immunosuppression.",
+        "decisions": [
+          "Do not infer absence of red flags from missing data.",
+          "Mark missing red-flag answers as unresolved risk, not reassurance.",
+          "Only request tests that change next-step reasoning in the synthetic case."
+        ],
+        "important_files": [
+          "case/red_flags.md",
+          "case/risk_register.md"
+        ],
+        "errors": [
+          "The first pass could understate risk because negative findings were not supplied."
+        ],
+        "next_steps": [
+          "Choose low-cost, high-value test options if needed.",
+          "Explain why each requested datum changes the differential.",
+          "Avoid broad panels in the demo unless justified by the handoff state."
+        ],
+        "context_refs": [
+          "challenger-review",
+          "red-flag-checklist"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "red_flags_unresolved": true
+        }
+      },
+      {
+        "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+        "from_agent": "Test Steward",
+        "to_agent": "Dr. Checklist",
+        "summary": "Cost-aware test plan for the synthetic case: ask targeted history first; consider rapid COVID/flu or strep testing only if exposure, local prevalence, Centor-like features, or visit context makes the result actionable.",
+        "decisions": [
+          "History questions are zero-cost and should precede tests.",
+          "Avoid blanket testing when the result would not change the plan.",
+          "Record cost/utility reasoning beside each proposed test."
+        ],
+        "important_files": [
+          "case/test_plan.md",
+          "case/cost_utility.md"
+        ],
+        "errors": [
+          "No local prevalence, exposure history, exam findings, or availability data."
+        ],
+        "next_steps": [
+          "Validate that no recommendation outruns available evidence.",
+          "Check that uncertainty, missing data, and safety boundaries remain visible.",
+          "Prepare final educational summary with clear non-clinical boundary."
+        ],
+        "context_refs": [
+          "test-stewardship",
+          "cost-check"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "cost_aware": true,
+          "tests_requested": 0
+        }
+      },
+      {
+        "task": "Educational synthetic case: demonstrate a diagnostic-orchestrator handoff flow without producing real medical advice.",
+        "from_agent": "Dr. Checklist",
+        "to_agent": "Final Reviewer",
+        "summary": "Checklist passed for demo purposes: the flow preserved uncertainty, missing data, red-flag questions, cost-aware test reasoning, and an explicit educational-only boundary.",
+        "decisions": [
+          "Final output must not claim a diagnosis or treatment plan.",
+          "Show how HandoffState preserves decisions, errors, and next steps.",
+          "Frame the demo as orchestration evidence, not medical guidance."
+        ],
+        "important_files": [
+          "case/intake.json",
+          "case/differential.md",
+          "case/red_flags.md",
+          "case/test_plan.md",
+          "case/final_review.md"
+        ],
+        "errors": [
+          "Real clinical use would require licensed clinician oversight and validated workflows."
+        ],
+        "next_steps": [
+          "Render report.json and report.md.",
+          "Replay trace without re-running agents.",
+          "Use the report to inspect what each virtual doctor handed off."
+        ],
+        "context_refs": [
+          "checklist-pass",
+          "final-review-safety"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "educational_only": true,
+          "safety_boundary": "not medical advice"
+        }
+      }
+    ],
+    "metadata": {
+      "showcase": "doctor-orchestrator",
+      "offline": true
+    }
+  },
+  "replay": {
+    "success": true,
+    "step_count": 6,
+    "handoff_count": 5,
+    "tool_result_count": 0,
+    "final_output": "Checklist passed for demo purposes: the flow preserved uncertainty, missing data, red-flag questions, cost-aware test reasoning, and an explicit educational-only boundary.",
+    "metadata": {
+      "run_id": "showcase-doctor-orchestrator",
+      "name": "Doctor Orchestrator: Intake -> Hypothesis -> Challenger -> Test Steward -> Checklist -> Final Reviewer",
+      "source": "",
+      "replayed": false
+    }
+  },
+  "validation": {
+    "success": true,
+    "issues": [],
+    "metadata": {
+      "validator": "HandoffStateValidator"
+    }
+  },
+  "quality": {
+    "success": true,
+    "score": 0.887,
+    "grade": "B",
+    "metrics": [
+      {
+        "name": "completeness",
+        "score": 1.0,
+        "weight": 1.4,
+        "notes": [
+          "average over 5 handoffs"
+        ]
+      },
+      {
+        "name": "clarity",
+        "score": 1.0,
+        "weight": 1.0,
+        "notes": [
+          "average over 5 handoffs"
+        ]
+      },
+      {
+        "name": "actionability",
+        "score": 0.5,
+        "weight": 1.2,
+        "notes": [
+          "average over 5 handoffs"
+        ]
+      },
+      {
+        "name": "traceability",
+        "score": 1.0,
+        "weight": 1.0,
+        "notes": [
+          "average over 5 handoffs"
+        ]
+      },
+      {
+        "name": "error_awareness",
+        "score": 1.0,
+        "weight": 0.7,
+        "notes": [
+          "average over 5 handoffs"
+        ]
+      }
+    ],
+    "recommendations": [
+      "Write next steps as concrete actions."
+    ],
+    "validation": {
+      "success": true,
+      "issues": [],
+      "metadata": {
+        "reports": 5,
+        "successful": 5
+      }
+    },
+    "metadata": {
+      "handoffs": 5,
+      "successful": 5,
+      "failed": 0,
+      "average_score": 0.887,
+      "evaluator": "HandoffQualityEvaluator",
+      "min_score": 0.75,
+      "required_metrics": []
+    }
+  },
+  "artifacts": {
+    "run_trace": "runs\\latest\\trace.json",
+    "run_report_json": "runs\\latest\\report.json",
+    "run_report_md": "runs\\latest\\report.md",
+    "report_json": "reports\\doctor_orchestrator.json",
+    "report_md": "reports\\doctor_orchestrator.md"
+  }
+}

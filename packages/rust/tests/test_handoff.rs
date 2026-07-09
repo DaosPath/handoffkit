@@ -1,4 +1,4 @@
-use handoffkit::{
+﻿use handoffkit::{
     ContractParityReport, HandoffQualityReport, HandoffState, RunTrace, ToolCall, ToolResult,
     TraceStep, ValidationReport,
 };
@@ -117,7 +117,7 @@ fn test_contract_parity_report_marks_supported_contracts() {
         "validation-report",
         "quality-report",
     ];
-    let report = ContractParityReport::new("rust", "1.11.0", &fixtures, &schemas);
+    let report = ContractParityReport::new("rust", "1.12.0", &fixtures, &schemas);
 
     assert!(report.success);
     assert_eq!(report.fixture_count, 4);

@@ -1,6 +1,6 @@
-{
+﻿{
   "name": "@handoffkit/core",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "description": "Browser-safe JavaScript contract layer for multi-agent workflows with structured handoffs.",
   "repository": {
     "type": "git",

@@ -1,4 +1,4 @@
-"""Public API for HandoffKit."""
+﻿"""Public API for HandoffKit."""
 
 from handoffkit.agent import Agent
 from handoffkit.context import (
@@ -87,7 +87,7 @@ from handoffkit.validation import (
     ValidationReport,
 )
 
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 
 __all__ = [
     "Agent",

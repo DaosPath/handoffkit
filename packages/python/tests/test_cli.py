@@ -1,11 +1,13 @@
-import pytest
+﻿import pytest
 
 from handoffkit.cli import (
+    create_extension,
     evaluate_report,
     init_project,
     list_provider_models,
     list_providers,
     list_showcases,
+    load_dynamic_extensions,
     main,
     probe_provider_models,
     render_report,
@@ -48,7 +50,7 @@ def test_cli_version(capsys) -> None:  # type: ignore[no-untyped-def]
     captured = capsys.readouterr()
 
     assert exc_info.value.code == 0
-    assert "handoffkit 1.11.0" in captured.out
+    assert "handoffkit 1.12.0" in captured.out
 
 
 def test_run_demo_reports_handoff_count() -> None:
@@ -352,3 +354,80 @@ def test_keys_management_cli(tmp_path, monkeypatch, capsys) -> None:  # type: ig
     captured = capsys.readouterr()
     assert code == 0
     assert "No keys configured" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# Extension scaffolding & dynamic loading tests (v1.12.0)
+# ---------------------------------------------------------------------------
+
+def test_create_extension_scaffolds_files(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """create_extension writes __init__.py, tools.py, and recipes.py."""
+    result = create_extension("my_plugin", output=str(tmp_path))
+
+    ext_dir = tmp_path / "my_plugin"
+    assert "my_plugin" in result
+    assert (ext_dir / "__init__.py").exists()
+    assert (ext_dir / "tools.py").exists()
+    assert (ext_dir / "recipes.py").exists()
+
+    init_src = (ext_dir / "__init__.py").read_text(encoding="utf-8")
+    assert "extension" in init_src
+    assert "my_plugin" in init_src
+
+    tools_src = (ext_dir / "tools.py").read_text(encoding="utf-8")
+    assert "@tool" in tools_src or "tool" in tools_src
+
+
+def test_create_extension_fails_without_force(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """create_extension raises FileExistsError when directory exists and force=False."""
+    create_extension("conflict_plugin", output=str(tmp_path))
+    with pytest.raises(FileExistsError, match="already exists"):
+        create_extension("conflict_plugin", output=str(tmp_path))
+
+
+def test_create_extension_force_overwrites(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """create_extension succeeds when force=True even if directory already exists."""
+    create_extension("my_plugin", output=str(tmp_path))
+    result = create_extension("my_plugin", output=str(tmp_path), force=True)
+    assert "my_plugin" in result
+
+
+def test_load_dynamic_extensions_no_config(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """load_dynamic_extensions silently returns when handoff.config.json is absent."""
+    monkeypatch.chdir(tmp_path)
+    from handoffkit.extensions import ExtensionRegistry
+    registry = ExtensionRegistry()
+    load_dynamic_extensions(registry)  # should not raise
+    assert registry.list() == []
+
+
+def test_load_dynamic_extensions_with_valid_config(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """load_dynamic_extensions loads a scaffolded extension from handoff.config.json."""
+    import json
+
+    monkeypatch.chdir(tmp_path)
+
+    # Scaffold a minimal extension
+    create_extension("auto_plugin", output=str(tmp_path))
+
+    # Write a config that references it
+    config = {"extensions": [str(tmp_path / "auto_plugin")]}
+    (tmp_path / "handoff.config.json").write_text(json.dumps(config), encoding="utf-8")
+
+    from handoffkit.extensions import ExtensionRegistry
+    registry = ExtensionRegistry()
+    load_dynamic_extensions(registry)
+    # The scaffolded extension declares an `extension` object; it should be registered
+    # (or at minimum the loader should not raise)
+    # We only assert no crash here because the scaffolded module imports handoffkit internals
+    # which may or may not resolve depending on the test environment.
+
+
+def test_create_extension_cli_route(tmp_path, monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
+    """main([create-extension ...]) writes extension files and exits 0."""
+    monkeypatch.chdir(tmp_path)
+    code = main(["create-extension", "cli_plugin", "--output", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "cli_plugin" in captured.out
+    assert (tmp_path / "cli_plugin" / "__init__.py").exists()

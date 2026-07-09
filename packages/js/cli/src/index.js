@@ -1,4 +1,4 @@
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+﻿import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -22,7 +22,7 @@ import {
   TemplateScaffolder,
 } from "../../templates/src/index.js";
 
-export const VERSION = "1.11.0";
+export const VERSION = "1.12.0";
 
 const SHOWCASES = {
   "coding-review": {
@@ -91,7 +91,10 @@ export function runDemo() {
   ].join("\n");
 }
 
-export function runRecipeDemo() {
+export async function runRecipeDemo() {
+  const { ExtensionRegistry } = await import("@handoffkit/core");
+  const registry = new ExtensionRegistry();
+  await loadDynamicExtensions(registry);
   const recipe = WorkflowTemplate.planExecuteReview({
     name: "js-release-checklist",
     task: "Prepare a JavaScript CLI release checklist.",
@@ -99,7 +102,8 @@ export function runRecipeDemo() {
     executor: new Agent({ name: "Executor" }),
     reviewer: new Agent({ name: "Reviewer" }),
   });
-  return new RecipeRunner(recipe).run("Ship HandoffKit JS CLI.").toMarkdown();
+  const targetRecipe = registry.recipes().length > 0 ? registry.recipes()[0] : recipe;
+  return new RecipeRunner(targetRecipe).run("Ship HandoffKit JS CLI.").toMarkdown();
 }
 
 export async function runShowcase(slug) {
@@ -314,6 +318,106 @@ export async function initProjectInteractive(defaultProjectName, options = {}) {
   }
 }
 
+export async function createExtension(name, { output = ".", force = false } = {}) {
+  const fs = await import("node:fs/promises");
+  const { join, resolve } = await import("node:path");
+  
+  const extDir = resolve(output, name);
+  try {
+    await fs.mkdir(extDir, { recursive: true });
+  } catch (err) {
+    // ignore
+  }
+  
+  const initPath = join(extDir, "index.js");
+  const initTypesPath = join(extDir, "index.d.ts");
+  const toolsPath = join(extDir, "tools.js");
+  const recipesPath = join(extDir, "recipes.js");
+  
+  if (!force) {
+    try {
+      await fs.access(initPath);
+      throw new Error(`Extension already exists in ${extDir}. Use --force to overwrite.`);
+    } catch (err) {
+      if (err.message && err.message.includes("already exists")) {
+        throw err;
+      }
+    }
+  }
+  
+  const initContent = `import { Extension } from "@handoffkit/core";
+import { miHerramienta } from "./tools.js";
+import { miReceta } from "./recipes.js";
+
+export const extension = new Extension({
+  name: "${name}",
+  description: "Plugin personalizado ${name}",
+  version: "1.0.0",
+  tools: [miHerramienta],
+  recipes: [miReceta]
+});
+`;
+
+  const initTypesContent = `import { Extension } from "@handoffkit/core";
+export const extension: Extension;
+`;
+
+  const toolsContent = `import { defineTool } from "@handoffkit/core";
+
+export const miHerramienta = defineTool({
+  name: "mi_herramienta",
+  description: "Una herramienta de ejemplo.",
+  parameters: {
+    type: "object",
+    properties: {
+      param: { type: "string" }
+    },
+    required: ["param"]
+  },
+  execute: ({ param }) => {
+    return \`Procesado parámetro: \${param}\`;
+  }
+});
+`;
+
+  const recipesContent = `import { Recipe } from "@handoffkit/core";
+
+export const miReceta = new Recipe({
+  name: "mi_receta_ejemplo",
+  description: "Una receta de ejemplo",
+  steps: []
+});
+`;
+
+  await fs.writeFile(initPath, initContent, "utf8");
+  await fs.writeFile(initTypesPath, initTypesContent, "utf8");
+  await fs.writeFile(toolsPath, toolsContent, "utf8");
+  await fs.writeFile(recipesPath, recipesContent, "utf8");
+  
+  return `Scaffolded extension ${name} successfully in ${extDir}.`;
+}
+
+export async function loadDynamicExtensions(registry) {
+  const fs = await import("node:fs/promises");
+  const { resolve } = await import("node:path");
+  const configPath = resolve("handoff.config.json");
+  try {
+    const raw = await fs.readFile(configPath, "utf8");
+    const config = JSON.parse(raw);
+    const extensions = config.extensions || [];
+    for (const extPath of extensions) {
+      const absolutePath = extPath.startsWith(".") ? resolve(extPath) : extPath;
+      const fileUrl = absolutePath.startsWith("/") || absolutePath.includes(":") ? `file://${absolutePath.replace(/\\/g, "/")}` : absolutePath;
+      const mod = await import(fileUrl);
+      if (mod.extension) {
+        registry.register(mod.extension);
+      }
+    }
+  } catch (err) {
+    // Ignore
+  }
+}
+
 export async function setKey(name, value) {
   const envPath = path.resolve(".env");
   let content = "";
@@ -446,7 +550,15 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       return 0;
     }
     if (command === "demo-recipe") {
-      stdout(runRecipeDemo());
+      stdout(await runRecipeDemo());
+      return 0;
+    }
+    if (command === "create-extension" || command === "init-extension") {
+      const name = rest[0];
+      if (!name) throw new Error("create-extension requires an extension name.");
+      const output = readFlag(rest, "--output") || ".";
+      const force = rest.includes("--force");
+      stdout(await createExtension(name, { output, force }));
       return 0;
     }
     if (command === "demo-coding-review") {
@@ -459,6 +571,20 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     }
     if (command === "demo-research") {
       stdout(await runShowcase("research"));
+      return 0;
+    }
+    if (command === "demo-media") {
+      const { runMediaDemo } = await import("./benchmarks/media_demo.js");
+      const { report, markdownPath } = await runMediaDemo();
+      stdout(`Media Localization demo complete. Success: ${report.success}`);
+      stdout(`Markdown report: ${markdownPath}`);
+      return 0;
+    }
+    if (command === "demo-fusion") {
+      const { runFusionDemo } = await import("./benchmarks/fusion_demo.js");
+      const { report, markdownPath } = await runFusionDemo();
+      stdout(`Fusion demo complete. Success: ${report.success}`);
+      stdout(`Markdown report: ${markdownPath}`);
       return 0;
     }
     if (command === "report") {
@@ -539,9 +665,12 @@ function helpText() {
     "  handoffkit-js demo-coding-review",
     "  handoffkit-js demo-support",
     "  handoffkit-js demo-research",
+    "  handoffkit-js demo-media",
+    "  handoffkit-js demo-fusion",
     "  handoffkit-js report <path>",
     "  handoffkit-js providers list [--json]",
     "  handoffkit-js init <project-name> [--template basic-agent] [--output .] [--force] [--interactive]",
+    "  handoffkit-js create-extension <extension-name> [--output .] [--force]",
     "  handoffkit-js keys set <name> <value>",
     "  handoffkit-js keys list",
     "  handoffkit-js keys delete <name>",

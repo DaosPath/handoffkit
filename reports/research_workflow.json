@@ -1,0 +1,486 @@
+{
+  "slug": "research-workflow",
+  "title": "Research Workflow: Researcher -> Extractor -> Fact-checker -> Writer",
+  "command": "pip install handoffkit\nhandoffkit init research-workflow\ncd research-workflow\npython research_workflow.py\nhandoffkit report runs/latest",
+  "pain": "Research agents often blur sources, confidence, corrections, and final writing constraints.",
+  "free_text_summary": "Sources look good. Fact checker removed something. Writer can make the brief.",
+  "lost_context": [
+    "which source backs which claim",
+    "what was removed",
+    "confidence level",
+    "source policy",
+    "writer constraints"
+  ],
+  "preserved_context": [
+    "source map",
+    "claim decisions",
+    "fact-check errors",
+    "approved claims",
+    "replayable trace"
+  ],
+  "handoffs": [
+    {
+      "task": "Produce a sourced brief on Python packaging release trust.",
+      "from_agent": "Researcher",
+      "to_agent": "Extractor",
+      "summary": "Collect evidence on Trusted Publishing, manual token uploads, and release provenance.",
+      "decisions": [
+        "Treat official packaging docs as primary sources.",
+        "Separate TestPyPI validation from PyPI production release.",
+        "Track claims that need verification before writing."
+      ],
+      "important_files": [
+        "sources.md",
+        "notes/raw_pypi_docs.md"
+      ],
+      "errors": [
+        "One blog post was outdated and excluded from source list."
+      ],
+      "next_steps": [
+        "Extract claims from official docs",
+        "Capture source URLs for each claim",
+        "Flag unsupported claims"
+      ],
+      "context_refs": [
+        "docs.pypi.org/trusted-publishers",
+        "packaging.python.org"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "source_policy": "primary-first"
+      }
+    },
+    {
+      "task": "Produce a sourced brief on Python packaging release trust.",
+      "from_agent": "Extractor",
+      "to_agent": "Fact-checker",
+      "summary": "Extracted 7 claims and mapped each to a source URL and confidence level.",
+      "decisions": [
+        "Mark OIDC token exchange as high confidence.",
+        "Mark adoption preference as opinion unless sourced.",
+        "Keep manual twine upload factual but not inherently negative."
+      ],
+      "important_files": [
+        "claims.json",
+        "source_map.md"
+      ],
+      "errors": [
+        "One claim mixed PyPI and TestPyPI behavior; split into two claims."
+      ],
+      "next_steps": [
+        "Verify each source URL",
+        "Check claim wording against source text",
+        "Reject claims without source_map entry"
+      ],
+      "context_refs": [
+        "claims#trusted-publishing",
+        "claims#twine"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "claims": 7
+      }
+    },
+    {
+      "task": "Produce a sourced brief on Python packaging release trust.",
+      "from_agent": "Fact-checker",
+      "to_agent": "Writer",
+      "summary": "Fact-check passed after removing one unsupported sentence about ecosystem preference.",
+      "decisions": [
+        "Keep recommendation: prefer Trusted Publishing for new packages.",
+        "Avoid saying manual twine upload is insecure by itself.",
+        "Mention replayable release evidence as operational benefit."
+      ],
+      "important_files": [
+        "fact_check.md",
+        "final_outline.md",
+        "source_map.md"
+      ],
+      "errors": [
+        "Unsupported preference claim removed from final outline."
+      ],
+      "next_steps": [
+        "Write concise brief",
+        "Include source-backed claims only",
+        "Add final caveat about package owner configuration"
+      ],
+      "context_refs": [
+        "fact-check-result",
+        "writer-brief"
+      ],
+      "metadata": {
+        "errors_checked": true,
+        "approved_claims": 6
+      }
+    }
+  ],
+  "trace": {
+    "run_id": "showcase-research-workflow",
+    "name": "Research Workflow: Researcher -> Extractor -> Fact-checker -> Writer",
+    "success": true,
+    "final_output": "Fact-check passed after removing one unsupported sentence about ecosystem preference.",
+    "steps": [
+      {
+        "name": "step-1",
+        "agent": "Researcher",
+        "task": "Produce a sourced brief on Python packaging release trust.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Researcher created the initial plan.",
+        "handoff": null,
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "showcase",
+            "message": "Workflow started.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-2",
+        "agent": "Extractor",
+        "task": "Produce a sourced brief on Python packaging release trust.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Collect evidence on Trusted Publishing, manual token uploads, and release provenance.",
+        "handoff": {
+          "task": "Produce a sourced brief on Python packaging release trust.",
+          "from_agent": "Researcher",
+          "to_agent": "Extractor",
+          "summary": "Collect evidence on Trusted Publishing, manual token uploads, and release provenance.",
+          "decisions": [
+            "Treat official packaging docs as primary sources.",
+            "Separate TestPyPI validation from PyPI production release.",
+            "Track claims that need verification before writing."
+          ],
+          "important_files": [
+            "sources.md",
+            "notes/raw_pypi_docs.md"
+          ],
+          "errors": [
+            "One blog post was outdated and excluded from source list."
+          ],
+          "next_steps": [
+            "Extract claims from official docs",
+            "Capture source URLs for each claim",
+            "Flag unsupported claims"
+          ],
+          "context_refs": [
+            "docs.pypi.org/trusted-publishers",
+            "packaging.python.org"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "source_policy": "primary-first"
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-3",
+        "agent": "Fact-checker",
+        "task": "Produce a sourced brief on Python packaging release trust.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Extracted 7 claims and mapped each to a source URL and confidence level.",
+        "handoff": {
+          "task": "Produce a sourced brief on Python packaging release trust.",
+          "from_agent": "Extractor",
+          "to_agent": "Fact-checker",
+          "summary": "Extracted 7 claims and mapped each to a source URL and confidence level.",
+          "decisions": [
+            "Mark OIDC token exchange as high confidence.",
+            "Mark adoption preference as opinion unless sourced.",
+            "Keep manual twine upload factual but not inherently negative."
+          ],
+          "important_files": [
+            "claims.json",
+            "source_map.md"
+          ],
+          "errors": [
+            "One claim mixed PyPI and TestPyPI behavior; split into two claims."
+          ],
+          "next_steps": [
+            "Verify each source URL",
+            "Check claim wording against source text",
+            "Reject claims without source_map entry"
+          ],
+          "context_refs": [
+            "claims#trusted-publishing",
+            "claims#twine"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "claims": 7
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      },
+      {
+        "name": "step-4",
+        "agent": "Writer",
+        "task": "Produce a sourced brief on Python packaging release trust.",
+        "mode": "showcase",
+        "success": true,
+        "output": "Fact-check passed after removing one unsupported sentence about ecosystem preference.",
+        "handoff": {
+          "task": "Produce a sourced brief on Python packaging release trust.",
+          "from_agent": "Fact-checker",
+          "to_agent": "Writer",
+          "summary": "Fact-check passed after removing one unsupported sentence about ecosystem preference.",
+          "decisions": [
+            "Keep recommendation: prefer Trusted Publishing for new packages.",
+            "Avoid saying manual twine upload is insecure by itself.",
+            "Mention replayable release evidence as operational benefit."
+          ],
+          "important_files": [
+            "fact_check.md",
+            "final_outline.md",
+            "source_map.md"
+          ],
+          "errors": [
+            "Unsupported preference claim removed from final outline."
+          ],
+          "next_steps": [
+            "Write concise brief",
+            "Include source-backed claims only",
+            "Add final caveat about package owner configuration"
+          ],
+          "context_refs": [
+            "fact-check-result",
+            "writer-brief"
+          ],
+          "metadata": {
+            "errors_checked": true,
+            "approved_claims": 6
+          }
+        },
+        "tool_results": [],
+        "events": [
+          {
+            "kind": "handoff",
+            "message": "Structured handoff received.",
+            "timestamp": "",
+            "metadata": {}
+          }
+        ],
+        "metadata": {}
+      }
+    ],
+    "handoffs": [
+      {
+        "task": "Produce a sourced brief on Python packaging release trust.",
+        "from_agent": "Researcher",
+        "to_agent": "Extractor",
+        "summary": "Collect evidence on Trusted Publishing, manual token uploads, and release provenance.",
+        "decisions": [
+          "Treat official packaging docs as primary sources.",
+          "Separate TestPyPI validation from PyPI production release.",
+          "Track claims that need verification before writing."
+        ],
+        "important_files": [
+          "sources.md",
+          "notes/raw_pypi_docs.md"
+        ],
+        "errors": [
+          "One blog post was outdated and excluded from source list."
+        ],
+        "next_steps": [
+          "Extract claims from official docs",
+          "Capture source URLs for each claim",
+          "Flag unsupported claims"
+        ],
+        "context_refs": [
+          "docs.pypi.org/trusted-publishers",
+          "packaging.python.org"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "source_policy": "primary-first"
+        }
+      },
+      {
+        "task": "Produce a sourced brief on Python packaging release trust.",
+        "from_agent": "Extractor",
+        "to_agent": "Fact-checker",
+        "summary": "Extracted 7 claims and mapped each to a source URL and confidence level.",
+        "decisions": [
+          "Mark OIDC token exchange as high confidence.",
+          "Mark adoption preference as opinion unless sourced.",
+          "Keep manual twine upload factual but not inherently negative."
+        ],
+        "important_files": [
+          "claims.json",
+          "source_map.md"
+        ],
+        "errors": [
+          "One claim mixed PyPI and TestPyPI behavior; split into two claims."
+        ],
+        "next_steps": [
+          "Verify each source URL",
+          "Check claim wording against source text",
+          "Reject claims without source_map entry"
+        ],
+        "context_refs": [
+          "claims#trusted-publishing",
+          "claims#twine"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "claims": 7
+        }
+      },
+      {
+        "task": "Produce a sourced brief on Python packaging release trust.",
+        "from_agent": "Fact-checker",
+        "to_agent": "Writer",
+        "summary": "Fact-check passed after removing one unsupported sentence about ecosystem preference.",
+        "decisions": [
+          "Keep recommendation: prefer Trusted Publishing for new packages.",
+          "Avoid saying manual twine upload is insecure by itself.",
+          "Mention replayable release evidence as operational benefit."
+        ],
+        "important_files": [
+          "fact_check.md",
+          "final_outline.md",
+          "source_map.md"
+        ],
+        "errors": [
+          "Unsupported preference claim removed from final outline."
+        ],
+        "next_steps": [
+          "Write concise brief",
+          "Include source-backed claims only",
+          "Add final caveat about package owner configuration"
+        ],
+        "context_refs": [
+          "fact-check-result",
+          "writer-brief"
+        ],
+        "metadata": {
+          "errors_checked": true,
+          "approved_claims": 6
+        }
+      }
+    ],
+    "metadata": {
+      "showcase": "research-workflow",
+      "offline": true
+    }
+  },
+  "replay": {
+    "success": true,
+    "step_count": 4,
+    "handoff_count": 3,
+    "tool_result_count": 0,
+    "final_output": "Fact-check passed after removing one unsupported sentence about ecosystem preference.",
+    "metadata": {
+      "run_id": "showcase-research-workflow",
+      "name": "Research Workflow: Researcher -> Extractor -> Fact-checker -> Writer",
+      "source": "",
+      "replayed": false
+    }
+  },
+  "validation": {
+    "success": true,
+    "issues": [],
+    "metadata": {
+      "validator": "HandoffStateValidator"
+    }
+  },
+  "quality": {
+    "success": true,
+    "score": 0.912,
+    "grade": "A",
+    "metrics": [
+      {
+        "name": "completeness",
+        "score": 1.0,
+        "weight": 1.4,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      },
+      {
+        "name": "clarity",
+        "score": 1.0,
+        "weight": 1.0,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      },
+      {
+        "name": "actionability",
+        "score": 0.611,
+        "weight": 1.2,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      },
+      {
+        "name": "traceability",
+        "score": 1.0,
+        "weight": 1.0,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      },
+      {
+        "name": "error_awareness",
+        "score": 1.0,
+        "weight": 0.7,
+        "notes": [
+          "average over 3 handoffs"
+        ]
+      }
+    ],
+    "recommendations": [
+      "Write next steps as concrete actions."
+    ],
+    "validation": {
+      "success": true,
+      "issues": [],
+      "metadata": {
+        "reports": 3,
+        "successful": 3
+      }
+    },
+    "metadata": {
+      "handoffs": 3,
+      "successful": 3,
+      "failed": 0,
+      "average_score": 0.912,
+      "evaluator": "HandoffQualityEvaluator",
+      "min_score": 0.75,
+      "required_metrics": []
+    }
+  },
+  "artifacts": {
+    "run_trace": "runs\\latest\\trace.json",
+    "run_report_json": "runs\\latest\\report.json",
+    "run_report_md": "runs\\latest\\report.md",
+    "report_json": "reports\\research_workflow.json",
+    "report_md": "reports\\research_workflow.md"
+  }
+}

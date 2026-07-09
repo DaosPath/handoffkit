@@ -1,4 +1,4 @@
-"""Tests for documented public API stability candidates."""
+﻿"""Tests for documented public API stability candidates."""
 
 from __future__ import annotations
 
@@ -74,4 +74,4 @@ def test_new_public_helpers_import_from_public_namespace() -> None:
 def test_version_is_188() -> None:
     from handoffkit import __version__  # noqa: PLC0415
 
-    assert __version__ == "1.11.0"
+    assert __version__ == "1.12.0"
