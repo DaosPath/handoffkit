@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 40" fill="none" role="img" aria-labelledby="logoTitle">
+  <title id="logoTitle">Handoff Kit</title>
+  <!-- Connected nodes icon -->
+  <g transform="translate(2, 4)">
+    <circle cx="8" cy="8" r="5.5" fill="#2563FF"/>
+    <circle cx="24" cy="8" r="5.5" fill="#2563FF" fill-opacity="0.85"/>
+    <circle cx="16" cy="24" r="5.5" fill="#2563FF"/>
+    <path d="M12.2 11.2 L19.8 11.2" stroke="#93C5FD" stroke-width="2" stroke-linecap="round"/>
+    <path d="M10.5 12.8 L14.2 19.5" stroke="#93C5FD" stroke-width="2" stroke-linecap="round"/>
+    <path d="M21.5 12.8 L17.8 19.5" stroke="#93C5FD" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="8" cy="8" r="2.2" fill="#EFF6FF"/>
+    <circle cx="24" cy="8" r="2.2" fill="#EFF6FF"/>
+    <circle cx="16" cy="24" r="2.2" fill="#EFF6FF"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="42" y="27" font-family="Inter, ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" letter-spacing="-0.03em">
+    <tspan fill="#07142F">Handoff </tspan>
+    <tspan fill="#2563FF">Kit</tspan>
+  </text>
+</svg>
