@@ -48,7 +48,7 @@ def test_cli_version(capsys) -> None:  # type: ignore[no-untyped-def]
     captured = capsys.readouterr()
 
     assert exc_info.value.code == 0
-    assert "handoffkit 1.8.5" in captured.out
+    assert "handoffkit 1.8.6" in captured.out
 
 
 def test_run_demo_reports_handoff_count() -> None:

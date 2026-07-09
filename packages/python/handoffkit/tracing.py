@@ -158,6 +158,35 @@ class RunTrace:
         """Serialize this trace as JSON."""
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent, default=_json_default)
 
+    def to_timeline(self) -> str:
+        """Render trace execution timeline as structured text."""
+        lines = [
+            f"# Execution Timeline: {self.name} (Run ID: {self.run_id})",
+            f"- Success: {str(self.success).lower()}",
+            f"- Total Steps: {len(self.steps)}",
+            f"- Total Handoffs: {len(self.handoffs)}",
+            "",
+            "## Timeline",
+        ]
+
+        for i, step in enumerate(self.steps, start=1):
+            agent_name = step.agent or "Unknown"
+            lines.append(f"{i}. [{agent_name}] -> Task: {step.task}")
+            lines.append(f"   - Mode: {step.mode or 'default'}")
+            lines.append(f"   - Success: {str(step.success).lower()}")
+            lines.append(f"   - Tools Used: {len(step.tool_results)}")
+            if step.output:
+                cleaned_output = step.output.replace("\n", " ")
+                preview = cleaned_output[:60] + "..." if len(cleaned_output) > 60 else cleaned_output
+                lines.append(f"   - Output Preview: {preview}")
+            if step.handoff:
+                h = step.handoff
+                from_a = h.from_agent if hasattr(h, "from_agent") else h.get("from_agent", "")
+                to_a = h.to_agent if hasattr(h, "to_agent") else h.get("to_agent", "")
+                lines.append(f"   - [Handoff] -> {from_a} to {to_a}")
+
+        return "\n".join(lines)
+
     def to_markdown(self) -> str:
         """Serialize this trace as Markdown."""
         steps = "\n".join(

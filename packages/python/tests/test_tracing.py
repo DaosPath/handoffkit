@@ -158,3 +158,12 @@ def test_run_trace_dict_is_json_serializable() -> None:
     payload = json.loads(trace.to_json())
 
     assert payload["run_id"] == trace.run_id
+
+
+def test_run_trace_to_timeline() -> None:
+    trace = RunTrace.from_team_result(team_result(), name="my-timeline-test")
+    timeline = trace.to_timeline()
+
+    assert "Execution Timeline: my-timeline-test" in timeline
+    assert "1. [Planner] -> Task:" in timeline
+
