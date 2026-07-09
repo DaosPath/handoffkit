@@ -13,12 +13,12 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PACKAGE_ROOT.parents[1]
 
 
-def test_pyproject_is_187_stable() -> None:
+def test_pyproject_is_188_stable() -> None:
     data = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = data["project"]
     classifiers = project["classifiers"]
 
-    assert project["version"] == "1.8.7"
+    assert project["version"] == "1.8.8"
     assert "Development Status :: 5 - Production/Stable" in classifiers
     assert not any("Alpha" in item or "Beta" in item for item in classifiers)
 

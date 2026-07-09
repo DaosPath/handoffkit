@@ -124,10 +124,11 @@ All runtimes share the same `snake_case` JSON wire format so a `HandoffState` wr
 
 ---
 
-## What 1.8.7 Adds
+## What 1.8.8 Adds
 
-HandoffKit 1.8.7 turns the C++ and Rust packages from early contract layers into
-tested peers of the Python and JavaScript runtimes:
+HandoffKit 1.8.8 turns the C++ and Rust packages from early contract layers into
+tested peers of the Python and JavaScript runtimes, and makes contract parity
+reports work both inside the monorepo and from installed packages:
 
 - Rust and C++ now roundtrip shared `ValidationReport`, `HandoffQualityReport`,
   `ToolCall`, and `ToolResult` fixtures,
