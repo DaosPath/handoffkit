@@ -70,13 +70,41 @@ export default function ChangelogPage() {
           ))}
         </div>
 
-        <h2 id="roadmap">Runtime roadmap</h2>
+        <h2 id="roadmap">Roadmap</h2>
+        <p>
+          Full product plan:{" "}
+          <a
+            href="https://github.com/DaosPath/handoffkit/blob/main/ROADMAP.md"
+            target="_blank"
+            rel="noreferrer"
+          >
+            ROADMAP.md
+          </a>
+          .
+        </p>
+        <h3>Studio (highlights)</h3>
+        <ul>
+          <li>
+            <strong>Done</strong> — live MAI panel, NVIDIA NIM + Groq providers,
+            local run history (filesystem), benchmark export API
+          </li>
+          <li>
+            <strong>Next (P0)</strong> —{" "}
+            <em>database-backed run history</em> (today is local{" "}
+            <code>.data/mai-runs/</code> only; not multi-user durable storage)
+          </li>
+          <li>
+            <strong>Later</strong> — public MAI-style benchmark from high-volume
+            Studio traffic once DB history + scoring exist
+          </li>
+        </ul>
+        <h3>Runtimes</h3>
         <ul>
           <li>
             <strong>Python</strong> — primary runtime (stable)
           </li>
           <li>
-            <strong>TypeScript</strong> — contract + agent runtime (stable core)
+            <strong>TypeScript</strong> — contract + agent runtime + Studio
           </li>
           <li>
             <strong>Rust</strong> — contracts today; full agent runtime planned

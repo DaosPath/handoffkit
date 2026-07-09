@@ -1502,9 +1502,13 @@ function RunHistoryPanel({ refreshKey }: { refreshKey: string }) {
             Local studio log
           </p>
           <p className="mt-1 text-[0.78rem] text-[var(--navy-muted)]">
-            Saved after each live panel. When volume grows, export a benchmark
-            corpus from{" "}
-            <code className="text-[0.72rem]">/api/demos/mai-panel/runs?export=benchmark</code>
+            Saved after each live panel on <strong>local disk</strong>{" "}
+            (<code className="text-[0.72rem]">.data/mai-runs/</code>) — not a
+            database yet. Roadmap P0: durable DB history, then public benchmark
+            export when traffic is high. Preview export:{" "}
+            <code className="text-[0.72rem]">
+              /api/demos/mai-panel/runs?export=benchmark
+            </code>
             .
           </p>
         </div>
