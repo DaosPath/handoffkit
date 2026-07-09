@@ -1,4 +1,4 @@
-﻿export type Severity = "error" | "warning";
+export type Severity = "error" | "warning";
 
 export const HANDOFFKIT_CORE_VERSION: "1.12.0";
 
@@ -175,7 +175,15 @@ export class Agent {
   metadata: Record<string, unknown>;
   constructor(init: { name: string; role?: string; provider?: BaseProvider; metadata?: Record<string, unknown> });
   run(task: string, options?: { context?: string | null }): AgentRunResult;
-  arun(task: string, options?: { context?: string | null }): Promise<AgentRunResult>;
+  arun(
+    task: string,
+    options?: {
+      context?: string | null;
+      temperature?: number;
+      max_tokens?: number;
+      [key: string]: unknown;
+    }
+  ): Promise<AgentRunResult>;
   runWithTools(task: string, options?: { tools?: Tool[]; toolCalls?: ToolCall[] | Record<string, unknown>; providerAdapter?: ProviderToolAdapter }): ToolAgentRunResult;
   arunWithTools(task: string, options?: { tools?: Tool[]; toolCalls?: ToolCall[] | Record<string, unknown>; providerAdapter?: ProviderToolAdapter }): Promise<ToolAgentRunResult>;
 }
