@@ -9,7 +9,7 @@ handoffkit/
   packages/
     contracts/       # Shared JSON schemas and cross-runtime fixtures
     python/          # Python package published to PyPI as handoffkit
-    core/            # JavaScript contract package: @handoffkit/core
+    js/              # JavaScript contract package: @handoffkit/core
   apps/
     web/             # Next.js demo and docs workspace
   package.json       # pnpm workspace commands
@@ -52,13 +52,13 @@ pnpm web:build
 
 ## JavaScript Core
 
-The JavaScript/TypeScript contract package lives in [`packages/core`](packages/core).
+The JavaScript/TypeScript contract package lives in [`packages/js`](packages/js).
 It includes offline agents/teams, async runs, tool schema adapters, traces, and
 report helpers for Next.js and Node apps.
 
 ```bash
-pnpm core:check
-pnpm core:test
+pnpm js:check
+pnpm js:test
 ```
 
 ## Shared Contracts
