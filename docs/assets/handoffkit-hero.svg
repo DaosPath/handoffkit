@@ -1,213 +1,225 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
-  <title id="title">HandoffKit hero</title>
-  <desc id="desc">HandoffKit hero graphic — language-agnostic structured state transfer for multi-agent workflows across Python, JavaScript, Rust, and C++.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="740" viewBox="0 0 1280 740" role="img" aria-labelledby="title desc">
+  <title id="title">HandoffKit hero — multi-runtime</title>
+  <desc id="desc">HandoffKit hero: structured state transfer for multi-agent workflows across Python, JavaScript, Rust, and C++.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="720" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#070b16"/>
-      <stop offset="0.55" stop-color="#0d1525"/>
-      <stop offset="1" stop-color="#102016"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="740" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#060c1a"/>
+      <stop offset="0.6" stop-color="#0c1628"/>
+      <stop offset="1" stop-color="#0a1c14"/>
     </linearGradient>
-    <linearGradient id="wash" x1="138" y1="82" x2="1180" y2="656" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0ea5e9" stop-opacity="0.18"/>
-      <stop offset="0.45" stop-color="#22c55e" stop-opacity="0.12"/>
-      <stop offset="1" stop-color="#f59e0b" stop-opacity="0.10"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="72" y1="0" x2="560" y2="0" gradientUnits="userSpaceOnUse">
+    <linearGradient id="accentLine" x1="0" y1="0" x2="1" y2="0">
       <stop stop-color="#38bdf8"/>
-      <stop offset="0.33" stop-color="#34d399"/>
-      <stop offset="0.66" stop-color="#f97316"/>
+      <stop offset="0.33" stop-color="#4ade80"/>
+      <stop offset="0.66" stop-color="#fb923c"/>
       <stop offset="1" stop-color="#a78bfa"/>
     </linearGradient>
-    <linearGradient id="stateStroke" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="panelGrad" x1="560" y1="60" x2="1240" y2="680" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0f1e36"/>
+      <stop offset="1" stop-color="#0a1422"/>
+    </linearGradient>
+    <linearGradient id="stateGrad" x1="0" y1="0" x2="1" y2="1">
       <stop stop-color="#38bdf8"/>
-      <stop offset="0.52" stop-color="#34d399"/>
-      <stop offset="1" stop-color="#f59e0b"/>
+      <stop offset="0.5" stop-color="#4ade80"/>
+      <stop offset="1" stop-color="#fb923c"/>
     </linearGradient>
-    <linearGradient id="panelFill" x1="0" y1="0" x2="640" y2="560" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#111a2c"/>
-      <stop offset="1" stop-color="#0b1220"/>
-    </linearGradient>
-    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
-      <path d="M48 0H0V48" fill="none" stroke="#1e293b" stroke-opacity="0.35" stroke-width="1"/>
+    <pattern id="dots" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#1e3a5f" fill-opacity="0.4"/>
     </pattern>
-    <filter id="shadow" x="-10%" y="-12%" width="120%" height="130%">
-      <feDropShadow dx="0" dy="22" stdDeviation="25" flood-color="#000000" flood-opacity="0.38"/>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    <filter id="softShadow" x="-10%" y="-12%" width="120%" height="130%">
-      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.28"/>
+    <filter id="shadow" x="-8%" y="-10%" width="116%" height="128%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000" flood-opacity="0.4"/>
     </filter>
-    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
-      <path d="M2 2L10 6L2 10" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </marker>
+    <filter id="softShadow" x="-6%" y="-8%" width="112%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+    <clipPath id="panelClip">
+      <rect x="556" y="56" width="692" height="628" rx="28"/>
+    </clipPath>
     <style>
-      .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-      .eyebrow { fill: #8ddcff; font-size: 12px; font-weight: 850; }
-      .title { fill: #f8fafc; font-size: 72px; font-weight: 880; }
-      .subtitle { fill: #dbeafe; font-size: 21px; font-weight: 650; }
-      .body { fill: #9fb4ce; font-size: 14px; font-weight: 580; }
-      .terminal { fill: #d1fae5; font-size: 14px; font-weight: 780; }
-      .terminalDim { fill: #94a3b8; font-size: 11px; font-weight: 760; }
-      .chipText { fill: #e0f2fe; font-size: 11px; font-weight: 820; }
-      .panelKicker { fill: #8ddcff; font-size: 11px; font-weight: 850; }
-      .panelTitle { fill: #f8fafc; font-size: 20px; font-weight: 860; }
-      .panelSub { fill: #cbd5e1; font-size: 13px; font-weight: 650; }
-      .nodeTitle { fill: #f8fafc; font-size: 15px; font-weight: 860; }
-      .nodeSub { fill: #cbd5e1; font-size: 11px; font-weight: 720; }
-      .metric { fill: #f8fafc; font-size: 18px; font-weight: 880; }
-      .metricLabel { fill: #9fb4ce; font-size: 11px; font-weight: 760; }
-      .langTag { font-size: 11px; font-weight: 820; }
+      .f { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+      .m { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
     </style>
   </defs>
 
-  <rect width="1280" height="720" rx="40" fill="url(#bg)"/>
-  <rect x="30" y="26" width="1220" height="668" rx="34" fill="url(#wash)" opacity="0.92"/>
-  <rect width="1280" height="720" rx="40" fill="url(#grid)" opacity="0.24"/>
-  <rect x="1.5" y="1.5" width="1277" height="717" rx="38.5" fill="none" stroke="#31435e" stroke-width="3"/>
+  <!-- BG -->
+  <rect width="1280" height="740" rx="32" fill="url(#bg)"/>
+  <rect width="1280" height="740" rx="32" fill="url(#dots)" opacity="0.5"/>
+  <rect x="1.5" y="1.5" width="1277" height="737" rx="30.5" fill="none" stroke="#1e3a5f" stroke-width="3"/>
 
-  <path d="M72 132H560" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
-  <path d="M72 618H430" stroke="#26364f" stroke-width="1.2"/>
+  <!-- Glow circles -->
+  <circle cx="280" cy="400" r="240" fill="#0ea5e9" fill-opacity="0.04"/>
+  <circle cx="1000" cy="300" r="200" fill="#4ade80" fill-opacity="0.04"/>
 
-  <!-- Left column: Hero text -->
-  <g transform="translate(72 70)">
-    <g>
-      <rect width="272" height="36" rx="18" fill="#062c42" stroke="#0e7490"/>
-      <path d="M21 18H35M28 11V25" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
-      <text x="48" y="24" class="mono eyebrow">MULTI-RUNTIME AGENT CONTRACTS</text>
-    </g>
+  <!-- Accent rule under title -->
+  <rect x="68" y="140" width="480" height="5" rx="2.5">
+    <animate attributeName="width" from="0" to="480" dur="0s" fill="freeze"/>
+  </rect>
+  <rect x="68" y="140" width="480" height="5" rx="2.5" fill="url(#accentLine)"/>
 
-    <text x="0" y="124" class="sans title">HandoffKit</text>
-    <text x="0" y="168" class="sans subtitle">Structured state transfer for</text>
-    <text x="0" y="193" class="sans subtitle">multi-agent workflows.</text>
-    <text x="0" y="225" class="sans body">Python · JavaScript · Rust · C++</text>
-    <text x="0" y="247" class="sans body">Validate state. Trace decisions. Replay every run.</text>
+  <!-- ─── LEFT COLUMN ─── -->
+  <g transform="translate(68 64)">
 
-    <!-- Terminal block -->
-    <g transform="translate(0 276)" filter="url(#softShadow)">
-      <rect width="448" height="164" rx="24" fill="#040915" stroke="#26364f"/>
-      <rect x="1" y="1" width="446" height="42" rx="23" fill="#070b16" opacity="0.92"/>
-      <circle cx="29" cy="22" r="6" fill="#fb7185"/>
-      <circle cx="51" cy="22" r="6" fill="#facc15"/>
-      <circle cx="73" cy="22" r="6" fill="#74d399"/>
-      <text x="100" y="27" class="mono terminalDim">$ multi-runtime install</text>
-      <text x="28" y="68" class="mono terminal" fill="#38bdf8">$ pip install handoffkit</text>
-      <text x="28" y="92" class="mono terminal" fill="#facc15">$ npm install @handoffkit/core</text>
-      <text x="28" y="116" class="mono terminal" fill="#f97316">$ cargo add handoffkit</text>
-      <text x="28" y="140" class="mono terminal" fill="#a78bfa">  # C++: CMake FetchContent</text>
+    <!-- Eyebrow pill -->
+    <rect width="290" height="34" rx="17" fill="#062c42" stroke="#0e7490" stroke-width="1.5"/>
+    <circle cx="20" cy="17" r="5" fill="#38bdf8"/>
+    <text x="36" y="22" class="m" font-size="11" font-weight="800" fill="#7dd3fc" letter-spacing="0.5">MULTI-RUNTIME · AGENT CONTRACTS</text>
+
+    <!-- Title -->
+    <text x="0" y="118" class="f" font-size="76" font-weight="900" fill="#f8fafc">HandoffKit</text>
+
+    <!-- Subtitle -->
+    <text x="0" y="158" class="f" font-size="20" font-weight="600" fill="#bfdbfe">Structured state transfer for</text>
+    <text x="0" y="184" class="f" font-size="20" font-weight="600" fill="#bfdbfe">multi-agent workflows.</text>
+    <text x="0" y="218" class="f" font-size="15" font-weight="500" fill="#64748b">Validate state. Trace decisions. Replay every run.</text>
+
+    <!-- Terminal -->
+    <g transform="translate(0 248)" filter="url(#softShadow)">
+      <rect width="456" height="172" rx="20" fill="#040d1a" stroke="#1e3a5f" stroke-width="1.5"/>
+      <!-- Title bar -->
+      <rect width="456" height="40" rx="20" fill="#070e1c"/>
+      <rect x="0" y="20" width="456" height="20" fill="#070e1c"/>
+      <circle cx="26" cy="20" r="6" fill="#fb7185"/>
+      <circle cx="48" cy="20" r="6" fill="#facc15"/>
+      <circle cx="70" cy="20" r="6" fill="#4ade80"/>
+      <text x="96" y="25" class="m" font-size="11" fill="#475569">multi-runtime install</text>
+      <!-- Commands -->
+      <text x="24" y="68" class="m" font-size="13" font-weight="700" fill="#38bdf8">$ pip install handoffkit</text>
+      <text x="24" y="94" class="m" font-size="13" font-weight="700" fill="#facc15">$ npm install @handoffkit/core</text>
+      <text x="24" y="120" class="m" font-size="13" font-weight="700" fill="#fb923c">$ cargo add handoffkit</text>
+      <text x="24" y="146" class="m" font-size="13" font-weight="700" fill="#a78bfa">  # C++: CMake FetchContent</text>
     </g>
 
     <!-- Language chips -->
-    <g transform="translate(0 478)">
-      <rect width="112" height="34" rx="17" fill="#0f1f35" stroke="#2563eb"/>
-      <circle cx="18" cy="17" r="5" fill="#38bdf8"/>
-      <text x="32" y="22" class="mono langTag" fill="#7dd3fc">Python</text>
+    <g transform="translate(0 446)">
+      <rect width="82" height="32" rx="16" fill="#0e2a40" stroke="#0ea5e9" stroke-width="1.5"/>
+      <text x="14" y="21" class="m" font-size="11" font-weight="800" fill="#38bdf8">Python</text>
 
-      <rect x="122" width="118" height="34" rx="17" fill="#2a2000" stroke="#ca8a04"/>
-      <circle cx="140" cy="17" r="5" fill="#facc15"/>
-      <text x="154" y="22" class="mono langTag" fill="#fde68a">JavaScript</text>
+      <rect x="92" width="98" height="32" rx="16" fill="#2a1e00" stroke="#ca8a04" stroke-width="1.5"/>
+      <text x="106" y="21" class="m" font-size="11" font-weight="800" fill="#facc15">JavaScript</text>
 
-      <rect x="250" width="92" height="34" rx="17" fill="#2a1200" stroke="#ea580c"/>
-      <circle cx="268" cy="17" r="5" fill="#f97316"/>
-      <text x="282" y="22" class="mono langTag" fill="#fed7aa">Rust</text>
+      <rect x="200" width="62" height="32" rx="16" fill="#2a1200" stroke="#ea580c" stroke-width="1.5"/>
+      <text x="214" y="21" class="m" font-size="11" font-weight="800" fill="#fb923c">Rust</text>
 
-      <rect x="352" width="78" height="34" rx="17" fill="#1e1030" stroke="#7c3aed"/>
-      <circle cx="370" cy="17" r="5" fill="#a78bfa"/>
-      <text x="384" y="22" class="mono langTag" fill="#ddd6fe">C++</text>
+      <rect x="272" width="56" height="32" rx="16" fill="#1a0d38" stroke="#7c3aed" stroke-width="1.5"/>
+      <text x="286" y="21" class="m" font-size="11" font-weight="800" fill="#a78bfa">C++</text>
     </g>
 
-    <g transform="translate(0 556)">
-      <text x="0" y="0" class="mono terminalDim">HandoffState = task + decisions + files + errors + next_steps</text>
-      <path d="M0 20H380" stroke="#26364f" stroke-width="1.3" stroke-linecap="round"/>
-    </g>
+    <!-- Bottom footnote -->
+    <text x="0" y="528" class="m" font-size="12" fill="#334155">HandoffState = task + decisions + files + errors + next_steps</text>
+    <line x1="0" y1="544" x2="380" y2="544" stroke="#1e3a5f" stroke-width="1.5"/>
+    <text x="0" y="564" class="m" font-size="11" fill="#334155">Shared JSON wire format · readable by all 4 runtimes</text>
   </g>
 
-  <!-- Right panel: contract trace -->
-  <g transform="translate(552 58)" filter="url(#shadow)">
-    <rect width="690" height="602" rx="34" fill="url(#panelFill)" stroke="#334155" stroke-width="1.5"/>
-    <rect x="26" y="26" width="638" height="74" rx="23" fill="#050816" stroke="#26364f"/>
-    <text x="54" y="54" class="mono panelKicker">CONTRACT HANDOFF TRACE · CROSS-RUNTIME</text>
-    <text x="54" y="78" class="mono terminal" font-size="13">Architect → Coder → Reviewer → Tester</text>
-    <rect x="522" y="40" width="118" height="30" rx="15" fill="#052e16" stroke="#15803d"/>
-    <text x="545" y="60" class="mono chipText">offline ✓</text>
+  <!-- ─── RIGHT PANEL ─── -->
+  <rect x="556" y="56" width="692" height="628" rx="28" fill="url(#panelGrad)" stroke="#1e3a5f" stroke-width="1.5" filter="url(#shadow)"/>
 
-    <!-- Agent flow nodes -->
-    <g transform="translate(36 132)">
-      <rect width="118" height="76" rx="20" fill="#071225" stroke="#38bdf8" stroke-width="2"/>
-      <text x="20" y="32" class="sans nodeTitle">Architect</text>
-      <text x="26" y="52" class="sans nodeSub">decides</text>
-      <rect x="14" y="58" width="60" height="14" rx="7" fill="#062c42"/>
-      <text x="20" y="69" class="mono" font-size="9" fill="#38bdf8">Python</text>
+  <!-- Top bar inside panel -->
+  <rect x="580" y="80" width="644" height="68" rx="18" fill="#040d1a" stroke="#1e3a5f" stroke-width="1"/>
+  <text x="608" y="108" class="m" font-size="10" font-weight="800" fill="#38bdf8" letter-spacing="0.5">CONTRACT HANDOFF TRACE · CROSS-RUNTIME</text>
+  <text x="608" y="132" class="m" font-size="13" font-weight="700" fill="#4ade80">Architect → Coder → Reviewer → Tester</text>
+  <rect x="1116" y="92" width="88" height="26" rx="13" fill="#052e16" stroke="#15803d" stroke-width="1"/>
+  <text x="1134" y="110" class="m" font-size="11" font-weight="700" fill="#4ade80">offline ✓</text>
 
-      <path d="M134 38H168" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <!-- Agent nodes -->
+  <g transform="translate(580 178)">
+    <!-- Architect -->
+    <rect width="128" height="84" rx="18" fill="#071428" stroke="#38bdf8" stroke-width="2"/>
+    <text x="18" y="32" class="f" font-size="14" font-weight="800" fill="#f8fafc">Architect</text>
+    <text x="18" y="52" class="f" font-size="11" fill="#94a3b8">decides</text>
+    <rect x="14" y="60" width="60" height="18" rx="9" fill="#0e2a40"/>
+    <text x="20" y="73" class="m" font-size="10" font-weight="700" fill="#38bdf8">Python</text>
 
-      <rect x="186" width="118" height="76" rx="20" fill="#071225" stroke="#34d399" stroke-width="2"/>
-      <text x="206" y="32" class="sans nodeTitle">Coder</text>
-      <text x="208" y="52" class="sans nodeSub">builds</text>
-      <rect x="200" y="58" width="68" height="14" rx="7" fill="#022c1a"/>
-      <text x="206" y="69" class="mono" font-size="9" fill="#34d399">JavaScript</text>
+    <!-- Arrow -->
+    <path d="M142 42 L170 42" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
+    <path d="M160 32 L172 42 L160 52" stroke="#334155" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 
-      <path d="M320 38H348" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" marker-end="url(#arrow)"/>
+    <!-- Coder -->
+    <rect x="186" width="128" height="84" rx="18" fill="#071428" stroke="#4ade80" stroke-width="2"/>
+    <text x="204" y="32" class="f" font-size="14" font-weight="800" fill="#f8fafc">Coder</text>
+    <text x="204" y="52" class="f" font-size="11" fill="#94a3b8">builds</text>
+    <rect x="200" y="60" width="82" height="18" rx="9" fill="#022c1a"/>
+    <text x="206" y="73" class="m" font-size="10" font-weight="700" fill="#4ade80">JavaScript</text>
 
-      <rect x="366" width="118" height="76" rx="20" fill="#071225" stroke="#a78bfa" stroke-width="2"/>
-      <text x="386" y="32" class="sans nodeTitle">Reviewer</text>
-      <text x="396" y="52" class="sans nodeSub">checks</text>
-      <rect x="380" y="58" width="46" height="14" rx="7" fill="#1e1030"/>
-      <text x="386" y="69" class="mono" font-size="9" fill="#a78bfa">Rust</text>
+    <!-- Arrow -->
+    <path d="M328 42 L356 42" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
+    <path d="M346 32 L358 42 L346 52" stroke="#334155" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 
-      <path d="M500 38H528" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" marker-end="url(#arrow)"/>
+    <!-- Reviewer -->
+    <rect x="372" width="128" height="84" rx="18" fill="#071428" stroke="#a78bfa" stroke-width="2"/>
+    <text x="390" y="32" class="f" font-size="14" font-weight="800" fill="#f8fafc">Reviewer</text>
+    <text x="390" y="52" class="f" font-size="11" fill="#94a3b8">checks</text>
+    <rect x="386" y="60" width="44" height="18" rx="9" fill="#1a0d38"/>
+    <text x="392" y="73" class="m" font-size="10" font-weight="700" fill="#a78bfa">Rust</text>
 
-      <rect x="546" width="96" height="76" rx="20" fill="#071225" stroke="#f59e0b" stroke-width="2"/>
-      <text x="566" y="32" class="sans nodeTitle">Tester</text>
-      <text x="568" y="52" class="sans nodeSub">validates</text>
-      <rect x="560" y="58" width="40" height="14" rx="7" fill="#1c1000"/>
-      <text x="566" y="69" class="mono" font-size="9" fill="#f59e0b">C++</text>
-    </g>
+    <!-- Arrow -->
+    <path d="M514 42 L542 42" stroke="#334155" stroke-width="3" stroke-linecap="round"/>
+    <path d="M532 32 L544 42 L532 52" stroke="#334155" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 
-    <!-- HandoffState box -->
-    <g transform="translate(36 244)">
-      <rect width="618" height="198" rx="28" fill="#0a1322" stroke="url(#stateStroke)" stroke-width="2.8"/>
-      <text x="30" y="44" class="sans panelTitle">HandoffState</text>
-      <text x="30" y="70" class="sans panelSub">Shared wire format — snake_case JSON — readable by all 4 runtimes</text>
+    <!-- Tester -->
+    <rect x="558" width="100" height="84" rx="18" fill="#071428" stroke="#fb923c" stroke-width="2"/>
+    <text x="576" y="32" class="f" font-size="14" font-weight="800" fill="#f8fafc">Tester</text>
+    <text x="576" y="52" class="f" font-size="11" fill="#94a3b8">validates</text>
+    <rect x="572" y="60" width="44" height="18" rx="9" fill="#1c0e00"/>
+    <text x="578" y="73" class="m" font-size="10" font-weight="700" fill="#fb923c">C++</text>
+  </g>
 
-      <g transform="translate(30 140)">
-        <rect width="112" height="34" rx="17" fill="#082f49" stroke="#0ea5e9"/>
-        <circle cx="23" cy="17" r="5" fill="#38bdf8"/>
-        <text x="43" y="22" class="mono chipText">files</text>
+  <!-- HandoffState box -->
+  <rect x="580" y="292" width="644" height="212" rx="22" fill="#08111f" stroke-width="0"/>
+  <!-- Gradient border via two rects trick -->
+  <rect x="579" y="291" width="646" height="214" rx="23" fill="none" stroke="url(#stateGrad)" stroke-width="2.5"/>
 
-        <rect x="128" width="138" height="34" rx="17" fill="#172554" stroke="#2563eb"/>
-        <circle cx="151" cy="17" r="5" fill="#60a5fa"/>
-        <text x="170" y="22" class="mono chipText">decisions</text>
+  <text x="610" y="334" class="f" font-size="20" font-weight="800" fill="#f8fafc">HandoffState</text>
+  <text x="610" y="358" class="f" font-size="13" fill="#64748b">Shared wire format — snake_case JSON — readable by all 4 runtimes</text>
 
-        <rect x="282" width="116" height="34" rx="17" fill="#2a1a05" stroke="#b45309"/>
-        <circle cx="305" cy="17" r="5" fill="#f59e0b"/>
-        <text x="325" y="22" class="mono chipText">errors</text>
+  <!-- Field chips -->
+  <g transform="translate(610 376)">
+    <rect width="108" height="32" rx="16" fill="#082f49" stroke="#0ea5e9" stroke-width="1.5"/>
+    <circle cx="20" cy="16" r="4" fill="#38bdf8"/>
+    <text x="32" y="21" class="m" font-size="11" font-weight="700" fill="#bae6fd">files</text>
 
-        <rect x="414" width="138" height="34" rx="17" fill="#1e1030" stroke="#7c3aed"/>
-        <circle cx="437" cy="17" r="5" fill="#a78bfa"/>
-        <text x="455" y="22" class="mono chipText">next_steps</text>
-      </g>
+    <rect x="120" width="124" height="32" rx="16" fill="#172554" stroke="#3b82f6" stroke-width="1.5"/>
+    <circle cx="140" cy="16" r="4" fill="#60a5fa"/>
+    <text x="152" y="21" class="m" font-size="11" font-weight="700" fill="#bfdbfe">decisions</text>
 
-      <g transform="translate(468 26)">
-        <rect width="120" height="34" rx="17" fill="#052e16" stroke="#15803d"/>
-        <text x="24" y="22" class="mono chipText">validated</text>
-        <rect y="44" width="120" height="34" rx="17" fill="#172554" stroke="#2563eb"/>
-        <text x="28" y="66" class="mono chipText">quality A</text>
-      </g>
-    </g>
+    <rect x="256" width="108" height="32" rx="16" fill="#2a1200" stroke="#ea580c" stroke-width="1.5"/>
+    <circle cx="276" cy="16" r="4" fill="#fb923c"/>
+    <text x="288" y="21" class="m" font-size="11" font-weight="700" fill="#fed7aa">errors</text>
 
-    <!-- Bottom metrics -->
-    <g transform="translate(36 488)">
-      <rect width="168" height="70" rx="22" fill="#050816" stroke="#26364f"/>
-      <text x="24" y="34" class="sans metric">4 steps</text>
-      <text x="24" y="54" class="mono metricLabel">RunTrace</text>
+    <rect x="376" width="128" height="32" rx="16" fill="#1a0d38" stroke="#7c3aed" stroke-width="1.5"/>
+    <circle cx="396" cy="16" r="4" fill="#a78bfa"/>
+    <text x="408" y="21" class="m" font-size="11" font-weight="700" fill="#ddd6fe">next_steps</text>
+  </g>
 
-      <rect x="200" width="168" height="70" rx="22" fill="#050816" stroke="#26364f"/>
-      <text x="224" y="34" class="sans metric">3 handoffs</text>
-      <text x="224" y="54" class="mono metricLabel">ReplayRunner</text>
+  <!-- Validation chips -->
+  <g transform="translate(610 424)">
+    <rect width="108" height="32" rx="16" fill="#052e16" stroke="#15803d" stroke-width="1.5"/>
+    <text x="18" y="21" class="m" font-size="11" font-weight="700" fill="#4ade80">validated</text>
 
-      <rect x="400" width="218" height="70" rx="22" fill="#050816" stroke="#26364f"/>
-      <text x="424" y="34" class="sans metric">4 runtimes</text>
-      <text x="424" y="54" class="mono metricLabel">Py · JS · Rust · C++</text>
-    </g>
+    <rect x="120" width="108" height="32" rx="16" fill="#172554" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="138" y="21" class="m" font-size="11" font-weight="700" fill="#93c5fd">quality A</text>
+
+    <rect x="240" width="124" height="32" rx="16" fill="#1c0e00" stroke="#ea580c" stroke-width="1.5"/>
+    <text x="258" y="21" class="m" font-size="11" font-weight="700" fill="#fdba74">replay ready</text>
+
+    <rect x="376" width="124" height="32" rx="16" fill="#082f49" stroke="#0ea5e9" stroke-width="1.5"/>
+    <text x="394" y="21" class="m" font-size="11" font-weight="700" fill="#7dd3fc">to_timeline()</text>
+  </g>
+
+  <!-- Metric cards bottom -->
+  <g transform="translate(580 532)">
+    <rect width="196" height="72" rx="18" fill="#040d1a" stroke="#1e3a5f" stroke-width="1.5"/>
+    <text x="24" y="34" class="f" font-size="22" font-weight="800" fill="#f8fafc">4 steps</text>
+    <text x="24" y="56" class="m" font-size="11" fill="#475569">RunTrace</text>
+
+    <rect x="216" width="196" height="72" rx="18" fill="#040d1a" stroke="#1e3a5f" stroke-width="1.5"/>
+    <text x="240" y="34" class="f" font-size="22" font-weight="800" fill="#f8fafc">3 handoffs</text>
+    <text x="240" y="56" class="m" font-size="11" fill="#475569">ReplayRunner</text>
+
+    <rect x="432" width="216" height="72" rx="18" fill="#040d1a" stroke="#1e3a5f" stroke-width="1.5"/>
+    <text x="456" y="34" class="f" font-size="22" font-weight="800" fill="#f8fafc">4 runtimes</text>
+    <text x="456" y="56" class="m" font-size="11" fill="#475569">Py · JS · Rust · C++</text>
   </g>
 </svg>

@@ -1,83 +1,115 @@
-<svg width="1280" height="460" viewBox="0 0 1280 460" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+<svg width="1280" height="480" viewBox="0 0 1280 480" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
   <title id="title">HandoffKit state flow — cross-runtime</title>
   <desc id="desc">Before and after diagram: vague free-text context vs structured HandoffState shared across Python, JavaScript, Rust, and C++.</desc>
   <defs>
-    <linearGradient id="good" x1="680" y1="118" x2="1200" y2="360" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ECFEFF"/>
-      <stop offset="1" stop-color="#ECFDF5"/>
+    <linearGradient id="pageBg" x1="0" y1="0" x2="1280" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f0f4ff"/>
+      <stop offset="1" stop-color="#f0fdf4"/>
     </linearGradient>
-    <linearGradient id="runtimeBar" x1="680" y1="0" x2="1200" y2="0" gradientUnits="userSpaceOnUse">
+    <linearGradient id="afterBg" x1="660" y1="130" x2="1210" y2="390" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ecfeff"/>
+      <stop offset="1" stop-color="#f0fdf4"/>
+    </linearGradient>
+    <linearGradient id="rtBar" x1="0" y1="0" x2="1" y2="0">
       <stop stop-color="#38bdf8"/>
-      <stop offset="0.33" stop-color="#facc15"/>
-      <stop offset="0.66" stop-color="#f97316"/>
+      <stop offset="0.33" stop-color="#4ade80"/>
+      <stop offset="0.66" stop-color="#fb923c"/>
       <stop offset="1" stop-color="#a78bfa"/>
     </linearGradient>
+    <linearGradient id="rtBarH" x1="660" y1="0" x2="1210" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38bdf8"/>
+      <stop offset="0.33" stop-color="#4ade80"/>
+      <stop offset="0.66" stop-color="#fb923c"/>
+      <stop offset="1" stop-color="#a78bfa"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-4%" y="-6%" width="108%" height="118%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
     <style>
-      .heading { font: 800 34px Inter, ui-sans-serif, system-ui, sans-serif; fill: #0F172A; }
-      .sub { font: 500 17px Inter, ui-sans-serif, system-ui, sans-serif; fill: #475569; }
-      .label { font: 800 22px Inter, ui-sans-serif, system-ui, sans-serif; fill: #0F172A; }
-      .body { font: 500 15px Inter, ui-sans-serif, system-ui, sans-serif; fill: #475569; }
-      .badCode { font: 700 14px "JetBrains Mono", "SFMono-Regular", Consolas, monospace; fill: #991B1B; }
-      .goodCode { font: 700 13.5px "JetBrains Mono", "SFMono-Regular", Consolas, monospace; fill: #047857; }
-      .langTag { font: 800 10px "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+      .f { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+      .m { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
     </style>
   </defs>
 
-  <rect width="1280" height="460" rx="30" fill="#F8FAFC"/>
-  <rect x="1.5" y="1.5" width="1277" height="457" rx="28.5" stroke="#CBD5E1" stroke-width="3"/>
+  <!-- Background -->
+  <rect width="1280" height="480" rx="28" fill="url(#pageBg)"/>
+  <rect x="1.5" y="1.5" width="1277" height="477" rx="26.5" fill="none" stroke="#cbd5e1" stroke-width="3"/>
 
-  <text x="70" y="68" class="heading">Structured handoffs beat context soup</text>
-  <text x="70" y="98" class="sub">HandoffKit keeps task state explicit as agents move across runtimes — Python, JavaScript, Rust, and C++.</text>
+  <!-- Header -->
+  <text x="68" y="62" class="f" font-size="32" font-weight="800" fill="#0f172a">Structured handoffs beat context soup</text>
+  <text x="68" y="90" class="f" font-size="16" font-weight="500" fill="#475569">HandoffKit keeps task state explicit as agents move across Python, JavaScript, Rust, and C++.</text>
 
-  <!-- BEFORE card -->
-  <rect x="70" y="128" width="440" height="240" rx="24" fill="#FFF1F2" stroke="#FDA4AF" stroke-width="2"/>
-  <text x="106" y="172" class="label">Before</text>
-  <text x="106" y="206" class="badCode">"I think it is mostly done."</text>
-  <text x="106" y="238" class="body">No files. No decisions. No errors.</text>
-  <text x="106" y="264" class="body">Next agent guesses what matters.</text>
-  <text x="106" y="292" class="body">Context balloons. State is lost.</text>
-  <!-- lost label -->
-  <rect x="106" y="318" width="244" height="28" rx="14" fill="#ffe4e6" stroke="#fda4af"/>
-  <text x="124" y="337" class="badCode" font-size="12">lost: files · decisions · errors · next_steps</text>
+  <!-- Divider -->
+  <line x1="68" y1="108" x2="1212" y2="108" stroke="#e2e8f0" stroke-width="1.5"/>
 
-  <!-- Arrow -->
-  <circle cx="614" cy="248" r="36" fill="#0F172A"/>
-  <path d="M598 248H630" stroke="#F8FAFC" stroke-width="4" stroke-linecap="round"/>
-  <path d="M618 237L631 248L618 259" stroke="#F8FAFC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- ─── BEFORE card ─── -->
+  <rect x="68" y="124" width="468" height="308" rx="20" fill="#fff1f2" stroke="#fda4af" stroke-width="2" filter="url(#cardShadow)"/>
+  <!-- Red top bar -->
+  <rect x="68" y="124" width="468" height="6" rx="3" fill="#fb7185"/>
 
-  <!-- AFTER card -->
-  <rect x="660" y="128" width="550" height="240" rx="24" fill="url(#good)" stroke="#6EE7B7" stroke-width="2"/>
+  <!-- BEFORE badge -->
+  <rect x="96" y="148" width="72" height="26" rx="13" fill="#ffe4e6"/>
+  <text x="112" y="166" class="f" font-size="11" font-weight="800" fill="#be123c">BEFORE</text>
 
-  <!-- Runtime gradient bar -->
-  <rect x="660" y="128" width="550" height="6" rx="3" fill="url(#runtimeBar)"/>
+  <text x="96" y="210" class="f" font-size="22" font-weight="800" fill="#be123c">Before: vague summary</text>
+  <text x="96" y="246" class="m" font-size="14" font-weight="700" fill="#991b1b">"Basically done. Reviewer found</text>
+  <text x="96" y="268" class="m" font-size="14" font-weight="700" fill="#991b1b"> an issue. Tester should run it."</text>
 
-  <text x="694" y="172" class="label">After: HandoffState</text>
+  <line x1="96" y1="284" x2="488" y2="284" stroke="#fda4af" stroke-width="1" stroke-dasharray="4 3"/>
 
-  <text x="694" y="204" class="goodCode">task:       "Build calculator CLI"</text>
-  <text x="694" y="228" class="goodCode">decisions:  ["Use argparse", "Pure functions"]</text>
-  <text x="694" y="252" class="goodCode">files:      ["calculator.py", "tests.py"]</text>
-  <text x="694" y="276" class="goodCode">next_steps: ["Run pytest", "Check coverage"]</text>
+  <text x="96" y="312" class="f" font-size="14" font-weight="500" fill="#64748b">No files attached. No decisions recorded.</text>
+  <text x="96" y="334" class="f" font-size="14" font-weight="500" fill="#64748b">No errors. No next steps. Context soup.</text>
 
-  <!-- Runtime badges -->
-  <g transform="translate(694 300)">
-    <rect width="64" height="22" rx="11" fill="#dbeafe"/>
-    <text x="10" y="15" class="langTag" fill="#1d4ed8">Python</text>
+  <!-- Lost pill -->
+  <rect x="96" y="354" width="334" height="30" rx="15" fill="#ffe4e6" stroke="#fda4af" stroke-width="1.5"/>
+  <text x="116" y="374" class="m" font-size="11" font-weight="700" fill="#be123c">lost: files · decisions · errors · next_steps</text>
 
-    <rect x="74" width="82" height="22" rx="11" fill="#fef9c3"/>
-    <text x="84" y="15" class="langTag" fill="#92400e">JavaScript</text>
+  <!-- ─── Arrow ─── -->
+  <circle cx="614" cy="278" r="42" fill="#0f172a" filter="url(#cardShadow)"/>
+  <!-- Arrow right -->
+  <path d="M594 278 L630 278" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <path d="M618 264 L634 278 L618 292" stroke="white" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="602" y="342" class="f" font-size="11" font-weight="700" fill="#94a3b8">becomes</text>
 
-    <rect x="166" width="52" height="22" rx="11" fill="#ffedd5"/>
-    <text x="176" y="15" class="langTag" fill="#9a3412">Rust</text>
+  <!-- ─── AFTER card ─── -->
+  <rect x="660" y="124" width="552" height="308" rx="20" fill="url(#afterBg)" stroke="#6ee7b7" stroke-width="2" filter="url(#cardShadow)"/>
+  <!-- Multi-runtime gradient top bar -->
+  <rect x="660" y="124" width="552" height="6" rx="3" fill="url(#rtBarH)"/>
 
-    <rect x="228" width="44" height="22" rx="11" fill="#f5f3ff"/>
-    <text x="238" y="15" class="langTag" fill="#4c1d95">C++</text>
+  <!-- AFTER badge -->
+  <rect x="688" y="148" width="66" height="26" rx="13" fill="#d1fae5"/>
+  <text x="704" y="166" class="f" font-size="11" font-weight="800" fill="#065f46">AFTER</text>
 
-    <rect x="282" width="88" height="22" rx="11" fill="#dcfce7"/>
-    <text x="292" y="15" class="langTag" fill="#166534">validated ✓</text>
+  <text x="688" y="210" class="f" font-size="22" font-weight="800" fill="#065f46">After: HandoffState</text>
+  <text x="688" y="238" class="f" font-size="13" font-weight="500" fill="#475569">Structured state travels as data, not a fragile paragraph.</text>
+
+  <text x="688" y="270" class="m" font-size="13" font-weight="700" fill="#047857">task:       "Build calculator CLI"</text>
+  <text x="688" y="292" class="m" font-size="13" font-weight="700" fill="#047857">decisions:  ["Use argparse", "Pure fns"]</text>
+  <text x="688" y="314" class="m" font-size="13" font-weight="700" fill="#047857">files:      ["calculator.py", "tests.py"]</text>
+  <text x="688" y="336" class="m" font-size="13" font-weight="700" fill="#047857">next_steps: ["Run pytest", "Check cov"]</text>
+
+  <!-- Runtime language badges row -->
+  <g transform="translate(688 358)">
+    <rect width="60" height="24" rx="12" fill="#dbeafe"/>
+    <text x="12" y="16" class="m" font-size="10" font-weight="800" fill="#1d4ed8">Python</text>
+
+    <rect x="68" width="80" height="24" rx="12" fill="#fef9c3"/>
+    <text x="78" y="16" class="m" font-size="10" font-weight="800" fill="#92400e">JavaScript</text>
+
+    <rect x="156" width="48" height="24" rx="12" fill="#ffedd5"/>
+    <text x="167" y="16" class="m" font-size="10" font-weight="800" fill="#9a3412">Rust</text>
+
+    <rect x="212" width="42" height="24" rx="12" fill="#f5f3ff"/>
+    <text x="222" y="16" class="m" font-size="10" font-weight="800" fill="#4c1d95">C++</text>
+
+    <rect x="262" width="96" height="24" rx="12" fill="#d1fae5"/>
+    <text x="272" y="16" class="m" font-size="10" font-weight="800" fill="#065f46">validated ✓</text>
+
+    <rect x="366" width="86" height="24" rx="12" fill="#e0e7ff"/>
+    <text x="376" y="16" class="m" font-size="10" font-weight="800" fill="#3730a3">quality A</text>
   </g>
 
-  <!-- Bottom rule -->
-  <path d="M78 414H1202" stroke="#E2E8F0" stroke-width="2" stroke-linecap="round"/>
-  <path d="M660" y="414H1210" stroke="url(#runtimeBar)" stroke-width="5" stroke-linecap="round"/>
-  <path d="M660 414H1210" stroke="url(#runtimeBar)" stroke-width="5" stroke-linecap="round"/>
+  <!-- Bottom gradient rule -->
+  <line x1="68" y1="456" x2="1212" y2="456" stroke="#e2e8f0" stroke-width="1.5"/>
+  <rect x="660" y="452" width="552" height="5" rx="2.5" fill="url(#rtBarH)"/>
 </svg>
