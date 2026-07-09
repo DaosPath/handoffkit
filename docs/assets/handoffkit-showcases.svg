@@ -1,0 +1,212 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820" role="img" aria-labelledby="title desc">
+  <title id="title">HandoffKit real-world workflow showcases</title>
+  <desc id="desc">Three polished HandoffKit demos showing coding agents, support escalation, and research workflow with structured handoffs and reports.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="820" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f8fbff"/>
+      <stop offset="0.48" stop-color="#edf6ff"/>
+      <stop offset="1" stop-color="#ecfdf5"/>
+    </linearGradient>
+    <linearGradient id="heroLine" x1="64" y1="0" x2="1216" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563eb"/>
+      <stop offset="0.5" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="blueGreen" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="amberRose" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#be123c"/>
+    </linearGradient>
+    <linearGradient id="violetCyan" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-9%" y="-10%" width="118%" height="126%">
+      <feDropShadow dx="0" dy="20" stdDeviation="24" flood-color="#0f172a" flood-opacity="0.13"/>
+    </filter>
+    <filter id="softShadow" x="-8%" y="-12%" width="116%" height="128%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+    <style>
+      .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+      .h { fill: #0f172a; font-size: 46px; font-weight: 840; letter-spacing: 0; }
+      .lead { fill: #42526b; font-size: 19px; font-weight: 520; letter-spacing: 0; }
+      .eyebrow { fill: #1d4ed8; font-size: 12px; font-weight: 820; letter-spacing: 0; }
+      .cardTitle { fill: #0f172a; font-size: 25px; font-weight: 820; letter-spacing: 0; }
+      .body { fill: #42526b; font-size: 15px; font-weight: 540; letter-spacing: 0; }
+      .small { fill: #64748b; font-size: 12px; font-weight: 760; letter-spacing: 0; }
+      .agentText { fill: #0f172a; font-size: 13px; font-weight: 780; letter-spacing: 0; }
+      .metric { fill: #0f172a; font-size: 17px; font-weight: 860; letter-spacing: 0; }
+      .metricLabel { fill: #64748b; font-size: 11px; font-weight: 820; letter-spacing: 0; }
+      .card { fill: #ffffff; stroke: #dbe4ef; stroke-width: 1.2; }
+      .pill { fill: #f8fafc; stroke: #dbe4ef; stroke-width: 1; }
+      .terminalText { fill: #dbeafe; font-size: 14px; font-weight: 760; letter-spacing: 0; }
+      .terminalMuted { fill: #94a3b8; font-size: 12px; font-weight: 720; letter-spacing: 0; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="820" rx="38" fill="url(#bg)"/>
+  <path d="M64 198H560" stroke="url(#heroLine)" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="1136" cy="94" r="86" fill="#bbf7d0" opacity="0.38"/>
+  <circle cx="1036" cy="72" r="58" fill="#bfdbfe" opacity="0.38"/>
+
+  <g transform="translate(64 52)">
+    <rect width="172" height="32" rx="16" fill="#dbeafe" stroke="#bfdbfe"/>
+    <text x="20" y="21" class="mono eyebrow">REAL DEMOS</text>
+    <text x="0" y="86" class="sans h">Three demos, one contract</text>
+    <text x="0" y="123" class="sans lead">Free-text context soup becomes validation, quality scores, replay, and next steps.</text>
+  </g>
+
+  <g transform="translate(802 50)" filter="url(#softShadow)">
+    <rect width="414" height="108" rx="22" fill="#0f1220"/>
+    <circle cx="28" cy="28" r="6" fill="#fb7185"/>
+    <circle cx="50" cy="28" r="6" fill="#facc15"/>
+    <circle cx="72" cy="28" r="6" fill="#74d399"/>
+    <text x="28" y="62" class="mono terminalText">$ handoffkit init coding-review</text>
+    <text x="28" y="86" class="mono terminalText">$ handoffkit report runs/latest</text>
+  </g>
+
+  <g transform="translate(64 238)" filter="url(#cardShadow)">
+    <rect width="356" height="430" rx="26" class="card"/>
+    <rect x="0" y="0" width="356" height="10" rx="5" fill="url(#blueGreen)"/>
+    <text x="28" y="56" class="sans cardTitle">Coding agents</text>
+    <text x="28" y="86" class="sans body">Architect, coder, reviewer, and tester</text>
+    <text x="28" y="109" class="sans body">share one structured project handoff.</text>
+
+    <g transform="translate(28 142)">
+      <rect width="132" height="44" rx="14" class="pill"/>
+      <circle cx="19" cy="22" r="6" fill="#2563eb"/>
+      <text x="34" y="27" class="sans agentText">Architect</text>
+      <rect x="168" width="132" height="44" rx="14" class="pill"/>
+      <circle cx="187" cy="22" r="6" fill="#0891b2"/>
+      <text x="202" y="27" class="sans agentText">Coder</text>
+      <path d="M144 22H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M150 16L158 22L150 28" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <rect y="64" width="132" height="44" rx="14" class="pill"/>
+      <circle cx="19" cy="86" r="6" fill="#059669"/>
+      <text x="34" y="91" class="sans agentText">Reviewer</text>
+      <rect x="168" y="64" width="132" height="44" rx="14" class="pill"/>
+      <circle cx="187" cy="86" r="6" fill="#f59e0b"/>
+      <text x="202" y="91" class="sans agentText">Tester</text>
+      <path d="M144 86H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M150 80L158 86L150 92" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <rect x="28" y="278" width="300" height="74" rx="18" fill="#f8fafc" stroke="#e2e8f0"/>
+    <text x="48" y="305" class="sans body">Preserves files, decisions, errors,</text>
+    <text x="48" y="329" class="sans body">review fixes, and next commands.</text>
+
+    <g transform="translate(28 374)">
+      <rect width="86" height="34" rx="17" fill="#dbeafe"/>
+      <text x="20" y="22" class="sans metric" fill="#1d4ed8">A</text>
+      <text x="41" y="22" class="sans metricLabel" fill="#1d4ed8">SCORE</text>
+      <rect x="106" width="92" height="34" rx="17" fill="#dcfce7"/>
+      <text x="124" y="22" class="sans metric" fill="#166534">3</text>
+      <text x="146" y="22" class="sans metricLabel" fill="#166534">HANDOFFS</text>
+      <rect x="218" width="82" height="34" rx="17" fill="#fef3c7"/>
+      <text x="239" y="22" class="sans metricLabel" fill="#92400e">REPLAY</text>
+    </g>
+  </g>
+
+  <g transform="translate(462 238)" filter="url(#cardShadow)">
+    <rect width="356" height="430" rx="26" class="card"/>
+    <rect x="0" y="0" width="356" height="10" rx="5" fill="url(#amberRose)"/>
+    <text x="28" y="56" class="sans cardTitle">Support escalation</text>
+    <text x="28" y="86" class="sans body">Triage, billing, refund, and supervisor</text>
+    <text x="28" y="109" class="sans body">keep policy evidence attached.</text>
+
+    <g transform="translate(28 142)">
+      <rect width="132" height="44" rx="14" class="pill"/>
+      <circle cx="19" cy="22" r="6" fill="#be123c"/>
+      <text x="34" y="27" class="sans agentText">Triage</text>
+      <rect x="168" width="132" height="44" rx="14" class="pill"/>
+      <circle cx="187" cy="22" r="6" fill="#f59e0b"/>
+      <text x="202" y="27" class="sans agentText">Billing</text>
+      <path d="M144 22H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M150 16L158 22L150 28" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <rect y="64" width="132" height="44" rx="14" class="pill"/>
+      <circle cx="19" cy="86" r="6" fill="#ea580c"/>
+      <text x="34" y="91" class="sans agentText">Refund</text>
+      <rect x="168" y="64" width="132" height="44" rx="14" class="pill"/>
+      <circle cx="187" cy="86" r="6" fill="#0f766e"/>
+      <text x="202" y="91" class="sans agentText">Supervisor</text>
+      <path d="M144 86H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M150 80L158 86L150 92" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <rect x="28" y="278" width="300" height="74" rx="18" fill="#fff7ed" stroke="#fed7aa"/>
+    <text x="48" y="305" class="sans body">Keeps charge IDs, policy checks,</text>
+    <text x="48" y="329" class="sans body">refund reasons, and approvals.</text>
+
+    <g transform="translate(28 374)">
+      <rect width="86" height="34" rx="17" fill="#ccfbf1"/>
+      <text x="18" y="22" class="sans metric" fill="#0f766e">0.925</text>
+      <rect x="106" width="92" height="34" rx="17" fill="#dcfce7"/>
+      <text x="124" y="22" class="sans metric" fill="#166534">3</text>
+      <text x="146" y="22" class="sans metricLabel" fill="#166534">HANDOFFS</text>
+      <rect x="218" width="82" height="34" rx="17" fill="#ffedd5"/>
+      <text x="242" y="22" class="sans metricLabel" fill="#9a3412">AUDIT</text>
+    </g>
+  </g>
+
+  <g transform="translate(860 238)" filter="url(#cardShadow)">
+    <rect width="356" height="430" rx="26" class="card"/>
+    <rect x="0" y="0" width="356" height="10" rx="5" fill="url(#violetCyan)"/>
+    <text x="28" y="56" class="sans cardTitle">Research workflow</text>
+    <text x="28" y="86" class="sans body">Researcher, extractor, fact-checker,</text>
+    <text x="28" y="109" class="sans body">and writer preserve source context.</text>
+
+    <g transform="translate(28 142)">
+      <rect width="132" height="44" rx="14" class="pill"/>
+      <circle cx="19" cy="22" r="6" fill="#7c3aed"/>
+      <text x="34" y="27" class="sans agentText">Researcher</text>
+      <rect x="168" width="132" height="44" rx="14" class="pill"/>
+      <circle cx="187" cy="22" r="6" fill="#2563eb"/>
+      <text x="202" y="27" class="sans agentText">Extractor</text>
+      <path d="M144 22H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M150 16L158 22L150 28" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <rect y="64" width="132" height="44" rx="14" class="pill"/>
+      <circle cx="19" cy="86" r="6" fill="#0891b2"/>
+      <text x="34" y="91" class="sans agentText">Fact-checker</text>
+      <rect x="168" y="64" width="132" height="44" rx="14" class="pill"/>
+      <circle cx="187" cy="86" r="6" fill="#0f766e"/>
+      <text x="202" y="91" class="sans agentText">Writer</text>
+      <path d="M144 86H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M150 80L158 86L150 92" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <rect x="28" y="278" width="300" height="74" rx="18" fill="#f5f3ff" stroke="#ddd6fe"/>
+    <text x="48" y="305" class="sans body">Tracks sources, claims, confidence,</text>
+    <text x="48" y="329" class="sans body">corrections, and citations.</text>
+
+    <g transform="translate(28 374)">
+      <rect width="86" height="34" rx="17" fill="#e0e7ff"/>
+      <text x="18" y="22" class="sans metric" fill="#3730a3">0.912</text>
+      <rect x="106" width="92" height="34" rx="17" fill="#dcfce7"/>
+      <text x="124" y="22" class="sans metric" fill="#166534">3</text>
+      <text x="146" y="22" class="sans metricLabel" fill="#166534">HANDOFFS</text>
+      <rect x="218" width="82" height="34" rx="17" fill="#fef3c7"/>
+      <text x="239" y="22" class="sans metricLabel" fill="#92400e">SOURCES</text>
+    </g>
+  </g>
+
+  <g transform="translate(64 724)" filter="url(#softShadow)">
+    <rect width="1152" height="62" rx="20" fill="#0f1220"/>
+    <circle cx="30" cy="31" r="6" fill="#fb7185"/>
+    <circle cx="52" cy="31" r="6" fill="#facc15"/>
+    <circle cx="74" cy="31" r="6" fill="#74d399"/>
+    <text x="110" y="25" class="mono terminalMuted">5 minute path</text>
+    <text x="226" y="25" class="mono terminalText">pip install handoffkit</text>
+    <text x="448" y="25" class="mono terminalText">handoffkit init coding-review</text>
+    <text x="226" y="48" class="mono terminalText">python coding_review.py</text>
+    <text x="448" y="48" class="mono terminalText">handoffkit report runs/latest</text>
+    <path d="M210 27H218M432 27H440M210 50H218M432 50H440" stroke="#475569" stroke-width="2" stroke-linecap="round"/>
+  </g>
+</svg>

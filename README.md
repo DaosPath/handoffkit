@@ -1,76 +1,166 @@
+<div align="center">
+
+<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-hero.svg" alt="HandoffKit: structured state transfer for multi-agent workflows" width="100%">
+
 # HandoffKit
 
-[![CI Status](https://img.shields.io/github/actions/workflow/status/DaosPath/handoffkit/ci.yml?branch=main&label=CI&logo=github&logoColor=white&style=flat-square)](https://github.com/DaosPath/handoffkit/actions)
-[![PyPI version](https://img.shields.io/pypi/v/handoffkit.svg?logo=python&logoColor=white&style=flat-square)](https://pypi.org/project/handoffkit/)
-[![npm version](https://img.shields.io/npm/v/@handoffkit/core.svg?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/@handoffkit/core)
-[![License](https://img.shields.io/github/license/DaosPath/handoffkit.svg?style=flat-square)](https://github.com/DaosPath/handoffkit/blob/main/LICENSE)
+**Language-agnostic, cross-runtime framework for multi-agent workflows with Structured State-Transfer Protocols.**
 
-**HandoffKit** is a language-agnostic, cross-runtime framework for building multi-agent teams with **Structured State-Transfer Protocols**. It provides a unified contract layer, execution model, tool registries, context retrievers, and tracing utilities across **Python, JavaScript/TypeScript, Rust, and C++**.
+Build agent chains where each agent receives a clear contract: task, decisions, files, errors, next steps, and metadata — across **Python, JavaScript, Rust, and C++**.
 
-By standardizing the state (the "handoff") transferred from one agent to another using deterministic JSON schemas, HandoffKit allows you to build agents in different languages that collaborate seamlessly in a single pipeline **without context pollution**.
+[![CI](https://img.shields.io/github/actions/workflow/status/DaosPath/handoffkit/ci.yml?branch=main&label=CI&logo=github&logoColor=white&style=flat-square)](https://github.com/DaosPath/handoffkit/actions)
+[![PyPI](https://img.shields.io/pypi/v/handoffkit.svg?logo=python&logoColor=white&style=flat-square)](https://pypi.org/project/handoffkit/)
+[![npm](https://img.shields.io/npm/v/@handoffkit/core.svg?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/@handoffkit/core)
+[![License](https://img.shields.io/github/license/DaosPath/handoffkit.svg?style=flat-square)](LICENSE)
+![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12%20|%203.13%20|%203.14-blue?style=flat-square)
+
+```bash
+pip install handoffkit          # Python
+npm install @handoffkit/core    # JavaScript
+cargo add handoffkit            # Rust
+# C++ — CMake FetchContent (see below)
+```
+
+<table>
+  <tr>
+    <td><strong>Contract-first</strong><br>Agents pass JSON-friendly state instead of vague summaries.</td>
+    <td><strong>Cross-runtime</strong><br>Python, JavaScript, Rust, and C++ all share the same wire format.</td>
+    <td><strong>Replayable</strong><br>Trace team, recipe, and tool runs without re-running side effects.</td>
+    <td><strong>Offline by default</strong><br>Tests and demos run locally with deterministic providers.</td>
+  </tr>
+</table>
+
+</div>
 
 ---
 
 ## The Problem: Context Soup → Structured Contract
 
-When agents relay work through free-text summaries, critical information gets lost at every transition.
+<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-state-flow.svg" alt="HandoffKit turns fragile free-text handoffs into structured HandoffState contracts" width="100%">
 
-![Before and After HandoffState](docs/img/hero_before_after.png)
+Most multi-agent demos do this:
 
-> **Before:** `"Basically done. Reviewer found an issue."` — files, decisions, errors, and next steps disappear.
->
-> **After:** A `HandoffState` object that travels as data, not as a fragile paragraph — with validation, quality scoring, and full replay evidence.
+```text
+Agent A -> "Here is roughly what happened..." -> Agent B
+```
+
+HandoffKit does this:
+
+```text
+Architect
+  task: "Build a calculator CLI"
+  decisions: ["Use argparse", "Keep operations pure"]
+  files: ["calculator.py", "test_calculator.py"]
+  next_steps: ["Implement CLI", "Run pytest"]
+        |
+        v (HandoffState — not a vague paragraph)
+Coder
+        |
+        v
+Tester
+  receives decisions, files, errors, and test evidence
+```
+
+---
+
+## Wow in 5 Minutes
+
+<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/coding-review-terminal.svg" alt="Animated terminal demo of pip install handoffkit, coding-review init, report output, and context soup versus HandoffState" width="100%">
+
+The demo shows the same handoff as a vague free-text summary and as structured `HandoffState`: files, decisions, errors, next steps, validation, quality, and replay evidence stay attached to the work.
+
+```bash
+pip install handoffkit
+handoffkit demo
+```
+
+---
+
+## Three Demos, One Contract
+
+<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-showcases.svg" alt="Three HandoffKit demos: coding agents, support escalation, and research workflow" width="100%">
+
+| Demo | Agents | Run |
+|---|---|---|
+| **Coding review** | Architect → Coder → Reviewer → Tester | `python examples/coding_review.py` |
+| **Support escalation** | Triage → Billing → Supervisor | `python examples/support_escalation.py` |
+| **Research workflow** | Researcher → Extractor → Fact-checker → Writer | `python examples/research_workflow.py` |
+
+---
+
+## Trace, Replay & Reports
+
+<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-trace-replay.svg" alt="HandoffKit RunTrace, FileTraceStore, ReplayRunner, and reports flow" width="100%">
+
+```python
+from handoffkit import RunTrace, FileTraceStore, ReplayRunner
+
+trace = RunTrace.from_team_result(result, name="coding-review")
+store = FileTraceStore("runs/")
+store.save(trace)
+
+runner = ReplayRunner(trace)
+summary = runner.summary()
+# => { stepCount: 4, handoffCount: 3, success: True, ... }
+
+# Generate a timeline
+print(trace.to_timeline())
+```
+
+<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-report-gallery.svg" alt="HandoffKit report gallery for coding agents, support escalation, and research workflow" width="100%">
 
 ---
 
 ## Supported Runtimes
 
-![Multi-Runtime Support](docs/img/runtimes_banner.png)
-
 | Runtime | Package | Install |
 |---|---|---|
-| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/python.svg" width="16"/> **Python** | `handoffkit` | `pip install handoffkit` |
-| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/javascript.svg" width="16"/> **JavaScript** | `@handoffkit/core` | `npm install @handoffkit/core` |
-| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/rust.svg" width="16"/> **Rust** | `handoffkit` | `cargo add handoffkit` |
-| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/cplusplus.svg" width="16"/> **C++** | `handoffkit` | CMake `FetchContent` |
+| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/python.svg" width="14"/> **Python** | `handoffkit` | `pip install handoffkit` |
+| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/javascript.svg" width="14"/> **JavaScript / TypeScript** | `@handoffkit/core` | `npm install @handoffkit/core` |
+| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/rust.svg" width="14"/> **Rust** | `handoffkit` | `cargo add handoffkit` |
+| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/cplusplus.svg" width="14"/> **C++** | `handoffkit` | CMake `FetchContent` — see `packages/cpp/` |
+
+All runtimes share the same `snake_case` JSON wire format so a `HandoffState` written in Rust can be read in Python and vice versa.
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/git.svg" width="20" height="20" style="vertical-align: middle;"/> State-Transfer Protocols
+## State-Transfer Protocols
 
-When routing tasks between agents, standard conversation histories quickly become cluttered with context drift. HandoffKit introduces three optimized state-transfer protocols:
+Choose how state is transferred between agents:
 
-* **`hybrid_state`** — The default. Transports the complete structured `HandoffState` (decisions, modified files, errors, next steps) inside a system contract boundary alongside conversation history.
-* **`natural_handoff`** — Minimizes schema overhead by compiling the handoff state directly into a natural narrative summary injected seamlessly into the chat history.
-* **`compressed_state`** — Compresses metadata payloads to reduce prompt token consumption in complex or long-running multi-agent pipelines.
+| Protocol | Description |
+|---|---|
+| **`hybrid_state`** | Default. Full `HandoffState` object inside a system contract alongside history. |
+| **`natural_handoff`** | Compiles state into a natural narrative injected into chat history. |
+| **`compressed_state`** | Compresses metadata to minimize prompt tokens in long pipelines. |
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/pnpm.svg" width="20" height="20" style="vertical-align: middle;"/> Monorepo Structure
+## Monorepo Structure
 
 ```text
 handoffkit/
   packages/
     contracts/       # Shared JSON schemas and cross-runtime test fixtures
-    python/          # Python package published to PyPI as handoffkit
-    js/              # JavaScript contract package published as @handoffkit/core
-    rust/            # Rust crate with serde serialization support
-    cpp/             # C++ library with CMake, Conan, and nlohmann_json support
+    python/          # PyPI: handoffkit
+    js/              # npm: @handoffkit/core
+    rust/            # Cargo: handoffkit
+    cpp/             # CMake + Conan: handoffkit (C++17)
   apps/
-    web/             # Next.js showcase app and developer documentation
+    web/             # Next.js showcase and developer documentation
   docs/
-    img/             # Diagrams and visual assets for README and documentation
+    assets/          # SVG diagrams and visual assets
 ```
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/codio.svg" width="20" height="20" style="vertical-align: middle;"/> Symmetrical Code Examples
+## Code Examples
 
 <details>
-<summary><img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/python.svg" width="16"/> <strong>Python</strong></summary>
+<summary><img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/python.svg" width="14"/> <strong>Python</strong></summary>
 
 ```python
-from handoffkit import HandoffState
+from handoffkit import HandoffState, Agent, Team, HandoffProtocol
 
 state = HandoffState(
     task="Implement user authorization",
@@ -79,21 +169,21 @@ state = HandoffState(
     summary="API contract is finalized.",
     decisions=["Use JWT authentication", "Store secrets in env"],
     important_files=["auth.py", "pyproject.toml"],
-    next_steps=["Write unit tests", "Create login handler"]
+    next_steps=["Write unit tests", "Create login handler"],
 )
 
-markdown_report = state.to_markdown()
-json_payload    = state.to_json()
-loaded          = HandoffState.from_markdown(markdown_report)
+print(state.to_markdown())
+print(state.to_json())
+loaded = HandoffState.from_markdown(state.to_markdown())
 ```
 
 </details>
 
 <details>
-<summary><img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/javascript.svg" width="16"/> <strong>JavaScript / TypeScript</strong></summary>
+<summary><img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/javascript.svg" width="14"/> <strong>JavaScript / TypeScript</strong></summary>
 
 ```javascript
-import { HandoffState } from "@handoffkit/core";
+import { HandoffState, Team, HandoffProtocol } from "@handoffkit/core";
 
 const state = new HandoffState({
   task: "Implement user authorization",
@@ -102,18 +192,17 @@ const state = new HandoffState({
   summary: "API contract is finalized.",
   decisions: ["Use JWT authentication", "Store secrets in env"],
   importantFiles: ["auth.js", "package.json"],
-  nextSteps: ["Write unit tests", "Create login handler"]
+  nextSteps: ["Write unit tests", "Create login handler"],
 });
 
-const markdownReport = state.toMarkdown();
-const jsonPayload    = state.toJSONString();
-const loaded         = HandoffState.fromMarkdown(markdownReport);
+console.log(state.toMarkdown());
+const loaded = HandoffState.fromMarkdown(state.toMarkdown());
 ```
 
 </details>
 
 <details>
-<summary><img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/rust.svg" width="16"/> <strong>Rust</strong></summary>
+<summary><img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/rust.svg" width="14"/> <strong>Rust</strong></summary>
 
 ```rust
 use handoffkit::HandoffState;
@@ -125,100 +214,80 @@ let state = HandoffState {
     summary: "API contract is finalized.".to_string(),
     decisions: vec!["Use JWT authentication".to_string()],
     important_files: vec!["Cargo.toml".to_string()],
-    errors: vec![],
     next_steps: vec!["Write unit tests".to_string()],
-    context_refs: vec![],
-    metadata: std::collections::HashMap::new(),
+    ..Default::default()
 };
 
-let markdown_report = state.to_markdown();
-let loaded          = HandoffState::from_markdown(&markdown_report);
+let md = state.to_markdown();
+let loaded = HandoffState::from_markdown(&md);
 ```
 
 </details>
 
 <details>
-<summary><img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/cplusplus.svg" width="16"/> <strong>C++ (C++17)</strong></summary>
+<summary><img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/cplusplus.svg" width="14"/> <strong>C++ (C++17)</strong></summary>
 
 ```cpp
 #include <handoffkit/handoff.hpp>
 using namespace handoffkit;
 
 HandoffState state;
-state.task          = "Implement user authorization";
-state.from_agent    = "Architect";
-state.to_agent      = "Coder";
-state.summary       = "API contract is finalized.";
-state.decisions     = {"Use JWT authentication"};
+state.task           = "Implement user authorization";
+state.from_agent     = "Architect";
+state.to_agent       = "Coder";
+state.summary        = "API contract is finalized.";
+state.decisions      = {"Use JWT authentication"};
 state.important_files = {"CMakeLists.txt"};
-state.next_steps    = {"Write unit tests"};
+state.next_steps     = {"Write unit tests"};
 
-std::string markdown_report = state.to_markdown();
-HandoffState loaded         = HandoffState::from_markdown(markdown_report);
+std::string md = state.to_markdown();
+HandoffState loaded = HandoffState::from_markdown(md);
 ```
 
 </details>
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/diagramsdotnet.svg" width="20" height="20" style="vertical-align: middle;"/> Trace Timeline Visualization
-
-Use `RunTrace.to_timeline()` (Python/Rust/C++) or `trace.toTimeline()` (JS) to render a structured chronological execution summary for any multi-agent run.
-
-![Trace Timeline Diagram](docs/img/timeline_diagram.png)
-
-```
-# Execution Timeline: Support Escalation (Run ID: run-9c2b-4e81)
-- Success: true  |  Steps: 3  |  Handoffs: 2
-
-1. [Triage]     -> Task: Classify customer issue
-   - Mode: hybrid_state | Tools Used: 1 | Success: true
-   - [Handoff] Triage -> Billing
-
-2. [Billing]    -> Task: Inspect billing records
-   - Mode: hybrid_state | Tools Used: 2 | Success: true
-   - [Handoff] Billing -> Supervisor
-
-3. [Supervisor] -> Task: Approve refund request
-   - Mode: compressed_state | Tools Used: 1 | Success: true
-```
-
----
-
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/turborepo.svg" width="20" height="20" style="vertical-align: middle;"/> Quick Start
+## Quick Start
 
 ### Prerequisites
 
-* [Node.js](https://nodejs.org/) v22+ · [pnpm](https://pnpm.io/) v11+ · [Python](https://www.python.org/) v3.10+ · [Rust](https://www.rust-lang.org/) · [CMake](https://cmake.org/) v3.15+
+* **Python** 3.10+ · **Node.js** v22+ · **pnpm** v11+ · **Rust** (Cargo) · **CMake** v3.15+
 
-### Install
+### Install & Run Tests
 
 ```bash
 git clone https://github.com/DaosPath/handoffkit.git
 cd handoffkit
 pnpm install
-```
 
-### Run Tests
+pnpm js:test         # JavaScript — 26 tests
+pnpm python:test     # Python     — 313 tests
 
-```bash
-# JavaScript
-pnpm js:test
-
-# Python
-pnpm python:test
-
-# Rust
-cd packages/rust && cargo test
-
-# C++
+cd packages/rust && cargo test               # Rust
 cd packages/cpp && cmake -B build && cmake --build build --config Release
-ctest --test-dir build -C Release --output-on-failure
+ctest --test-dir build -C Release --output-on-failure   # C++
 ```
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/trello.svg" width="20" height="20" style="vertical-align: middle;"/> Roadmap
+## CLI
+
+```bash
+handoffkit --version
+handoffkit demo
+handoffkit demo-trace
+handoffkit demo-replay
+handoffkit report runs/latest
+handoffkit validate-report reports/trace_demo.json
+handoffkit evaluate reports/trace_demo.json
+handoffkit doctor
+handoffkit init my-agent --template basic-agent --output .
+```
+
+---
+
+## Roadmap
 
 | Version | Feature |
 |---|---|
@@ -230,4 +299,4 @@ ctest --test-dir build -C Release --output-on-failure
 
 ## License
 
-HandoffKit is open-source software licensed under the [MIT License](LICENSE).
+MIT — see [LICENSE](LICENSE).
