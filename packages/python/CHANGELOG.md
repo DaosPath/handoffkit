@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.8.10
+## 1.9.0
 
 - Reorganized JavaScript packages under `packages/js/core` and
   `packages/js/node`.

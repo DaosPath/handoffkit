@@ -1,4 +1,4 @@
-﻿"""Offline doctor-benchmark harness built from real open-access case reports.
+"""Offline doctor-benchmark harness built from real open-access case reports.
 
 This module is for HandoffKit workflow evaluation demos. It is not medical
 advice and does not diagnose real patients.

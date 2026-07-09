@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/node",
-  "version": "1.8.10",
+  "version": "1.9.0",
   "description": "Node.js filesystem utilities for HandoffKit traces, reports, and project context.",
   "repository": {
     "type": "git",

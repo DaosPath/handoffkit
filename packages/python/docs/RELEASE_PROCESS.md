@@ -1,4 +1,4 @@
-﻿# Release Process
+# Release Process
 
 HandoffKit releases use GitHub Actions CI for validation and PyPI Trusted
 Publishing for uploads.

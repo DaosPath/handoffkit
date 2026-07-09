@@ -74,7 +74,7 @@ export async function loadReportJSON(filePath) {
 
 export async function buildNodeContractParityReport({
   runtime = "node",
-  version = "1.8.10",
+  version = "1.9.0",
   contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts"),
   expectedFixtures,
   expectedSchemas,

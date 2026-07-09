@@ -87,7 +87,7 @@ from handoffkit.validation import (
     ValidationReport,
 )
 
-__version__ = "1.8.10"
+__version__ = "1.9.0"
 
 __all__ = [
     "Agent",
