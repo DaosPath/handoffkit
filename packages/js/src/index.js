@@ -1,8 +1,3 @@
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import fs from "node:fs";
-import path from "node:path";
-
 const DEFAULT_PROTOCOL_MODE = "hybrid_state";
 const DEFAULT_CONTRACT_FIXTURES = [
   "handoff_state.json",
@@ -106,32 +101,21 @@ export class ContractParityReport {
 
 export async function buildContractParityReport({
   runtime = "javascript",
-  version = "1.8.8",
-  contractsRoot,
+  version = "1.8.9",
+  contractsRoot = "",
+  contractInventory = null,
   expectedFixtures = DEFAULT_CONTRACT_FIXTURES,
   expectedSchemas = DEFAULT_CONTRACT_SCHEMAS,
 } = {}) {
-  const root = contractsRoot || join(import.meta.dirname, "..", "..", "contracts");
-  if (!contractsRoot && !fs.existsSync(root)) {
-    return new ContractParityReport({
-      runtime,
-      version,
-      success: true,
-      fixtureCount: expectedFixtures.length,
-      schemaCount: expectedSchemas.length,
-      supportedContracts: expectedFixtures.map((name) => name.replace(/\.json$/, "")),
-      missingFixtures: [],
-      missingSchemas: [],
-      metadata: { contractsRoot: root, source: "embedded_inventory" },
-    });
-  }
+  const knownFixtures = new Set(contractInventory?.fixtures ?? expectedFixtures);
+  const knownSchemas = new Set(contractInventory?.schemas ?? expectedSchemas);
   const missingFixtures = [];
   const missingSchemas = [];
   for (const name of expectedFixtures) {
-    if (!fs.existsSync(join(root, "fixtures", name))) missingFixtures.push(name);
+    if (!knownFixtures.has(name)) missingFixtures.push(name);
   }
   for (const name of expectedSchemas) {
-    if (!fs.existsSync(join(root, "schemas", name))) missingSchemas.push(name);
+    if (!knownSchemas.has(name)) missingSchemas.push(name);
   }
   const supportedContracts = expectedFixtures
     .filter((name) => !missingFixtures.includes(name))
@@ -145,7 +129,10 @@ export async function buildContractParityReport({
     supportedContracts,
     missingFixtures,
     missingSchemas,
-    metadata: { contractsRoot: root },
+    metadata: {
+      contractsRoot,
+      source: contractInventory ? "provided_inventory" : "embedded_inventory",
+    },
   });
 }
 
@@ -521,7 +508,7 @@ export class OpenAIProvider extends BaseProvider {
         headers: {
           "Authorization": `Bearer ${this.apiKey}`,
           "Content-Type": "application/json",
-          "User-Agent": "handoffkit/1.8.8",
+          "User-Agent": "handoffkit/1.8.9",
           ...this.headers,
         },
         body: JSON.stringify(payload),
@@ -1094,36 +1081,6 @@ export class ReplayRunner {
   }
 }
 
-export class FileTraceStore {
-  constructor({ root = "traces" } = {}) {
-    this.root = root;
-  }
-
-  async save(trace, name = "") {
-    const runTrace = trace instanceof RunTrace ? trace : RunTrace.fromJSON(trace);
-    await mkdir(this.root, { recursive: true });
-    const fileName = `${safeFileName(name || runTrace.runId)}.json`;
-    const path = join(this.root, fileName);
-    await writeFile(path, runTrace.toJSONString(2), "utf8");
-    return path;
-  }
-
-  async load(nameOrPath) {
-    const path = nameOrPath.endsWith(".json") ? nameOrPath : join(this.root, `${safeFileName(nameOrPath)}.json`);
-    return RunTrace.fromJSON(await readFile(path, "utf8"));
-  }
-
-  async list() {
-    try {
-      const entries = await readdir(this.root, { withFileTypes: true });
-      return entries.filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => join(this.root, entry.name));
-    } catch (error) {
-      if (error?.code === "ENOENT") return [];
-      throw error;
-    }
-  }
-}
-
 export class ToolCall {
   constructor({ name, tool_name, arguments: args = {}, callId = "", call_id = "", id = "", provider = "", metadata = {} } = {}) {
     const init = arguments[0] ?? {};
@@ -1342,22 +1299,6 @@ export class RetryPolicy {
   }
 }
 
-export async function writeReportFiles(report, name, outputDir = "reports") {
-  await mkdir(outputDir, { recursive: true });
-  const base = join(outputDir, safeFileName(name));
-  const jsonPath = `${base}.json`;
-  const markdownPath = `${base}.md`;
-  const data = report?.toJSON?.() ?? report;
-  const markdown = report?.toMarkdown?.() ?? `# ${name}\n\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\`\n`;
-  await writeFile(jsonPath, JSON.stringify(data, null, 2), "utf8");
-  await writeFile(markdownPath, markdown, "utf8");
-  return { jsonPath, markdownPath };
-}
-
-export async function loadReportJSON(path) {
-  return JSON.parse(await readFile(path, "utf8"));
-}
-
 export function defineTool({ name, description = "", parameters = {}, execute }) {
   if (!name) {
     throw new TypeError("Tool name is required.");
@@ -1465,27 +1406,9 @@ function parseArgumentsObject(value, label) {
   return parsed;
 }
 
-function safeFileName(value) {
-  return String(value || "report").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "report";
-}
-
 function sleep(ms) {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 }
-
-const IGNORED_DIRS = new Set([
-  ".git",
-  "node_modules",
-  "dist",
-  "build",
-  "target",
-  "__pycache__",
-  ".venv",
-  "venv",
-  ".ruff_cache",
-]);
-
-const DEFAULT_EXTENSIONS = new Set([".py", ".md", ".toml", ".json", ".txt", ".yaml", ".yml", ".js", ".ts"]);
 
 export class ContextDocument {
   constructor({ path, content, summary = "", metadata = {} } = {}) {
@@ -1510,72 +1433,6 @@ export class ContextDocument {
 
   toJSONString(space = 2) {
     return JSON.stringify(this.toJSON(), null, space);
-  }
-}
-
-export class ProjectIndexer {
-  constructor({ root = ".", allowedExtensions = null, maxFileSize = 64000 } = {}) {
-    this.root = root;
-    this.allowedExtensions = allowedExtensions ? new Set(allowedExtensions) : DEFAULT_EXTENSIONS;
-    this.maxFileSize = maxFileSize;
-  }
-
-  index() {
-    const docs = [];
-    const walk = (dir) => {
-      let entries = [];
-      try {
-        entries = fs.readdirSync(dir, { withFileTypes: true });
-      } catch (_) {
-        return;
-      }
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name);
-        const relative = path.relative(this.root, fullPath);
-
-        const parts = relative.split(path.sep);
-        const isIgnored = parts.some(part => IGNORED_DIRS.has(part) || part.endsWith(".egg-info"));
-        if (isIgnored) continue;
-
-        if (entry.isDirectory()) {
-          walk(fullPath);
-        } else if (entry.isFile()) {
-          const ext = path.extname(entry.name);
-          if (!this.allowedExtensions.has(ext)) continue;
-
-          try {
-            const stat = fs.statSync(fullPath);
-            if (stat.size > this.maxFileSize) continue;
-
-            const content = fs.readFileSync(fullPath, "utf-8");
-            const lines = content.split(/\r?\n/);
-            const summary = this._summarize(entry.name, ext, lines, stat.size, content);
-
-            docs.push(new ContextDocument({
-              path: relative.replace(/\\/g, "/"),
-              content,
-              summary,
-              metadata: {
-                extension: ext,
-                size: stat.size,
-                lineCount: lines.length,
-              },
-            }));
-          } catch (_) {
-            // Ignore stat or read errors
-          }
-        }
-      }
-    };
-
-    walk(this.root);
-    return docs.sort((a, b) => a.path.localeCompare(b.path));
-  }
-
-  _summarize(name, ext, lines, size, content) {
-    const previewLines = lines.slice(0, 3).map(l => l.trim()).filter(Boolean);
-    const preview = previewLines.join(" ");
-    return `${name}: ${lines.length} lines, ${Buffer.byteLength(content, "utf-8")} bytes, extension ${ext}. ${preview}`.trim();
   }
 }
 

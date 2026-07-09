@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.9
+
+- Split JavaScript filesystem utilities into `@handoffkit/node`.
+- Kept `@handoffkit/core` browser-safe with no Node.js builtin imports.
+- Added Node package tests for trace files, reports, project indexing, and
+  contract inventory inspection.
+- Updated npm publishing to release both `@handoffkit/core` and
+  `@handoffkit/node`.
+
 ## 1.8.8
 
 - Added embedded contract inventory fallback so `ContractParityReport` works

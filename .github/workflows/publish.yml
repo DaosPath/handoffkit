@@ -112,11 +112,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify package
+      - name: Verify packages
         run: pnpm js:check
 
-      - name: Publish to npm
+      - name: Publish core to npm
         run: pnpm --dir packages/js publish --no-git-checks --access public --provenance
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish node to npm
+        run: pnpm --dir packages/js-node publish --no-git-checks --access public --provenance
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

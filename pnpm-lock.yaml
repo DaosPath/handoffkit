@@ -11,6 +11,9 @@ importers:
       '@handoffkit/core':
         specifier: workspace:*
         version: link:packages/js
+      '@handoffkit/node':
+        specifier: workspace:*
+        version: link:packages/js-node
 
   apps/web:
     dependencies:
@@ -38,6 +41,12 @@ importers:
         version: 4.3.2
 
   packages/js: {}
+
+  packages/js-node:
+    dependencies:
+      '@handoffkit/core':
+        specifier: workspace:*
+        version: link:../js
 
 packages:
 
