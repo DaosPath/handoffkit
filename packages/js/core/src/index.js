@@ -1295,8 +1295,29 @@ export class ToolRegistry {
     return JSON.stringify(this.toJSON(), null, space);
   }
 
-  execute(call) {
+  execute(call, { requireApproval = false } = {}) {
     const toolCall = call instanceof ToolCall ? call : new ToolCall(call);
+    if (requireApproval && requiresApproval(toolCall.name)) {
+      return new ToolResult({
+        name: toolCall.name,
+        callId: toolCall.callId,
+        success: false,
+        error: "approval_required",
+        metadata: { approval_required: true },
+      });
+    }
+    if (toolCall.name === "run_command") {
+      const command = String(toolCall.arguments?.command ?? "");
+      if (isDangerousCommand(command)) {
+        return new ToolResult({
+          name: toolCall.name,
+          callId: toolCall.callId,
+          success: false,
+          error: `unsafe command blocked: ${command}`,
+          metadata: { unsafe: true },
+        });
+      }
+    }
     const tool = this.get(toolCall.name);
     if (!tool) {
       return new ToolResult({
@@ -1322,8 +1343,29 @@ export class ToolRegistry {
     }
   }
 
-  async aexecute(call) {
+  async aexecute(call, { requireApproval = false } = {}) {
     const toolCall = call instanceof ToolCall ? call : new ToolCall(call);
+    if (requireApproval && requiresApproval(toolCall.name)) {
+      return new ToolResult({
+        name: toolCall.name,
+        callId: toolCall.callId,
+        success: false,
+        error: "approval_required",
+        metadata: { approval_required: true },
+      });
+    }
+    if (toolCall.name === "run_command") {
+      const command = String(toolCall.arguments?.command ?? "");
+      if (isDangerousCommand(command)) {
+        return new ToolResult({
+          name: toolCall.name,
+          callId: toolCall.callId,
+          success: false,
+          error: `unsafe command blocked: ${command}`,
+          metadata: { unsafe: true },
+        });
+      }
+    }
     const tool = this.get(toolCall.name);
     if (!tool) {
       return new ToolResult({
@@ -1749,3 +1791,40 @@ export function deserializeReport(value, ReportClass = ValidationReport) {
   }
   return data;
 }
+
+export class UnsafeToolCallError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "UnsafeToolCallError";
+  }
+}
+
+export class DangerousCommandError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "DangerousCommandError";
+  }
+}
+
+export const DANGEROUS_COMMAND_PATTERNS = [
+  /\brm\s+(-[a-zA-Z]*r[a-zA-Z]*f|-rf|-fr)\b/i,
+  /\bdel\s+\/s\b/i,
+  /\bformat\b/i,
+  /\bshutdown\b/i,
+  /\breboot\b/i,
+  /\bmkfs(\.[a-z0-9]+)?\b/i,
+  /\bdiskpart\b/i,
+];
+
+export const APPROVAL_REQUIRED_TOOLS = new Set(["run_command", "write_file"]);
+
+export function isDangerousCommand(command) {
+  if (typeof command !== "string") return false;
+  const normalized = command.trim().replace(/\s+/g, " ");
+  return DANGEROUS_COMMAND_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+export function requiresApproval(toolName) {
+  return APPROVAL_REQUIRED_TOOLS.has(toolName);
+}
+
