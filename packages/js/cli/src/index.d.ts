@@ -1,4 +1,4 @@
-export const VERSION: "1.9.0";
+export const VERSION: "1.10.0";
 
 export function runDemo(): string;
 export function runRecipeDemo(): string;
@@ -10,6 +10,14 @@ export function initProject(projectName: string, options?: {
   template?: string;
   force?: boolean;
 }): Promise<string>;
+export function initProjectInteractive(defaultProjectName: string, options?: {
+  output?: string;
+  template?: string;
+  force?: boolean;
+}): Promise<string>;
+export function setKey(name: string, value: string): Promise<string>;
+export function deleteKey(name: string): Promise<string>;
+export function listKeys(): Promise<string>;
 export function writeProjectReport(projectPath: string, options?: {
   outputDir?: string;
   query?: string;

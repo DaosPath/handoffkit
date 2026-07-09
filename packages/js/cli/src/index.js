@@ -22,7 +22,7 @@ import {
   TemplateScaffolder,
 } from "../../templates/src/index.js";
 
-export const VERSION = "1.9.0";
+export const VERSION = "1.10.0";
 
 const SHOWCASES = {
   "coding-review": {
@@ -253,6 +253,135 @@ export async function initProject(projectName, { output = ".", template = "basic
   ].join("\n");
 }
 
+export async function initProjectInteractive(defaultProjectName, options = {}) {
+  const readline = await import("node:readline/promises");
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const name = (await rl.question(`Project name (${defaultProjectName}): `)).trim() || defaultProjectName;
+    const template = (await rl.question("Template (basic-agent): ")).trim() || "basic-agent";
+    const provider = (await rl.question("LLM Provider (openai/nvidia/groq/ollama/echo) [openai]: ")).trim() || "openai";
+    
+    let apiKey = "";
+    if (provider !== "echo" && provider !== "ollama") {
+      apiKey = (await rl.question(`API Key for ${provider.toUpperCase()}: `)).trim();
+    }
+    
+    rl.close();
+
+    const scaffolder = new TemplateScaffolder();
+    const targetDir = options.output === "." ? path.join(process.cwd(), name) : path.join(options.output, name);
+    const result = await scaffolder.scaffold(name, { output: options.output, template, force: options.force });
+
+    const envLines = [];
+    if (apiKey) {
+      const envName = `${provider.toUpperCase()}_API_KEY`;
+      envLines.push(`${envName}=${apiKey}`);
+    }
+    if (envLines.length > 0) {
+      await writeFile(path.join(targetDir, ".env"), envLines.join("\n") + "\n", "utf8");
+      try {
+        let gitignore = await readFile(path.join(targetDir, ".gitignore"), "utf8");
+        if (!gitignore.includes(".env")) {
+          gitignore += "\n.env\n";
+          await writeFile(path.join(targetDir, ".gitignore"), gitignore, "utf8");
+        }
+      } catch (_) {}
+    }
+
+    const config = {
+      provider,
+      model: provider === "openai" ? "gpt-4o-mini" : (provider === "nvidia" ? "meta/llama-3.1-8b-instruct" : "default")
+    };
+    await writeFile(path.join(targetDir, "handoff.config.json"), JSON.stringify(config, null, 2), "utf8");
+
+    return [
+      result.toMarkdown(),
+      "",
+      `Configured provider: ${provider}`,
+      apiKey ? "Saved API Key to .env" : "No API Key saved",
+      "",
+      "## Next Commands",
+      "",
+      "```bash",
+      `cd ${name}`,
+      "pnpm install",
+      "pnpm start",
+      "```",
+    ].join("\n");
+  } catch (error) {
+    rl.close();
+    throw error;
+  }
+}
+
+export async function setKey(name, value) {
+  const envPath = path.resolve(".env");
+  let content = "";
+  try {
+    content = await readFile(envPath, "utf8");
+  } catch (_) {}
+
+  const lines = content.split(/\r?\n/).filter(Boolean);
+  let updated = false;
+  const newLines = lines.map(line => {
+    const parts = line.split("=");
+    if (parts[0] === name) {
+      updated = true;
+      return `${name}=${value}`;
+    }
+    return line;
+  });
+
+  if (!updated) {
+    newLines.push(`${name}=${value}`);
+  }
+
+  await writeFile(envPath, newLines.join("\n") + "\n", "utf8");
+  return `Set key ${name} successfully in .env`;
+}
+
+export async function deleteKey(name) {
+  const envPath = path.resolve(".env");
+  let content = "";
+  try {
+    content = await readFile(envPath, "utf8");
+  } catch (_) {
+    return `No .env file found.`;
+  }
+
+  const lines = content.split(/\r?\n/).filter(Boolean);
+  const newLines = lines.filter(line => {
+    const parts = line.split("=");
+    return parts[0] !== name;
+  });
+
+  await writeFile(envPath, newLines.join("\n") + "\n", "utf8");
+  return `Deleted key ${name} successfully from .env`;
+}
+
+export async function listKeys() {
+  const envPath = path.resolve(".env");
+  let content = "";
+  try {
+    content = await readFile(envPath, "utf8");
+  } catch (_) {
+    return "No keys configured (.env not found).";
+  }
+
+  const lines = content.split(/\r?\n/).filter(Boolean);
+  if (lines.length === 0) return "No keys configured (.env is empty).";
+
+  const rows = lines.map(line => {
+    const parts = line.split("=");
+    const key = parts[0];
+    const val = parts.slice(1).join("=");
+    const redacted = val.length > 8 ? `${val.slice(0, 4)}...${val.slice(-4)} (redacted)` : "[redacted]";
+    return `- ${key}=${redacted}`;
+  });
+
+  return ["Configured Keys:", ...rows].join("\n");
+}
+
 export async function writeProjectReport(projectPath, { outputDir = "reports", query = "handoffkit" } = {}) {
   const docs = new ProjectIndexer({ root: projectPath }).index();
   const report = {
@@ -331,13 +460,43 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     }
     if (command === "init") {
       const projectName = rest[0];
-      if (!projectName) throw new Error("init requires a project name.");
-      stdout(await initProject(projectName, {
-        output: readFlag(rest, "--output") || ".",
-        template: readFlag(rest, "--template") || "basic-agent",
-        force: rest.includes("--force"),
-      }));
+      const interactive = rest.includes("--interactive") || rest.includes("-i");
+      if (!projectName && !interactive) throw new Error("init requires a project name or --interactive.");
+      if (interactive) {
+        stdout(await initProjectInteractive(projectName || "my-agent", {
+          output: readFlag(rest, "--output") || ".",
+          template: readFlag(rest, "--template") || "basic-agent",
+          force: rest.includes("--force"),
+        }));
+      } else {
+        stdout(await initProject(projectName, {
+          output: readFlag(rest, "--output") || ".",
+          template: readFlag(rest, "--template") || "basic-agent",
+          force: rest.includes("--force"),
+        }));
+      }
       return 0;
+    }
+    if (command === "keys") {
+      const sub = rest[0];
+      if (sub === "set") {
+        const name = rest[1];
+        const val = rest[2];
+        if (!name || !val) throw new Error("keys set requires a key name and value.");
+        stdout(await setKey(name, val));
+        return 0;
+      }
+      if (sub === "delete" || sub === "remove") {
+        const name = rest[1];
+        if (!name) throw new Error("keys delete requires a key name.");
+        stdout(await deleteKey(name));
+        return 0;
+      }
+      if (sub === "list") {
+        stdout(await listKeys());
+        return 0;
+      }
+      throw new Error("keys requires subcommand: set, list, or delete.");
     }
     if (command === "project-report") {
       stdout(await writeProjectReport(rest[0] || ".", {
@@ -365,7 +524,10 @@ function helpText() {
     "  handoffkit-js demo-research",
     "  handoffkit-js report <path>",
     "  handoffkit-js providers list [--json]",
-    "  handoffkit-js init <project-name> [--template basic-agent] [--output .] [--force]",
+    "  handoffkit-js init <project-name> [--template basic-agent] [--output .] [--force] [--interactive]",
+    "  handoffkit-js keys set <name> <value>",
+    "  handoffkit-js keys list",
+    "  handoffkit-js keys delete <name>",
   ].join("\n");
 }
 

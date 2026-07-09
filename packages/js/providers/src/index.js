@@ -142,6 +142,44 @@ export class EchoProvider extends BaseProvider {
   }
 }
 
+export class FallbackProvider extends BaseProvider {
+  constructor({ providers = [], name = "Fallback", id = "fallback", metadata = {} } = {}) {
+    const list = (Array.isArray(providers) ? providers : []).filter(Boolean);
+    const firstModel = list[0]?.model ?? "";
+    super({ id, name, model: firstModel, metadata });
+    this.providers = list;
+  }
+
+  isConfigured() {
+    return this.providers.length > 0 && this.providers.some((p) => p.isConfigured());
+  }
+
+  async agenerate(prompt, options = {}) {
+    const configured = this.providers.filter((p) => p.isConfigured());
+    if (configured.length === 0) {
+      throw new ProviderConfigurationError("FallbackProvider has no configured underlying providers.", {
+        provider: this.id,
+      });
+    }
+
+    const errors = [];
+    for (const provider of configured) {
+      try {
+        return await provider.agenerate(prompt, options);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+
+    const messages = errors.map((e) => `[${e.provider || "unknown"}]: ${e.message}`).join("; ");
+    throw new ProviderAPIError(`All fallback providers failed: ${messages}`, {
+      provider: this.id,
+      body: messages,
+      cause: errors,
+    });
+  }
+}
+
 export class OpenAICompatibleProvider extends BaseProvider {
   constructor({
     provider = "openai-compatible",
@@ -157,7 +195,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
     retryPolicy = null,
     requiresApiKey = undefined,
     allowEnv = true,
-    userAgent = "handoffkit-providers/1.9.0",
+    userAgent = "handoffkit-providers/1.10.0",
     metadata = {},
   } = {}) {
     const resolvedSpec = normalizeSpec(spec ?? provider);

@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/templates",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "Offline JavaScript starter templates for HandoffKit.",
   "type": "module",
   "main": "./src/index.js",

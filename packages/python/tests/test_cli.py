@@ -48,7 +48,7 @@ def test_cli_version(capsys) -> None:  # type: ignore[no-untyped-def]
     captured = capsys.readouterr()
 
     assert exc_info.value.code == 0
-    assert "handoffkit 1.9.0" in captured.out
+    assert "handoffkit 1.10.0" in captured.out
 
 
 def test_run_demo_reports_handoff_count() -> None:
@@ -324,3 +324,31 @@ def test_init_project_uses_showcase_template_name_directly(tmp_path) -> None:  #
     assert "python coding_review.py" in output
     assert "handoffkit report runs/latest" in output
     assert (tmp_path / "coding-review" / "coding_review.py").exists()
+
+
+def test_keys_management_cli(tmp_path, monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+
+    # Test set_key
+    code = main(["keys", "set", "TEST_KEY", "my-secret-val-1234567890"])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "Set key TEST_KEY successfully" in captured.out
+
+    # Test list_keys
+    code = main(["keys", "list"])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "TEST_KEY=my-s...7890 (redacted)" in captured.out
+
+    # Test delete_key
+    code = main(["keys", "delete", "TEST_KEY"])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "Deleted key TEST_KEY successfully" in captured.out
+
+    # Test list_keys empty
+    code = main(["keys", "list"])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "No keys configured" in captured.out

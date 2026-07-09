@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   EchoProvider,
+  FallbackProvider,
   GROQ_SPEC,
   NVIDIA_SPEC,
   OLLAMA_SPEC,
@@ -209,4 +210,30 @@ test("factory creates echo and OpenAI-compatible providers", () => {
 
   assert.equal(provider.id, "ollama");
   assert.equal(provider.isConfigured(), true);
+});
+
+test("fallback provider routes to next configured provider on failure", async () => {
+  const broken = new OpenAICompatibleProvider({
+    id: "broken",
+    provider: "opencode",
+    baseURL: "http://127.0.0.1:9999/v1",
+    model: "local",
+    fetchImpl: async () => ({
+      ok: false,
+      status: 503,
+      async text() { return "offline"; },
+    }),
+    allowEnv: false,
+  });
+  const echo = new EchoProvider({ id: "echo-backup", model: "backup" });
+  const fallback = new FallbackProvider({ providers: [broken, echo] });
+
+  assert.equal(fallback.isConfigured(), true);
+  assert.equal(await fallback.agenerate("hello"), "Echo(backup): hello");
+
+  const allBroken = new FallbackProvider({ providers: [broken, broken] });
+  await assert.rejects(() => allBroken.agenerate("hello"), {
+    name: "ProviderAPIError",
+    message: /All fallback providers failed/,
+  });
 });

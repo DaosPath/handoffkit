@@ -724,6 +724,143 @@ def init_project(
     return rendered
 
 
+def init_project_interactive(
+    default_project_name: str | None = None,
+    *,
+    template: str | None = None,
+    output: str = ".",
+    force: bool = False,
+) -> str:
+    """Scaffold a project interactively prompting for name, provider, and API key."""
+    name = (default_project_name or "").strip()
+    if not name:
+        name = input("Project name (my-agent): ").strip() or "my-agent"
+    else:
+        inp_name = input(f"Project name ({name}): ").strip()
+        if inp_name:
+            name = inp_name
+
+    selected_template = template or "basic-agent"
+    inp_tmpl = input(f"Template ({selected_template}): ").strip()
+    if inp_tmpl:
+        selected_template = inp_tmpl
+
+    provider = input("LLM Provider (openai/nvidia/groq/ollama/echo) [openai]: ").strip() or "openai"
+    api_key = ""
+    if provider not in ("echo", "ollama"):
+        api_key = input(f"API Key for {provider.upper()}: ").strip()
+
+    scaffolder = TemplateScaffolder()
+    target_dir = Path(output) / name
+    result = scaffolder.scaffold(
+        name,
+        template=selected_template,
+        output=output,
+        force=force,
+    )
+    rendered = result.to_markdown()
+
+    env_lines = []
+    if api_key:
+        env_name = f"{provider.upper()}_API_KEY"
+        env_lines.append(f"{env_name}={api_key}")
+    
+    if env_lines:
+        env_path = target_dir / ".env"
+        env_path.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
+        
+        gitignore_path = target_dir / ".gitignore"
+        if gitignore_path.exists():
+            try:
+                git_content = gitignore_path.read_text(encoding="utf-8")
+                if ".env" not in git_content:
+                    git_content += "\n.env\n"
+                    gitignore_path.write_text(git_content, encoding="utf-8")
+            except Exception:
+                pass
+
+    import json
+    config = {
+        "provider": provider,
+        "model": "gpt-4o-mini" if provider == "openai" else ("meta/llama-3.1-8b-instruct" if provider == "nvidia" else "default")
+    }
+    config_path = target_dir / "handoff.config.json"
+    config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+
+    rendered += (
+        f"\n## Next Commands\n\n"
+        f"cd {name}\n"
+        f"Configured provider: {provider}\n"
+        + (f"Saved API Key to .env\n" if api_key else "No API Key saved\n")
+    )
+    return rendered
+
+
+def set_key(name: str, value: str) -> str:
+    """Set key in local .env."""
+    env_path = Path(".env")
+    content = ""
+    if env_path.exists():
+        content = env_path.read_text(encoding="utf-8")
+    
+    lines = [line.strip() for line in content.splitlines() if line.strip()]
+    updated = False
+    new_lines = []
+    for line in lines:
+        parts = line.split("=", 1)
+        if parts[0].strip() == name:
+            updated = True
+            new_lines.append(f"{name}={value}")
+        else:
+            new_lines.append(line)
+            
+    if not updated:
+        new_lines.append(f"{name}={value}")
+        
+    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    return f"Set key {name} successfully in .env"
+
+
+def delete_key(name: str) -> str:
+    """Delete key from local .env."""
+    env_path = Path(".env")
+    if not env_path.exists():
+        return "No .env file found."
+        
+    content = env_path.read_text(encoding="utf-8")
+    lines = [line.strip() for line in content.splitlines() if line.strip()]
+    new_lines = []
+    for line in lines:
+        parts = line.split("=", 1)
+        if parts[0].strip() != name:
+            new_lines.append(line)
+            
+    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    return f"Deleted key {name} successfully from .env"
+
+
+def list_keys() -> str:
+    """List keys from local .env with redacted values."""
+    env_path = Path(".env")
+    if not env_path.exists():
+        return "No keys configured (.env not found)."
+        
+    content = env_path.read_text(encoding="utf-8")
+    lines = [line.strip() for line in content.splitlines() if line.strip()]
+    if not lines:
+        return "No keys configured (.env is empty)."
+        
+    rows = []
+    for line in lines:
+        parts = line.split("=", 1)
+        key = parts[0].strip()
+        val = parts[1].strip() if len(parts) > 1 else ""
+        redacted = f"{val[:4]}...{val[-4:]} (redacted)" if len(val) > 8 else "[redacted]"
+        rows.append(f"- {key}={redacted}")
+        
+    return "Configured Keys:\n" + "\n".join(rows)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the command-line interface."""
     parser = argparse.ArgumentParser(prog="handoffkit")
@@ -827,10 +964,24 @@ def main(argv: list[str] | None = None) -> int:
     report_parser.add_argument("--html", action="store_true", help="Write a polished HTML report.")
     report_parser.add_argument("--output", default=None, help="Output path for --html.")
     init_parser = subparsers.add_parser("init", help="Scaffold a HandoffKit starter project.")
-    init_parser.add_argument("project_name", help="Project directory name.")
+    init_parser.add_argument("project_name", nargs="?", default=None, help="Project directory name.")
+    init_parser.add_argument("--interactive", "-i", action="store_true", help="Scaffold interactively.")
     init_parser.add_argument("--template", default=None, help="Template name.")
     init_parser.add_argument("--output", default=".", help="Parent output directory.")
     init_parser.add_argument("--force", action="store_true", help="Overwrite existing files.")
+
+    keys_parser = subparsers.add_parser("keys", help="Manage local API keys in .env.")
+    keys_subparsers = keys_parser.add_subparsers(dest="keys_command")
+    
+    keys_set_parser = keys_subparsers.add_parser("set", help="Set a local key.")
+    keys_set_parser.add_argument("name", help="Key name.")
+    keys_set_parser.add_argument("value", help="Key value.")
+    
+    keys_delete_parser = keys_subparsers.add_parser("delete", help="Delete a local key.")
+    keys_delete_parser.add_argument("name", help="Key name.")
+    
+    keys_list_parser = keys_subparsers.add_parser("list", help="List configured keys.")
+
     args = parser.parse_args(argv)
 
     if args.command == "demo":
@@ -954,15 +1105,36 @@ def main(argv: list[str] | None = None) -> int:
         print(render_report(args.path, html=args.html, output=args.output))
         return 0
     if args.command == "init":
-        print(
-            init_project(
-                args.project_name,
-                template=args.template,
-                output=args.output,
-                force=args.force,
+        if args.interactive or not args.project_name:
+            print(
+                init_project_interactive(
+                    args.project_name,
+                    template=args.template,
+                    output=args.output,
+                    force=args.force,
+                )
             )
-        )
+        else:
+            print(
+                init_project(
+                    args.project_name,
+                    template=args.template,
+                    output=args.output,
+                    force=args.force,
+                )
+            )
         return 0
+    if args.command == "keys":
+        if args.keys_command == "set":
+            print(set_key(args.name, args.value))
+            return 0
+        if args.keys_command in ("delete", "remove"):
+            print(delete_key(args.name))
+            return 0
+        if args.keys_command == "list":
+            print(list_keys())
+            return 0
+        parser.error("keys requires a subcommand: set, list, delete")
 
     parser.print_help()
     return 0
