@@ -2,6 +2,10 @@
   "name": "@handoffkit/recipes",
   "version": "1.10.0",
   "description": "Offline JavaScript workflow recipes for HandoffKit.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DaosPath/handoffkit.git"
+  },
   "type": "module",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
