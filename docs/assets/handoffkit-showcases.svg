@@ -1,6 +1,6 @@
-﻿<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820" role="img" aria-labelledby="title desc">
   <title id="title">HandoffKit real-world workflow showcases</title>
-  <desc id="desc">Three polished HandoffKit demos showing coding agents, support escalation, and research workflow with structured handoffs and reports.</desc>
+  <desc id="desc">Three HandoffKit demos — coding agents, support escalation, research workflow — running across Python, JavaScript, Rust, and C++ with shared HandoffState contracts.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="820" gradientUnits="userSpaceOnUse">
       <stop stop-color="#f8fbff"/>
@@ -9,8 +9,9 @@
     </linearGradient>
     <linearGradient id="heroLine" x1="64" y1="0" x2="1216" y2="0" gradientUnits="userSpaceOnUse">
       <stop stop-color="#2563eb"/>
-      <stop offset="0.5" stop-color="#0f766e"/>
-      <stop offset="1" stop-color="#f59e0b"/>
+      <stop offset="0.33" stop-color="#0f766e"/>
+      <stop offset="0.66" stop-color="#ea580c"/>
+      <stop offset="1" stop-color="#7c3aed"/>
     </linearGradient>
     <linearGradient id="blueGreen" x1="0" y1="0" x2="1" y2="1">
       <stop stop-color="#2563eb"/>
@@ -33,36 +34,40 @@
     <style>
       .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
       .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-      .h { fill: #0f172a; font-size: 46px; font-weight: 840; letter-spacing: 0; }
-      .lead { fill: #42526b; font-size: 19px; font-weight: 520; letter-spacing: 0; }
-      .eyebrow { fill: #1d4ed8; font-size: 12px; font-weight: 820; letter-spacing: 0; }
-      .cardTitle { fill: #0f172a; font-size: 25px; font-weight: 820; letter-spacing: 0; }
-      .body { fill: #42526b; font-size: 15px; font-weight: 540; letter-spacing: 0; }
-      .small { fill: #64748b; font-size: 12px; font-weight: 760; letter-spacing: 0; }
-      .agentText { fill: #0f172a; font-size: 13px; font-weight: 780; letter-spacing: 0; }
-      .metric { fill: #0f172a; font-size: 17px; font-weight: 860; letter-spacing: 0; }
-      .metricLabel { fill: #64748b; font-size: 11px; font-weight: 820; letter-spacing: 0; }
+      .h { fill: #0f172a; font-size: 44px; font-weight: 840; }
+      .lead { fill: #42526b; font-size: 18px; font-weight: 520; }
+      .eyebrow { fill: #1d4ed8; font-size: 12px; font-weight: 820; }
+      .cardTitle { fill: #0f172a; font-size: 23px; font-weight: 820; }
+      .body { fill: #42526b; font-size: 14px; font-weight: 540; }
+      .small { fill: #64748b; font-size: 12px; font-weight: 760; }
+      .agentText { fill: #0f172a; font-size: 12px; font-weight: 780; }
+      .metric { fill: #0f172a; font-size: 16px; font-weight: 860; }
+      .metricLabel { fill: #64748b; font-size: 10px; font-weight: 820; }
       .card { fill: #ffffff; stroke: #dbe4ef; stroke-width: 1.2; }
       .pill { fill: #f8fafc; stroke: #dbe4ef; stroke-width: 1; }
-      .terminalText { fill: #dbeafe; font-size: 14px; font-weight: 760; letter-spacing: 0; }
-      .terminalMuted { fill: #94a3b8; font-size: 12px; font-weight: 720; letter-spacing: 0; }
+      .terminalText { fill: #dbeafe; font-size: 13px; font-weight: 760; }
+      .terminalMuted { fill: #94a3b8; font-size: 11px; font-weight: 720; }
+      .langBadge { font-size: 10px; font-weight: 800; }
     </style>
   </defs>
 
   <rect width="1280" height="820" rx="38" fill="url(#bg)"/>
-  <path d="M64 198H560" stroke="url(#heroLine)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M64 196H1216" stroke="url(#heroLine)" stroke-width="5" stroke-linecap="round"/>
   <circle cx="1136" cy="94" r="86" fill="#bbf7d0" opacity="0.38"/>
   <circle cx="1036" cy="72" r="58" fill="#bfdbfe" opacity="0.38"/>
 
+  <!-- Header -->
   <g transform="translate(64 52)">
     <rect width="172" height="32" rx="16" fill="#dbeafe" stroke="#bfdbfe"/>
-    <text x="20" y="21" class="mono eyebrow">REAL DEMOS</text>
-    <text x="0" y="86" class="sans h">Three demos, one contract</text>
-    <text x="0" y="123" class="sans lead">Free-text context soup becomes validation, quality scores, replay, and next steps.</text>
+    <text x="20" y="21" class="mono eyebrow">REAL DEMOS · 4 RUNTIMES</text>
+    <text x="0" y="84" class="sans h">Three demos, one contract</text>
+    <text x="0" y="120" class="sans lead">Free-text context soup becomes validation, quality scores, replay, and next steps</text>
+    <text x="0" y="144" class="sans lead">across Python, JavaScript, Rust, and C++.</text>
   </g>
 
-  <g transform="translate(802 50)" filter="url(#softShadow)">
-    <rect width="414" height="108" rx="22" fill="#0f1220"/>
+  <!-- Terminal block top-right -->
+  <g transform="translate(790 46)" filter="url(#softShadow)">
+    <rect width="426" height="112" rx="22" fill="#0f1220"/>
     <circle cx="28" cy="28" r="6" fill="#fb7185"/>
     <circle cx="50" cy="28" r="6" fill="#facc15"/>
     <circle cx="72" cy="28" r="6" fill="#74d399"/>
@@ -70,143 +75,183 @@
     <text x="28" y="86" class="mono terminalText">$ handoffkit report runs/latest</text>
   </g>
 
+  <!-- Card 1: Coding agents -->
   <g transform="translate(64 238)" filter="url(#cardShadow)">
-    <rect width="356" height="430" rx="26" class="card"/>
+    <rect width="356" height="460" rx="26" class="card"/>
     <rect x="0" y="0" width="356" height="10" rx="5" fill="url(#blueGreen)"/>
-    <text x="28" y="56" class="sans cardTitle">Coding agents</text>
-    <text x="28" y="86" class="sans body">Architect, coder, reviewer, and tester</text>
-    <text x="28" y="109" class="sans body">share one structured project handoff.</text>
+    <text x="28" y="54" class="sans cardTitle">Coding agents</text>
+    <text x="28" y="82" class="sans body">Architect, coder, reviewer, and tester</text>
+    <text x="28" y="102" class="sans body">share one structured project handoff.</text>
 
-    <g transform="translate(28 142)">
-      <rect width="132" height="44" rx="14" class="pill"/>
-      <circle cx="19" cy="22" r="6" fill="#2563eb"/>
-      <text x="34" y="27" class="sans agentText">Architect</text>
-      <rect x="168" width="132" height="44" rx="14" class="pill"/>
-      <circle cx="187" cy="22" r="6" fill="#0891b2"/>
-      <text x="202" y="27" class="sans agentText">Coder</text>
-      <path d="M144 22H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M150 16L158 22L150 28" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(28 136)">
+      <rect width="130" height="44" rx="14" class="pill"/>
+      <circle cx="18" cy="22" r="6" fill="#2563eb"/>
+      <text x="32" y="26" class="sans agentText">Architect</text>
+      <rect x="12" y="28" width="52" height="14" rx="7" fill="#dbeafe"/>
+      <text x="18" y="38" class="mono langBadge" fill="#1d4ed8">Python</text>
 
-      <rect y="64" width="132" height="44" rx="14" class="pill"/>
-      <circle cx="19" cy="86" r="6" fill="#059669"/>
-      <text x="34" y="91" class="sans agentText">Reviewer</text>
-      <rect x="168" y="64" width="132" height="44" rx="14" class="pill"/>
-      <circle cx="187" cy="86" r="6" fill="#f59e0b"/>
-      <text x="202" y="91" class="sans agentText">Tester</text>
-      <path d="M144 86H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M150 80L158 86L150 92" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="168" width="130" height="44" rx="14" class="pill"/>
+      <circle cx="186" cy="22" r="6" fill="#0891b2"/>
+      <text x="200" y="26" class="sans agentText">Coder</text>
+      <rect x="180" y="28" width="62" height="14" rx="7" fill="#cffafe"/>
+      <text x="186" y="38" class="mono langBadge" fill="#0e7490">JavaScript</text>
+
+      <path d="M142 22H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M149 16L157 22L149 28" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <rect y="64" width="130" height="44" rx="14" class="pill"/>
+      <circle cx="18" cy="86" r="6" fill="#059669"/>
+      <text x="32" y="90" class="sans agentText">Reviewer</text>
+      <rect x="12" y="92" width="40" height="14" rx="7" fill="#dcfce7"/>
+      <text x="18" y="102" class="mono langBadge" fill="#166534">Rust</text>
+
+      <rect x="168" y="64" width="130" height="44" rx="14" class="pill"/>
+      <circle cx="186" cy="86" r="6" fill="#f59e0b"/>
+      <text x="200" y="90" class="sans agentText">Tester</text>
+      <rect x="180" y="92" width="38" height="14" rx="7" fill="#fef9c3"/>
+      <text x="186" y="102" class="mono langBadge" fill="#92400e">C++</text>
+
+      <path d="M142 86H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M149 80L157 86L149 92" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
 
-    <rect x="28" y="278" width="300" height="74" rx="18" fill="#f8fafc" stroke="#e2e8f0"/>
-    <text x="48" y="305" class="sans body">Preserves files, decisions, errors,</text>
-    <text x="48" y="329" class="sans body">review fixes, and next commands.</text>
+    <rect x="28" y="296" width="300" height="74" rx="18" fill="#f8fafc" stroke="#e2e8f0"/>
+    <text x="48" y="323" class="sans body">Preserves files, decisions, errors,</text>
+    <text x="48" y="347" class="sans body">review fixes, and next commands.</text>
 
-    <g transform="translate(28 374)">
+    <g transform="translate(28 392)">
       <rect width="86" height="34" rx="17" fill="#dbeafe"/>
-      <text x="20" y="22" class="sans metric" fill="#1d4ed8">A</text>
-      <text x="41" y="22" class="sans metricLabel" fill="#1d4ed8">SCORE</text>
+      <text x="16" y="22" class="sans metric" fill="#1d4ed8">A</text>
+      <text x="37" y="22" class="sans metricLabel" fill="#1d4ed8">SCORE</text>
       <rect x="106" width="92" height="34" rx="17" fill="#dcfce7"/>
       <text x="124" y="22" class="sans metric" fill="#166534">3</text>
       <text x="146" y="22" class="sans metricLabel" fill="#166534">HANDOFFS</text>
       <rect x="218" width="82" height="34" rx="17" fill="#fef3c7"/>
-      <text x="239" y="22" class="sans metricLabel" fill="#92400e">REPLAY</text>
+      <text x="235" y="22" class="sans metricLabel" fill="#92400e">REPLAY</text>
     </g>
   </g>
 
+  <!-- Card 2: Support escalation -->
   <g transform="translate(462 238)" filter="url(#cardShadow)">
-    <rect width="356" height="430" rx="26" class="card"/>
+    <rect width="356" height="460" rx="26" class="card"/>
     <rect x="0" y="0" width="356" height="10" rx="5" fill="url(#amberRose)"/>
-    <text x="28" y="56" class="sans cardTitle">Support escalation</text>
-    <text x="28" y="86" class="sans body">Triage, billing, refund, and supervisor</text>
-    <text x="28" y="109" class="sans body">keep policy evidence attached.</text>
+    <text x="28" y="54" class="sans cardTitle">Support escalation</text>
+    <text x="28" y="82" class="sans body">Triage, billing, refund, and supervisor</text>
+    <text x="28" y="102" class="sans body">keep policy evidence attached.</text>
 
-    <g transform="translate(28 142)">
-      <rect width="132" height="44" rx="14" class="pill"/>
-      <circle cx="19" cy="22" r="6" fill="#be123c"/>
-      <text x="34" y="27" class="sans agentText">Triage</text>
-      <rect x="168" width="132" height="44" rx="14" class="pill"/>
-      <circle cx="187" cy="22" r="6" fill="#f59e0b"/>
-      <text x="202" y="27" class="sans agentText">Billing</text>
-      <path d="M144 22H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M150 16L158 22L150 28" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(28 136)">
+      <rect width="130" height="44" rx="14" class="pill"/>
+      <circle cx="18" cy="22" r="6" fill="#be123c"/>
+      <text x="32" y="26" class="sans agentText">Triage</text>
+      <rect x="12" y="28" width="52" height="14" rx="7" fill="#dbeafe"/>
+      <text x="18" y="38" class="mono langBadge" fill="#1d4ed8">Python</text>
 
-      <rect y="64" width="132" height="44" rx="14" class="pill"/>
-      <circle cx="19" cy="86" r="6" fill="#ea580c"/>
-      <text x="34" y="91" class="sans agentText">Refund</text>
-      <rect x="168" y="64" width="132" height="44" rx="14" class="pill"/>
-      <circle cx="187" cy="86" r="6" fill="#0f766e"/>
-      <text x="202" y="91" class="sans agentText">Supervisor</text>
-      <path d="M144 86H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M150 80L158 86L150 92" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="168" width="130" height="44" rx="14" class="pill"/>
+      <circle cx="186" cy="22" r="6" fill="#f59e0b"/>
+      <text x="200" y="26" class="sans agentText">Billing</text>
+      <rect x="180" y="28" width="62" height="14" rx="7" fill="#cffafe"/>
+      <text x="186" y="38" class="mono langBadge" fill="#0e7490">JavaScript</text>
+
+      <path d="M142 22H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M149 16L157 22L149 28" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <rect y="64" width="130" height="44" rx="14" class="pill"/>
+      <circle cx="18" cy="86" r="6" fill="#ea580c"/>
+      <text x="32" y="90" class="sans agentText">Refund</text>
+      <rect x="12" y="92" width="40" height="14" rx="7" fill="#ffedd5"/>
+      <text x="18" y="102" class="mono langBadge" fill="#9a3412">Rust</text>
+
+      <rect x="168" y="64" width="130" height="44" rx="14" class="pill"/>
+      <circle cx="186" cy="86" r="6" fill="#0f766e"/>
+      <text x="200" y="90" class="sans agentText">Supervisor</text>
+      <rect x="180" y="92" width="38" height="14" rx="7" fill="#fef9c3"/>
+      <text x="186" y="102" class="mono langBadge" fill="#92400e">C++</text>
+
+      <path d="M142 86H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M149 80L157 86L149 92" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
 
-    <rect x="28" y="278" width="300" height="74" rx="18" fill="#fff7ed" stroke="#fed7aa"/>
-    <text x="48" y="305" class="sans body">Keeps charge IDs, policy checks,</text>
-    <text x="48" y="329" class="sans body">refund reasons, and approvals.</text>
+    <rect x="28" y="296" width="300" height="74" rx="18" fill="#fff7ed" stroke="#fed7aa"/>
+    <text x="48" y="323" class="sans body">Keeps charge IDs, policy checks,</text>
+    <text x="48" y="347" class="sans body">refund reasons, and approvals.</text>
 
-    <g transform="translate(28 374)">
+    <g transform="translate(28 392)">
       <rect width="86" height="34" rx="17" fill="#ccfbf1"/>
-      <text x="18" y="22" class="sans metric" fill="#0f766e">0.925</text>
+      <text x="14" y="22" class="sans metric" fill="#0f766e">0.925</text>
       <rect x="106" width="92" height="34" rx="17" fill="#dcfce7"/>
       <text x="124" y="22" class="sans metric" fill="#166534">3</text>
       <text x="146" y="22" class="sans metricLabel" fill="#166534">HANDOFFS</text>
       <rect x="218" width="82" height="34" rx="17" fill="#ffedd5"/>
-      <text x="242" y="22" class="sans metricLabel" fill="#9a3412">AUDIT</text>
+      <text x="238" y="22" class="sans metricLabel" fill="#9a3412">AUDIT</text>
     </g>
   </g>
 
+  <!-- Card 3: Research workflow -->
   <g transform="translate(860 238)" filter="url(#cardShadow)">
-    <rect width="356" height="430" rx="26" class="card"/>
+    <rect width="356" height="460" rx="26" class="card"/>
     <rect x="0" y="0" width="356" height="10" rx="5" fill="url(#violetCyan)"/>
-    <text x="28" y="56" class="sans cardTitle">Research workflow</text>
-    <text x="28" y="86" class="sans body">Researcher, extractor, fact-checker,</text>
-    <text x="28" y="109" class="sans body">and writer preserve source context.</text>
+    <text x="28" y="54" class="sans cardTitle">Research workflow</text>
+    <text x="28" y="82" class="sans body">Researcher, extractor, fact-checker,</text>
+    <text x="28" y="102" class="sans body">and writer preserve source context.</text>
 
-    <g transform="translate(28 142)">
-      <rect width="132" height="44" rx="14" class="pill"/>
-      <circle cx="19" cy="22" r="6" fill="#7c3aed"/>
-      <text x="34" y="27" class="sans agentText">Researcher</text>
-      <rect x="168" width="132" height="44" rx="14" class="pill"/>
-      <circle cx="187" cy="22" r="6" fill="#2563eb"/>
-      <text x="202" y="27" class="sans agentText">Extractor</text>
-      <path d="M144 22H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M150 16L158 22L150 28" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(28 136)">
+      <rect width="130" height="44" rx="14" class="pill"/>
+      <circle cx="18" cy="22" r="6" fill="#7c3aed"/>
+      <text x="32" y="26" class="sans agentText">Researcher</text>
+      <rect x="12" y="28" width="52" height="14" rx="7" fill="#dbeafe"/>
+      <text x="18" y="38" class="mono langBadge" fill="#1d4ed8">Python</text>
 
-      <rect y="64" width="132" height="44" rx="14" class="pill"/>
-      <circle cx="19" cy="86" r="6" fill="#0891b2"/>
-      <text x="34" y="91" class="sans agentText">Fact-checker</text>
-      <rect x="168" y="64" width="132" height="44" rx="14" class="pill"/>
-      <circle cx="187" cy="86" r="6" fill="#0f766e"/>
-      <text x="202" y="91" class="sans agentText">Writer</text>
-      <path d="M144 86H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M150 80L158 86L150 92" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="168" width="130" height="44" rx="14" class="pill"/>
+      <circle cx="186" cy="22" r="6" fill="#2563eb"/>
+      <text x="200" y="26" class="sans agentText">Extractor</text>
+      <rect x="180" y="28" width="62" height="14" rx="7" fill="#cffafe"/>
+      <text x="186" y="38" class="mono langBadge" fill="#0e7490">JavaScript</text>
+
+      <path d="M142 22H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M149 16L157 22L149 28" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <rect y="64" width="130" height="44" rx="14" class="pill"/>
+      <circle cx="18" cy="86" r="6" fill="#0891b2"/>
+      <text x="32" y="90" class="sans agentText">Fact-checker</text>
+      <rect x="12" y="92" width="40" height="14" rx="7" fill="#ffedd5"/>
+      <text x="18" y="102" class="mono langBadge" fill="#9a3412">Rust</text>
+
+      <rect x="168" y="64" width="130" height="44" rx="14" class="pill"/>
+      <circle cx="186" cy="86" r="6" fill="#0f766e"/>
+      <text x="200" y="90" class="sans agentText">Writer</text>
+      <rect x="180" y="92" width="38" height="14" rx="7" fill="#fef9c3"/>
+      <text x="186" y="102" class="mono langBadge" fill="#92400e">C++</text>
+
+      <path d="M142 86H156" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M149 80L157 86L149 92" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
 
-    <rect x="28" y="278" width="300" height="74" rx="18" fill="#f5f3ff" stroke="#ddd6fe"/>
-    <text x="48" y="305" class="sans body">Tracks sources, claims, confidence,</text>
-    <text x="48" y="329" class="sans body">corrections, and citations.</text>
+    <rect x="28" y="296" width="300" height="74" rx="18" fill="#f5f3ff" stroke="#ddd6fe"/>
+    <text x="48" y="323" class="sans body">Tracks sources, claims, confidence,</text>
+    <text x="48" y="347" class="sans body">corrections, and citations.</text>
 
-    <g transform="translate(28 374)">
+    <g transform="translate(28 392)">
       <rect width="86" height="34" rx="17" fill="#e0e7ff"/>
-      <text x="18" y="22" class="sans metric" fill="#3730a3">0.912</text>
+      <text x="14" y="22" class="sans metric" fill="#3730a3">0.912</text>
       <rect x="106" width="92" height="34" rx="17" fill="#dcfce7"/>
       <text x="124" y="22" class="sans metric" fill="#166534">3</text>
       <text x="146" y="22" class="sans metricLabel" fill="#166534">HANDOFFS</text>
       <rect x="218" width="82" height="34" rx="17" fill="#fef3c7"/>
-      <text x="239" y="22" class="sans metricLabel" fill="#92400e">SOURCES</text>
+      <text x="235" y="22" class="sans metricLabel" fill="#92400e">SOURCES</text>
     </g>
   </g>
 
-  <g transform="translate(64 724)" filter="url(#softShadow)">
-    <rect width="1152" height="62" rx="20" fill="#0f1220"/>
-    <circle cx="30" cy="31" r="6" fill="#fb7185"/>
-    <circle cx="52" cy="31" r="6" fill="#facc15"/>
-    <circle cx="74" cy="31" r="6" fill="#74d399"/>
-    <text x="110" y="25" class="mono terminalMuted">5 minute path</text>
-    <text x="226" y="25" class="mono terminalText">pip install handoffkit</text>
-    <text x="448" y="25" class="mono terminalText">handoffkit init coding-review</text>
-    <text x="226" y="48" class="mono terminalText">python coding_review.py</text>
-    <text x="448" y="48" class="mono terminalText">handoffkit report runs/latest</text>
-    <path d="M210 27H218M432 27H440M210 50H218M432 50H440" stroke="#475569" stroke-width="2" stroke-linecap="round"/>
+  <!-- Bottom terminal bar -->
+  <g transform="translate(64 754)" filter="url(#softShadow)">
+    <rect width="1152" height="32" rx="16" fill="#0f1220"/>
+    <circle cx="22" cy="16" r="5" fill="#fb7185"/>
+    <circle cx="40" cy="16" r="5" fill="#facc15"/>
+    <circle cx="58" cy="16" r="5" fill="#74d399"/>
+    <text x="84" y="21" class="mono terminalMuted">runtimes:</text>
+    <text x="172" y="21" class="mono" font-size="11" fill="#38bdf8">pip install handoffkit</text>
+    <text x="376" y="21" class="mono" font-size="11" fill="#facc15">npm i @handoffkit/core</text>
+    <text x="574" y="21" class="mono" font-size="11" fill="#f97316">cargo add handoffkit</text>
+    <text x="744" y="21" class="mono" font-size="11" fill="#a78bfa">cmake FetchContent (C++)</text>
+    <text x="990" y="21" class="mono" font-size="11" fill="#34d399">handoffkit report runs/latest</text>
   </g>
 </svg>

@@ -1,44 +1,83 @@
-﻿<svg width="1200" height="420" viewBox="0 0 1200 420" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">HandoffKit state flow</title>
-  <desc id="desc">A before and after diagram showing structured HandoffState replacing vague free text context.</desc>
+<svg width="1280" height="460" viewBox="0 0 1280 460" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">HandoffKit state flow — cross-runtime</title>
+  <desc id="desc">Before and after diagram: vague free-text context vs structured HandoffState shared across Python, JavaScript, Rust, and C++.</desc>
   <defs>
-    <linearGradient id="good" x1="706" y1="118" x2="1118" y2="320" gradientUnits="userSpaceOnUse">
+    <linearGradient id="good" x1="680" y1="118" x2="1200" y2="360" gradientUnits="userSpaceOnUse">
       <stop stop-color="#ECFEFF"/>
       <stop offset="1" stop-color="#ECFDF5"/>
     </linearGradient>
+    <linearGradient id="runtimeBar" x1="680" y1="0" x2="1200" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38bdf8"/>
+      <stop offset="0.33" stop-color="#facc15"/>
+      <stop offset="0.66" stop-color="#f97316"/>
+      <stop offset="1" stop-color="#a78bfa"/>
+    </linearGradient>
     <style>
-      .heading { font: 800 36px Inter, ui-sans-serif, system-ui, sans-serif; fill: #0F172A; letter-spacing: 0; }
-      .sub { font: 500 18px Inter, ui-sans-serif, system-ui, sans-serif; fill: #475569; letter-spacing: 0; }
-      .label { font: 800 24px Inter, ui-sans-serif, system-ui, sans-serif; fill: #0F172A; letter-spacing: 0; }
-      .body { font: 500 17px Inter, ui-sans-serif, system-ui, sans-serif; fill: #475569; letter-spacing: 0; }
-      .badCode { font: 700 15px "JetBrains Mono", "SFMono-Regular", Consolas, monospace; fill: #991B1B; letter-spacing: 0; }
-      .goodCode { font: 700 15px "JetBrains Mono", "SFMono-Regular", Consolas, monospace; fill: #047857; letter-spacing: 0; }
+      .heading { font: 800 34px Inter, ui-sans-serif, system-ui, sans-serif; fill: #0F172A; }
+      .sub { font: 500 17px Inter, ui-sans-serif, system-ui, sans-serif; fill: #475569; }
+      .label { font: 800 22px Inter, ui-sans-serif, system-ui, sans-serif; fill: #0F172A; }
+      .body { font: 500 15px Inter, ui-sans-serif, system-ui, sans-serif; fill: #475569; }
+      .badCode { font: 700 14px "JetBrains Mono", "SFMono-Regular", Consolas, monospace; fill: #991B1B; }
+      .goodCode { font: 700 13.5px "JetBrains Mono", "SFMono-Regular", Consolas, monospace; fill: #047857; }
+      .langTag { font: 800 10px "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
     </style>
   </defs>
 
-  <rect width="1200" height="420" rx="30" fill="#F8FAFC"/>
-  <rect x="1.5" y="1.5" width="1197" height="417" rx="28.5" stroke="#CBD5E1" stroke-width="3"/>
+  <rect width="1280" height="460" rx="30" fill="#F8FAFC"/>
+  <rect x="1.5" y="1.5" width="1277" height="457" rx="28.5" stroke="#CBD5E1" stroke-width="3"/>
 
-  <text x="70" y="72" class="heading">Structured handoffs beat context soup</text>
-  <text x="70" y="104" class="sub">HandoffKit keeps task state explicit as agents move from planning to coding to review.</text>
+  <text x="70" y="68" class="heading">Structured handoffs beat context soup</text>
+  <text x="70" y="98" class="sub">HandoffKit keeps task state explicit as agents move across runtimes — Python, JavaScript, Rust, and C++.</text>
 
-  <rect x="70" y="144" width="445" height="206" rx="24" fill="#FFF1F2" stroke="#FDA4AF" stroke-width="2"/>
-  <text x="104" y="190" class="label">Before</text>
-  <text x="104" y="228" class="badCode">"I think it is mostly done."</text>
-  <text x="104" y="262" class="body">No files. No decisions. No errors.</text>
-  <text x="104" y="290" class="body">Next agent guesses what matters.</text>
+  <!-- BEFORE card -->
+  <rect x="70" y="128" width="440" height="240" rx="24" fill="#FFF1F2" stroke="#FDA4AF" stroke-width="2"/>
+  <text x="106" y="172" class="label">Before</text>
+  <text x="106" y="206" class="badCode">"I think it is mostly done."</text>
+  <text x="106" y="238" class="body">No files. No decisions. No errors.</text>
+  <text x="106" y="264" class="body">Next agent guesses what matters.</text>
+  <text x="106" y="292" class="body">Context balloons. State is lost.</text>
+  <!-- lost label -->
+  <rect x="106" y="318" width="244" height="28" rx="14" fill="#ffe4e6" stroke="#fda4af"/>
+  <text x="124" y="337" class="badCode" font-size="12">lost: files · decisions · errors · next_steps</text>
 
-  <circle cx="600" cy="246" r="34" fill="#0F172A"/>
-  <path d="M586 246H614" stroke="#F8FAFC" stroke-width="4" stroke-linecap="round"/>
-  <path d="M604 236L616 246L604 256" stroke="#F8FAFC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Arrow -->
+  <circle cx="614" cy="248" r="36" fill="#0F172A"/>
+  <path d="M598 248H630" stroke="#F8FAFC" stroke-width="4" stroke-linecap="round"/>
+  <path d="M618 237L631 248L618 259" stroke="#F8FAFC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <rect x="685" y="144" width="445" height="206" rx="24" fill="url(#good)" stroke="#6EE7B7" stroke-width="2"/>
-  <text x="719" y="190" class="label">After</text>
-  <text x="719" y="226" class="goodCode">task: "Build calculator CLI"</text>
-  <text x="719" y="254" class="goodCode">decisions: ["Use argparse"]</text>
-  <text x="719" y="282" class="goodCode">files: ["calculator.py"]</text>
-  <text x="719" y="310" class="goodCode">next_steps: ["Run pytest"]</text>
+  <!-- AFTER card -->
+  <rect x="660" y="128" width="550" height="240" rx="24" fill="url(#good)" stroke="#6EE7B7" stroke-width="2"/>
 
-  <path d="M78 376H1122" stroke="#E2E8F0" stroke-width="2" stroke-linecap="round"/>
-  <path d="M724 376H968" stroke="#22C55E" stroke-width="5" stroke-linecap="round"/>
+  <!-- Runtime gradient bar -->
+  <rect x="660" y="128" width="550" height="6" rx="3" fill="url(#runtimeBar)"/>
+
+  <text x="694" y="172" class="label">After: HandoffState</text>
+
+  <text x="694" y="204" class="goodCode">task:       "Build calculator CLI"</text>
+  <text x="694" y="228" class="goodCode">decisions:  ["Use argparse", "Pure functions"]</text>
+  <text x="694" y="252" class="goodCode">files:      ["calculator.py", "tests.py"]</text>
+  <text x="694" y="276" class="goodCode">next_steps: ["Run pytest", "Check coverage"]</text>
+
+  <!-- Runtime badges -->
+  <g transform="translate(694 300)">
+    <rect width="64" height="22" rx="11" fill="#dbeafe"/>
+    <text x="10" y="15" class="langTag" fill="#1d4ed8">Python</text>
+
+    <rect x="74" width="82" height="22" rx="11" fill="#fef9c3"/>
+    <text x="84" y="15" class="langTag" fill="#92400e">JavaScript</text>
+
+    <rect x="166" width="52" height="22" rx="11" fill="#ffedd5"/>
+    <text x="176" y="15" class="langTag" fill="#9a3412">Rust</text>
+
+    <rect x="228" width="44" height="22" rx="11" fill="#f5f3ff"/>
+    <text x="238" y="15" class="langTag" fill="#4c1d95">C++</text>
+
+    <rect x="282" width="88" height="22" rx="11" fill="#dcfce7"/>
+    <text x="292" y="15" class="langTag" fill="#166534">validated ✓</text>
+  </g>
+
+  <!-- Bottom rule -->
+  <path d="M78 414H1202" stroke="#E2E8F0" stroke-width="2" stroke-linecap="round"/>
+  <path d="M660" y="414H1210" stroke="url(#runtimeBar)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M660 414H1210" stroke="url(#runtimeBar)" stroke-width="5" stroke-linecap="round"/>
 </svg>
