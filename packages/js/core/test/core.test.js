@@ -549,5 +549,42 @@ test("RunTrace toTimeline works in JS", () => {
   assert.match(timeline, /1. \[Architect\] -> Task: Design system/);
 });
 
+test("tool safety policies block dangerous commands and require approvals", async () => {
+  const { isDangerousCommand, requiresApproval, ToolRegistry, defineTool } = await import("../src/index.js");
+
+  assert.equal(isDangerousCommand("rm -rf /"), true);
+  assert.equal(isDangerousCommand("del /s C:\\"), true);
+  assert.equal(isDangerousCommand("echo 'hello'"), false);
+
+  assert.equal(requiresApproval("run_command"), true);
+  assert.equal(requiresApproval("write_file"), true);
+  assert.equal(requiresApproval("read_file"), false);
+
+  const runCommandTool = defineTool({
+    name: "run_command",
+    execute: ({ command }) => `Ran: ${command}`,
+  });
+  const writeFileTool = defineTool({
+    name: "write_file",
+    execute: ({ path }) => `Wrote: ${path}`,
+  });
+  const registry = new ToolRegistry([runCommandTool, writeFileTool]);
+
+  // Enforce approval
+  const approvalRes = registry.execute({ name: "run_command", arguments: { command: "echo" } }, { requireApproval: true });
+  assert.equal(approvalRes.success, false);
+  assert.equal(approvalRes.error, "approval_required");
+
+  // Block dangerous commands
+  const dangerousRes = registry.execute({ name: "run_command", arguments: { command: "rm -rf /" } });
+  assert.equal(dangerousRes.success, false);
+  assert.match(dangerousRes.error, /unsafe command blocked/);
+
+  // Safe executes normally
+  const safeRes = registry.execute({ name: "run_command", arguments: { command: "echo 1" } });
+  assert.equal(safeRes.success, true);
+  assert.equal(safeRes.output, "Ran: echo 1");
+});
+
 
 
