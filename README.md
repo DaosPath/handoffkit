@@ -1,27 +1,52 @@
-# HandoffKit <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/gitlfs.svg" width="32" height="32" align="right"/>
+# HandoffKit
 
-[![CI Status](https://img.shields.io/github/actions/workflow/status/DaosPath/handoffkit/ci.yml?branch=main&label=CI&logo=github&logoColor=white)](https://github.com/DaosPath/handoffkit/actions)
-[![PyPI version](https://img.shields.io/pypi/v/handoffkit.svg?logo=python&logoColor=white)](https://pypi.org/project/handoffkit/)
-[![npm version](https://img.shields.io/npm/v/@handoffkit/core.svg?logo=npm&logoColor=white)](https://www.npmjs.com/package/@handoffkit/core)
-[![License](https://img.shields.io/github/license/DaosPath/handoffkit.svg?logo=git&logoColor=white)](https://github.com/DaosPath/handoffkit/blob/main/LICENSE)
+[![CI Status](https://img.shields.io/github/actions/workflow/status/DaosPath/handoffkit/ci.yml?branch=main&label=CI&logo=github&logoColor=white&style=flat-square)](https://github.com/DaosPath/handoffkit/actions)
+[![PyPI version](https://img.shields.io/pypi/v/handoffkit.svg?logo=python&logoColor=white&style=flat-square)](https://pypi.org/project/handoffkit/)
+[![npm version](https://img.shields.io/npm/v/@handoffkit/core.svg?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/@handoffkit/core)
+[![License](https://img.shields.io/github/license/DaosPath/handoffkit.svg?style=flat-square)](https://github.com/DaosPath/handoffkit/blob/main/LICENSE)
 
 **HandoffKit** is a language-agnostic, cross-runtime framework for building multi-agent teams with **Structured State-Transfer Protocols**. It provides a unified contract layer, execution model, tool registries, context retrievers, and tracing utilities across **Python, JavaScript/TypeScript, Rust, and C++**.
 
-By standardizing the state (the "handoff") transferred from one agent to another using deterministic JSON schemas, HandoffKit allows you to build agents in different languages that collaborate seamlessly in a single pipeline without context pollution.
+By standardizing the state (the "handoff") transferred from one agent to another using deterministic JSON schemas, HandoffKit allows you to build agents in different languages that collaborate seamlessly in a single pipeline **without context pollution**.
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/git.svg" width="22" height="22" style="vertical-align: middle;"/> State-Transfer Protocols
+## The Problem: Context Soup → Structured Contract
+
+When agents relay work through free-text summaries, critical information gets lost at every transition.
+
+![Before and After HandoffState](docs/img/hero_before_after.png)
+
+> **Before:** `"Basically done. Reviewer found an issue."` — files, decisions, errors, and next steps disappear.
+>
+> **After:** A `HandoffState` object that travels as data, not as a fragile paragraph — with validation, quality scoring, and full replay evidence.
+
+---
+
+## Supported Runtimes
+
+![Multi-Runtime Support](docs/img/runtimes_banner.png)
+
+| Runtime | Package | Install |
+|---|---|---|
+| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/python.svg" width="16"/> **Python** | `handoffkit` | `pip install handoffkit` |
+| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/javascript.svg" width="16"/> **JavaScript** | `@handoffkit/core` | `npm install @handoffkit/core` |
+| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/rust.svg" width="16"/> **Rust** | `handoffkit` | `cargo add handoffkit` |
+| <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/cplusplus.svg" width="16"/> **C++** | `handoffkit` | CMake `FetchContent` |
+
+---
+
+## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/git.svg" width="20" height="20" style="vertical-align: middle;"/> State-Transfer Protocols
 
 When routing tasks between agents, standard conversation histories quickly become cluttered with context drift. HandoffKit introduces three optimized state-transfer protocols:
 
-* **`hybrid_state`**: The default mode. Transports the complete structured `HandoffState` (decisions, modified files, errors, next steps) inside a system contract boundary alongside conversation history.
-* **`natural_handoff`**: Minimizes schema overhead by compiling the handoff state directly into a natural narrative summary that is injected seamlessly into the chat history.
-* **`compressed_state`**: Compresses metadata payloads to reduce prompt token consumption in complex or long-running multi-agent pipelines.
+* **`hybrid_state`** — The default. Transports the complete structured `HandoffState` (decisions, modified files, errors, next steps) inside a system contract boundary alongside conversation history.
+* **`natural_handoff`** — Minimizes schema overhead by compiling the handoff state directly into a natural narrative summary injected seamlessly into the chat history.
+* **`compressed_state`** — Compresses metadata payloads to reduce prompt token consumption in complex or long-running multi-agent pipelines.
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/pnpm.svg" width="22" height="22" style="vertical-align: middle;"/> Monorepo Structure
+## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/pnpm.svg" width="20" height="20" style="vertical-align: middle;"/> Monorepo Structure
 
 ```text
 handoffkit/
@@ -33,15 +58,17 @@ handoffkit/
     cpp/             # C++ library with CMake, Conan, and nlohmann_json support
   apps/
     web/             # Next.js showcase app and developer documentation
+  docs/
+    img/             # Diagrams and visual assets for README and documentation
 ```
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/codio.svg" width="22" height="22" style="vertical-align: middle;"/> Symmetrical Code Examples
+## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/codio.svg" width="20" height="20" style="vertical-align: middle;"/> Symmetrical Code Examples
 
-Below is how you declare a `HandoffState` and serialize it to markdown/JSON across all four supported runtimes.
+<details>
+<summary><img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/python.svg" width="16"/> <strong>Python</strong></summary>
 
-### <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/python.svg" width="20" height="20" style="vertical-align: middle;"/> Python
 ```python
 from handoffkit import HandoffState
 
@@ -55,15 +82,16 @@ state = HandoffState(
     next_steps=["Write unit tests", "Create login handler"]
 )
 
-# Convert to Markdown or JSON
 markdown_report = state.to_markdown()
-json_payload = state.to_json()
-
-# Parse back
-loaded = HandoffState.from_markdown(markdown_report)
+json_payload    = state.to_json()
+loaded          = HandoffState.from_markdown(markdown_report)
 ```
 
-### <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/javascript.svg" width="20" height="20" style="vertical-align: middle;"/> JavaScript / TypeScript
+</details>
+
+<details>
+<summary><img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/javascript.svg" width="16"/> <strong>JavaScript / TypeScript</strong></summary>
+
 ```javascript
 import { HandoffState } from "@handoffkit/core";
 
@@ -77,15 +105,16 @@ const state = new HandoffState({
   nextSteps: ["Write unit tests", "Create login handler"]
 });
 
-// Convert to Markdown or JSON
 const markdownReport = state.toMarkdown();
-const jsonPayload = state.toJSONString();
-
-// Parse back
-const loaded = HandoffState.fromMarkdown(markdownReport);
+const jsonPayload    = state.toJSONString();
+const loaded         = HandoffState.fromMarkdown(markdownReport);
 ```
 
-### <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/rust.svg" width="20" height="20" style="vertical-align: middle;"/> Rust
+</details>
+
+<details>
+<summary><img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/rust.svg" width="16"/> <strong>Rust</strong></summary>
+
 ```rust
 use handoffkit::HandoffState;
 
@@ -102,119 +131,103 @@ let state = HandoffState {
     metadata: std::collections::HashMap::new(),
 };
 
-// Convert to Markdown
 let markdown_report = state.to_markdown();
-
-// Parse back
-let loaded = HandoffState::from_markdown(&markdown_report);
+let loaded          = HandoffState::from_markdown(&markdown_report);
 ```
 
-### <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/cplusplus.svg" width="20" height="20" style="vertical-align: middle;"/> C++
+</details>
+
+<details>
+<summary><img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/cplusplus.svg" width="16"/> <strong>C++ (C++17)</strong></summary>
+
 ```cpp
 #include <handoffkit/handoff.hpp>
-#include <iostream>
-
 using namespace handoffkit;
 
 HandoffState state;
-state.task = "Implement user authorization";
-state.from_agent = "Architect";
-state.to_agent = "Coder";
-state.summary = "API contract is finalized.";
-state.decisions = {"Use JWT authentication"};
+state.task          = "Implement user authorization";
+state.from_agent    = "Architect";
+state.to_agent      = "Coder";
+state.summary       = "API contract is finalized.";
+state.decisions     = {"Use JWT authentication"};
 state.important_files = {"CMakeLists.txt"};
-state.next_steps = {"Write unit tests"};
+state.next_steps    = {"Write unit tests"};
 
-// Convert to Markdown
 std::string markdown_report = state.to_markdown();
-
-// Parse back
-HandoffState loaded = HandoffState::from_markdown(markdown_report);
+HandoffState loaded         = HandoffState::from_markdown(markdown_report);
 ```
+
+</details>
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/diagramsdotnet.svg" width="22" height="22" style="vertical-align: middle;"/> Trace Timeline Visualization
+## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/diagramsdotnet.svg" width="20" height="20" style="vertical-align: middle;"/> Trace Timeline Visualization
 
-By utilizing `RunTrace.to_timeline()`, you can instantly render a structured ASCII flow representing the sequence of agent handoffs, tools executed, and completion status.
+Use `RunTrace.to_timeline()` (Python/Rust/C++) or `trace.toTimeline()` (JS) to render a structured chronological execution summary for any multi-agent run.
 
-**Example Output:**
-```markdown
+![Trace Timeline Diagram](docs/img/timeline_diagram.png)
+
+```
 # Execution Timeline: Support Escalation (Run ID: run-9c2b-4e81)
-- Success: true
-- Total Steps: 3
-- Total Handoffs: 2
+- Success: true  |  Steps: 3  |  Handoffs: 2
 
-## Timeline
-1. [Triage] -> Task: Classify customer issue renewal.
-   - Mode: hybrid_state
-   - Success: true
-   - Tools Used: 1
-   - Output Preview: Escalating renewal issues to the billing team...
-   - [Handoff] -> Triage to Billing
-2. [Billing] -> Task: Inspect billing records for renewal.
-   - Mode: hybrid_state
-   - Success: true
-   - Tools Used: 2
-   - Output Preview: Found duplicate charge of $49.00...
-   - [Handoff] -> Billing to Supervisor
-3. [Supervisor] -> Task: Approve refund request.
-   - Mode: compressed_state
-   - Success: true
-   - Tools Used: 1
-   - Output Preview: Refund processed and closed...
+1. [Triage]     -> Task: Classify customer issue
+   - Mode: hybrid_state | Tools Used: 1 | Success: true
+   - [Handoff] Triage -> Billing
+
+2. [Billing]    -> Task: Inspect billing records
+   - Mode: hybrid_state | Tools Used: 2 | Success: true
+   - [Handoff] Billing -> Supervisor
+
+3. [Supervisor] -> Task: Approve refund request
+   - Mode: compressed_state | Tools Used: 1 | Success: true
 ```
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/turborepo.svg" width="22" height="22" style="vertical-align: middle;"/> Quick Start Development
+## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/turborepo.svg" width="20" height="20" style="vertical-align: middle;"/> Quick Start
 
 ### Prerequisites
-* [Node.js](https://nodejs.org/) (v22+)
-* [pnpm](https://pnpm.io/) (v11.1.1+)
-* [Python](https://www.python.org/) (v3.10+)
-* [Rust](https://www.rust-lang.org/) (Cargo)
-* [CMake](https://cmake.org/) (v3.15+)
 
-### Installation
-Clone the repository and install all workspace dependencies:
+* [Node.js](https://nodejs.org/) v22+ · [pnpm](https://pnpm.io/) v11+ · [Python](https://www.python.org/) v3.10+ · [Rust](https://www.rust-lang.org/) · [CMake](https://cmake.org/) v3.15+
+
+### Install
+
 ```bash
 git clone https://github.com/DaosPath/handoffkit.git
 cd handoffkit
 pnpm install
 ```
 
-### Running Tests Across Runtimes
+### Run Tests
 
-* **JavaScript**:
-  ```bash
-  pnpm js:test
-  ```
-* **Python**:
-  ```bash
-  pnpm python:test
-  ```
-* **Rust**:
-  ```bash
-  cd packages/rust
-  cargo test
-  ```
-* **C++**:
-  ```bash
-  cd packages/cpp
-  cmake -B build
-  cmake --build build --config Release
-  ctest --test-dir build -C Release --output-on-failure
-  ```
+```bash
+# JavaScript
+pnpm js:test
+
+# Python
+pnpm python:test
+
+# Rust
+cd packages/rust && cargo test
+
+# C++
+cd packages/cpp && cmake -B build && cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+```
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/trello.svg" width="22" height="22" style="vertical-align: middle;"/> Roadmap & Community
+## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/trello.svg" width="20" height="20" style="vertical-align: middle;"/> Roadmap
 
-1. **Additional Language Ports**: Go (Golang) package is planned for version `1.9.0`.
-2. **Standardized Benchmarks**: Cross-runtime stability and rescue diagnostics under different LLM providers.
-3. **Web-based Visualizer**: An interactive Next.js application to upload `RunTrace` JSON structures and render interactive team graphs.
+| Version | Feature |
+|---|---|
+| `1.9.0` | Go (Golang) runtime package |
+| `1.9.x` | Cross-runtime benchmark suite |
+| `2.0.0` | Interactive RunTrace web visualizer (Next.js) |
 
-## License 📄
+---
+
+## License
 
 HandoffKit is open-source software licensed under the [MIT License](LICENSE).
