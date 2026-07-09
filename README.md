@@ -1,4 +1,4 @@
-# HandoffKit <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/githubactions.svg" width="32" height="32" align="right" style="fill: #2088FF;"/>
+# HandoffKit <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/gitlfs.svg" width="32" height="32" align="right"/>
 
 [![CI Status](https://img.shields.io/github/actions/workflow/status/DaosPath/handoffkit/ci.yml?branch=main&label=CI&logo=github&logoColor=white)](https://github.com/DaosPath/handoffkit/actions)
 [![PyPI version](https://img.shields.io/pypi/v/handoffkit.svg?logo=python&logoColor=white)](https://pypi.org/project/handoffkit/)
@@ -11,7 +11,7 @@ By standardizing the state (the "handoff") transferred from one agent to another
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/lighthouse.svg" width="22" height="22" style="vertical-align: middle;"/> State-Transfer Protocols
+## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/git.svg" width="22" height="22" style="vertical-align: middle;"/> State-Transfer Protocols
 
 When routing tasks between agents, standard conversation histories quickly become cluttered with context drift. HandoffKit introduces three optimized state-transfer protocols:
 
@@ -21,7 +21,7 @@ When routing tasks between agents, standard conversation histories quickly becom
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/gitbook.svg" width="22" height="22" style="vertical-align: middle;"/> Monorepo Structure
+## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/pnpm.svg" width="22" height="22" style="vertical-align: middle;"/> Monorepo Structure
 
 ```text
 handoffkit/
@@ -37,7 +37,7 @@ handoffkit/
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/codeblocks.svg" width="22" height="22" style="vertical-align: middle;"/> Symmetrical Code Examples
+## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/codio.svg" width="22" height="22" style="vertical-align: middle;"/> Symmetrical Code Examples
 
 Below is how you declare a `HandoffState` and serialize it to markdown/JSON across all four supported runtimes.
 
@@ -134,7 +134,7 @@ HandoffState loaded = HandoffState::from_markdown(markdown_report);
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/timeline.svg" width="22" height="22" style="vertical-align: middle;"/> Trace Timeline Visualization
+## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/diagramsdotnet.svg" width="22" height="22" style="vertical-align: middle;"/> Trace Timeline Visualization
 
 By utilizing `RunTrace.to_timeline()`, you can instantly render a structured ASCII flow representing the sequence of agent handoffs, tools executed, and completion status.
 
@@ -167,7 +167,7 @@ By utilizing `RunTrace.to_timeline()`, you can instantly render a structured ASC
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/speedtest.svg" width="22" height="22" style="vertical-align: middle;"/> Quick Start Development
+## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/turborepo.svg" width="22" height="22" style="vertical-align: middle;"/> Quick Start Development
 
 ### Prerequisites
 * [Node.js](https://nodejs.org/) (v22+)
@@ -209,7 +209,7 @@ pnpm install
 
 ---
 
-## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/roadmap.svg" width="22" height="22" style="vertical-align: middle;"/> Roadmap & Community
+## <img src="https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/trello.svg" width="22" height="22" style="vertical-align: middle;"/> Roadmap & Community
 
 1. **Additional Language Ports**: Go (Golang) package is planned for version `1.9.0`.
 2. **Standardized Benchmarks**: Cross-runtime stability and rescue diagnostics under different LLM providers.
