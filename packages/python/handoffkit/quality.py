@@ -35,6 +35,16 @@ class HandoffQualityMetric:
             "notes": self.notes,
         }
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> HandoffQualityMetric:
+        """Create a quality metric from a dictionary."""
+        return cls(
+            name=str(data.get("name", "")),
+            score=float(data.get("score", 0.0)),
+            weight=float(data.get("weight", 1.0)),
+            notes=data.get("notes") if isinstance(data.get("notes"), list) else [],
+        )
+
 
 @dataclass
 class HandoffQualityReport:
@@ -63,6 +73,42 @@ class HandoffQualityReport:
     def to_json(self, *, indent: int | None = 2) -> str:
         """Serialize this quality report as JSON."""
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent, default=_json_default)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> HandoffQualityReport:
+        """Create a quality report from a dictionary."""
+        metrics_data = data.get("metrics", [])
+        metrics = [
+            HandoffQualityMetric.from_dict(metric)
+            for metric in metrics_data
+            if isinstance(metric, dict)
+        ]
+        validation_data = data.get("validation")
+        if isinstance(validation_data, dict):
+            validation = ValidationReport.from_dict(validation_data)
+        else:
+            validation = ValidationReport(success=True)
+        return cls(
+            success=bool(data.get("success", True)),
+            score=float(data.get("score", 0.0)),
+            grade=str(data.get("grade", "")),
+            metrics=metrics,
+            recommendations=(
+                data.get("recommendations")
+                if isinstance(data.get("recommendations"), list)
+                else []
+            ),
+            validation=validation,
+            metadata=data.get("metadata") if isinstance(data.get("metadata"), dict) else {},
+        )
+
+    @classmethod
+    def from_json(cls, value: str) -> HandoffQualityReport:
+        """Create a quality report from JSON."""
+        data = json.loads(value)
+        if not isinstance(data, dict):
+            raise ValueError("HandoffQualityReport JSON must decode to an object.")
+        return cls.from_dict(data)
 
     def to_markdown(self) -> str:
         """Serialize this quality report as Markdown."""

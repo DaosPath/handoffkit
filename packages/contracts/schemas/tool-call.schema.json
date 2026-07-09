@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/tool-call.schema.json",
+  "title": "ToolCall",
+  "type": "object",
+  "required": ["tool_name", "arguments", "call_id"],
+  "properties": {
+    "tool_name": { "type": "string" },
+    "arguments": { "type": "object" },
+    "call_id": { "type": "string" },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

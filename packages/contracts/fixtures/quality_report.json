@@ -1,0 +1,53 @@
+{
+  "success": true,
+  "score": 0.85,
+  "grade": "B",
+  "metrics": [
+    {
+      "name": "completeness",
+      "score": 1.0,
+      "weight": 1.0,
+      "notes": []
+    },
+    {
+      "name": "clarity",
+      "score": 1.0,
+      "weight": 1.0,
+      "notes": []
+    },
+    {
+      "name": "actionability",
+      "score": 1.0,
+      "weight": 1.0,
+      "notes": []
+    },
+    {
+      "name": "traceability",
+      "score": 0.5,
+      "weight": 1.0,
+      "notes": [
+        "No important files or context refs provided."
+      ]
+    },
+    {
+      "name": "errorAwareness",
+      "score": 0.7,
+      "weight": 1.0,
+      "notes": [
+        "No errors or errorsChecked flag."
+      ]
+    }
+  ],
+  "recommendations": [
+    "Add clearer next steps, files, context refs, or error notes."
+  ],
+  "validation": {
+    "success": true,
+    "issues": [],
+    "metadata": {}
+  },
+  "metadata": {
+    "contract_version": "1.7.0",
+    "runtime": "shared"
+  }
+}

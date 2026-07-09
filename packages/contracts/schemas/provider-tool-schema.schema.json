@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/provider-tool-schema.schema.json",
+  "title": "ProviderToolSchema",
+  "type": "object",
+  "required": ["name", "description", "parameters"],
+  "properties": {
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "parameters": { "type": "object" }
+  },
+  "additionalProperties": true
+}

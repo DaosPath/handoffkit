@@ -36,6 +36,16 @@ class ValidationIssue:
             "severity": self.severity,
         }
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ValidationIssue:
+        """Create a validation issue from a dictionary."""
+        return cls(
+            code=str(data.get("code", "")),
+            message=str(data.get("message", "")),
+            field=str(data.get("field", "")),
+            severity=str(data.get("severity", "error")),
+        )
+
 
 @dataclass
 class ValidationReport:
@@ -66,6 +76,29 @@ class ValidationReport:
     def to_json(self, *, indent: int | None = 2) -> str:
         """Serialize this report as JSON."""
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent, default=_json_default)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ValidationReport:
+        """Create a validation report from a dictionary."""
+        issues_data = data.get("issues", [])
+        issues = [
+            ValidationIssue.from_dict(issue)
+            for issue in issues_data
+            if isinstance(issue, dict)
+        ]
+        return cls(
+            success=bool(data.get("success", True)),
+            issues=issues,
+            metadata=data.get("metadata") if isinstance(data.get("metadata"), dict) else {},
+        )
+
+    @classmethod
+    def from_json(cls, value: str) -> ValidationReport:
+        """Create a validation report from JSON."""
+        data = json.loads(value)
+        if not isinstance(data, dict):
+            raise ValueError("ValidationReport JSON must decode to an object.")
+        return cls.from_dict(data)
 
     def to_markdown(self) -> str:
         """Serialize this report as Markdown."""

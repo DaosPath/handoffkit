@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/packages/python/docs/assets/handoffkit-hero.svg" alt="HandoffKit: structured state transfer for multi-agent Python workflows" width="100%">
+<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/packages/python/docs/assets/handoffkit-hero.svg" alt="HandoffKit: structured state transfer for multi-agent Python and JavaScript workflows" width="100%">
 
 # HandoffKit
 
-**Structured state transfer for multi-agent Python workflows.**
+**Structured state transfer for multi-agent Python and JavaScript workflows.**
 
 Build agent chains where each agent receives a clear contract: task, decisions,
 files, errors, next steps, and metadata. No messy context soup.

@@ -19,5 +19,15 @@ Rules:
 
 - `schemas/handoff-state.schema.json`
 - `schemas/run-trace.schema.json`
+- `schemas/validation-report.schema.json`
+- `schemas/quality-report.schema.json`
+- `schemas/tool-call.schema.json`
+- `schemas/tool-result.schema.json`
+- `schemas/provider-tool-schema.schema.json`
 - `fixtures/handoff_state.json`
 - `fixtures/run_trace.json`
+- `fixtures/validation_report.json`
+- `fixtures/quality_report.json`
+- `fixtures/tool_call.json`
+- `fixtures/tool_result.json`
+- `fixtures/provider_tool_schema.json`

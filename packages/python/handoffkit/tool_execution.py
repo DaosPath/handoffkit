@@ -44,11 +44,19 @@ class ToolCall:
     def from_dict(cls, data: dict[str, Any]) -> ToolCall:
         """Create a tool call from a dictionary."""
         return cls(
-            tool_name=str(data.get("tool_name", "")),
+            tool_name=str(data.get("tool_name") or data.get("name") or ""),
             arguments=data.get("arguments") if isinstance(data.get("arguments"), dict) else {},
-            call_id=str(data.get("call_id") or uuid.uuid4().hex),
+            call_id=str(data.get("call_id") or data.get("id") or uuid.uuid4().hex),
             metadata=data.get("metadata") if isinstance(data.get("metadata"), dict) else {},
         )
+
+    @classmethod
+    def from_json(cls, value: str) -> ToolCall:
+        """Create a tool call from JSON."""
+        data = json.loads(value)
+        if not isinstance(data, dict):
+            raise ValueError("ToolCall JSON must decode to an object.")
+        return cls.from_dict(data)
 
 
 @dataclass
@@ -76,6 +84,26 @@ class ToolResult:
     def to_json(self, *, indent: int | None = 2) -> str:
         """Serialize the tool result as JSON."""
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent, default=_json_default)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ToolResult:
+        """Create a tool result from a dictionary."""
+        return cls(
+            tool_name=str(data.get("tool_name") or data.get("name") or ""),
+            success=bool(data.get("success", True)),
+            result=data.get("result") if "result" in data else data.get("output"),
+            error=data.get("error"),
+            call_id=str(data.get("call_id") or ""),
+            metadata=data.get("metadata") if isinstance(data.get("metadata"), dict) else {},
+        )
+
+    @classmethod
+    def from_json(cls, value: str) -> ToolResult:
+        """Create a tool result from JSON."""
+        data = json.loads(value)
+        if not isinstance(data, dict):
+            raise ValueError("ToolResult JSON must decode to an object.")
+        return cls.from_dict(data)
 
 
 class ToolRegistry:
