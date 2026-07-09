@@ -1,6 +1,6 @@
-﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 680" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 680" role="img" aria-labelledby="title desc">
   <title id="title">HandoffKit coding-review demo</title>
-  <desc id="desc">A taller polished HandoffKit before and after graphic comparing vague context soup with structured HandoffState handoffs.</desc>
+  <desc id="desc">HandoffKit before and after graphic comparing vague context soup with structured HandoffState handoffs — available across Python, JavaScript, Rust, and C++.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="680" gradientUnits="userSpaceOnUse">
       <stop stop-color="#f8fafc"/>
@@ -9,8 +9,9 @@
     </linearGradient>
     <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
       <stop stop-color="#2563eb"/>
-      <stop offset="0.5" stop-color="#059669"/>
-      <stop offset="1" stop-color="#f59e0b"/>
+      <stop offset="0.33" stop-color="#059669"/>
+      <stop offset="0.66" stop-color="#f97316"/>
+      <stop offset="1" stop-color="#7c3aed"/>
     </linearGradient>
     <filter id="shadow" x="-7%" y="-10%" width="114%" height="124%">
       <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0f172a" flood-opacity="0.14"/>
