@@ -1,117 +1,182 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 680" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="700" viewBox="0 0 1280 700" role="img" aria-labelledby="title desc">
   <title id="title">HandoffKit coding-review demo</title>
-  <desc id="desc">HandoffKit before and after graphic comparing vague context soup with structured HandoffState handoffs — available across Python, JavaScript, Rust, and C++.</desc>
+  <desc id="desc">Before and after: vague context soup vs structured HandoffState contracts — across Python, JavaScript, Rust, and C++.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="680" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="700" gradientUnits="userSpaceOnUse">
       <stop stop-color="#f8fafc"/>
       <stop offset="0.5" stop-color="#eef6ff"/>
       <stop offset="1" stop-color="#ecfdf5"/>
     </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+    <linearGradient id="accentH" x1="68" y1="0" x2="628" y2="0" gradientUnits="userSpaceOnUse">
       <stop stop-color="#2563eb"/>
       <stop offset="0.33" stop-color="#059669"/>
       <stop offset="0.66" stop-color="#f97316"/>
       <stop offset="1" stop-color="#7c3aed"/>
     </linearGradient>
-    <filter id="shadow" x="-7%" y="-10%" width="114%" height="124%">
-      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0f172a" flood-opacity="0.14"/>
+    <filter id="cardShadow" x="-5%" y="-5%" width="110%" height="118%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
+    <filter id="termShadow" x="-5%" y="-8%" width="110%" height="122%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.20"/>
     </filter>
     <style>
-      .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-      .title { fill: #0f172a; font-size: 40px; font-weight: 860; letter-spacing: 0; }
-      .lead { fill: #475569; font-size: 18px; font-weight: 540; letter-spacing: 0; }
-      .label { font-size: 12px; font-weight: 820; letter-spacing: 0; }
-      .h2 { fill: #0f172a; font-size: 25px; font-weight: 820; letter-spacing: 0; }
-      .body { fill: #334155; font-size: 17px; font-weight: 560; letter-spacing: 0; }
-      .muted { fill: #64748b; font-size: 14px; font-weight: 560; letter-spacing: 0; }
-      .cmd { fill: #dbeafe; font-size: 15px; font-weight: 760; letter-spacing: 0; }
-      .metric { fill: #334155; font-size: 13px; font-weight: 720; letter-spacing: 0; }
-      .bad { fill: #be123c; }
-      .ok { fill: #047857; }
-      .blue { fill: #1d4ed8; }
-      .warn { fill: #a16207; }
-      .surface { fill: #ffffff; stroke: #dbe4ef; stroke-width: 1.2; }
-      .terminal { fill: #0b1020; stroke: #1e293b; stroke-width: 1.2; }
-      .row { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1; }
-      .soft { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1; }
+      .f  { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+      .m  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     </style>
   </defs>
 
-  <rect width="1280" height="680" rx="34" fill="url(#bg)"/>
-  <rect x="1.5" y="1.5" width="1277" height="677" rx="32.5" fill="none" stroke="#dbe4ef" stroke-width="3"/>
+  <!-- Background -->
+  <rect width="1280" height="700" rx="32" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="1277" height="697" rx="30.5" fill="none" stroke="#dbe4ef" stroke-width="3"/>
 
-  <g transform="translate(68 58)">
-    <rect width="134" height="32" rx="16" fill="#dbeafe" stroke="#bfdbfe"/>
-    <text x="20" y="21" class="mono label blue">5 MIN DEMO</text>
-    <text x="0" y="86" class="sans title">Context soup becomes a contract</text>
-    <text x="0" y="122" class="sans lead">Run a coding-agent workflow, then inspect exactly what the next agent receives.</text>
-    <rect x="0" y="154" width="560" height="6" rx="3" fill="url(#accent)"/>
+  <!-- ─── HEADER AREA ─── -->
+  <!-- Eyebrow pill -->
+  <rect x="68" y="52" width="118" height="30" rx="15" fill="#dbeafe" stroke="#bfdbfe" stroke-width="1"/>
+  <text x="88" y="72" class="m" font-size="11" font-weight="800" fill="#1d4ed8">5 MIN DEMO</text>
+
+  <!-- Title -->
+  <text x="68" y="124" class="f" font-size="42" font-weight="860" fill="#0f172a">Context soup becomes a contract</text>
+  <!-- Subtitle -->
+  <text x="68" y="158" class="f" font-size="17" font-weight="500" fill="#475569">Run a coding-agent workflow, then inspect exactly what the next agent receives.</text>
+  <!-- Accent bar: x=68, w=560 → right edge = 628. OK. -->
+  <rect x="68" y="178" width="560" height="5" rx="2.5" fill="url(#accentH)"/>
+
+  <!-- Terminal block: x=738, w=474 → right edge = 1212. Margin=68px ✓ -->
+  <g transform="translate(738 52)" filter="url(#termShadow)">
+    <rect width="474" height="136" rx="20" fill="#0b1020" stroke="#1e293b" stroke-width="1.2"/>
+    <!-- Traffic lights -->
+    <circle cx="28" cy="28" r="6" fill="#fb7185"/>
+    <circle cx="52" cy="28" r="6" fill="#fbbf24"/>
+    <circle cx="76" cy="28" r="6" fill="#34d399"/>
+    <!-- Divider -->
+    <line x1="28" y1="48" x2="446" y2="48" stroke="#1e293b" stroke-width="1"/>
+    <!-- Commands -->
+    <text x="28" y="82" class="m" font-size="15" font-weight="700" fill="#dbeafe">$ pip install handoffkit</text>
+    <text x="28" y="112" class="m" font-size="15" font-weight="700" fill="#dbeafe">$ handoffkit init coding-review</text>
   </g>
 
-  <g transform="translate(738 66)" filter="url(#shadow)">
-    <rect width="454" height="132" rx="22" class="terminal"/>
-    <circle cx="30" cy="28" r="6.5" fill="#fb7185"/>
-    <circle cx="54" cy="28" r="6.5" fill="#fbbf24"/>
-    <circle cx="78" cy="28" r="6.5" fill="#34d399"/>
-    <path d="M28 50H426" stroke="#1e293b"/>
-    <text x="30" y="80" class="mono cmd">$ pip install handoffkit</text>
-    <text x="30" y="106" class="mono cmd">$ handoffkit init coding-review</text>
-  </g>
+  <!-- ─── BEFORE card: x=68, w=378 → right edge = 446. Margin OK ─── -->
+  <g transform="translate(68 218)" filter="url(#cardShadow)">
+    <rect width="378" height="386" rx="24" fill="#ffffff" stroke="#dbe4ef" stroke-width="1.2"/>
+    <!-- Red top stripe -->
+    <rect width="378" height="6" rx="3" fill="#fb7185"/>
 
-  <g transform="translate(68 258)" filter="url(#shadow)">
-    <rect width="366" height="314" rx="26" class="surface"/>
-    <rect x="28" y="28" width="116" height="32" rx="16" fill="#ffe4e6" stroke="#fecdd3"/>
-    <text x="52" y="49" class="sans label bad">BEFORE</text>
-    <text x="28" y="102" class="sans h2 bad">Before: vague summary</text>
-    <rect x="28" y="132" width="310" height="112" rx="18" fill="#fff7f8" stroke="#ffe4e6"/>
-    <text x="52" y="172" class="sans body">"Basically done.</text>
-    <text x="52" y="204" class="sans body">Reviewer found an issue.</text>
-    <text x="52" y="236" class="sans body">Tester should run it."</text>
-    <text x="28" y="284" class="mono label bad">lost: files, decisions, errors, next steps</text>
-  </g>
+    <!-- BEFORE badge -->
+    <rect x="24" y="22" width="92" height="28" rx="14" fill="#ffe4e6" stroke="#fecdd3" stroke-width="1"/>
+    <text x="40" y="41" class="m" font-size="11" font-weight="800" fill="#be123c">BEFORE</text>
 
-  <g transform="translate(472 378)">
-    <path d="M0 0H120" stroke="#94a3b8" stroke-width="3.2" stroke-linecap="round"/>
-    <path d="M106 -14L122 0L106 14" fill="none" stroke="#94a3b8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="14" y="-82" width="98" height="38" rx="19" fill="#ffffff" stroke="#cbd5e1"/>
-    <text x="43" y="-58" class="mono label" fill="#475569">lost</text>
-    <rect x="2" y="44" width="118" height="38" rx="19" fill="#ffffff" stroke="#cbd5e1"/>
-    <text x="28" y="68" class="mono label" fill="#475569">becomes</text>
-  </g>
+    <!-- Card title -->
+    <text x="24" y="90" class="f" font-size="22" font-weight="820" fill="#be123c">Before: vague summary</text>
 
-  <g transform="translate(626 232)" filter="url(#shadow)">
-    <rect width="588" height="384" rx="28" class="surface"/>
-    <rect x="32" y="30" width="108" height="32" rx="16" fill="#dcfce7" stroke="#bbf7d0"/>
-    <text x="56" y="51" class="sans label ok">AFTER</text>
-    <text x="32" y="100" class="sans h2 ok">After: HandoffState</text>
-    <text x="32" y="132" class="sans muted">Structured state travels as data, not as a fragile paragraph.</text>
+    <!-- Quote box -->
+    <rect x="24" y="106" width="330" height="122" rx="16" fill="#fff1f2" stroke="#ffe4e6" stroke-width="1"/>
+    <text x="44" y="140" class="f" font-size="16" font-weight="560" fill="#334155">"Basically done.</text>
+    <text x="44" y="168" class="f" font-size="16" font-weight="560" fill="#334155">Reviewer found an issue.</text>
+    <text x="44" y="196" class="f" font-size="16" font-weight="560" fill="#334155">Tester should run it."</text>
 
-    <g transform="translate(32 164)">
-      <rect width="248" height="48" rx="14" class="row"/>
-      <circle cx="24" cy="24" r="6" fill="#2563eb"/>
-      <text x="44" y="30" class="sans body">decisions: use argparse</text>
+    <!-- Divider -->
+    <line x1="24" y1="248" x2="354" y2="248" stroke="#ffe4e6" stroke-width="1.5" stroke-dasharray="5 4"/>
 
-      <rect x="292" width="232" height="48" rx="14" class="row"/>
-      <circle cx="316" cy="24" r="6" fill="#059669"/>
-      <text x="336" y="30" class="sans body">files: calculator.py</text>
+    <!-- Lost label -->
+    <text x="24" y="284" class="m" font-size="12" font-weight="700" fill="#be123c">lost: files, decisions, errors, next steps</text>
 
-      <rect y="70" width="248" height="48" rx="14" class="row"/>
-      <circle cx="24" cy="94" r="6" fill="#be123c"/>
-      <text x="44" y="100" class="sans body">errors: checked path</text>
-
-      <rect x="292" y="70" width="232" height="48" rx="14" class="row"/>
-      <circle cx="316" cy="94" r="6" fill="#f59e0b"/>
-      <text x="336" y="100" class="sans body">next_steps: pytest -q</text>
+    <!-- Crossed-out checks -->
+    <g transform="translate(24 310)">
+      <rect width="78" height="24" rx="12" fill="#ffe4e6"/>
+      <text x="10" y="17" class="m" font-size="10" font-weight="700" fill="#be123c">no files</text>
+      <rect x="88" width="88" height="24" rx="12" fill="#ffe4e6"/>
+      <text x="98" y="17" class="m" font-size="10" font-weight="700" fill="#be123c">no decisions</text>
+      <rect x="186" width="70" height="24" rx="12" fill="#ffe4e6"/>
+      <text x="196" y="17" class="m" font-size="10" font-weight="700" fill="#be123c">no trace</text>
     </g>
 
-    <g transform="translate(32 318)">
-      <rect width="160" height="38" rx="19" fill="#ecfdf5" stroke="#bbf7d0"/>
-      <text x="22" y="24" class="mono metric ok">validation passed</text>
-      <rect x="178" width="154" height="38" rx="19" fill="#eff6ff" stroke="#bfdbfe"/>
-      <text x="202" y="24" class="mono metric blue">quality A / 1.000</text>
-      <rect x="350" width="188" height="38" rx="19" fill="#fffbeb" stroke="#fde68a"/>
-      <text x="372" y="24" class="mono metric warn">replay: 4 steps, 3 handoffs</text>
+    <!-- Footer note -->
+    <text x="24" y="368" class="f" font-size="13" fill="#94a3b8">Next agent guesses. Context balloons.</text>
+  </g>
+
+  <!-- ─── ARROW + LABELS: x=472, gap to AFTER card at x=622 ─── -->
+  <!-- Arrow horizontal centered between 446 and 622: midpoint ~534 -->
+  <g transform="translate(472 376)">
+    <!-- "lost" label above arrow -->
+    <rect x="18" y="-68" width="92" height="32" rx="16" fill="#fff" stroke="#cbd5e1" stroke-width="1.2"/>
+    <text x="36" y="-47" class="m" font-size="12" font-weight="700" fill="#64748b">lost</text>
+
+    <!-- Arrow line: 0 to 120 -->
+    <line x1="0" y1="0" x2="116" y2="0" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
+    <path d="M104 -12 L120 0 L104 12" fill="none" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- "becomes" label below arrow -->
+    <rect x="8" y="38" width="108" height="32" rx="16" fill="#fff" stroke="#cbd5e1" stroke-width="1.2"/>
+    <text x="22" y="59" class="m" font-size="12" font-weight="700" fill="#64748b">becomes</text>
+  </g>
+
+  <!-- ─── AFTER card: x=622, w=590 → right edge = 1212. Margin=68px ✓ ─── -->
+  <g transform="translate(622 218)" filter="url(#cardShadow)">
+    <rect width="590" height="386" rx="24" fill="#ffffff" stroke="#dbe4ef" stroke-width="1.2"/>
+    <!-- Gradient top stripe -->
+    <defs>
+      <linearGradient id="afterBar" x1="0" y1="0" x2="1" y2="0">
+        <stop stop-color="#38bdf8"/>
+        <stop offset="0.33" stop-color="#4ade80"/>
+        <stop offset="0.66" stop-color="#fb923c"/>
+        <stop offset="1" stop-color="#a78bfa"/>
+      </linearGradient>
+    </defs>
+    <rect width="590" height="6" rx="3" fill="url(#afterBar)"/>
+
+    <!-- AFTER badge -->
+    <rect x="24" y="22" width="80" height="28" rx="14" fill="#dcfce7" stroke="#bbf7d0" stroke-width="1"/>
+    <text x="40" y="41" class="m" font-size="11" font-weight="800" fill="#047857">AFTER</text>
+
+    <!-- Card title -->
+    <text x="24" y="90" class="f" font-size="22" font-weight="820" fill="#047857">After: HandoffState</text>
+    <text x="24" y="116" class="f" font-size="14" font-weight="500" fill="#64748b">Structured state travels as data, not a fragile paragraph.</text>
+
+    <!-- 2×2 field grid
+         Each row: 2 pills
+         Pill width = (590 - 24 - 24 - 16) / 2 = 263px each
+         Row 1: y=138, Row 2: y=202 -->
+    <g transform="translate(24 138)">
+      <!-- decisions -->
+      <rect width="263" height="48" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+      <circle cx="24" cy="24" r="7" fill="#2563eb"/>
+      <text x="44" y="20" class="f" font-size="13" font-weight="700" fill="#334155">decisions</text>
+      <text x="44" y="38" class="m" font-size="12" fill="#1d4ed8">use argparse, pure fns</text>
+
+      <!-- files -->
+      <rect x="279" width="263" height="48" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+      <circle cx="303" cy="24" r="7" fill="#059669"/>
+      <text x="323" y="20" class="f" font-size="13" font-weight="700" fill="#334155">files</text>
+      <text x="323" y="38" class="m" font-size="12" fill="#047857">calculator.py, tests.py</text>
+
+      <!-- errors -->
+      <rect y="64" width="263" height="48" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+      <circle cx="24" cy="88" r="7" fill="#be123c"/>
+      <text x="44" y="84" class="f" font-size="13" font-weight="700" fill="#334155">errors</text>
+      <text x="44" y="102" class="m" font-size="12" fill="#be123c">checked path, none</text>
+
+      <!-- next_steps -->
+      <rect x="279" y="64" width="263" height="48" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+      <circle cx="303" cy="88" r="7" fill="#f59e0b"/>
+      <text x="323" y="84" class="f" font-size="13" font-weight="700" fill="#334155">next_steps</text>
+      <text x="323" y="102" class="m" font-size="12" fill="#b45309">pytest -q, coverage</text>
+    </g>
+
+    <!-- Divider -->
+    <line x1="24" y1="322" x2="566" y2="322" stroke="#e2e8f0" stroke-width="1.5"/>
+
+    <!-- Metric pills row: 3 pills
+         Available width = 590 - 24 - 24 = 542px
+         3 pills with 12px gaps: (542 - 24) / 3 = 172px each -->
+    <g transform="translate(24 338)">
+      <rect width="164" height="34" rx="17" fill="#ecfdf5" stroke="#bbf7d0" stroke-width="1.2"/>
+      <text x="16" y="22" class="m" font-size="12" font-weight="700" fill="#047857">validation passed</text>
+
+      <rect x="178" width="164" height="34" rx="17" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.2"/>
+      <text x="196" y="22" class="m" font-size="12" font-weight="700" fill="#1d4ed8">quality A / 1.000</text>
+
+      <rect x="356" width="194" height="34" rx="17" fill="#fffbeb" stroke="#fde68a" stroke-width="1.2"/>
+      <text x="374" y="22" class="m" font-size="12" font-weight="700" fill="#92400e">replay: 4 steps, 3 handoffs</text>
     </g>
   </g>
 </svg>
