@@ -15,7 +15,9 @@
     "cpp:test": "cmake -S packages/cpp -B packages/cpp/build && cmake --build packages/cpp/build --config Release && ctest --test-dir packages/cpp/build -C Release --output-on-failure",
     "web:dev": "pnpm --dir apps/web exec next dev -p 3000",
     "web:lint": "pnpm --dir apps/web run lint",
-    "web:build": "pnpm --dir apps/web run build"
+    "web:build": "pnpm --dir apps/web run build",
+    "web:test:studio": "pnpm --dir apps/web run test:studio",
+    "web:demo:mai": "pnpm --dir apps/web exec next dev -p 3000"
   },
   "devDependencies": {
     "@handoffkit/core": "workspace:*",

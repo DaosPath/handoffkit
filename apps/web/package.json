@@ -7,9 +7,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:studio": "node --experimental-strip-types src/lib/studio/parse-rankings.test.mjs"
   },
   "dependencies": {
+    "@handoffkit/core": "workspace:*",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.23.0",
     "next": "16.2.10",

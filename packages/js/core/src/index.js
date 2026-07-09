@@ -1,4 +1,4 @@
-﻿const DEFAULT_PROTOCOL_MODE = "hybrid_state";
+const DEFAULT_PROTOCOL_MODE = "hybrid_state";
 const DEFAULT_CONTRACT_FIXTURES = [
   "handoff_state.json",
   "run_trace.json",
@@ -493,6 +493,8 @@ export class OpenAIProvider extends BaseProvider {
     this.baseUrl = resolvedBaseUrl.replace(/\/+$/, "");
     this.headers = { ...headers };
     this.timeout = timeout;
+    /** @type {{ prompt_tokens?: number, completion_tokens?: number, total_tokens?: number } | null} */
+    this.lastUsage = null;
 
     if (!this.apiKey) {
       throw new Error(
@@ -508,11 +510,40 @@ export class OpenAIProvider extends BaseProvider {
   }
 
   async agenerate(prompt, kwargs = {}) {
+    // Agent.arun passes { agent, task, context } — never forward those to the HTTP API.
+    const {
+      agent: _agent,
+      task: _task,
+      context: _context,
+      model,
+      messages,
+      temperature,
+      max_tokens,
+      top_p,
+      stop,
+      stream,
+      ...rest
+    } = kwargs;
+
     const payload = {
-      model: kwargs.model || this.model,
-      messages: [{ role: "user", content: prompt }],
-      ...kwargs,
+      model: model || this.model,
+      messages: messages || [{ role: "user", content: prompt }],
     };
+    if (temperature !== undefined) payload.temperature = temperature;
+    if (max_tokens !== undefined) payload.max_tokens = max_tokens;
+    if (top_p !== undefined) payload.top_p = top_p;
+    if (stop !== undefined) payload.stop = stop;
+    if (stream !== undefined) payload.stream = stream;
+    // Only allow plain JSON-serializable OpenAI extras (no nested class instances).
+    for (const [key, value] of Object.entries(rest)) {
+      if (value == null) continue;
+      const t = typeof value;
+      if (t === "string" || t === "number" || t === "boolean") {
+        payload[key] = value;
+      } else if (Array.isArray(value) || (t === "object" && value.constructor === Object)) {
+        payload[key] = value;
+      }
+    }
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeout);
@@ -544,6 +575,7 @@ export class OpenAIProvider extends BaseProvider {
       }
 
       const body = await response.json();
+      this.lastUsage = body.usage || null;
       const choices = body.choices || [];
       if (choices.length === 0) {
         return "";
@@ -644,10 +676,13 @@ export class Agent {
     });
   }
 
-  async arun(task, { context = null } = {}) {
+  async arun(task, { context = null, temperature, max_tokens, ...extras } = {}) {
     const prompt = context ? `${this.role}\n\nTask: ${task}\n\nContext:\n${context}` : `${this.role}\n\nTask: ${task}`;
     const generate = this.provider.agenerate?.bind(this.provider) ?? this.provider.generate.bind(this.provider);
-    const finalOutput = await generate(prompt, { agent: this, task, context });
+    const kwargs = { agent: this, task, context, ...extras };
+    if (temperature !== undefined) kwargs.temperature = temperature;
+    if (max_tokens !== undefined) kwargs.max_tokens = max_tokens;
+    const finalOutput = await generate(prompt, kwargs);
     return new AgentRunResult({
       agentName: this.name,
       task,

@@ -9,6 +9,7 @@ import { GitHubIcon } from "./icons";
 const links = [
   { href: "#features", label: "Features" },
   { href: "/docs", label: "Docs" },
+  { href: "/demos", label: "Demos" },
   { href: "#use-cases", label: "Use Cases" },
   {
     href: "https://github.com/DaosPath/handoffkit",

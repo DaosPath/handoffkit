@@ -17,6 +17,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@handoffkit/core':
+        specifier: workspace:*
+        version: link:../../packages/js/core
       framer-motion:
         specifier: ^12.42.2
         version: 12.42.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)

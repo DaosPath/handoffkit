@@ -75,6 +75,12 @@ jobs:
       - name: Lint web app
         run: pnpm web:lint
 
+      - name: Typecheck web app
+        run: pnpm --dir apps/web exec tsc --noEmit
+
+      - name: Studio unit tests (parse-rankings)
+        run: pnpm --dir apps/web run test:studio
+
       - name: Build web app
         run: pnpm web:build
 
