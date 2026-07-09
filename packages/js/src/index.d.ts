@@ -205,6 +205,7 @@ export class RunTrace {
   toJSON(): Record<string, unknown>;
   toJSONString(space?: number): string;
   toMarkdown(): string;
+  toTimeline(): string;
 }
 
 export class ReplayRunner {
