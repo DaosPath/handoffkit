@@ -81,6 +81,7 @@ export class HandoffState {
   metadata: Record<string, unknown>;
   constructor(init?: HandoffStateInit);
   static fromJSON(value: string | Record<string, unknown>): HandoffState;
+  static fromMarkdown(text: string): HandoffState;
   validateReport(): ValidationReport;
   validate(): this;
   toJSON(): HandoffStateWire;
@@ -299,3 +300,66 @@ export function defineTool(init: {
   execute: (...args: unknown[]) => unknown;
   toSchema(): { name: string; description: string; parameters: Record<string, unknown> };
 };
+
+export interface ContextDocumentInit {
+  path: string;
+  content: string;
+  summary?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export class ContextDocument {
+  path: string;
+  content: string;
+  summary: string;
+  metadata: Record<string, unknown>;
+  constructor(init?: ContextDocumentInit);
+  toDict(): Record<string, unknown>;
+  toJSON(): Record<string, unknown>;
+  toJSONString(space?: number): string;
+}
+
+export class ProjectIndexer {
+  root: string;
+  allowedExtensions: Set<string>;
+  maxFileSize: number;
+  constructor(init?: { root?: string; allowedExtensions?: string[]; maxFileSize?: number });
+  index(): ContextDocument[];
+}
+
+export class ContextRetriever {
+  documents: ContextDocument[];
+  constructor(documents?: ContextDocument[]);
+  search(query: string, options?: { limit?: number }): ContextDocument[];
+}
+
+export interface ContextPackInit {
+  query: string;
+  documents?: ContextDocument[];
+  memories?: unknown[];
+  summary?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export class ContextPack {
+  query: string;
+  documents: ContextDocument[];
+  memories: unknown[];
+  summary: string;
+  metadata: Record<string, unknown>;
+  constructor(init?: ContextPackInit);
+  toDict(): Record<string, unknown>;
+  toJSON(): Record<string, unknown>;
+  toJSONString(space?: number): string;
+  toMarkdown(): string;
+}
+
+export class ContextRunResult {
+  finalOutput: string;
+  contextUsed: ContextPack | null;
+  memoriesUsed: unknown[];
+  success: boolean;
+  constructor(init?: { finalOutput: string; contextUsed?: ContextPack | null; memoriesUsed?: unknown[]; success?: boolean });
+  toDict(): Record<string, unknown>;
+  toJSON(): Record<string, unknown>;
+}

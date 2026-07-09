@@ -1,5 +1,7 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import fs from "node:fs";
+import path from "node:path";
 
 const DEFAULT_PROTOCOL_MODE = "hybrid_state";
 
@@ -236,6 +238,80 @@ export class HandoffState {
       listSection("Errors", this.errors),
       listSection("Next Steps", this.nextSteps),
     ].join("\n");
+  }
+
+  static fromMarkdown(text) {
+    let task = "";
+    let fromAgent = "";
+    let toAgent = "";
+    let summary = "";
+    const decisions = [];
+    const importantFiles = [];
+    const errors = [];
+    const nextSteps = [];
+    const contextRefs = [];
+
+    const lines = text.split(/\r?\n/);
+    let currentSection = null;
+    const summaryLines = [];
+
+    for (const line of lines) {
+      const lineStr = line.trim();
+      if (!lineStr) continue;
+
+      if (lineStr.startsWith("Task:")) {
+        task = lineStr.slice(5).trim();
+        continue;
+      }
+      if (lineStr.startsWith("From:")) {
+        fromAgent = lineStr.slice(5).trim();
+        if (fromAgent === "-") fromAgent = "";
+        continue;
+      }
+      if (lineStr.startsWith("To:")) {
+        toAgent = lineStr.slice(3).trim();
+        if (toAgent === "-") toAgent = "";
+        continue;
+      }
+
+      if (lineStr.startsWith("## ")) {
+        currentSection = lineStr.slice(3).trim().toLowerCase();
+        continue;
+      }
+
+      if (currentSection === "summary") {
+        summaryLines.push(lineStr);
+      } else if (lineStr.startsWith("-")) {
+        const val = lineStr.slice(1).trim();
+        if (!val || val === "-") continue;
+        if (currentSection === "decisions") {
+          decisions.push(val);
+        } else if (currentSection === "files" || currentSection === "important files" || currentSection === "importantfiles") {
+          importantFiles.push(val);
+        } else if (currentSection === "errors") {
+          errors.push(val);
+        } else if (currentSection === "next steps" || currentSection === "nextsteps") {
+          nextSteps.push(val);
+        } else if (currentSection === "context refs" || currentSection === "contextrefs") {
+          contextRefs.push(val);
+        }
+      }
+    }
+
+    summary = summaryLines.join("\n").trim();
+    if (summary === "-") summary = "";
+
+    return new HandoffState({
+      task,
+      fromAgent,
+      toAgent,
+      summary,
+      decisions,
+      importantFiles,
+      errors,
+      nextSteps,
+      contextRefs,
+    });
   }
 }
 
@@ -1227,4 +1303,220 @@ function safeFileName(value) {
 
 function sleep(ms) {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
+}
+
+const IGNORED_DIRS = new Set([
+  ".git",
+  "node_modules",
+  "dist",
+  "build",
+  "target",
+  "__pycache__",
+  ".venv",
+  "venv",
+  ".ruff_cache",
+]);
+
+const DEFAULT_EXTENSIONS = new Set([".py", ".md", ".toml", ".json", ".txt", ".yaml", ".yml", ".js", ".ts"]);
+
+export class ContextDocument {
+  constructor({ path, content, summary = "", metadata = {} } = {}) {
+    this.path = path;
+    this.content = content;
+    this.summary = summary;
+    this.metadata = { ...metadata };
+  }
+
+  toDict() {
+    return {
+      path: this.path,
+      content: this.content,
+      summary: this.summary,
+      metadata: this.metadata,
+    };
+  }
+
+  toJSON() {
+    return this.toDict();
+  }
+
+  toJSONString(space = 2) {
+    return JSON.stringify(this.toJSON(), null, space);
+  }
+}
+
+export class ProjectIndexer {
+  constructor({ root = ".", allowedExtensions = null, maxFileSize = 64000 } = {}) {
+    this.root = root;
+    this.allowedExtensions = allowedExtensions ? new Set(allowedExtensions) : DEFAULT_EXTENSIONS;
+    this.maxFileSize = maxFileSize;
+  }
+
+  index() {
+    const docs = [];
+    const walk = (dir) => {
+      let entries = [];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch (_) {
+        return;
+      }
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        const relative = path.relative(this.root, fullPath);
+
+        const parts = relative.split(path.sep);
+        const isIgnored = parts.some(part => IGNORED_DIRS.has(part) || part.endsWith(".egg-info"));
+        if (isIgnored) continue;
+
+        if (entry.isDirectory()) {
+          walk(fullPath);
+        } else if (entry.isFile()) {
+          const ext = path.extname(entry.name);
+          if (!this.allowedExtensions.has(ext)) continue;
+
+          try {
+            const stat = fs.statSync(fullPath);
+            if (stat.size > this.maxFileSize) continue;
+
+            const content = fs.readFileSync(fullPath, "utf-8");
+            const lines = content.split(/\r?\n/);
+            const summary = this._summarize(entry.name, ext, lines, stat.size, content);
+
+            docs.push(new ContextDocument({
+              path: relative.replace(/\\/g, "/"),
+              content,
+              summary,
+              metadata: {
+                extension: ext,
+                size: stat.size,
+                lineCount: lines.length,
+              },
+            }));
+          } catch (_) {
+            // Ignore stat or read errors
+          }
+        }
+      }
+    };
+
+    walk(this.root);
+    return docs.sort((a, b) => a.path.localeCompare(b.path));
+  }
+
+  _summarize(name, ext, lines, size, content) {
+    const previewLines = lines.slice(0, 3).map(l => l.trim()).filter(Boolean);
+    const preview = previewLines.join(" ");
+    return `${name}: ${lines.length} lines, ${Buffer.byteLength(content, "utf-8")} bytes, extension ${ext}. ${preview}`.trim();
+  }
+}
+
+export class ContextRetriever {
+  constructor(documents = []) {
+    this.documents = [...documents];
+  }
+
+  search(query, { limit = 5 } = {}) {
+    const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return [];
+
+    const scored = [];
+    for (const doc of this.documents) {
+      const haystack = `${doc.path}\n${doc.summary}\n${doc.content}`.toLowerCase();
+      let score = 0;
+      for (const term of terms) {
+        let pos = 0;
+        while (true) {
+          pos = haystack.indexOf(term, pos);
+          if (pos >= 0) {
+            score++;
+            pos += term.length;
+          } else {
+            break;
+          }
+        }
+      }
+
+      if (score > 0) {
+        scored.push({ score, doc });
+      }
+    }
+
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.doc.path.localeCompare(b.doc.path);
+    });
+
+    return scored.slice(0, limit).map(item => item.doc);
+  }
+}
+
+export class ContextPack {
+  constructor({ query, documents = [], memories = [], summary = "", metadata = {} } = {}) {
+    this.query = query;
+    this.documents = [...documents];
+    this.memories = [...memories];
+    this.summary = summary;
+    this.metadata = { ...metadata };
+  }
+
+  toDict() {
+    return {
+      query: this.query,
+      documents: this.documents.map(doc => doc.toDict()),
+      memories: this.memories.map(m => (typeof m.toDict === "function" ? m.toDict() : m)),
+      summary: this.summary,
+      metadata: this.metadata,
+    };
+  }
+
+  toJSON() {
+    return this.toDict();
+  }
+
+  toJSONString(space = 2) {
+    return JSON.stringify(this.toJSON(), null, space);
+  }
+
+  toMarkdown() {
+    const docsStr = this.documents.map(doc => `- \`${doc.path}\`: ${doc.summary}`).join("\n");
+    const memoriesStr = this.memories.map(m => `- \`${m.kind}\` ${m.content}`).join("\n");
+    return [
+      "# Context Pack",
+      "",
+      "## Query",
+      this.query,
+      "",
+      "## Summary",
+      this.summary || "No summary.",
+      "",
+      "## Documents",
+      docsStr || "- none",
+      "",
+      "## Memories",
+      memoriesStr || "- none",
+    ].join("\n");
+  }
+}
+
+export class ContextRunResult {
+  constructor({ finalOutput, contextUsed = null, memoriesUsed = [], success = true } = {}) {
+    this.finalOutput = finalOutput;
+    this.contextUsed = contextUsed;
+    this.memoriesUsed = [...memoriesUsed];
+    this.success = Boolean(success);
+  }
+
+  toDict() {
+    return {
+      final_output: this.finalOutput,
+      context_used: this.contextUsed ? this.contextUsed.toDict() : null,
+      memories_used: this.memoriesUsed.map(m => (typeof m.toDict === "function" ? m.toDict() : m)),
+      success: this.success,
+    };
+  }
+
+  toJSON() {
+    return this.toDict();
+  }
 }
