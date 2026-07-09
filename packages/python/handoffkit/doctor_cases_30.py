@@ -1,4 +1,4 @@
-﻿# ruff: noqa: E501
+# ruff: noqa: E501
 """Thirty real open-access diagnostic cases for the doctor benchmark demo.
 
 Source: zou-lab/MedCaseReasoning test split on Hugging Face.

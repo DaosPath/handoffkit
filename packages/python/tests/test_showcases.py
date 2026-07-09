@@ -1,4 +1,4 @@
-﻿"""Tests for real-world showcase demos."""
+"""Tests for real-world showcase demos."""
 
 from __future__ import annotations
 

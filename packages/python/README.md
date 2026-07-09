@@ -28,7 +28,7 @@ pip install handoffkit
 </table>
 
 <p>
-  <strong>1.8.10:</strong> browser-safe `@handoffkit/core` plus Node-only `@handoffkit/node` filesystem helpers.<br>
+  <strong>1.9.0:</strong> browser-safe `@handoffkit/core` plus Node-only `@handoffkit/node` filesystem helpers.<br>
   <strong>1.8.8:</strong> installed-package-safe contract parity reports.<br>
   <strong>1.7.0:</strong> shared Python + JavaScript contracts with canonical JSON fixtures.<br>
   <strong>1.6.0:</strong> JavaScript core package with async runtime, provider tool formats, traces, and reports.<br>
@@ -127,7 +127,7 @@ so contract drift becomes a CI failure instead of a surprise for users.
 ```python
 from handoffkit import build_contract_parity_report
 
-report = build_contract_parity_report(runtime="python", version="1.8.10")
+report = build_contract_parity_report(runtime="python", version="1.9.0")
 print(report.to_markdown())
 ```
 
@@ -291,9 +291,9 @@ HandoffKit is built around three ideas:
 | Quality control | `ValidationReport`, `HandoffQualityReport` | Handoffs can be validated, scored, serialized, and reviewed. |
 | Audit trail | `RunTrace`, `FileTraceStore`, `ReplayRunner` | Runs can be stored and replay-inspected without providers, tools, or shell. |
 
-## What 1.8.10 Adds
+## What 1.9.0 Adds
 
-HandoffKit 1.8.10 splits the JavaScript/TypeScript layer into browser-safe core
+HandoffKit 1.9.0 splits the JavaScript/TypeScript layer into browser-safe core
 and Node-only helpers:
 
 - `@handoffkit/core` for JS apps that need the same handoff contract shape in
@@ -385,7 +385,7 @@ The state passed between stages can include:
 from handoffkit import TranscriptSegment, SpeakerProfile, build_dubbing_plan, write_srt
 
 segments = [
-    TranscriptSegment(1, 0.0, 2.5, "Ã¤Â½Â Ã¥Â¥Â½", speaker="SPEAKER_01", language="zh"),
+    TranscriptSegment(1, 0.0, 2.5, "ÃƒÂ¤Ã‚Â½Ã‚Â ÃƒÂ¥Ã‚Â¥Ã‚Â½", speaker="SPEAKER_01", language="zh"),
 ]
 speakers = [SpeakerProfile("SPEAKER_01", "Narrator", "es-LATAM-calm", "es")]
 dubbing = build_dubbing_plan(segments, {1: "Hola."}, speakers)

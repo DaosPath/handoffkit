@@ -52,7 +52,7 @@ test("node package can inspect monorepo contract inventory", async () => {
   const contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts");
   const report = await buildNodeContractParityReport({
     runtime: "node",
-    version: "1.8.10",
+    version: "1.9.0",
     contractsRoot,
   });
 
