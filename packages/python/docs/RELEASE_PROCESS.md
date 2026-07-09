@@ -41,13 +41,15 @@ git push -u origin release/X.Y.Z
 5. Wait for CI to pass on the release branch.
 6. Merge the release branch into `main`.
 7. Push `main`.
-8. Create and push the version tag.
-9. Run the `Publish` workflow manually to publish to TestPyPI.
+8. Create and push the version tag (e.g. `vX.Y.Z`).
+9. Run the `Publish` workflow manually to publish the Python package to TestPyPI.
 10. Verify installation from TestPyPI in a clean environment.
-11. Publish the GitHub Release to trigger PyPI publishing.
-12. Verify installation from PyPI in a clean environment.
+11. Publish the GitHub Release. This automatically triggers:
+    - PyPI Trusted Publishing for `handoffkit` (Python).
+    - NPM publishing with OIDC provenance for `@handoffkit/core` (JS/TS), using the repository secret `NPM_TOKEN`.
+12. Verify installation from both PyPI and npm in clean environments.
 
 ## Notes
 
-HandoffKit 1.0.0 was uploaded manually with `twine`. HandoffKit 1.0.1 and later
-are prepared for Trusted Publishing.
+- HandoffKit 1.0.0 was uploaded manually with `twine`. HandoffKit 1.0.1 and later are prepared for Trusted Publishing.
+- The npm package uses GitHub OIDC provenance linked to the publish workflow, but still requires the `NPM_TOKEN` secret to be set up under repository Secrets in GitHub.

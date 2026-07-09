@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/quality-report.schema.json",
+  "title": "HandoffQualityReport",
+  "type": "object",
+  "required": ["success", "score", "grade", "metrics", "recommendations", "validation"],
+  "properties": {
+    "success": { "type": "boolean" },
+    "score": { "type": "number" },
+    "grade": { "type": "string" },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "score", "weight", "notes"],
+        "properties": {
+          "name": { "type": "string" },
+          "score": { "type": "number" },
+          "weight": { "type": "number" },
+          "notes": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "validation": {
+      "$ref": "validation-report.schema.json"
+    },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

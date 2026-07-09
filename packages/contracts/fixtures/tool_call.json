@@ -1,0 +1,11 @@
+{
+  "tool_name": "add",
+  "arguments": {
+    "a": 5,
+    "b": 10
+  },
+  "call_id": "call-12345",
+  "metadata": {
+    "origin": "test"
+  }
+}

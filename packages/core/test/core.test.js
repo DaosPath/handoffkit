@@ -10,6 +10,7 @@ import {
   FileTraceStore,
   HandoffProtocol,
   HandoffQualityEvaluator,
+  HandoffQualityReport,
   HandoffState,
   HandoffValidationError,
   ProviderToolAdapter,
@@ -17,7 +18,12 @@ import {
   RetryPolicy,
   RunTrace,
   Team,
+  TeamRunResult,
+  ToolCall,
   ToolRegistry,
+  ToolResult,
+  TraceEvent,
+  TraceStep,
   ValidationIssue,
   ValidationReport,
   defineTool,
@@ -263,4 +269,112 @@ test("retry policy retries retryable failures only", async () => {
   assert.equal(value, "ok");
   assert.equal(attempts, 2);
   assert.equal(policy.shouldRetry({ status: 401 }, 1), false);
+});
+
+test("validation report reads and writes shared Python/JS contract fixture", async () => {
+  const fixture = await readContractFixture("validation_report.json");
+  const report = ValidationReport.fromJSON(fixture);
+
+  assert.equal(report.success, false);
+  assert.equal(report.issues.length, 1);
+  assert.equal(report.issues[0].code, "missing_task");
+  assert.deepEqual(report.toJSON(), fixture);
+});
+
+test("quality report reads and writes shared Python/JS contract fixture", async () => {
+  const fixture = await readContractFixture("quality_report.json");
+  const report = HandoffQualityReport.fromJSON(fixture);
+
+  assert.equal(report.success, true);
+  assert.equal(report.score, 0.85);
+  assert.equal(report.metrics.length, 5);
+  assert.equal(report.metrics[3].name, "traceability");
+  assert.deepEqual(report.toJSON(), fixture);
+});
+
+test("tool call reads and writes shared Python/JS contract fixture", async () => {
+  const fixture = await readContractFixture("tool_call.json");
+  const call = ToolCall.fromJSON(fixture);
+
+  assert.equal(call.name, "add");
+  assert.equal(call.arguments.a, 5);
+  assert.equal(call.callId, "call-12345");
+  assert.deepEqual(call.toJSON(), fixture);
+});
+
+test("tool result reads and writes shared Python/JS contract fixture", async () => {
+  const fixture = await readContractFixture("tool_result.json");
+  const res = ToolResult.fromJSON(fixture);
+
+  assert.equal(res.name, "add");
+  assert.equal(res.success, true);
+  assert.equal(res.output, 15);
+  assert.equal(res.callId, "call-12345");
+  assert.deepEqual(res.toJSON(), fixture);
+});
+
+test("hardened constructors safely handle null or non-array values", () => {
+  // HandoffState
+  const state = new HandoffState({
+    task: "do something",
+    decisions: null,
+    importantFiles: null,
+    errors: null,
+    nextSteps: null,
+    contextRefs: null,
+  });
+  assert.deepEqual(state.decisions, []);
+  assert.deepEqual(state.importantFiles, []);
+  assert.deepEqual(state.errors, []);
+  assert.deepEqual(state.nextSteps, []);
+  assert.deepEqual(state.contextRefs, []);
+
+  // RunTrace & TraceStep
+  const step = new TraceStep({
+    toolResults: null,
+    events: null,
+  });
+  assert.deepEqual(step.toolResults, []);
+  assert.deepEqual(step.events, []);
+
+  const trace = new RunTrace({
+    steps: null,
+    handoffs: null,
+  });
+  assert.deepEqual(trace.steps, []);
+  assert.deepEqual(trace.handoffs, []);
+
+  // ValidationReport & HandoffQualityReport
+  const valReport = new ValidationReport({
+    issues: null,
+  });
+  assert.deepEqual(valReport.issues, []);
+
+  const qualReport = new HandoffQualityReport({
+    success: true,
+    score: 1.0,
+    grade: "A",
+    metrics: null,
+    recommendations: null,
+    validation: null,
+  });
+  assert.deepEqual(qualReport.metrics, []);
+  assert.deepEqual(qualReport.recommendations, []);
+
+  // TeamRunResult
+  const teamResult = new TeamRunResult({
+    success: true,
+    stepResults: null,
+    handoffs: null,
+  });
+  assert.deepEqual(teamResult.stepResults, []);
+  assert.deepEqual(teamResult.handoffs, []);
+
+  // ToolRegistry & ProviderToolAdapter
+  const registry = new ToolRegistry(null);
+  assert.equal(registry.list().length, 0);
+
+  const adapter = new ProviderToolAdapter();
+  const format = adapter.toolsToProviderFormat(null);
+  assert.deepEqual(format, []);
 });
