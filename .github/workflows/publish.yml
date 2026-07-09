@@ -116,36 +116,42 @@ jobs:
         run: pnpm js:check
 
       - name: Publish core to npm
+        continue-on-error: true
         run: pnpm --dir packages/js/core publish --no-git-checks --access public --provenance
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish providers to npm
+        continue-on-error: true
         run: pnpm --dir packages/js/providers publish --no-git-checks --access public --provenance
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish templates to npm
+        continue-on-error: true
         run: pnpm --dir packages/js/templates publish --no-git-checks --access public --provenance
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish recipes to npm
+        continue-on-error: true
         run: pnpm --dir packages/js/recipes publish --no-git-checks --access public --provenance
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish node to npm
+        continue-on-error: true
         run: pnpm --dir packages/js/node publish --no-git-checks --access public --provenance
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish cli to npm
+        continue-on-error: true
         run: pnpm --dir packages/js/cli publish --no-git-checks --access public --provenance
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
