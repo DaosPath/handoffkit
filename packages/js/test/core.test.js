@@ -36,6 +36,8 @@ import {
   ContextRetriever,
   ContextPack,
   ContextRunResult,
+  ContractParityReport,
+  buildContractParityReport,
 } from "../src/index.js";
 
 const contractsRoot = join(import.meta.dirname, "..", "..", "contracts");
@@ -56,6 +58,21 @@ test("validation report serializes and raises", () => {
   assert.match(report.toJSONString(), /missing_task/);
   assert.match(report.toMarkdown(), /Validation Report/);
   assert.throws(() => report.raiseIfFailed(), HandoffValidationError);
+});
+
+test("contract parity report summarizes shared contract inventory", async () => {
+  const report = await buildContractParityReport({
+    runtime: "javascript",
+    version: "1.8.7",
+    contractsRoot,
+  });
+
+  assert.equal(report instanceof ContractParityReport, true);
+  assert.equal(report.success, true);
+  assert.equal(report.fixtureCount, 7);
+  assert.equal(report.schemaCount, 7);
+  assert.ok(report.supportedContracts.includes("handoff_state"));
+  assert.match(report.toMarkdown(), /Contract Parity Report/);
 });
 
 test("handoff state validates and roundtrips", () => {

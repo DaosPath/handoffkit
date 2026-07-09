@@ -77,3 +77,34 @@ jobs:
 
       - name: Build web app
         run: pnpm web:build
+
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test Rust package
+        run: cargo test --manifest-path packages/rust/Cargo.toml
+
+  cpp:
+    name: C++
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure C++ package
+        run: cmake -S packages/cpp -B packages/cpp/build
+
+      - name: Build C++ package
+        run: cmake --build packages/cpp/build --config Release
+
+      - name: Test C++ package
+        run: ctest --test-dir packages/cpp/build -C Release --output-on-failure

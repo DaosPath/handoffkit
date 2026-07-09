@@ -8,6 +8,7 @@ from handoffkit.context import (
     ContextRunResult,
     ProjectIndexer,
 )
+from handoffkit.contracts import ContractParityReport, build_contract_parity_report
 from handoffkit.errors import HandoffValidationError
 from handoffkit.evaluation import (
     EvaluationCheck,
@@ -86,7 +87,7 @@ from handoffkit.validation import (
     ValidationReport,
 )
 
-__version__ = "1.8.6"
+__version__ = "1.8.7"
 
 __all__ = [
     "Agent",
@@ -94,6 +95,7 @@ __all__ = [
     "ContextPack",
     "ContextRetriever",
     "ContextRunResult",
+    "ContractParityReport",
     "DeclarativeTool",
     "DubbingSegment",
     "Extension",
@@ -159,6 +161,7 @@ __all__ = [
     "WorkflowTemplate",
     "__version__",
     "build_dubbing_plan",
+    "build_contract_parity_report",
     "load_report_json",
     "build_showcase",
     "extract_audio",
