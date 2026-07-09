@@ -1,248 +1,275 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="860" viewBox="0 0 1280 860" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="780" viewBox="0 0 1280 780" role="img" aria-labelledby="title desc">
   <title id="title">HandoffKit showcases — multi-runtime</title>
-  <desc id="desc">Three HandoffKit demos showing coding agents, support escalation, and research workflow across Python, JavaScript, Rust, and C++.</desc>
+  <desc id="desc">Three HandoffKit demos: coding agents, support escalation, and research workflow across Python, JavaScript, Rust, and C++.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="860" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="780" gradientUnits="userSpaceOnUse">
       <stop stop-color="#f8fbff"/>
       <stop offset="0.5" stop-color="#edf6ff"/>
       <stop offset="1" stop-color="#ecfdf5"/>
     </linearGradient>
-    <linearGradient id="hdrLine" x1="0" y1="0" x2="1" y2="0">
+    <linearGradient id="hdrBarH" x1="68" y1="0" x2="1212" y2="0" gradientUnits="userSpaceOnUse">
       <stop stop-color="#2563eb"/>
       <stop offset="0.33" stop-color="#059669"/>
       <stop offset="0.66" stop-color="#ea580c"/>
       <stop offset="1" stop-color="#7c3aed"/>
     </linearGradient>
-    <linearGradient id="hdrLineH" x1="68" y1="0" x2="1212" y2="0" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2563eb"/>
-      <stop offset="0.33" stop-color="#059669"/>
-      <stop offset="0.66" stop-color="#ea580c"/>
-      <stop offset="1" stop-color="#7c3aed"/>
-    </linearGradient>
-    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2563eb"/><stop offset="1" stop-color="#059669"/></linearGradient>
-    <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f59e0b"/><stop offset="1" stop-color="#be123c"/></linearGradient>
-    <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#0891b2"/></linearGradient>
-    <filter id="card" x="-4%" y="-4%" width="108%" height="112%">
-      <feDropShadow dx="0" dy="16" stdDeviation="22" flood-color="#0f172a" flood-opacity="0.11"/>
+    <!-- Card top stripes -->
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#2563eb"/><stop offset="1" stop-color="#059669"/></linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#f59e0b"/><stop offset="1" stop-color="#be123c"/></linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#0891b2"/></linearGradient>
+    <filter id="card" x="-4%" y="-3%" width="108%" height="110%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.10"/>
     </filter>
-    <filter id="term" x="-4%" y="-8%" width="108%" height="120%">
-      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#0f172a" flood-opacity="0.18"/>
+    <filter id="term" x="-3%" y="-6%" width="106%" height="116%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#0f172a" flood-opacity="0.18"/>
     </filter>
     <style>
       .f { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-      .m { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+      .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     </style>
   </defs>
 
-  <rect width="1280" height="860" rx="32" fill="url(#bg)"/>
-  <rect x="1.5" y="1.5" width="1277" height="857" rx="30.5" fill="none" stroke="#cbd5e1" stroke-width="3"/>
+  <rect width="1280" height="780" rx="32" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="1277" height="777" rx="30.5" fill="none" stroke="#cbd5e1" stroke-width="3"/>
 
-  <!-- Decorative circles -->
-  <circle cx="1180" cy="90" r="100" fill="#bbf7d0" fill-opacity="0.35"/>
-  <circle cx="1070" cy="68" r="68" fill="#bfdbfe" fill-opacity="0.35"/>
+  <!-- Deco blobs -->
+  <circle cx="1180" cy="84" r="96" fill="#bbf7d0" fill-opacity="0.32"/>
+  <circle cx="1068" cy="62" r="62" fill="#bfdbfe" fill-opacity="0.32"/>
 
-  <!-- Header -->
-  <g transform="translate(68 52)">
-    <rect width="220" height="30" rx="15" fill="#dbeafe" stroke="#bfdbfe" stroke-width="1"/>
-    <text x="18" y="20" class="m" font-size="11" font-weight="800" fill="#1d4ed8">REAL DEMOS · 4 RUNTIMES</text>
-    <text x="0" y="84" class="f" font-size="42" font-weight="840" fill="#0f172a">Three demos, one contract</text>
-    <text x="0" y="120" class="f" font-size="17" font-weight="500" fill="#42526b">Context soup becomes validation, quality scores, replay, and next steps</text>
-    <text x="0" y="142" class="f" font-size="17" font-weight="500" fill="#42526b">across Python, JavaScript, Rust, and C++.</text>
-  </g>
+  <!-- ─── HEADER ─── -->
+  <rect x="68" y="48" width="208" height="28" rx="14" fill="#dbeafe" stroke="#bfdbfe" stroke-width="1"/>
+  <text x="84" y="67" class="m" font-size="11" font-weight="800" fill="#1d4ed8">REAL DEMOS · 4 RUNTIMES</text>
+
+  <text x="68" y="120" class="f" font-size="42" font-weight="840" fill="#0f172a">Three demos, one contract</text>
+  <text x="68" y="150" class="f" font-size="16" font-weight="500" fill="#42526b">Context soup becomes validation, quality scores, replay, and next steps</text>
+  <text x="68" y="172" class="f" font-size="16" font-weight="500" fill="#42526b">across Python, JavaScript, Rust, and C++.</text>
 
   <!-- Gradient rule -->
-  <rect x="68" y="214" width="1144" height="5" rx="2.5" fill="url(#hdrLineH)"/>
+  <rect x="68" y="190" width="1144" height="4" rx="2" fill="url(#hdrBarH)"/>
 
-  <!-- Terminal top-right -->
-  <g transform="translate(786 54)" filter="url(#term)">
-    <rect width="426" height="116" rx="20" fill="#0f1220"/>
-    <circle cx="26" cy="26" r="5" fill="#fb7185"/>
-    <circle cx="46" cy="26" r="5" fill="#facc15"/>
-    <circle cx="66" cy="26" r="5" fill="#4ade80"/>
-    <text x="26" y="64" class="m" font-size="13" font-weight="700" fill="#dbeafe">$ handoffkit init coding-review</text>
-    <text x="26" y="90" class="m" font-size="13" font-weight="700" fill="#dbeafe">$ handoffkit report runs/latest</text>
+  <!-- Terminal top-right: x=792 w=420 → right=1212. margin=68 ✓ -->
+  <g transform="translate(792 44)" filter="url(#term)">
+    <rect width="420" height="110" rx="18" fill="#0f1220"/>
+    <circle cx="24" cy="24" r="5" fill="#fb7185"/>
+    <circle cx="42" cy="24" r="5" fill="#facc15"/>
+    <circle cx="60" cy="24" r="5" fill="#4ade80"/>
+    <line x1="16" y1="42" x2="404" y2="42" stroke="#1e293b" stroke-width="1"/>
+    <text x="24" y="72" class="m" font-size="14" font-weight="700" fill="#dbeafe">$ handoffkit init coding-review</text>
+    <text x="24" y="96" class="m" font-size="14" font-weight="700" fill="#dbeafe">$ handoffkit report runs/latest</text>
   </g>
 
-  <!-- ── Card 1: Coding agents (x=68, w=364) ── -->
-  <g transform="translate(68 232)" filter="url(#card)">
-    <rect width="364" height="480" rx="24" fill="#ffffff" stroke="#e2eaf4" stroke-width="1.2"/>
-    <rect width="364" height="8" rx="4" fill="url(#g1)"/>
+  <!-- ═══════════════════════════════════════════
+       3 CARDS  x=68,444,820  w=356  right=1176
+       Card height = 510  → bottom = 718
+       ═══════════════════════════════════════════ -->
 
-    <text x="28" y="56" class="f" font-size="22" font-weight="820" fill="#0f172a">Coding agents</text>
-    <text x="28" y="82" class="f" font-size="14" fill="#42526b">Architect, coder, reviewer, and tester</text>
-    <text x="28" y="102" class="f" font-size="14" fill="#42526b">share one structured project handoff.</text>
+  <!-- ── CARD 1: Coding agents ── -->
+  <g transform="translate(68 208)" filter="url(#card)">
+    <rect width="356" height="510" rx="24" fill="#ffffff" stroke="#e2eaf4" stroke-width="1.2"/>
+    <rect width="356" height="7" rx="3.5" fill="url(#g1)"/>
 
-    <!-- Agent grid 2x2 -->
-    <g transform="translate(28 128)">
-      <!-- Row 1 -->
-      <rect width="140" height="52" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
-      <circle cx="20" cy="26" r="7" fill="#2563eb"/>
-      <text x="36" y="22" class="f" font-size="12" font-weight="780" fill="#0f172a">Architect</text>
-      <rect x="14" y="32" width="56" height="16" rx="8" fill="#dbeafe"/>
-      <text x="19" y="44" class="m" font-size="9" font-weight="800" fill="#1d4ed8">Python</text>
+    <!-- Title block -->
+    <text x="24" y="50" class="f" font-size="22" font-weight="820" fill="#0f172a">Coding agents</text>
+    <text x="24" y="72" class="f" font-size="13" fill="#42526b">Architect, coder, reviewer, and tester</text>
+    <text x="24" y="90" class="f" font-size="13" fill="#42526b">share one structured project handoff.</text>
 
-      <!-- Arrow row 1 -->
-      <path d="M150 26 L162 26" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
-      <path d="M157 20 L164 26 L157 32" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Divider -->
+    <line x1="24" y1="106" x2="332" y2="106" stroke="#f1f5f9" stroke-width="1.5"/>
 
-      <rect x="168" width="140" height="52" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
-      <circle cx="188" cy="26" r="7" fill="#0891b2"/>
-      <text x="204" y="22" class="f" font-size="12" font-weight="780" fill="#0f172a">Coder</text>
-      <rect x="182" y="32" width="72" height="16" rx="8" fill="#cffafe"/>
-      <text x="187" y="44" class="m" font-size="9" font-weight="800" fill="#0e7490">JavaScript</text>
+    <!-- Agent grid 2×2 — starts y=118, each agent h=56 row-gap=10 col-gap=14
+         Col1 x=24 w=144, Col2 x=188 w=144, total=24+144+14+144+24=350 ✓ -->
+    <!-- Row 1 -->
+    <rect x="24" y="118" width="144" height="56" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="42" cy="140" r="8" fill="#2563eb"/>
+    <text x="58" y="137" class="f" font-size="12" font-weight="780" fill="#0f172a">Architect</text>
+    <rect x="56" y="148" width="52" height="18" rx="9" fill="#dbeafe"/>
+    <text x="62" y="161" class="m" font-size="10" font-weight="800" fill="#1d4ed8">Python</text>
 
-      <!-- Row 2 -->
-      <rect y="68" width="140" height="52" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
-      <circle cx="20" cy="94" r="7" fill="#059669"/>
-      <text x="36" y="90" class="f" font-size="12" font-weight="780" fill="#0f172a">Reviewer</text>
-      <rect x="14" y="100" width="46" height="16" rx="8" fill="#d1fae5"/>
-      <text x="19" y="112" class="m" font-size="9" font-weight="800" fill="#065f46">Rust</text>
+    <!-- Arrow row 1 -->
+    <text x="172" y="148" class="f" font-size="18" fill="#94a3b8">→</text>
 
-      <path d="M150 94 L162 94" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
-      <path d="M157 88 L164 94 L157 100" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="188" y="118" width="144" height="56" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="206" cy="140" r="8" fill="#0891b2"/>
+    <text x="222" y="137" class="f" font-size="12" font-weight="780" fill="#0f172a">Coder</text>
+    <rect x="220" y="148" width="70" height="18" rx="9" fill="#cffafe"/>
+    <text x="226" y="161" class="m" font-size="10" font-weight="800" fill="#0e7490">JavaScript</text>
 
-      <rect x="168" y="68" width="140" height="52" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
-      <circle cx="188" cy="94" r="7" fill="#f59e0b"/>
-      <text x="204" y="90" class="f" font-size="12" font-weight="780" fill="#0f172a">Tester</text>
-      <rect x="182" y="100" width="38" height="16" rx="8" fill="#fef9c3"/>
-      <text x="187" y="112" class="m" font-size="9" font-weight="800" fill="#92400e">C++</text>
+    <!-- Row 2 -->
+    <rect x="24" y="184" width="144" height="56" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="42" cy="206" r="8" fill="#059669"/>
+    <text x="58" y="203" class="f" font-size="12" font-weight="780" fill="#0f172a">Reviewer</text>
+    <rect x="56" y="214" width="40" height="18" rx="9" fill="#d1fae5"/>
+    <text x="61" y="227" class="m" font-size="10" font-weight="800" fill="#065f46">Rust</text>
+
+    <text x="172" y="214" class="f" font-size="18" fill="#94a3b8">→</text>
+
+    <rect x="188" y="184" width="144" height="56" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="206" cy="206" r="8" fill="#f59e0b"/>
+    <text x="222" y="203" class="f" font-size="12" font-weight="780" fill="#0f172a">Tester</text>
+    <rect x="220" y="214" width="38" height="18" rx="9" fill="#fef9c3"/>
+    <text x="225" y="227" class="m" font-size="10" font-weight="800" fill="#92400e">C++</text>
+
+    <!-- Description -->
+    <rect x="24" y="256" width="308" height="80" rx="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="42" y="284" class="f" font-size="14" fill="#334155">Preserves files, decisions, errors,</text>
+    <text x="42" y="308" class="f" font-size="14" fill="#334155">review fixes, and next commands.</text>
+
+    <!-- HandoffState protocol pill -->
+    <rect x="24" y="352" width="308" height="36" rx="18" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1"/>
+    <text x="48" y="375" class="m" font-size="12" font-weight="700" fill="#1d4ed8">mode: hybrid_state · all 4 runtimes</text>
+
+    <!-- Divider -->
+    <line x1="24" y1="404" x2="332" y2="404" stroke="#f1f5f9" stroke-width="1.5"/>
+
+    <!-- Metric pills: 3 in row, each 88px, gaps 8px → 3×88+2×8=280, starts x=24 ends x=304 ✓ -->
+    <g transform="translate(24 420)">
+      <rect width="88" height="30" rx="15" fill="#dbeafe"/>
+      <text x="14" y="20" class="f" font-size="13" font-weight="800" fill="#1d4ed8">A score</text>
+      <rect x="100" width="100" height="30" rx="15" fill="#dcfce7"/>
+      <text x="116" y="20" class="f" font-size="13" font-weight="800" fill="#166534">3 handoffs</text>
+      <rect x="212" width="64" height="30" rx="15" fill="#fef3c7"/>
+      <text x="226" y="20" class="f" font-size="13" font-weight="800" fill="#92400e">replay</text>
     </g>
 
-    <rect x="28" y="356" width="308" height="72" rx="16" fill="#f8fafc" stroke="#e2e8f0"/>
-    <text x="48" y="382" class="f" font-size="14" fill="#334155">Preserves files, decisions, errors,</text>
-    <text x="48" y="406" class="f" font-size="14" fill="#334155">review fixes, and next commands.</text>
-
-    <g transform="translate(28 444)">
-      <rect width="80" height="28" rx="14" fill="#dbeafe"/>
-      <text x="14" y="19" class="f" font-size="13" font-weight="800" fill="#1d4ed8">A score</text>
-      <rect x="92" width="88" height="28" rx="14" fill="#dcfce7"/>
-      <text x="106" y="19" class="f" font-size="13" font-weight="800" fill="#166534">3 handoffs</text>
-      <rect x="192" width="68" height="28" rx="14" fill="#fef3c7"/>
-      <text x="208" y="19" class="f" font-size="13" font-weight="800" fill="#92400e">replay</text>
-    </g>
+    <!-- Run command -->
+    <text x="24" y="482" class="m" font-size="11" fill="#94a3b8">$ python examples/coding_review.py</text>
   </g>
 
-  <!-- ── Card 2: Support escalation (x=456, w=364) ── -->
-  <g transform="translate(456 232)" filter="url(#card)">
-    <rect width="364" height="480" rx="24" fill="#ffffff" stroke="#e2eaf4" stroke-width="1.2"/>
-    <rect width="364" height="8" rx="4" fill="url(#g2)"/>
+  <!-- ── CARD 2: Support escalation ── -->
+  <g transform="translate(444 208)" filter="url(#card)">
+    <rect width="356" height="510" rx="24" fill="#ffffff" stroke="#e2eaf4" stroke-width="1.2"/>
+    <rect width="356" height="7" rx="3.5" fill="url(#g2)"/>
 
-    <text x="28" y="56" class="f" font-size="22" font-weight="820" fill="#0f172a">Support escalation</text>
-    <text x="28" y="82" class="f" font-size="14" fill="#42526b">Triage, billing, refund, and supervisor</text>
-    <text x="28" y="102" class="f" font-size="14" fill="#42526b">keep policy evidence attached.</text>
+    <text x="24" y="50" class="f" font-size="22" font-weight="820" fill="#0f172a">Support escalation</text>
+    <text x="24" y="72" class="f" font-size="13" fill="#42526b">Triage, billing, refund, and supervisor</text>
+    <text x="24" y="90" class="f" font-size="13" fill="#42526b">keep policy evidence attached.</text>
 
-    <g transform="translate(28 128)">
-      <rect width="140" height="52" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
-      <circle cx="20" cy="26" r="7" fill="#be123c"/>
-      <text x="36" y="22" class="f" font-size="12" font-weight="780" fill="#0f172a">Triage</text>
-      <rect x="14" y="32" width="56" height="16" rx="8" fill="#dbeafe"/>
-      <text x="19" y="44" class="m" font-size="9" font-weight="800" fill="#1d4ed8">Python</text>
+    <line x1="24" y1="106" x2="332" y2="106" stroke="#f1f5f9" stroke-width="1.5"/>
 
-      <path d="M150 26 L162 26" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
-      <path d="M157 20 L164 26 L157 32" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Row 1 -->
+    <rect x="24" y="118" width="144" height="56" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="42" cy="140" r="8" fill="#be123c"/>
+    <text x="58" y="137" class="f" font-size="12" font-weight="780" fill="#0f172a">Triage</text>
+    <rect x="56" y="148" width="52" height="18" rx="9" fill="#dbeafe"/>
+    <text x="62" y="161" class="m" font-size="10" font-weight="800" fill="#1d4ed8">Python</text>
 
-      <rect x="168" width="140" height="52" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
-      <circle cx="188" cy="26" r="7" fill="#f59e0b"/>
-      <text x="204" y="22" class="f" font-size="12" font-weight="780" fill="#0f172a">Billing</text>
-      <rect x="182" y="32" width="72" height="16" rx="8" fill="#cffafe"/>
-      <text x="187" y="44" class="m" font-size="9" font-weight="800" fill="#0e7490">JavaScript</text>
+    <text x="172" y="148" class="f" font-size="18" fill="#94a3b8">→</text>
 
-      <rect y="68" width="140" height="52" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
-      <circle cx="20" cy="94" r="7" fill="#ea580c"/>
-      <text x="36" y="90" class="f" font-size="12" font-weight="780" fill="#0f172a">Refund</text>
-      <rect x="14" y="100" width="46" height="16" rx="8" fill="#ffedd5"/>
-      <text x="19" y="112" class="m" font-size="9" font-weight="800" fill="#9a3412">Rust</text>
+    <rect x="188" y="118" width="144" height="56" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="206" cy="140" r="8" fill="#f59e0b"/>
+    <text x="222" y="137" class="f" font-size="12" font-weight="780" fill="#0f172a">Billing</text>
+    <rect x="220" y="148" width="70" height="18" rx="9" fill="#cffafe"/>
+    <text x="226" y="161" class="m" font-size="10" font-weight="800" fill="#0e7490">JavaScript</text>
 
-      <path d="M150 94 L162 94" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
-      <path d="M157 88 L164 94 L157 100" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Row 2 -->
+    <rect x="24" y="184" width="144" height="56" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="42" cy="206" r="8" fill="#ea580c"/>
+    <text x="58" y="203" class="f" font-size="12" font-weight="780" fill="#0f172a">Refund</text>
+    <rect x="56" y="214" width="40" height="18" rx="9" fill="#ffedd5"/>
+    <text x="61" y="227" class="m" font-size="10" font-weight="800" fill="#9a3412">Rust</text>
 
-      <rect x="168" y="68" width="140" height="52" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
-      <circle cx="188" cy="94" r="7" fill="#0f766e"/>
-      <text x="204" y="90" class="f" font-size="12" font-weight="780" fill="#0f172a">Supervisor</text>
-      <rect x="182" y="100" width="38" height="16" rx="8" fill="#fef9c3"/>
-      <text x="187" y="112" class="m" font-size="9" font-weight="800" fill="#92400e">C++</text>
+    <text x="172" y="214" class="f" font-size="18" fill="#94a3b8">→</text>
+
+    <rect x="188" y="184" width="144" height="56" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="206" cy="206" r="8" fill="#0f766e"/>
+    <text x="222" y="203" class="f" font-size="12" font-weight="780" fill="#0f172a">Supervisor</text>
+    <rect x="220" y="214" width="38" height="18" rx="9" fill="#fef9c3"/>
+    <text x="225" y="227" class="m" font-size="10" font-weight="800" fill="#92400e">C++</text>
+
+    <rect x="24" y="256" width="308" height="80" rx="16" fill="#fff7ed" stroke="#fed7aa" stroke-width="1"/>
+    <text x="42" y="284" class="f" font-size="14" fill="#334155">Keeps charge IDs, policy checks,</text>
+    <text x="42" y="308" class="f" font-size="14" fill="#334155">refund reasons, and approvals.</text>
+
+    <rect x="24" y="352" width="308" height="36" rx="18" fill="#fff7ed" stroke="#fde68a" stroke-width="1"/>
+    <text x="48" y="375" class="m" font-size="12" font-weight="700" fill="#92400e">mode: compressed_state · audit trail</text>
+
+    <line x1="24" y1="404" x2="332" y2="404" stroke="#f1f5f9" stroke-width="1.5"/>
+
+    <g transform="translate(24 420)">
+      <rect width="88" height="30" rx="15" fill="#ccfbf1"/>
+      <text x="12" y="20" class="f" font-size="13" font-weight="800" fill="#0f766e">0.925</text>
+      <rect x="100" width="100" height="30" rx="15" fill="#dcfce7"/>
+      <text x="116" y="20" class="f" font-size="13" font-weight="800" fill="#166534">3 handoffs</text>
+      <rect x="212" width="64" height="30" rx="15" fill="#ffedd5"/>
+      <text x="224" y="20" class="f" font-size="13" font-weight="800" fill="#9a3412">audit</text>
     </g>
 
-    <rect x="28" y="356" width="308" height="72" rx="16" fill="#fff7ed" stroke="#fed7aa"/>
-    <text x="48" y="382" class="f" font-size="14" fill="#334155">Keeps charge IDs, policy checks,</text>
-    <text x="48" y="406" class="f" font-size="14" fill="#334155">refund reasons, and approvals.</text>
-
-    <g transform="translate(28 444)">
-      <rect width="80" height="28" rx="14" fill="#ccfbf1"/>
-      <text x="10" y="19" class="f" font-size="13" font-weight="800" fill="#0f766e">0.925</text>
-      <rect x="92" width="88" height="28" rx="14" fill="#dcfce7"/>
-      <text x="106" y="19" class="f" font-size="13" font-weight="800" fill="#166534">3 handoffs</text>
-      <rect x="192" width="68" height="28" rx="14" fill="#ffedd5"/>
-      <text x="206" y="19" class="f" font-size="13" font-weight="800" fill="#9a3412">audit</text>
-    </g>
+    <text x="24" y="482" class="m" font-size="11" fill="#94a3b8">$ python examples/support_escalation.py</text>
   </g>
 
-  <!-- ── Card 3: Research (x=844, w=364) ── -->
-  <g transform="translate(844 232)" filter="url(#card)">
-    <rect width="364" height="480" rx="24" fill="#ffffff" stroke="#e2eaf4" stroke-width="1.2"/>
-    <rect width="364" height="8" rx="4" fill="url(#g3)"/>
+  <!-- ── CARD 3: Research workflow (x=820, w=356 → right=1176) ── -->
+  <g transform="translate(820 208)" filter="url(#card)">
+    <rect width="356" height="510" rx="24" fill="#ffffff" stroke="#e2eaf4" stroke-width="1.2"/>
+    <rect width="356" height="7" rx="3.5" fill="url(#g3)"/>
 
-    <text x="28" y="56" class="f" font-size="22" font-weight="820" fill="#0f172a">Research workflow</text>
-    <text x="28" y="82" class="f" font-size="14" fill="#42526b">Researcher, extractor, fact-checker,</text>
-    <text x="28" y="102" class="f" font-size="14" fill="#42526b">and writer preserve source context.</text>
+    <text x="24" y="50" class="f" font-size="22" font-weight="820" fill="#0f172a">Research workflow</text>
+    <text x="24" y="72" class="f" font-size="13" fill="#42526b">Researcher, extractor, fact-checker,</text>
+    <text x="24" y="90" class="f" font-size="13" fill="#42526b">and writer preserve source context.</text>
 
-    <g transform="translate(28 128)">
-      <rect width="140" height="52" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
-      <circle cx="20" cy="26" r="7" fill="#7c3aed"/>
-      <text x="36" y="22" class="f" font-size="12" font-weight="780" fill="#0f172a">Researcher</text>
-      <rect x="14" y="32" width="56" height="16" rx="8" fill="#dbeafe"/>
-      <text x="19" y="44" class="m" font-size="9" font-weight="800" fill="#1d4ed8">Python</text>
+    <line x1="24" y1="106" x2="332" y2="106" stroke="#f1f5f9" stroke-width="1.5"/>
 
-      <path d="M150 26 L162 26" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
-      <path d="M157 20 L164 26 L157 32" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Row 1 -->
+    <rect x="24" y="118" width="144" height="56" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="42" cy="140" r="8" fill="#7c3aed"/>
+    <text x="58" y="137" class="f" font-size="12" font-weight="780" fill="#0f172a">Researcher</text>
+    <rect x="56" y="148" width="52" height="18" rx="9" fill="#dbeafe"/>
+    <text x="62" y="161" class="m" font-size="10" font-weight="800" fill="#1d4ed8">Python</text>
 
-      <rect x="168" width="140" height="52" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
-      <circle cx="188" cy="26" r="7" fill="#2563eb"/>
-      <text x="204" y="22" class="f" font-size="12" font-weight="780" fill="#0f172a">Extractor</text>
-      <rect x="182" y="32" width="72" height="16" rx="8" fill="#cffafe"/>
-      <text x="187" y="44" class="m" font-size="9" font-weight="800" fill="#0e7490">JavaScript</text>
+    <text x="172" y="148" class="f" font-size="18" fill="#94a3b8">→</text>
 
-      <rect y="68" width="140" height="52" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
-      <circle cx="20" cy="94" r="7" fill="#0891b2"/>
-      <text x="36" y="90" class="f" font-size="12" font-weight="780" fill="#0f172a">Fact-checker</text>
-      <rect x="14" y="100" width="46" height="16" rx="8" fill="#ffedd5"/>
-      <text x="19" y="112" class="m" font-size="9" font-weight="800" fill="#9a3412">Rust</text>
+    <rect x="188" y="118" width="144" height="56" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="206" cy="140" r="8" fill="#2563eb"/>
+    <text x="222" y="137" class="f" font-size="12" font-weight="780" fill="#0f172a">Extractor</text>
+    <rect x="220" y="148" width="70" height="18" rx="9" fill="#cffafe"/>
+    <text x="226" y="161" class="m" font-size="10" font-weight="800" fill="#0e7490">JavaScript</text>
 
-      <path d="M150 94 L162 94" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
-      <path d="M157 88 L164 94 L157 100" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Row 2 -->
+    <rect x="24" y="184" width="144" height="56" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="42" cy="206" r="8" fill="#0891b2"/>
+    <text x="58" y="203" class="f" font-size="12" font-weight="780" fill="#0f172a">Fact-checker</text>
+    <rect x="56" y="214" width="40" height="18" rx="9" fill="#ffedd5"/>
+    <text x="61" y="227" class="m" font-size="10" font-weight="800" fill="#9a3412">Rust</text>
 
-      <rect x="168" y="68" width="140" height="52" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
-      <circle cx="188" cy="94" r="7" fill="#0f766e"/>
-      <text x="204" y="90" class="f" font-size="12" font-weight="780" fill="#0f172a">Writer</text>
-      <rect x="182" y="100" width="38" height="16" rx="8" fill="#fef9c3"/>
-      <text x="187" y="112" class="m" font-size="9" font-weight="800" fill="#92400e">C++</text>
+    <text x="172" y="214" class="f" font-size="18" fill="#94a3b8">→</text>
+
+    <rect x="188" y="184" width="144" height="56" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <circle cx="206" cy="206" r="8" fill="#0f766e"/>
+    <text x="222" y="203" class="f" font-size="12" font-weight="780" fill="#0f172a">Writer</text>
+    <rect x="220" y="214" width="38" height="18" rx="9" fill="#fef9c3"/>
+    <text x="225" y="227" class="m" font-size="10" font-weight="800" fill="#92400e">C++</text>
+
+    <rect x="24" y="256" width="308" height="80" rx="16" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
+    <text x="42" y="284" class="f" font-size="14" fill="#334155">Tracks sources, claims, confidence,</text>
+    <text x="42" y="308" class="f" font-size="14" fill="#334155">corrections, and citations.</text>
+
+    <rect x="24" y="352" width="308" height="36" rx="18" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
+    <text x="48" y="375" class="m" font-size="12" font-weight="700" fill="#6d28d9">mode: natural_handoff · sources</text>
+
+    <line x1="24" y1="404" x2="332" y2="404" stroke="#f1f5f9" stroke-width="1.5"/>
+
+    <g transform="translate(24 420)">
+      <rect width="88" height="30" rx="15" fill="#e0e7ff"/>
+      <text x="12" y="20" class="f" font-size="13" font-weight="800" fill="#3730a3">0.912</text>
+      <rect x="100" width="100" height="30" rx="15" fill="#dcfce7"/>
+      <text x="116" y="20" class="f" font-size="13" font-weight="800" fill="#166534">3 handoffs</text>
+      <rect x="212" width="64" height="30" rx="15" fill="#fef3c7"/>
+      <text x="220" y="20" class="f" font-size="13" font-weight="800" fill="#92400e">sources</text>
     </g>
 
-    <rect x="28" y="356" width="308" height="72" rx="16" fill="#f5f3ff" stroke="#ddd6fe"/>
-    <text x="48" y="382" class="f" font-size="14" fill="#334155">Tracks sources, claims, confidence,</text>
-    <text x="48" y="406" class="f" font-size="14" fill="#334155">corrections, and citations.</text>
-
-    <g transform="translate(28 444)">
-      <rect width="80" height="28" rx="14" fill="#e0e7ff"/>
-      <text x="10" y="19" class="f" font-size="13" font-weight="800" fill="#3730a3">0.912</text>
-      <rect x="92" width="88" height="28" rx="14" fill="#dcfce7"/>
-      <text x="106" y="19" class="f" font-size="13" font-weight="800" fill="#166534">3 handoffs</text>
-      <rect x="192" width="68" height="28" rx="14" fill="#fef3c7"/>
-      <text x="202" y="19" class="f" font-size="13" font-weight="800" fill="#92400e">sources</text>
-    </g>
+    <text x="24" y="482" class="m" font-size="11" fill="#94a3b8">$ python examples/research_workflow.py</text>
   </g>
 
-  <!-- Bottom runtime bar -->
-  <g transform="translate(68 748)" filter="url(#term)">
-    <rect width="1144" height="54" rx="16" fill="#0f1220"/>
-    <circle cx="24" cy="27" r="5" fill="#fb7185"/>
-    <circle cx="42" cy="27" r="5" fill="#facc15"/>
-    <circle cx="60" cy="27" r="5" fill="#4ade80"/>
-    <text x="86" y="23" class="m" font-size="11" fill="#475569">install:</text>
-    <text x="152" y="23" class="m" font-size="12" font-weight="700" fill="#38bdf8">pip install handoffkit</text>
-    <text x="380" y="23" class="m" font-size="12" font-weight="700" fill="#facc15">npm i @handoffkit/core</text>
-    <text x="598" y="23" class="m" font-size="12" font-weight="700" fill="#fb923c">cargo add handoffkit</text>
-    <text x="784" y="23" class="m" font-size="12" font-weight="700" fill="#a78bfa">cmake FetchContent (C++)</text>
-    <text x="152" y="44" class="m" font-size="11" fill="#334155">Shared HandoffState JSON · Py · JS · Rust · C++ · replay · validation · quality scoring</text>
+  <!-- ── Bottom terminal bar: x=68 w=1144 → right=1212. margin=68 ✓ ── -->
+  <g transform="translate(68 736)" filter="url(#term)">
+    <rect width="1144" height="26" rx="13" fill="#0f1220"/>
+    <circle cx="20" cy="13" r="4" fill="#fb7185"/>
+    <circle cx="34" cy="13" r="4" fill="#facc15"/>
+    <circle cx="48" cy="13" r="4" fill="#4ade80"/>
+    <text x="68" y="18" class="m" font-size="11" fill="#475569">install:</text>
+    <text x="128" y="18" class="m" font-size="11" font-weight="700" fill="#38bdf8">pip install handoffkit</text>
+    <text x="338" y="18" class="m" font-size="11" font-weight="700" fill="#facc15">npm i @handoffkit/core</text>
+    <text x="530" y="18" class="m" font-size="11" font-weight="700" fill="#fb923c">cargo add handoffkit</text>
+    <text x="710" y="18" class="m" font-size="11" font-weight="700" fill="#a78bfa">cmake FetchContent (C++)</text>
+    <text x="930" y="18" class="m" font-size="11" fill="#334155">· replay · validation · quality scoring</text>
   </g>
 </svg>
