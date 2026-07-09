@@ -1,0 +1,92 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">HandoffKit report gallery</title>
+  <desc id="desc">A polished gallery showing three HandoffKit reports for coding agents, support escalation, and research workflow.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f8fbff"/>
+      <stop offset="0.55" stop-color="#eef7ff"/>
+      <stop offset="1" stop-color="#f0fdf4"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="72" y1="0" x2="1208" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563eb"/>
+      <stop offset="0.5" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <filter id="shadow" x="-8%" y="-12%" width="116%" height="130%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0f172a" flood-opacity="0.14"/>
+    </filter>
+    <style>
+      .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+      .h { fill: #0f172a; font-size: 44px; font-weight: 840; letter-spacing: 0; }
+      .lead { fill: #42526b; font-size: 18px; font-weight: 520; letter-spacing: 0; }
+      .cardTitle { fill: #0f172a; font-size: 24px; font-weight: 820; letter-spacing: 0; }
+      .body { fill: #475569; font-size: 15px; font-weight: 540; letter-spacing: 0; }
+      .label { fill: #64748b; font-size: 11px; font-weight: 820; letter-spacing: 0; }
+      .code { fill: #dbeafe; font-size: 14px; font-weight: 760; letter-spacing: 0; }
+      .metric { fill: #0f172a; font-size: 28px; font-weight: 860; letter-spacing: 0; }
+      .smallCode { fill: #14532d; font-size: 12px; font-weight: 780; letter-spacing: 0; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="720" rx="38" fill="url(#bg)"/>
+  <circle cx="1124" cy="108" r="92" fill="#bbf7d0" opacity="0.42"/>
+  <circle cx="1016" cy="86" r="58" fill="#bfdbfe" opacity="0.46"/>
+
+  <g transform="translate(72 54)">
+    <rect width="158" height="32" rx="16" fill="#dbeafe" stroke="#bfdbfe"/>
+    <text x="20" y="21" class="mono label" fill="#1d4ed8">REPORT GALLERY</text>
+    <text x="0" y="86" class="sans h">Reports people can inspect</text>
+    <text x="0" y="122" class="sans lead">Every showcase writes Markdown, JSON, trace, validation, quality, and replay evidence.</text>
+    <path d="M0 158H520" stroke="url(#bar)" stroke-width="5" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(72 242)" filter="url(#shadow)">
+    <rect width="344" height="314" rx="26" fill="#ffffff" stroke="#dbe4ef"/>
+    <rect x="24" y="24" width="92" height="30" rx="15" fill="#dbeafe"/>
+    <text x="44" y="44" class="mono label" fill="#1d4ed8">CODING</text>
+    <text x="24" y="92" class="sans cardTitle">coding_review.md</text>
+    <text x="24" y="126" class="sans body">Architect -> Coder -> Reviewer -> Tester</text>
+    <rect x="24" y="156" width="296" height="74" rx="18" fill="#f8fafc" stroke="#e2e8f0"/>
+    <text x="44" y="185" class="sans body">Preserves files, decisions, errors,</text>
+    <text x="44" y="209" class="sans body">review fixes, and test commands.</text>
+    <text x="24" y="276" class="sans metric">A</text>
+    <text x="62" y="276" class="mono smallCode">quality / 3 handoffs / replay</text>
+  </g>
+
+  <g transform="translate(468 242)" filter="url(#shadow)">
+    <rect width="344" height="314" rx="26" fill="#ffffff" stroke="#dbe4ef"/>
+    <rect x="24" y="24" width="102" height="30" rx="15" fill="#ccfbf1"/>
+    <text x="44" y="44" class="mono label" fill="#0f766e">SUPPORT</text>
+    <text x="24" y="92" class="sans cardTitle">support_escalation.md</text>
+    <text x="24" y="126" class="sans body">Triage -> Billing -> Refund -> Supervisor</text>
+    <rect x="24" y="156" width="296" height="74" rx="18" fill="#ecfdf5" stroke="#bbf7d0"/>
+    <text x="44" y="185" class="sans body">Keeps charge IDs, policy checks,</text>
+    <text x="44" y="209" class="sans body">correction notes, and approvals.</text>
+    <text x="24" y="276" class="sans metric">0.925</text>
+    <text x="112" y="276" class="mono smallCode">quality / audit trail</text>
+  </g>
+
+  <g transform="translate(864 242)" filter="url(#shadow)">
+    <rect width="344" height="314" rx="26" fill="#ffffff" stroke="#dbe4ef"/>
+    <rect x="24" y="24" width="104" height="30" rx="15" fill="#ede9fe"/>
+    <text x="44" y="44" class="mono label" fill="#6d28d9">RESEARCH</text>
+    <text x="24" y="92" class="sans cardTitle">research_workflow.md</text>
+    <text x="24" y="126" class="sans body">Researcher -> Extractor -> Fact-checker</text>
+    <rect x="24" y="156" width="296" height="74" rx="18" fill="#f5f3ff" stroke="#ddd6fe"/>
+    <text x="44" y="185" class="sans body">Tracks sources, claims, confidence,</text>
+    <text x="44" y="209" class="sans body">corrections, and writer constraints.</text>
+    <text x="24" y="276" class="sans metric">0.912</text>
+    <text x="112" y="276" class="mono smallCode">quality / sources</text>
+  </g>
+
+  <g transform="translate(72 600)" filter="url(#shadow)">
+    <rect width="1136" height="64" rx="22" fill="#0f1220"/>
+    <circle cx="30" cy="32" r="6" fill="#fb7185"/>
+    <circle cx="52" cy="32" r="6" fill="#facc15"/>
+    <circle cx="74" cy="32" r="6" fill="#74d399"/>
+    <text x="112" y="38" class="mono code">$ handoffkit demos</text>
+    <text x="314" y="38" class="mono code">$ handoffkit showcase coding-review</text>
+    <text x="646" y="38" class="mono code">$ handoffkit report runs/latest</text>
+  </g>
+</svg>
