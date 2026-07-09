@@ -512,6 +512,9 @@ function withoutTransportOptions(options) {
   delete copy.headers;
   delete copy.retryPolicy;
   delete copy.path;
+  delete copy.agent;
+  delete copy.task;
+  delete copy.context;
   return copy;
 }
 
