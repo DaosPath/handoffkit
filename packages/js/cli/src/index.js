@@ -22,7 +22,7 @@ import {
   TemplateScaffolder,
 } from "../../templates/src/index.js";
 
-export const VERSION = "1.10.0";
+export const VERSION = "1.11.0";
 
 const SHOWCASES = {
   "coding-review": {
@@ -431,6 +431,20 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       stdout(runDemo());
       return 0;
     }
+    if (command === "doctor-benchmark" || command === "doctor" || command === "-d") {
+      const limit = Number(rest[0] || 30);
+      const { runDoctorBenchmark } = await import("./benchmarks/doctor.js");
+      const report = await runDoctorBenchmark(limit);
+      stdout(report.toMarkdown());
+      return 0;
+    }
+    if (command === "mai-benchmark" || command === "mai" || command === "-m") {
+      const limit = Number(rest[0] || 30);
+      const { runMAIStyleBenchmark } = await import("./benchmarks/mai.js");
+      const report = await runMAIStyleBenchmark(limit);
+      stdout(report.toMarkdown());
+      return 0;
+    }
     if (command === "demo-recipe") {
       stdout(runRecipeDemo());
       return 0;
@@ -519,6 +533,9 @@ function helpText() {
     "Usage:",
     "  handoffkit-js --version",
     "  handoffkit-js demo",
+    "  handoffkit-js demo-recipe",
+    "  handoffkit-js doctor-benchmark [limit]  (alias: doctor, -d)",
+    "  handoffkit-js mai-benchmark [limit]     (alias: mai, -m)",
     "  handoffkit-js demo-coding-review",
     "  handoffkit-js demo-support",
     "  handoffkit-js demo-research",

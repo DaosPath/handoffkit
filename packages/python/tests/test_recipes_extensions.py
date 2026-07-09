@@ -22,7 +22,7 @@ from handoffkit import (
     WorkflowTemplate,
     tool,
 )
-from handoffkit.builtins import (
+from handoffkit.recipes.builtins import (
     coding_review_recipe,
     plan_execute_review_recipe,
     research_summary_recipe,

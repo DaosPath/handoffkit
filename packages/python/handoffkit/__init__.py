@@ -18,7 +18,7 @@ from handoffkit.evaluation import (
 )
 from handoffkit.extensions import Extension, ExtensionRegistry
 from handoffkit.handoff import HandoffState
-from handoffkit.media import (
+from handoffkit.recipes.media import (
     DubbingSegment,
     MediaAsset,
     MediaWorkflowReport,
@@ -61,7 +61,7 @@ from handoffkit.reports import (
     write_report_html,
 )
 from handoffkit.runner import Team, TeamRunResult
-from handoffkit.showcases import ShowcaseResult, build_showcase, run_showcase, showcase_names
+from handoffkit.recipes.showcases import ShowcaseResult, build_showcase, run_showcase, showcase_names
 from handoffkit.structured import (
     JsonOutputParser,
     OutputRepairer,
@@ -87,7 +87,7 @@ from handoffkit.validation import (
     ValidationReport,
 )
 
-__version__ = "1.10.0"
+__version__ = "1.11.0"
 
 __all__ = [
     "Agent",

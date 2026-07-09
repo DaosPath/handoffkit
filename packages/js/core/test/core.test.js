@@ -33,6 +33,13 @@ import {
   ContextRunResult,
   ContractParityReport,
   buildContractParityReport,
+  AgentMemory,
+  MemoryEntry,
+  MemoryItem,
+  MemoryStore,
+  MemoryReport,
+  Extension,
+  ExtensionRegistry,
 } from "../src/index.js";
 
 const contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts");
@@ -68,7 +75,7 @@ test("validation report serializes and raises", () => {
 test("contract parity report summarizes shared contract inventory", async () => {
   const report = await buildContractParityReport({
     runtime: "javascript",
-    version: "1.10.0",
+    version: "1.11.0",
     contractsRoot,
     contractInventory: {
       fixtures: [
@@ -103,7 +110,7 @@ test("contract parity report summarizes shared contract inventory", async () => 
 test("core contract parity report uses embedded inventory without filesystem", async () => {
   const report = await buildContractParityReport({
     runtime: "browser",
-    version: "1.10.0",
+    version: "1.11.0",
   });
 
   assert.equal(report.success, true);
@@ -623,6 +630,61 @@ test("WorkflowEvaluator evaluates handoffs and traces deterministically", async 
   assert.ok(report.score >= 0.75);
   assert.equal(report.grade, "A");
   assert.match(report.toMarkdown(), /# Workflow Evaluation Report/);
+});
+
+test("AgentMemory records and formats recent entries", () => {
+  const memory = new AgentMemory();
+  memory.add("user", "Hello there");
+  memory.add("assistant", "Hi operations lead!");
+  
+  assert.equal(memory.entries.length, 2);
+  assert.equal(memory.entries[0].role, "user");
+  assert.equal(memory.entries[1].content, "Hi operations lead!");
+  assert.match(memory.toText(5), /user: Hello there\nassistant: Hi operations lead!/);
+  
+  memory.clear();
+  assert.equal(memory.entries.length, 0);
+});
+
+test("MemoryStore supports item addition, lists, keyword searches, and deletion", () => {
+  const store = new MemoryStore();
+  const item1 = store.add("Operations manager preferred Next.js timeline viewer", { kind: "preference", tags: ["web", "nextjs"] });
+  const item2 = store.add("NVIDIA DeepSeek failover is configured on echo provider", { kind: "config", tags: ["nvidia", "deepseek"] });
+  
+  assert.equal(store.list().length, 2);
+  assert.equal(store.get(item1.id).content, "Operations manager preferred Next.js timeline viewer");
+  
+  const searchResults1 = store.search("nextjs");
+  assert.equal(searchResults1.length, 1);
+  assert.equal(searchResults1[0].id, item1.id);
+  
+  const searchResults2 = store.search("provider preference config");
+  assert.equal(searchResults2.length, 2);
+  assert.equal(searchResults2[0].id, item2.id); // Higher matching count
+  
+  const deleted = store.delete(item1.id);
+  assert.equal(deleted, true);
+  assert.equal(store.list().length, 1);
+});
+
+test("Extension and ExtensionRegistry validate, register, and retrieve bundles", () => {
+  const registry = new ExtensionRegistry();
+  const extension = new Extension({
+    name: "media-localization",
+    description: "Dubbing pipelines",
+    version: "1.11.0",
+    recipes: [],
+    tools: [function testTool() {}],
+  });
+  
+  registry.register(extension);
+  assert.equal(registry.list().length, 1);
+  assert.equal(registry.get("media-localization").description, "Dubbing pipelines");
+  assert.equal(registry.tools().length, 1);
+  
+  assert.throws(() => {
+    registry.register(extension); // Duplicate register error
+  });
 });
 
 

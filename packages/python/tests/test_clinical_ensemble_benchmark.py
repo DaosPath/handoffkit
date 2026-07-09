@@ -13,7 +13,7 @@ from examples.mai_clinical_ensemble_benchmark import (  # noqa: E402
     choose_vote_winner,
     labels_equivalent,
 )
-from handoffkit.mai_benchmark import build_sequential_doctor_cases  # noqa: E402
+from handoffkit.benchmarks.mai import build_sequential_doctor_cases  # noqa: E402
 
 
 def test_labels_equivalent_uses_clinical_aliases() -> None:

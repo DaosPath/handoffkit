@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from handoffkit import HandoffState, write_report_files
-from handoffkit.media import (
+from handoffkit.recipes.media import (
     MediaAsset,
     MediaWorkflowReport,
     SpeakerProfile,

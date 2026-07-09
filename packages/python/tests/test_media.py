@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from handoffkit.media import (
+from handoffkit.recipes.media import (
     MediaAsset,
     MediaWorkflowReport,
     SpeakerProfile,

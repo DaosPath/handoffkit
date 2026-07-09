@@ -116,7 +116,7 @@ export class ContractParityReport {
 
 export async function buildContractParityReport({
   runtime = "javascript",
-  version = "1.10.0",
+  version = "1.11.0",
   contractsRoot = "",
   contractInventory = null,
   expectedFixtures = DEFAULT_CONTRACT_FIXTURES,
@@ -523,7 +523,7 @@ export class OpenAIProvider extends BaseProvider {
         headers: {
           "Authorization": `Bearer ${this.apiKey}`,
           "Content-Type": "application/json",
-          "User-Agent": "handoffkit/1.10.0",
+          "User-Agent": "handoffkit/1.11.0",
           ...this.headers,
         },
         body: JSON.stringify(payload),
@@ -892,6 +892,54 @@ export class HandoffQualityEvaluator {
       metrics,
       recommendations: score >= this.minScore ? [] : ["Add clearer next steps, files, context refs, or error notes."],
       validation: handoff.validateReport(),
+    });
+  }
+
+  evaluateMany(handoffs) {
+    if (!Array.isArray(handoffs) || handoffs.length === 0) {
+      const validation = new ValidationReport({
+        success: false,
+        issues: [],
+        metadata: { error: "no handoffs provided" },
+      });
+      return new HandoffQualityReport({
+        success: false,
+        score: 0.0,
+        grade: "F",
+        metrics: [],
+        recommendations: ["Provide at least one handoff state."],
+        validation,
+        metadata: { handoffs: 0, evaluator: this.constructor.name },
+      });
+    }
+    const reports = handoffs.map(state => this.evaluate(state));
+    const names = ["completeness", "clarity", "actionability", "traceability", "errorAwareness"];
+    const metrics = [];
+    for (const name of names) {
+      const matching = reports.flatMap(report => report.metrics).filter(metric => metric.name === name);
+      if (!matching.length) continue;
+      metrics.push({
+        name,
+        score: matching.reduce((sum, m) => sum + m.score, 0) / matching.length,
+        weight: matching[0].weight,
+        notes: [`average over ${handoffs.length} handoffs`],
+      });
+    }
+    const score = reports.reduce((sum, r) => sum + r.score, 0) / reports.length;
+    const successful = reports.filter(r => r.success).length;
+    const validation = new ValidationReport({
+      success: reports.every(r => r.validation?.success),
+      issues: reports.flatMap(r => r.validation?.issues || []),
+      metadata: { reports: reports.length, successful },
+    });
+    return new HandoffQualityReport({
+      success: reports.every(r => r.success),
+      score,
+      grade: grade(score),
+      metrics,
+      recommendations: score >= this.minScore ? [] : ["Add clearer next steps, files, context refs, or error notes."],
+      validation,
+      metadata: { handoffs: handoffs.length, evaluator: this.constructor.name },
     });
   }
 }
@@ -1749,7 +1797,7 @@ export class ContextRunResult {
     });
   }
 }
-export const HANDOFFKIT_CORE_VERSION = "1.10.0";
+export const HANDOFFKIT_CORE_VERSION = "1.11.0";
 export function toJSONValue(value) {
   if (value == null) return value;
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
@@ -2201,5 +2249,326 @@ export function isDangerousCommand(command) {
 
 export function requiresApproval(toolName) {
   return APPROVAL_REQUIRED_TOOLS.has(toolName);
+}
+
+// ==========================================
+// Memory Systems
+// ==========================================
+
+export class MemoryEntry {
+  constructor({ role, content, metadata = {}, createdAt = null } = {}) {
+    this.role = role;
+    this.content = content;
+    this.metadata = metadata;
+    this.createdAt = createdAt || new Date().toISOString();
+  }
+
+  toDict() {
+    return {
+      role: this.role,
+      content: this.content,
+      metadata: this.metadata,
+      created_at: this.createdAt,
+    };
+  }
+
+  static fromDict(data) {
+    return new MemoryEntry({
+      role: data.role || "",
+      content: data.content || "",
+      metadata: data.metadata || {},
+      createdAt: data.created_at || data.createdAt,
+    });
+  }
+}
+
+export class AgentMemory {
+  constructor({ entries = [] } = {}) {
+    this.entries = entries.map(item => item instanceof MemoryEntry ? item : MemoryEntry.fromDict(item));
+  }
+
+  add(role, content, metadata = {}) {
+    const entry = new MemoryEntry({ role, content, metadata });
+    this.entries.push(entry);
+    return entry;
+  }
+
+  last(count = 5) {
+    if (count <= 0) return [];
+    return this.entries.slice(-count);
+  }
+
+  toText(count = 5) {
+    return this.last(count).map(entry => `${entry.role}: ${entry.content}`).join("\n");
+  }
+
+  clear() {
+    this.entries = [];
+  }
+}
+
+export class MemoryItem {
+  constructor({ id = null, content, kind = "note", tags = [], metadata = {}, createdAt = null, updatedAt = null } = {}) {
+    this.id = id || Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    this.content = content;
+    this.kind = kind;
+    this.tags = Array.isArray(tags) ? tags : [];
+    this.metadata = metadata;
+    this.createdAt = createdAt || new Date().toISOString();
+    this.updatedAt = updatedAt;
+  }
+
+  toDict() {
+    return {
+      id: this.id,
+      content: this.content,
+      kind: this.kind,
+      tags: this.tags,
+      metadata: this.metadata,
+      created_at: this.createdAt,
+      updated_at: this.updatedAt,
+    };
+  }
+
+  toJS() {
+    return this.toDict();
+  }
+
+  static fromDict(data) {
+    return new MemoryItem({
+      id: data.id,
+      content: data.content || "",
+      kind: data.kind || "note",
+      tags: data.tags || [],
+      metadata: data.metadata || {},
+      createdAt: data.created_at || data.createdAt,
+      updatedAt: data.updated_at || data.updatedAt,
+    });
+  }
+}
+
+export class MemoryStore {
+  constructor({ items = [] } = {}) {
+    this._items = new Map();
+    for (const item of items) {
+      const inst = item instanceof MemoryItem ? item : MemoryItem.fromDict(item);
+      this._items.set(inst.id, inst);
+    }
+  }
+
+  add(content, { kind = "note", tags = [], metadata = {} } = {}) {
+    const item = new MemoryItem({ content, kind, tags, metadata });
+    this._items.set(item.id, item);
+    this._save();
+    return item;
+  }
+
+  list() {
+    return Array.from(this._items.values());
+  }
+
+  get(memoryId) {
+    return this._items.get(memoryId) || null;
+  }
+
+  search(query, { limit = null } = {}) {
+    if (!query) return [];
+    const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const scored = [];
+    for (const item of this._items.values()) {
+      const haystack = [
+        item.content,
+        item.kind,
+        item.tags.join(" "),
+        JSON.stringify(item.metadata),
+      ].join(" ").toLowerCase();
+      
+      let score = 0;
+      for (const term of terms) {
+        let idx = -1;
+        while ((idx = haystack.indexOf(term, idx + 1)) !== -1) {
+          score++;
+        }
+      }
+      
+      if (score > 0) {
+        scored.push({ score, item });
+      }
+    }
+    
+    // Sort: score descending, then createdAt ascending, then id ascending
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.item.createdAt !== b.item.createdAt) return a.item.createdAt.localeCompare(b.item.createdAt);
+      return a.item.id.localeCompare(b.item.id);
+    });
+    
+    const results = scored.map(entry => entry.item);
+    return limit !== null ? results.slice(0, limit) : results;
+  }
+
+  delete(memoryId) {
+    const existed = this._items.delete(memoryId);
+    if (existed) {
+      this._save();
+    }
+    return existed;
+  }
+
+  clear() {
+    this._items.clear();
+    this._save();
+  }
+
+  _save() {
+    // In-memory no-op
+  }
+}
+
+export class MemoryReport {
+  constructor({ memoriesStored = [], searchesExecuted = [], contextDocumentsUsed = [], finalResult = "" } = {}) {
+    this.memoriesStored = memoriesStored.map(item => item instanceof MemoryItem ? item : MemoryItem.fromDict(item));
+    this.searchesExecuted = searchesExecuted;
+    this.contextDocumentsUsed = contextDocumentsUsed;
+    this.finalResult = finalResult;
+  }
+
+  toDict() {
+    return {
+      memories_stored: this.memoriesStored.map(item => item.toDict()),
+      searches_executed: this.searchesExecuted,
+      context_documents_used: this.contextDocumentsUsed,
+      final_result: this.finalResult,
+    };
+  }
+
+  toJS() {
+    return this.toDict();
+  }
+
+  toMarkdown() {
+    const memories = this.memoriesStored.map(item => `- ${item.kind}: ${item.content}`).join("\n");
+    const searches = this.searchesExecuted.map(item => `- ${item}`).join("\n");
+    const docs = this.contextDocumentsUsed.map(item => `- ${item}`).join("\n");
+    return [
+      "# Memory Report",
+      "",
+      "## Memories Stored",
+      "",
+      memories || "- none",
+      "",
+      "## Searches Executed",
+      "",
+      searches || "- none",
+      "",
+      "## Context Documents Used",
+      "",
+      docs || "- none",
+      "",
+      "## Final Result",
+      "",
+      this.finalResult,
+    ].join("\n") + "\n";
+  }
+}
+
+// ==========================================
+// Extensions Registry
+// ==========================================
+
+export class Extension {
+  constructor({ name, description, version, recipes = [], tools = [], metadata = {} } = {}) {
+    this.name = name;
+    this.description = description;
+    this.version = version;
+    this.recipes = recipes; // array of Recipes
+    this.tools = tools; // array of functions or Tool instances
+    this.metadata = metadata;
+  }
+
+  validate() {
+    if (!this.name || !this.name.trim()) {
+      throw new Error("extension name must be a non-empty string");
+    }
+    for (const recipe of this.recipes) {
+      if (recipe.validate) recipe.validate();
+    }
+    const toolNames = this.tools.map(item => {
+      // In JS, check if it's a function or an object with a name property
+      if (typeof item === "function") return item.name || "anonymous";
+      if (item && typeof item === "object") return item.name || "unknown";
+      return "invalid";
+    });
+    const duplicates = toolNames.filter((name, index) => name !== "invalid" && toolNames.indexOf(name) !== index);
+    if (duplicates.length > 0) {
+      throw new Error(`duplicate tool names: ${[...new Set(duplicates)].join(", ")}`);
+    }
+    return this;
+  }
+
+  toDict() {
+    return {
+      name: this.name,
+      description: this.description,
+      version: this.version,
+      recipes: this.recipes.map(recipe => recipe.toDict ? recipe.toDict() : recipe),
+      tools: this.tools.map(tool => {
+        if (tool.toDict) return tool.toDict();
+        if (typeof tool === "function") return { name: tool.name || "anonymous", type: "function" };
+        return tool;
+      }),
+      metadata: this.metadata,
+    };
+  }
+
+  toJS() {
+    return this.toDict();
+  }
+}
+
+export class ExtensionRegistry {
+  constructor() {
+    this._extensions = new Map();
+  }
+
+  register(extension) {
+    if (!(extension instanceof Extension)) {
+      extension = new Extension(extension);
+    }
+    extension.validate();
+    if (this._extensions.has(extension.name)) {
+      throw new Error(`Extension already registered: ${extension.name}`);
+    }
+    this._extensions.set(extension.name, extension);
+    return extension;
+  }
+
+  get(name) {
+    if (!this._extensions.has(name)) {
+      throw new Error(`Extension not found: ${name}`);
+    }
+    return this._extensions.get(name);
+  }
+
+  list() {
+    const keys = Array.from(this._extensions.keys()).sort();
+    return keys.map(key => this._extensions.get(key));
+  }
+
+  recipes() {
+    const list = [];
+    for (const ext of this.list()) {
+      list.push(...ext.recipes);
+    }
+    return list;
+  }
+
+  tools() {
+    const list = [];
+    for (const ext of this.list()) {
+      list.push(...ext.tools);
+    }
+    return list;
+  }
 }
 
