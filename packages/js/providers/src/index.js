@@ -195,7 +195,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
     retryPolicy = null,
     requiresApiKey = undefined,
     allowEnv = true,
-    userAgent = "handoffkit-providers/1.13.0",
+    userAgent = "handoffkit-providers/1.14.0",
     metadata = {},
   } = {}) {
     const resolvedSpec = normalizeSpec(spec ?? provider);

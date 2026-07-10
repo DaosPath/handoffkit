@@ -22,7 +22,7 @@ import {
   TemplateScaffolder,
 } from "../../templates/src/index.js";
 
-export const VERSION = "1.13.0";
+export const VERSION = "1.14.0";
 
 const SHOWCASES = {
   "coding-review": {
