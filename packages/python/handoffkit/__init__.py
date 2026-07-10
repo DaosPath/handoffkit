@@ -18,6 +18,13 @@ from handoffkit.evaluation import (
 )
 from handoffkit.extensions import Extension, ExtensionRegistry
 from handoffkit.handoff import HandoffState
+from handoffkit.sandbox import (
+    SandboxError,
+    ToolSandbox,
+    get_sandbox,
+    reset_sandbox,
+    set_sandbox,
+)
 from handoffkit.recipes.media import (
     MEDIA_OPERATIONS,
     DubbingSegment,
@@ -167,6 +174,7 @@ __all__ = [
     "ReplayRunner",
     "ReplaySummary",
     "RunTrace",
+    "SandboxError",
     "ScaffoldResult",
     "ShowcaseResult",
     "SpeakerProfile",
@@ -184,6 +192,7 @@ __all__ = [
     "ToolFactory",
     "ToolRegistry",
     "ToolResult",
+    "ToolSandbox",
     "ToolSpec",
     "TraceEvent",
     "TraceStep",
@@ -196,6 +205,9 @@ __all__ = [
     "WorkflowTemplate",
     "__version__",
     "apply_transcript_editions",
+    "get_sandbox",
+    "reset_sandbox",
+    "set_sandbox",
     "build_creation_context",
     "build_dubbing_plan",
     "build_edition_context",

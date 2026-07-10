@@ -1,9 +1,49 @@
 # HandoffKit Roadmap
 
-Last updated: 2026-07-09
+Last updated: 2026-07-10
 
 This document is the product roadmap for **HandoffKit** (core runtimes + Studio web).  
 Status legend: **Done** · **In progress** · **Planned** · **Later**
+
+---
+
+## 1.14 — Security, quality gates, product maturity
+
+### P0 — before any production use (**In progress**)
+
+| Item | Status | Notes |
+|------|--------|--------|
+| Terminal execution **without** `shell=True` | **Done** | Python `run_command` uses argv + `shell=False`; JS ffmpeg helpers use `spawn` argv |
+| Mandatory tool **sandbox** | **Done** | `handoffkit.sandbox.ToolSandbox`; FS tools resolve under workspace |
+| Restrict filesystem to **workspace** | **Done** | `HANDOFFKIT_WORKSPACE` or cwd; path escape raises |
+| **Approvals on by default** | **Done** | `require_approval` defaults from sandbox (`True`); mutating tools blocked until bypass |
+| CI **Ruff blocking** + release gate | **Done** | Ruff before tests in CI; Publish `quality-gate` job must pass before build/npm |
+| Tests safe for **sdist** (missing monorepo files) | **Done** | skip helpers when contracts/`.github` absent; docs resolve via package root |
+| **Coverage gate** for tools + validation | **Done** | `--cov-fail-under=80` on tools/safety/sandbox/validation modules |
+
+### P1 — stabilization (**Planned**)
+
+| Item | Status |
+|------|--------|
+| Split `cli.py` and JS `core/index.js` | Planned |
+| Move medical datasets out of `.py` files | Planned |
+| Freeze a smaller public API | Planned |
+| Deprecation policy | Planned |
+| Studio: DB, auth, workspaces | Planned |
+| Fix Rust / C++ docs | Planned |
+| Fewer releases, consolidated changelogs | Planned |
+
+### P2 — external credibility (**Later**)
+
+| Item | Status |
+|------|--------|
+| Independent benchmark | Later |
+| External use cases | Later |
+| Reproducible comparison vs LangGraph, AutoGen, CrewAI, OpenAI Agents SDK | Later |
+| Cost / latency / context-loss / recovery metrics | Later |
+| Open contributions + issues hygiene | Later |
+| Second maintainer | Later |
+| Published threat model | Later |
 
 ---
 

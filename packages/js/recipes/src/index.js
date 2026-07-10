@@ -962,29 +962,41 @@ export async function ffmpegAvailable(ffmpeg = "ffmpeg") {
   }
 }
 
+async function runArgv(argv) {
+  const { spawn } = await import("node:child_process");
+  return new Promise((resolve, reject) => {
+    const child = spawn(argv[0], argv.slice(1), { shell: false });
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) resolve({ stdout, stderr });
+      else reject(new Error(`command failed (${code}): ${stderr || stdout}`));
+    });
+  });
+}
+
 export async function extractAudio(videoPath, audioPath, { ffmpeg = "ffmpeg", overwrite = false } = {}) {
-  const { exec } = await import("node:child_process");
   const { mkdir } = await import("node:fs/promises");
   const { dirname } = await import("node:path");
   await mkdir(dirname(audioPath), { recursive: true });
-  
-  const args = [
+  // No shell=True: argv list only
+  await runArgv([
     ffmpeg,
     overwrite ? "-y" : "-n",
     "-i",
-    `"${videoPath}"`,
+    videoPath,
     "-vn",
-    "-acodec pcm_s16le",
-    `"${audioPath}"`,
-  ].join(" ");
-  
-  await new Promise((resolve, reject) => {
-    exec(args, (error, stdout, stderr) => {
-      if (error) reject(new Error(`ffmpeg failed: ${stderr || error.message}`));
-      else resolve();
-    });
-  });
-  
+    "-acodec",
+    "pcm_s16le",
+    audioPath,
+  ]);
   return new MediaAsset({
     path: audioPath,
     mediaType: "audio",
@@ -993,32 +1005,26 @@ export async function extractAudio(videoPath, audioPath, { ffmpeg = "ffmpeg", ov
 }
 
 export async function muxAudio(videoPath, audioPath, outputPath, { ffmpeg = "ffmpeg", overwrite = false } = {}) {
-  const { exec } = await import("node:child_process");
   const { mkdir } = await import("node:fs/promises");
   const { dirname } = await import("node:path");
   await mkdir(dirname(outputPath), { recursive: true });
-  
-  const args = [
+  await runArgv([
     ffmpeg,
     overwrite ? "-y" : "-n",
     "-i",
-    `"${videoPath}"`,
+    videoPath,
     "-i",
-    `"${audioPath}"`,
-    "-map 0:v:0",
-    "-map 1:a:0",
-    "-c:v copy",
-    "-c:a aac",
-    `"${outputPath}"`,
-  ].join(" ");
-  
-  await new Promise((resolve, reject) => {
-    exec(args, (error, stdout, stderr) => {
-      if (error) reject(new Error(`ffmpeg failed: ${stderr || error.message}`));
-      else resolve();
-    });
-  });
-  
+    audioPath,
+    "-map",
+    "0:v:0",
+    "-map",
+    "1:a:0",
+    "-c:v",
+    "copy",
+    "-c:a",
+    "aac",
+    outputPath,
+  ]);
   return new MediaAsset({
     path: outputPath,
     mediaType: "video",

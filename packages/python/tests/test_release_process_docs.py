@@ -10,8 +10,13 @@ REPO_ROOT = PACKAGE_ROOT.parents[1]
 
 
 def read(path: str) -> str:
+    import pytest
+
     root = REPO_ROOT if path.startswith(".github/") or path == "SECURITY.md" else PACKAGE_ROOT
-    return (root / path).read_text(encoding="utf-8")
+    target = root / path
+    if not target.is_file():
+        pytest.skip(f"missing {path} outside monorepo (sdist-safe)")
+    return target.read_text(encoding="utf-8")
 
 
 def has_pypi_token(text: str) -> bool:
