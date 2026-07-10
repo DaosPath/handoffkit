@@ -30,6 +30,9 @@ export type StoredMaiRun = {
   createdAt: string;
   demo: "mai-style-panel";
   schemaVersion: 1;
+  /** Studio workspace scope (P1/P2) */
+  workspaceId?: string;
+  userId?: string;
   providerId: string;
   providerLabel: string;
   mode: string;
@@ -165,7 +168,26 @@ export function saveStoredRun(run: StoredMaiRun): StoredMaiRun {
   return run;
 }
 
-export function listStoredRuns(limit = 50): RunHistorySummary[] {
+/**
+ * Persist a run with Studio workspace/auth context (P1/P2).
+ * Ensures default workspace exists, stamps workspaceId/userId, then saves.
+ */
+export async function saveStoredRunWithStudio(
+  run: StoredMaiRun
+): Promise<StoredMaiRun> {
+  const { studioDb } = await import("./db");
+  await studioDb.ensureDefaultWorkspace();
+  const session = await studioDb.auth.getSession();
+  const stamped = session
+    ? studioDb.attachRunMeta(run, session)
+    : { ...run, workspaceId: "ws_local_default" };
+  return saveStoredRun(stamped);
+}
+
+export function listStoredRuns(
+  limit = 50,
+  opts?: { workspaceId?: string }
+): RunHistorySummary[] {
   ensureDir();
   const files = readdirSync(DATA_DIR)
     .filter((f) => f.endsWith(".json"))
@@ -178,6 +200,9 @@ export function listStoredRuns(limit = 50): RunHistorySummary[] {
     try {
       const raw = readFileSync(join(DATA_DIR, f), "utf8");
       const run = JSON.parse(raw) as StoredMaiRun;
+      if (opts?.workspaceId && run.workspaceId && run.workspaceId !== opts.workspaceId) {
+        continue;
+      }
       out.push({
         id: run.id,
         createdAt: run.createdAt,

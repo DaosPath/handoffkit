@@ -17,11 +17,13 @@
   },
   "files": [
     "src",
+    "!src/index.monolith.js",
+    "!src/split.mjs",
     "README.md"
   ],
   "license": "MIT",
   "scripts": {
-    "check": "node --check src/index.js && node --check test/core.test.js",
+    "check": "node --check src/index.js && node --check src/utils.js && node --check src/contracts.js && node --check src/agent.js && node --check test/core.test.js",
     "test": "node --test"
   },
   "engines": {

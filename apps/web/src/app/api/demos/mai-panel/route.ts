@@ -17,7 +17,10 @@ import {
   GROQ_BASE_URL,
   GROQ_CHAT_MODELS,
 } from "@/lib/studio/groq-models";
-import { buildStoredRun, saveStoredRun } from "@/lib/studio/run-history";
+import {
+  buildStoredRun,
+  saveStoredRunWithStudio,
+} from "@/lib/studio/run-history";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -103,7 +106,7 @@ export async function POST(request: Request) {
     if (!stream) {
       const result = await runMaiStylePanel(runOpts);
       try {
-        const stored = saveStoredRun(
+        const stored = await saveStoredRunWithStudio(
           buildStoredRun({ result, casePreset })
         );
         return NextResponse.json({
@@ -131,7 +134,7 @@ export async function POST(request: Request) {
             onEvent: async (event) => {
               if (event.type === "run_complete") {
                 try {
-                  const stored = saveStoredRun(
+                  const stored = await saveStoredRunWithStudio(
                     buildStoredRun({
                       result: event.result,
                       casePreset,
