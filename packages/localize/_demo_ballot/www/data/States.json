@@ -1,0 +1,21 @@
+[
+  null,
+  {
+    "id": 1,
+    "name": "Under Scrutiny",
+    "message1": "%1 is under public scrutiny!",
+    "message2": "%1 remains under scrutiny.",
+    "message3": "",
+    "message4": "%1 is no longer under scrutiny.",
+    "note": ""
+  },
+  {
+    "id": 2,
+    "name": "Censored",
+    "message1": "%1 was censored!",
+    "message2": "%1 is still censored.",
+    "message3": "",
+    "message4": "%1 can speak freely again.",
+    "note": ""
+  }
+]

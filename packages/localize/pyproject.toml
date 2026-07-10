@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "handoffkit-localize"
+version = "0.1.0"
+description = "Public multi-agent game localization CLI/TUI for HandoffKit (PG sample content, multi-engine)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "DaosPath" }]
+keywords = ["handoffkit", "localization", "i18n", "multi-agent", "games", "tui"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Games/Entertainment",
+  "Topic :: Software Development :: Localization",
+]
+dependencies = [
+  "handoffkit>=1.10.0",
+  "rich>=13.0.0",
+  "textual>=0.80.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0", "ruff>=0.8.0", "build>=1.2.0", "twine>=6.0.0"]
+
+[project.urls]
+Homepage = "https://github.com/DaosPath/handoffkit"
+Source = "https://github.com/DaosPath/handoffkit"
+
+[project.scripts]
+hk-localize = "handoffkit_localize.cli:main"
+handoffkit-localize = "handoffkit_localize.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["handoffkit_localize*"]
+
+[tool.setuptools.package-data]
+handoffkit_localize = ["fixtures/**/*", "py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

@@ -1,0 +1,19 @@
+The Ballot and the Bridge — public localization sample
+=====================================================
+
+STORY (PG political intrigue)
+  Republic of Marenth nears election day. Reporter Mira Solan
+  investigates a bridge project, missing ballots, and power.
+
+HOW TO PLAY (no RPG Maker.exe required)
+  1) Open www/index.html in a browser (Chrome/Edge/Firefox).
+  2) Click through dialogue. Change Lang after translate+apply.
+
+HOW TO DEMO TRANSLATION
+  hk-localize set-game <this-folder>
+  hk-localize extract
+  hk-localize translate --langs es,zh  # needs API key
+  hk-localize apply
+  Open www/index.html → choose Español / 中文 / …
+
+Content policy: public PG sample.

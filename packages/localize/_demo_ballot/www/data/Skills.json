@@ -1,0 +1,35 @@
+[
+  null,
+  {
+    "id": 1,
+    "name": "Open Records Request",
+    "description": "Forces a bureaucratic door. May lower secrecy.",
+    "message1": "%1 files an open records request!",
+    "message2": "",
+    "note": ""
+  },
+  {
+    "id": 2,
+    "name": "Town Hall Question",
+    "description": "Ask the question no one wanted on camera.",
+    "message1": "%1 asks a hard question!",
+    "message2": "",
+    "note": ""
+  },
+  {
+    "id": 3,
+    "name": "Fact Check",
+    "description": "Compare claims against primary sources.",
+    "message1": "%1 fact-checks the claim!",
+    "message2": "",
+    "note": ""
+  },
+  {
+    "id": 4,
+    "name": "Coalition Pitch",
+    "description": "Unite unlikely allies around one shared interest.",
+    "message1": "%1 builds a coalition!",
+    "message2": "",
+    "note": ""
+  }
+]

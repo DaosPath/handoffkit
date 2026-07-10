@@ -1,0 +1,21 @@
+[
+  null,
+  {
+    "id": 1,
+    "name": "Journalist",
+    "note": "",
+    "learnings": []
+  },
+  {
+    "id": 2,
+    "name": "Legislator",
+    "note": "",
+    "learnings": []
+  },
+  {
+    "id": 3,
+    "name": "Organizer",
+    "note": "",
+    "learnings": []
+  }
+]

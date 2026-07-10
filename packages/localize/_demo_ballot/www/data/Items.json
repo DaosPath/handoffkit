@@ -1,0 +1,33 @@
+[
+  null,
+  {
+    "id": 1,
+    "name": "Press Pass",
+    "description": "Allows entry to Parliament galleries and official briefings.",
+    "note": ""
+  },
+  {
+    "id": 2,
+    "name": "Sealed Ledger",
+    "description": "A budget book with pages marked in red ink. Someone tried to hide the bridge overruns.",
+    "note": ""
+  },
+  {
+    "id": 3,
+    "name": "Ballot Box Photo",
+    "description": "Timestamped photo of unopened boxes behind a warehouse.",
+    "note": ""
+  },
+  {
+    "id": 4,
+    "name": "Morning Free Ledger",
+    "description": "Headline: TRUST ON THE LINE AS ELECTION DAY NEARS.",
+    "note": ""
+  },
+  {
+    "id": 5,
+    "name": "Bridge Petition",
+    "description": "Twelve thousand signatures from the Bridge District.",
+    "note": ""
+  }
+]

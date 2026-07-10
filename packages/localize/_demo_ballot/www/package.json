@@ -1,0 +1,9 @@
+{
+  "name": "the-ballot-and-the-bridge",
+  "main": "index.html",
+  "window": {
+    "title": "The Ballot and the Bridge",
+    "width": 960,
+    "height": 640
+  }
+}
