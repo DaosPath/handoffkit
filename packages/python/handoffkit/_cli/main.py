@@ -20,6 +20,7 @@ from handoffkit._cli.demos import (
     run_doctor_orchestrator_demo,
     run_extension_demo,
     run_fusion_style_demo,
+    run_independent_benchmark_demo,
     run_mai_style_doctor_benchmark_demo,
     run_named_showcase,
     run_provider_formats_demo,
@@ -162,6 +163,24 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         default=30,
         help="Number of bundled real cases to replay.",
+    )
+    independent_parser = subparsers.add_parser(
+        "benchmark-independent",
+        aliases=["independent-benchmark", "benchmark-protocol"],
+        help=(
+            "Run published independent protocol benchmark "
+            "(offline, no public leaderboard)."
+        ),
+    )
+    independent_parser.add_argument(
+        "--seed",
+        default="handoffkit-independent-2026",
+        help="Reproducibility seed (metadata for methodology v1).",
+    )
+    independent_parser.add_argument(
+        "--manifest",
+        action="store_true",
+        help="Print methodology manifest JSON only (no run).",
     )
     subparsers.add_parser("doctor", help="Run local package diagnostics.")
     subparsers.add_parser("api", help="Show stable API candidates.")
@@ -348,6 +367,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "benchmark-doctor-mai":
         print(run_mai_style_doctor_benchmark_demo(args.cases))
+        return 0
+    if args.command == "benchmark-independent":
+        print(
+            run_independent_benchmark_demo(
+                seed=args.seed,
+                manifest_only=args.manifest,
+            )
+        )
         return 0
     if args.command == "doctor":
         print(run_doctor())

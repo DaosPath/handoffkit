@@ -26,6 +26,11 @@
 - `handoffkit.benchmarks.metrics` (latency, cost, context-loss, recovery).
 - `docs/THREAT_MODEL.md`, root `CONTRIBUTING.md`, `docs/EXTERNAL_BENCHMARK.md`.
 - Studio MAI runs stamp `workspaceId`/`userId` via `saveStoredRunWithStudio`.
+- **Independent protocol benchmark published:** `handoffkit-protocol-v1`
+  (`build_independent_benchmark` / `run_independent_benchmark` /
+  `methodology_manifest`, CLI `benchmark-independent`, Studio
+  `GET /api/demos/benchmark/methodology`). Explicitly **not** a public
+  leaderboard.
 
 ## 1.13.0
 

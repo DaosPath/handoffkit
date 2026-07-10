@@ -1,4 +1,4 @@
-"""Sub-package for clinical reasoning benchmarks and metrics."""
+"""Sub-package for clinical reasoning benchmarks, metrics, and independent suite."""
 
 from handoffkit.benchmarks.doctor import (
     DoctorBenchmarkCase,
@@ -7,6 +7,17 @@ from handoffkit.benchmarks.doctor import (
     build_doctor_benchmark,
     load_doctor_benchmark_cases,
     run_doctor_benchmark,
+)
+from handoffkit.benchmarks.independent import (
+    METHODOLOGY_ID,
+    METHODOLOGY_VERSION,
+    PROTOCOL_TASKS_V1,
+    IndependentBenchmarkReport,
+    ProtocolTask,
+    ProtocolTaskResult,
+    build_independent_benchmark,
+    methodology_manifest,
+    run_independent_benchmark,
 )
 from handoffkit.benchmarks.mai import (
     MAIAction,
@@ -19,6 +30,18 @@ from handoffkit.benchmarks.mai import (
     SequentialDoctorCase,
     run_mai_style_benchmark,
 )
+from handoffkit.benchmarks.metrics import (
+    ContextLossStats,
+    CostStats,
+    LatencyStats,
+    RecoveryStats,
+    WorkflowMetricsReport,
+    build_workflow_metrics,
+    context_loss_stats,
+    cost_stats,
+    latency_stats,
+    recovery_stats,
+)
 
 __all__ = [
     "DoctorBenchmarkCase",
@@ -27,6 +50,15 @@ __all__ = [
     "build_doctor_benchmark",
     "load_doctor_benchmark_cases",
     "run_doctor_benchmark",
+    "METHODOLOGY_ID",
+    "METHODOLOGY_VERSION",
+    "PROTOCOL_TASKS_V1",
+    "IndependentBenchmarkReport",
+    "ProtocolTask",
+    "ProtocolTaskResult",
+    "build_independent_benchmark",
+    "methodology_manifest",
+    "run_independent_benchmark",
     "MAIAction",
     "MAICaseResult",
     "MAICostModel",
@@ -36,4 +68,14 @@ __all__ = [
     "MAIStyleDoctorOrchestrator",
     "SequentialDoctorCase",
     "run_mai_style_benchmark",
+    "CostStats",
+    "ContextLossStats",
+    "LatencyStats",
+    "RecoveryStats",
+    "WorkflowMetricsReport",
+    "build_workflow_metrics",
+    "context_loss_stats",
+    "cost_stats",
+    "latency_stats",
+    "recovery_stats",
 ]
