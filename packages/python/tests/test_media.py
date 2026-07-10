@@ -5,15 +5,28 @@ import json
 import pytest
 
 from handoffkit.recipes.media import (
+    MEDIA_OPERATIONS,
     MediaAsset,
+    MediaContext,
+    MediaEditionOp,
     MediaWorkflowReport,
     SpeakerProfile,
     TranscriptSegment,
+    apply_transcript_editions,
+    build_creation_context,
     build_dubbing_plan,
+    build_generation_context,
+    build_media_context,
     extract_audio,
     ffmpeg_available,
     format_srt_timestamp,
+    get_media_operation,
+    handoff_media_context,
+    list_media_pipelines,
+    media_context_to_workflow_report,
+    media_operation_catalog,
     mux_audio,
+    plan_media_pipeline,
     read_transcript_json,
     write_srt,
     write_transcript_json,
@@ -75,3 +88,73 @@ def test_ffmpeg_wrappers_fail_clearly_when_missing(tmp_path) -> None:  # type: i
             tmp_path / "output.mp4",
             ffmpeg="__missing_ffmpeg_binary__",
         )
+
+
+def test_media_operation_catalog_is_ion_focused() -> None:
+    catalog = media_operation_catalog()
+    names = {item.name for item in catalog}
+    assert names == set(MEDIA_OPERATIONS)
+    for name in MEDIA_OPERATIONS:
+        assert name.endswith("ion")
+        assert get_media_operation(name).name == name
+    assert "from_scratch" in list_media_pipelines()
+    assert "video_dubbing" in list_media_pipelines()
+
+
+def test_media_context_handoff_creation_generation_edition() -> None:
+    created = build_creation_context("Make a 20s clip", target_language="es")
+    assert created.operation == "creation"
+    assert "generation" in created.next_operations
+
+    generated = handoff_media_context(
+        created, "generation", from_agent="creator", to_agent="generator"
+    )
+    assert generated.operation == "generation"
+    assert generated.history == ["creation"]
+    assert generated.metadata["last_handoff"]["from_agent"] == "creator"
+
+    gen2 = build_generation_context("Narrate calmly", prompts=["line 1"], media_type="audio")
+    assert gen2.operation == "generation"
+    assert gen2.generation_prompts == ["line 1"]
+
+    edited = handoff_media_context(generated, "edition")
+    assert edited.operation == "edition"
+    assert edited.history == ["creation", "generation"]
+
+    segs = [
+        TranscriptSegment(1, 0.0, 1.0, "Hello", speaker="A"),
+        TranscriptSegment(2, 1.0, 2.0, "World", speaker="A"),
+    ]
+    edited.transcript_segments = apply_transcript_editions(segs, {2: "World!"})
+    edited.edition_ops = [MediaEditionOp("rewrite", "2", {"text": "World!"})]
+    assert edited.transcript_segments[1].text == "World!"
+
+    handoff = edited.to_handoff_state(from_agent="editor", to_agent="validator")
+    assert handoff.metadata["kind"] == "media_context"
+    restored = MediaContext.from_handoff_state(handoff)
+    assert restored.operation == "edition"
+    assert restored.history == ["creation", "generation"]
+
+    report = media_context_to_workflow_report(restored)
+    assert report.metadata["operation"] == "edition"
+    assert MediaContext.from_json(restored.to_json()).brief == restored.brief
+
+
+def test_plan_media_pipeline_stages() -> None:
+    planned = plan_media_pipeline(
+        "video_dubbing",
+        brief="Dub demo",
+        target_language="es",
+        source=MediaAsset("clip.mp4", "video"),
+    )
+    assert [c.operation for c in planned] == list(list_media_pipelines()["video_dubbing"])
+    assert planned[0].next_operations[0] == "transcription"
+    assert planned[-1].next_operations == []
+    assert planned[2].history == ["inspection", "transcription"]
+
+
+def test_build_media_context_unknown_pipeline_raises() -> None:
+    with pytest.raises(KeyError, match="unknown media pipeline"):
+        plan_media_pipeline("not-a-real-pipeline")
+    with pytest.raises(KeyError, match="unknown media operation"):
+        get_media_operation("not-an-op")

@@ -15,6 +15,17 @@ breaking changes in later 1.x releases.
 - `WorkflowEvaluator`, `WorkflowEvaluationReport`
 - `TemplateScaffolder`, `ProjectTemplate`
 
+## Python ↔ JavaScript parity
+
+- Public runtime APIs that exist in both languages must stay **1:1** in
+  behavior and **snake_case** JSON wire format.
+- JavaScript may use camelCase constructors/properties; `toDict` / `toWire`
+  must match Python `to_dict`.
+- Shared surface (including media context handoffs in 1.13+) ships in the
+  **same release** for Python (`handoffkit`) and JS (`@handoffkit/*`).
+- Language-only exceptions: native CLIs, Rust/C++ contract layers, and
+  intentionally single-language packages (e.g. `handoffkit-localize`).
+
 ## Compatibility Rules
 
 - Existing `validate()` methods keep returning the original success value or

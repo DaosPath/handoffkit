@@ -24,8 +24,14 @@ from handoffkit.recipes.media import (
     MediaWorkflowReport,
     SpeakerProfile,
     TranscriptSegment,
+    build_creation_context,
     build_dubbing_plan,
     ffmpeg_available,
+    handoff_media_context,
+    list_media_pipelines,
+    media_context_to_workflow_report,
+    media_operation_catalog,
+    plan_media_pipeline,
     read_transcript_json,
     write_srt,
     write_transcript_json,
@@ -680,17 +686,137 @@ def inspect_media_transcript(path: str) -> str:
 
 def plan_media_dubbing(video_path: str, *, source_language: str, target_language: str) -> str:
     """Return an offline media dubbing plan."""
+    from handoffkit.recipes.media import media_pipeline_stages
+
+    stages = " -> ".join(media_pipeline_stages("video_dubbing"))
     return (
         "HandoffKit media dubbing plan\n"
         f"Video: {video_path}\n"
         f"Language: {source_language} -> {target_language}\n"
-        f"ffmpeg available: {ffmpeg_available()}\n\n"
-        "1. Extract original audio with ffmpeg.\n"
-        "2. Transcribe audio with timestamps and speaker labels.\n"
-        "3. Translate segments while preserving timing constraints.\n"
-        "4. Generate one voice clip per speaker/segment.\n"
-        "5. Mux the translated audio back into the source video.\n"
-        "6. Export transcript JSON, subtitles, final video, and HandoffKit report."
+        f"ffmpeg available: {ffmpeg_available()}\n"
+        f"Pipeline (-ion): {stages}\n\n"
+        "1. inspection — probe source media\n"
+        "2. transcription — speech to timestamped text\n"
+        "3. translation — target language copy\n"
+        "4. localization — voices and locale notes\n"
+        "5. generation — TTS / voice clips\n"
+        "6. composition — mux audio into video\n"
+        "7. validation — QA gates\n"
+        "8. publication — deliverables + report\n"
+    )
+
+
+def list_media_ops_text() -> str:
+    """List media -ion operations and pipelines."""
+    lines = ["HandoffKit media operations (-ion)", ""]
+    for spec in media_operation_catalog():
+        lines.append(f"- {spec.name}: {spec.description}")
+        lines.append(f"    role={spec.agent_role or '-'}  in={','.join(spec.inputs) or '-'}")
+    lines.append("")
+    lines.append("Pipelines:")
+    for name, stages in list_media_pipelines().items():
+        lines.append(f"- {name}: {' -> '.join(stages)}")
+    return "\n".join(lines) + "\n"
+
+
+def run_media_pipeline_plan(
+    pipeline: str,
+    *,
+    brief: str = "",
+    target_language: str = "",
+    video_path: str = "",
+) -> str:
+    """Print a planned multi-stage media context pipeline."""
+    source = MediaAsset(video_path, "video") if video_path else None
+    planned = plan_media_pipeline(
+        pipeline,
+        brief=brief or f"pipeline={pipeline}",
+        target_language=target_language,
+        source=source,
+    )
+    lines = [
+        f"HandoffKit media pipeline: {pipeline}",
+        f"Stages: {len(planned)}",
+        f"Brief: {brief or '(none)'}",
+        f"Target language: {target_language or '(none)'}",
+        "",
+    ]
+    for ctx in planned:
+        nxt = ", ".join(ctx.next_operations) if ctx.next_operations else "(end)"
+        lines.append(f"[{ctx.metadata.get('stage_index', '?')}] {ctx.operation} → next: {nxt}")
+    return "\n".join(lines) + "\n"
+
+
+def run_media_context_demo() -> str:
+    """Offline demo: creation → generation → edition context handoffs."""
+    from handoffkit.recipes.media import MediaEditionOp, apply_transcript_editions
+
+    created = build_creation_context(
+        "Short product explainer with bilingual captions",
+        target_language="es",
+        pipeline="from_scratch",
+    )
+    generated = handoff_media_context(
+        created,
+        "generation",
+        from_agent="media-creator",
+        to_agent="media-generator",
+    )
+    generated.generation_prompts = [
+        "Narrate a 30s product explainer in a calm tone",
+        "Keep claims factual; no music under speech",
+    ]
+    generated.assets.append(
+        MediaAsset("examples/output/media_context_demo/script.txt", "text", language="en")
+    )
+    edited = handoff_media_context(
+        generated,
+        "edition",
+        from_agent="media-generator",
+        to_agent="media-editor",
+    )
+    edited.transcript_segments = [
+        TranscriptSegment(
+            1, 0.0, 2.0, "Welcome to HandoffKit media.", speaker="NARR", language="en"
+        ),
+        TranscriptSegment(
+            2,
+            2.0,
+            5.0,
+            "Pass structured context between stages.",
+            speaker="NARR",
+            language="en",
+        ),
+    ]
+    edited.edition_ops = [
+        MediaEditionOp("rewrite", "1", {"text": "Welcome to HandoffKit media workflows."}),
+    ]
+    edited.transcript_segments = apply_transcript_editions(
+        edited.transcript_segments, {1: "Welcome to HandoffKit media workflows."}
+    )
+    handoff = edited.to_handoff_state(
+        from_agent="media-editor",
+        to_agent="media-validator",
+        task="Validate edited explainer before publication",
+    )
+    report = media_context_to_workflow_report(edited, success=True)
+    out_dir = Path("examples") / "output" / "media_context_demo"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ctx_path = out_dir / "media_context_edition.json"
+    ctx_path.write_text(edited.to_json(), encoding="utf-8")
+    handoff_path = out_dir / "handoff_to_validator.json"
+    handoff_path.write_text(handoff.to_json(), encoding="utf-8")
+    report.output_files = [str(ctx_path), str(handoff_path)]
+    report.metadata["history"] = edited.history
+    json_path, markdown_path = write_report_files(report, "media_context_demo", "reports")
+    return (
+        "HandoffKit media context demo (creation → generation → edition)\n"
+        f"History: {' -> '.join(edited.history + [edited.operation])}\n"
+        f"Segments: {len(edited.transcript_segments)}\n"
+        f"Context: {ctx_path}\n"
+        f"Handoff: {handoff_path}\n"
+        f"Report JSON: {json_path}\n"
+        f"Report Markdown: {markdown_path}\n"
     )
 
 
@@ -1037,6 +1163,10 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("demo-doctor", help="Run the educational doctor-orchestrator showcase.")
     subparsers.add_parser("demo-fusion", help="Run the local Fusion-style panel demo.")
     subparsers.add_parser("demo-media", help="Run the local media dubbing workflow demo.")
+    subparsers.add_parser(
+        "demo-media-context",
+        help="Run creation→generation→edition media context handoff demo.",
+    )
     media_parser = subparsers.add_parser("media", help="Inspect and plan media workflows.")
     media_subparsers = media_parser.add_subparsers(dest="media_command")
     media_inspect_parser = media_subparsers.add_parser("inspect", help="Inspect transcript JSON.")
@@ -1045,6 +1175,20 @@ def main(argv: list[str] | None = None) -> int:
     media_plan_parser.add_argument("video_path", help="Input video path.")
     media_plan_parser.add_argument("--from", dest="source_language", default="auto")
     media_plan_parser.add_argument("--to", dest="target_language", default="es")
+    media_subparsers.add_parser("ops", help="List media -ion operations and pipelines.")
+    media_pipeline_parser = media_subparsers.add_parser(
+        "pipeline",
+        help="Plan a named media -ion pipeline as MediaContext stages.",
+    )
+    media_pipeline_parser.add_argument(
+        "name",
+        nargs="?",
+        default="from_scratch",
+        help="Pipeline name (from_scratch, video_dubbing, audiobook, ...).",
+    )
+    media_pipeline_parser.add_argument("--brief", default="", help="Creative / production brief.")
+    media_pipeline_parser.add_argument("--to", dest="target_language", default="")
+    media_pipeline_parser.add_argument("--video", default="", help="Optional source video path.")
     providers_parser = subparsers.add_parser("providers", help="Inspect provider registry.")
     providers_subparsers = providers_parser.add_subparsers(dest="providers_command")
     providers_list_parser = providers_subparsers.add_parser("list", help="List providers.")
@@ -1215,6 +1359,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "demo-media":
         print(run_media_demo())
         return 0
+    if args.command == "demo-media-context":
+        print(run_media_context_demo())
+        return 0
     if args.command == "media":
         if args.media_command == "inspect":
             print(inspect_media_transcript(args.path))
@@ -1225,6 +1372,19 @@ def main(argv: list[str] | None = None) -> int:
                     args.video_path,
                     source_language=args.source_language,
                     target_language=args.target_language,
+                )
+            )
+            return 0
+        if args.media_command == "ops":
+            print(list_media_ops_text())
+            return 0
+        if args.media_command == "pipeline":
+            print(
+                run_media_pipeline_plan(
+                    args.name,
+                    brief=args.brief,
+                    target_language=args.target_language,
+                    video_path=args.video,
                 )
             )
             return 0

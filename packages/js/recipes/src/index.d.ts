@@ -184,3 +184,151 @@ export function writeSRT(segments: Array<TranscriptSegment | DubbingSegment>, fi
 export function ffmpegAvailable(ffmpeg?: string): Promise<boolean>;
 export function extractAudio(videoPath: string, audioPath: string, options?: { ffmpeg?: string; overwrite?: boolean }): Promise<MediaAsset>;
 export function muxAudio(videoPath: string, audioPath: string, outputPath: string, options?: { ffmpeg?: string; overwrite?: boolean }): Promise<MediaAsset>;
+
+/** Built-in media -ion operation names (parity with Python MEDIA_OPERATIONS). */
+export const MEDIA_OPERATIONS: readonly string[];
+
+/** Named pipeline → ordered -ion stages (parity with Python MEDIA_PIPELINES). */
+export const MEDIA_PIPELINES: Readonly<Record<string, readonly string[]>>;
+
+export class MediaOperationSpec {
+  name: string;
+  description: string;
+  inputs: string[];
+  outputs: string[];
+  agentRole: string;
+  notes: string[];
+  constructor(init?: {
+    name: string;
+    description: string;
+    inputs?: string[];
+    outputs?: string[];
+    agentRole?: string;
+    notes?: string[];
+  });
+  toDict(): Record<string, unknown>;
+  static fromDict(data: Record<string, unknown>): MediaOperationSpec;
+}
+
+export class MediaEditionOp {
+  opType: string;
+  target: string;
+  payload: Record<string, unknown>;
+  notes: string[];
+  constructor(init?: {
+    opType?: string;
+    target?: string;
+    payload?: Record<string, unknown>;
+    notes?: string[];
+  });
+  toDict(): Record<string, unknown>;
+  static fromDict(data: Record<string, unknown>): MediaEditionOp;
+}
+
+export class MediaContext {
+  operation: string;
+  brief: string;
+  targetLanguage: string;
+  source: MediaAsset | null;
+  assets: MediaAsset[];
+  transcriptSegments: TranscriptSegment[];
+  speakers: SpeakerProfile[];
+  dubbingSegments: DubbingSegment[];
+  generationPrompts: string[];
+  editionOps: MediaEditionOp[];
+  constraints: string[];
+  history: string[];
+  nextOperations: string[];
+  warnings: string[];
+  outputFiles: string[];
+  metadata: Record<string, unknown>;
+  constructor(init?: {
+    operation: string;
+    brief?: string;
+    targetLanguage?: string;
+    source?: MediaAsset | Record<string, unknown> | null;
+    assets?: Array<MediaAsset | Record<string, unknown>>;
+    transcriptSegments?: Array<TranscriptSegment | Record<string, unknown>>;
+    speakers?: Array<SpeakerProfile | Record<string, unknown>>;
+    dubbingSegments?: Array<DubbingSegment | Record<string, unknown>>;
+    generationPrompts?: string[];
+    editionOps?: Array<MediaEditionOp | Record<string, unknown>>;
+    constraints?: string[];
+    history?: string[];
+    nextOperations?: string[];
+    warnings?: string[];
+    outputFiles?: string[];
+    metadata?: Record<string, unknown>;
+  });
+  toDict(): Record<string, unknown>;
+  static fromDict(data: Record<string, unknown>): MediaContext;
+  toJSON(indent?: number | null): string;
+  static fromJSON(value: string | Record<string, unknown>): MediaContext;
+  operationSpec(): MediaOperationSpec | null;
+  toHandoffState(options: { fromAgent: string; toAgent: string; task?: string | null }): import("@handoffkit/core").HandoffState;
+  static fromHandoffState(state: import("@handoffkit/core").HandoffState | Record<string, unknown>): MediaContext;
+  withOperation(operation: string): MediaContext;
+}
+
+export function mediaOperationCatalog(): MediaOperationSpec[];
+export function getMediaOperation(name: string): MediaOperationSpec;
+export function mediaPipelineStages(name: string): readonly string[];
+export function listMediaPipelines(): Record<string, string[]>;
+export function buildMediaContext(
+  operation: string,
+  options?: {
+    brief?: string;
+    targetLanguage?: string;
+    source?: MediaAsset | null;
+    pipeline?: string | null;
+    constraints?: string[] | null;
+    generationPrompts?: string[] | null;
+    metadata?: Record<string, unknown> | null;
+  }
+): MediaContext;
+export function handoffMediaContext(
+  context: MediaContext,
+  nextOperation: string,
+  options?: { fromAgent?: string; toAgent?: string }
+): MediaContext;
+export function planMediaPipeline(
+  pipeline: string,
+  options?: {
+    brief?: string;
+    targetLanguage?: string;
+    source?: MediaAsset | null;
+    constraints?: string[] | null;
+  }
+): MediaContext[];
+export function applyTranscriptEditions(
+  segments: TranscriptSegment[],
+  rewrites: Record<number, string> | Map<number, string>
+): TranscriptSegment[];
+export function buildGenerationContext(
+  brief: string,
+  options?: {
+    prompts?: string[] | null;
+    targetLanguage?: string;
+    mediaType?: string;
+    constraints?: string[] | null;
+  }
+): MediaContext;
+export function buildCreationContext(
+  brief: string,
+  options?: {
+    targetLanguage?: string;
+    pipeline?: string;
+    constraints?: string[] | null;
+  }
+): MediaContext;
+export function buildEditionContext(options?: {
+  brief?: string;
+  transcriptSegments?: TranscriptSegment[] | null;
+  editionOps?: MediaEditionOp[] | null;
+  source?: MediaAsset | null;
+  targetLanguage?: string;
+}): MediaContext;
+export function mediaContextToWorkflowReport(
+  context: MediaContext,
+  options?: { success?: boolean }
+): MediaWorkflowReport;

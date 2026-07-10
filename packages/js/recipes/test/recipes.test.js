@@ -103,4 +103,78 @@ test("Media Localization builds dubbing plan and format SRT subtitles", () => {
   const srtContent = formatSRT(dubbingPlan, { translated: true });
   assert.match(srtContent, /00:00:00,000 --> 00:00:02,000/);
   assert.match(srtContent, /Vamos a la tienda\./);
+  assert.ok(source.path);
+});
+
+test("Media 1.13 context handoffs match Python -ion surface", async () => {
+  const {
+    MEDIA_OPERATIONS,
+    mediaOperationCatalog,
+    getMediaOperation,
+    listMediaPipelines,
+    buildCreationContext,
+    buildGenerationContext,
+    handoffMediaContext,
+    planMediaPipeline,
+    applyTranscriptEditions,
+    MediaEditionOp,
+    MediaContext,
+    mediaContextToWorkflowReport,
+  } = await import("../src/index.js");
+
+  const catalog = mediaOperationCatalog();
+  assert.equal(catalog.length, MEDIA_OPERATIONS.length);
+  for (const name of MEDIA_OPERATIONS) {
+    assert.ok(name.endsWith("ion"));
+    assert.equal(getMediaOperation(name).name, name);
+  }
+  assert.ok(listMediaPipelines().from_scratch);
+  assert.ok(listMediaPipelines().video_dubbing);
+
+  let ctx = buildCreationContext("Make a 20s clip", { targetLanguage: "es" });
+  assert.equal(ctx.operation, "creation");
+  assert.ok(ctx.nextOperations.includes("generation"));
+
+  ctx = handoffMediaContext(ctx, "generation", { fromAgent: "creator", toAgent: "generator" });
+  assert.equal(ctx.operation, "generation");
+  assert.deepEqual(ctx.history, ["creation"]);
+  assert.equal(ctx.metadata.last_handoff.from_agent, "creator");
+
+  const gen = buildGenerationContext("Narrate calmly", { prompts: ["line 1"], mediaType: "audio" });
+  assert.equal(gen.operation, "generation");
+  assert.deepEqual(gen.generationPrompts, ["line 1"]);
+
+  ctx = handoffMediaContext(ctx, "edition");
+  assert.equal(ctx.operation, "edition");
+  assert.deepEqual(ctx.history, ["creation", "generation"]);
+
+  const segs = [
+    new TranscriptSegment({ index: 1, start: 0, end: 1, text: "Hello", speaker: "A" }),
+    new TranscriptSegment({ index: 2, start: 1, end: 2, text: "World", speaker: "A" }),
+  ];
+  ctx.transcriptSegments = applyTranscriptEditions(segs, { 2: "World!" });
+  ctx.editionOps = [new MediaEditionOp({ opType: "rewrite", target: "2", payload: { text: "World!" } })];
+  assert.equal(ctx.transcriptSegments[1].text, "World!");
+
+  const handoff = ctx.toHandoffState({ fromAgent: "editor", toAgent: "validator" });
+  assert.equal(handoff.metadata.kind, "media_context");
+  const restored = MediaContext.fromHandoffState(handoff);
+  assert.equal(restored.operation, "edition");
+  assert.deepEqual(restored.history, ["creation", "generation"]);
+
+  const report = mediaContextToWorkflowReport(restored);
+  assert.equal(report.metadata.operation, "edition");
+  assert.equal(MediaContext.fromJSON(restored.toJSON()).brief, restored.brief);
+
+  const planned = planMediaPipeline("video_dubbing", {
+    brief: "Dub demo",
+    targetLanguage: "es",
+    source: new MediaAsset({ path: "clip.mp4", mediaType: "video" }),
+  });
+  assert.deepEqual(
+    planned.map((c) => c.operation),
+    listMediaPipelines().video_dubbing
+  );
+  assert.equal(planned[0].nextOperations[0], "transcription");
+  assert.deepEqual(planned[2].history, ["inspection", "transcription"]);
 });

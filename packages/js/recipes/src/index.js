@@ -1,6 +1,7 @@
 import {
   Agent,
   HandoffProtocol,
+  HandoffState,
 } from "@handoffkit/core";
 
 function jsonValue(value) {
@@ -1027,4 +1028,623 @@ export async function muxAudio(videoPath, audioPath, outputPath, { ffmpeg = "ffm
 
 function _formatTimeRange(start, end) {
   return `${formatSRTTimestamp(start)} -> ${formatSRTTimestamp(end)}`;
+}
+
+// ==========================================
+// 1.13 — Media operations (-ion) + context handoffs
+// Parity with packages/python/handoffkit/recipes/media.py
+// Wire format stays snake_case in toDict() for Python/JS interchange.
+// ==========================================
+
+/** @type {readonly string[]} */
+export const MEDIA_OPERATIONS = Object.freeze([
+  "creation",
+  "generation",
+  "edition",
+  "transcription",
+  "translation",
+  "localization",
+  "adaptation",
+  "composition",
+  "inspection",
+  "validation",
+  "publication",
+  "production",
+]);
+
+export class MediaOperationSpec {
+  constructor({ name, description, inputs = [], outputs = [], agentRole = "", notes = [] } = {}) {
+    this.name = String(name || "");
+    this.description = String(description || "");
+    this.inputs = Array.isArray(inputs) ? inputs.map(String) : [];
+    this.outputs = Array.isArray(outputs) ? outputs.map(String) : [];
+    this.agentRole = String(agentRole || "");
+    this.notes = Array.isArray(notes) ? notes.map(String) : [];
+  }
+
+  toDict() {
+    return {
+      name: this.name,
+      description: this.description,
+      inputs: [...this.inputs],
+      outputs: [...this.outputs],
+      agent_role: this.agentRole,
+      notes: [...this.notes],
+    };
+  }
+
+  static fromDict(data = {}) {
+    return new MediaOperationSpec({
+      name: data.name || "",
+      description: data.description || "",
+      inputs: data.inputs || [],
+      outputs: data.outputs || [],
+      agentRole: data.agent_role || data.agentRole || "",
+      notes: data.notes || [],
+    });
+  }
+}
+
+export function mediaOperationCatalog() {
+  return [
+    new MediaOperationSpec({
+      name: "creation",
+      description: "Define media brief, format, audience, and source constraints.",
+      inputs: ["brief", "constraints"],
+      outputs: ["brief", "source_plan"],
+      agentRole: "media-creator",
+    }),
+    new MediaOperationSpec({
+      name: "generation",
+      description: "Generate audio, video, image, or script assets from a brief.",
+      inputs: ["brief", "prompts", "voice"],
+      outputs: ["assets", "generation_prompts"],
+      agentRole: "media-generator",
+    }),
+    new MediaOperationSpec({
+      name: "edition",
+      description: "Edit timing, copy, cuts, and structure of media or transcripts.",
+      inputs: ["assets", "transcript", "edition_ops"],
+      outputs: ["assets", "transcript", "edition_ops"],
+      agentRole: "media-editor",
+    }),
+    new MediaOperationSpec({
+      name: "transcription",
+      description: "Speech-to-text into timestamped transcript segments.",
+      inputs: ["audio", "video"],
+      outputs: ["transcript_segments"],
+      agentRole: "transcriber",
+    }),
+    new MediaOperationSpec({
+      name: "translation",
+      description: "Translate transcript or script text into a target language.",
+      inputs: ["transcript_segments", "target_language"],
+      outputs: ["dubbing_segments", "translations"],
+      agentRole: "translator",
+    }),
+    new MediaOperationSpec({
+      name: "localization",
+      description: "Adapt voices, culture notes, and delivery for a locale.",
+      inputs: ["dubbing_segments", "speakers", "locale"],
+      outputs: ["dubbing_segments", "speakers"],
+      agentRole: "localizer",
+    }),
+    new MediaOperationSpec({
+      name: "adaptation",
+      description: "Adapt length, tone, or format (clip, reel, audiobook chapter).",
+      inputs: ["assets", "transcript", "format"],
+      outputs: ["assets", "transcript"],
+      agentRole: "adapter",
+    }),
+    new MediaOperationSpec({
+      name: "composition",
+      description: "Compose tracks: mux audio, layout multi-clip, mix stems.",
+      inputs: ["video", "audio", "assets"],
+      outputs: ["composed_asset"],
+      agentRole: "composer",
+    }),
+    new MediaOperationSpec({
+      name: "inspection",
+      description: "Inspect source media and existing transcripts without mutation.",
+      inputs: ["source"],
+      outputs: ["inspection_notes", "assets"],
+      agentRole: "inspector",
+    }),
+    new MediaOperationSpec({
+      name: "validation",
+      description: "Validate timing, language coverage, rights, and quality gates.",
+      inputs: ["assets", "transcript", "dubbing"],
+      outputs: ["warnings", "validation_report"],
+      agentRole: "validator",
+    }),
+    new MediaOperationSpec({
+      name: "publication",
+      description: "Package deliverables, reports, and publish metadata.",
+      inputs: ["assets", "report"],
+      outputs: ["output_files", "publish_manifest"],
+      agentRole: "publisher",
+    }),
+    new MediaOperationSpec({
+      name: "production",
+      description: "End-to-end production orchestration across prior -ion stages.",
+      inputs: ["pipeline", "brief"],
+      outputs: ["report", "output_files"],
+      agentRole: "producer",
+    }),
+  ];
+}
+
+export function getMediaOperation(name) {
+  const key = String(name || "").trim().toLowerCase();
+  for (const item of mediaOperationCatalog()) {
+    if (item.name === key) return item;
+  }
+  throw new Error(`unknown media operation '${name}'. Known: ${MEDIA_OPERATIONS.join(", ")}`);
+}
+
+/** @type {Record<string, readonly string[]>} */
+export const MEDIA_PIPELINES = Object.freeze({
+  from_scratch: Object.freeze(["creation", "generation", "edition", "validation", "publication"]),
+  video_dubbing: Object.freeze([
+    "inspection",
+    "transcription",
+    "translation",
+    "localization",
+    "generation",
+    "composition",
+    "validation",
+    "publication",
+  ]),
+  audiobook: Object.freeze([
+    "creation",
+    "generation",
+    "edition",
+    "composition",
+    "validation",
+    "publication",
+  ]),
+  subtitle_localization: Object.freeze([
+    "transcription",
+    "translation",
+    "edition",
+    "validation",
+    "publication",
+  ]),
+  edit_existing: Object.freeze([
+    "inspection",
+    "edition",
+    "adaptation",
+    "validation",
+    "publication",
+  ]),
+});
+
+export class MediaEditionOp {
+  constructor({ opType = "", target = "", payload = {}, notes = [] } = {}) {
+    this.opType = String(opType || "");
+    this.target = String(target || "");
+    this.payload = payload && typeof payload === "object" ? { ...payload } : {};
+    this.notes = Array.isArray(notes) ? notes.map(String) : [];
+  }
+
+  toDict() {
+    return {
+      op_type: this.opType,
+      target: this.target,
+      payload: { ...this.payload },
+      notes: [...this.notes],
+    };
+  }
+
+  static fromDict(data = {}) {
+    return new MediaEditionOp({
+      opType: data.op_type || data.opType || "",
+      target: data.target || "",
+      payload: data.payload || {},
+      notes: data.notes || [],
+    });
+  }
+}
+
+export class MediaContext {
+  constructor({
+    operation,
+    brief = "",
+    targetLanguage = "",
+    source = null,
+    assets = [],
+    transcriptSegments = [],
+    speakers = [],
+    dubbingSegments = [],
+    generationPrompts = [],
+    editionOps = [],
+    constraints = [],
+    history = [],
+    nextOperations = [],
+    warnings = [],
+    outputFiles = [],
+    metadata = {},
+  } = {}) {
+    this.operation = String(operation || "").trim().toLowerCase();
+    this.brief = String(brief || "");
+    this.targetLanguage = String(targetLanguage || "");
+    this.source = source
+      ? source instanceof MediaAsset
+        ? source
+        : MediaAsset.fromDict(source)
+      : null;
+    this.assets = (assets || []).map((a) => (a instanceof MediaAsset ? a : MediaAsset.fromDict(a)));
+    this.transcriptSegments = (transcriptSegments || []).map((s) =>
+      s instanceof TranscriptSegment ? s : TranscriptSegment.fromDict(s)
+    );
+    this.speakers = (speakers || []).map((s) =>
+      s instanceof SpeakerProfile ? s : SpeakerProfile.fromDict(s)
+    );
+    this.dubbingSegments = (dubbingSegments || []).map((s) =>
+      s instanceof DubbingSegment ? s : DubbingSegment.fromDict(s)
+    );
+    this.generationPrompts = (generationPrompts || []).map(String);
+    this.editionOps = (editionOps || []).map((e) =>
+      e instanceof MediaEditionOp ? e : MediaEditionOp.fromDict(e)
+    );
+    this.constraints = (constraints || []).map(String);
+    this.history = (history || []).map(String);
+    this.nextOperations = (nextOperations || []).map(String);
+    this.warnings = (warnings || []).map(String);
+    this.outputFiles = (outputFiles || []).map(String);
+    this.metadata = metadata && typeof metadata === "object" ? { ...metadata } : {};
+
+    if (this.operation && !MEDIA_OPERATIONS.includes(this.operation)) {
+      if (!this.metadata.custom_operation) {
+        this.warnings = [
+          ...this.warnings,
+          `operation '${this.operation}' is not in the built-in -ion catalog`,
+        ];
+      }
+    }
+  }
+
+  toDict() {
+    return {
+      operation: this.operation,
+      brief: this.brief,
+      target_language: this.targetLanguage,
+      source: this.source ? this.source.toDict() : null,
+      assets: this.assets.map((a) => a.toDict()),
+      transcript_segments: this.transcriptSegments.map((s) => s.toDict()),
+      speakers: this.speakers.map((s) => s.toDict()),
+      dubbing_segments: this.dubbingSegments.map((s) => s.toDict()),
+      generation_prompts: [...this.generationPrompts],
+      edition_ops: this.editionOps.map((e) => e.toDict()),
+      constraints: [...this.constraints],
+      history: [...this.history],
+      next_operations: [...this.nextOperations],
+      warnings: [...this.warnings],
+      output_files: [...this.outputFiles],
+      metadata: { ...this.metadata },
+    };
+  }
+
+  static fromDict(data = {}) {
+    return new MediaContext({
+      operation: data.operation || "",
+      brief: data.brief || "",
+      targetLanguage: data.target_language || data.targetLanguage || "",
+      source: data.source || null,
+      assets: data.assets || [],
+      transcriptSegments: data.transcript_segments || data.transcriptSegments || [],
+      speakers: data.speakers || [],
+      dubbingSegments: data.dubbing_segments || data.dubbingSegments || [],
+      generationPrompts: data.generation_prompts || data.generationPrompts || [],
+      editionOps: data.edition_ops || data.editionOps || [],
+      constraints: data.constraints || [],
+      history: data.history || [],
+      nextOperations: data.next_operations || data.nextOperations || [],
+      warnings: data.warnings || [],
+      outputFiles: data.output_files || data.outputFiles || [],
+      metadata: data.metadata || {},
+    });
+  }
+
+  toJSON(indent = 2) {
+    return JSON.stringify(this.toDict(), null, indent);
+  }
+
+  static fromJSON(value) {
+    const data = typeof value === "string" ? JSON.parse(value) : value;
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      throw new Error("media context JSON must be an object");
+    }
+    return MediaContext.fromDict(data);
+  }
+
+  operationSpec() {
+    try {
+      return getMediaOperation(this.operation);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Project into core HandoffState. Wire metadata.media_context matches Python.
+   */
+  toHandoffState({ fromAgent, toAgent, task = null } = {}) {
+    const spec = this.operationSpec();
+    const role = (spec && spec.agentRole) || this.operation || "media-agent";
+    const defaultTask = task || `media ${this.operation}: ${this.brief || this.operation}`;
+    const files = [...this.outputFiles];
+    if (this.source && this.source.path) files.push(this.source.path);
+    for (const a of this.assets) {
+      if (a.path) files.push(a.path);
+    }
+    const nextSteps =
+      this.nextOperations.length > 0
+        ? [...this.nextOperations]
+        : spec
+          ? [...spec.outputs]
+          : [];
+    return new HandoffState({
+      task: defaultTask,
+      fromAgent: fromAgent || role,
+      toAgent: toAgent,
+      summary:
+        `Media ${this.operation} context` +
+        (this.targetLanguage ? ` → ${this.targetLanguage}` : "") +
+        (this.brief ? `: ${this.brief.slice(0, 160)}` : ""),
+      decisions: [
+        `operation=${this.operation}`,
+        ...(this.targetLanguage ? [`target_language=${this.targetLanguage}`] : []),
+      ],
+      importantFiles: files,
+      errors: [],
+      nextSteps,
+      contextRefs: [`media_operation:${this.operation}`, ...this.history],
+      metadata: {
+        media_context: this.toDict(),
+        kind: "media_context",
+      },
+    });
+  }
+
+  static fromHandoffState(state) {
+    let data = {};
+    if (state && typeof state.toWire === "function") {
+      data = state.toWire();
+    } else if (state && typeof state.toDict === "function") {
+      data = state.toDict();
+    } else if (state && typeof state.toJSON === "function") {
+      data = state.toJSON();
+    } else if (state && typeof state === "object") {
+      data = state;
+    }
+    const meta = data.metadata || {};
+    const raw = meta.media_context || meta.mediaContext;
+    if (raw && typeof raw === "object") {
+      return MediaContext.fromDict(raw);
+    }
+    return new MediaContext({
+      operation: meta.operation || "inspection",
+      brief: data.summary || data.task || "",
+      constraints: data.decisions || [],
+      outputFiles: data.important_files || data.importantFiles || [],
+      nextOperations: data.next_steps || data.nextSteps || [],
+      metadata: meta,
+    });
+  }
+
+  withOperation(operation) {
+    const data = this.toDict();
+    const history = [...this.history];
+    if (this.operation) history.push(this.operation);
+    data.operation = String(operation || "").trim().toLowerCase();
+    data.history = history;
+    return MediaContext.fromDict(data);
+  }
+}
+
+export function buildMediaContext(
+  operation,
+  {
+    brief = "",
+    targetLanguage = "",
+    source = null,
+    pipeline = null,
+    constraints = null,
+    generationPrompts = null,
+    metadata = null,
+  } = {}
+) {
+  const op = String(operation || "").trim().toLowerCase();
+  let nextOps = [];
+  if (pipeline) {
+    const stages = [...mediaPipelineStages(pipeline)];
+    if (stages.includes(op)) {
+      const idx = stages.indexOf(op);
+      nextOps = stages.slice(idx + 1);
+    } else {
+      nextOps = stages;
+    }
+  }
+  return new MediaContext({
+    operation: op,
+    brief,
+    targetLanguage,
+    source,
+    constraints: constraints || [],
+    generationPrompts: generationPrompts || [],
+    nextOperations: nextOps,
+    metadata: {
+      ...(metadata || {}),
+      ...(pipeline ? { pipeline } : {}),
+    },
+  });
+}
+
+export function handoffMediaContext(
+  context,
+  nextOperation,
+  { fromAgent = "", toAgent = "" } = {}
+) {
+  const nxt = String(nextOperation || "").trim().toLowerCase();
+  const advanced = context.withOperation(nxt);
+  const pipeline = String((advanced.metadata || {}).pipeline || "");
+  if (pipeline) {
+    const stages = [...mediaPipelineStages(pipeline)];
+    if (stages.includes(nxt)) {
+      const i = stages.indexOf(nxt);
+      advanced.nextOperations = stages.slice(i + 1);
+    }
+  } else {
+    advanced.nextOperations = context.nextOperations.filter((x) => x !== nxt);
+  }
+  if (fromAgent || toAgent) {
+    advanced.metadata = {
+      ...advanced.metadata,
+      last_handoff: {
+        from_agent: fromAgent,
+        to_agent: toAgent,
+        from_operation: context.operation,
+        to_operation: nxt,
+      },
+    };
+  }
+  return advanced;
+}
+
+export function mediaPipelineStages(name) {
+  const key = String(name || "").trim().toLowerCase();
+  if (!(key in MEDIA_PIPELINES)) {
+    throw new Error(
+      `unknown media pipeline '${name}'. Known: ${Object.keys(MEDIA_PIPELINES).sort().join(", ")}`
+    );
+  }
+  return MEDIA_PIPELINES[key];
+}
+
+export function listMediaPipelines() {
+  /** @type {Record<string, string[]>} */
+  const out = {};
+  for (const [name, stages] of Object.entries(MEDIA_PIPELINES)) {
+    out[name] = [...stages];
+  }
+  return out;
+}
+
+export function planMediaPipeline(
+  pipeline,
+  { brief = "", targetLanguage = "", source = null, constraints = null } = {}
+) {
+  const stages = mediaPipelineStages(pipeline);
+  const planned = [];
+  const history = [];
+  for (let i = 0; i < stages.length; i++) {
+    const stage = stages[i];
+    planned.push(
+      new MediaContext({
+        operation: stage,
+        brief,
+        targetLanguage,
+        source,
+        constraints: constraints || [],
+        history: [...history],
+        nextOperations: stages.slice(i + 1),
+        metadata: { pipeline, stage_index: i },
+      })
+    );
+    history.push(stage);
+  }
+  return planned;
+}
+
+export function applyTranscriptEditions(segments, rewrites) {
+  const map = rewrites instanceof Map ? Object.fromEntries(rewrites) : rewrites || {};
+  return segments.map((seg) => {
+    const s = seg instanceof TranscriptSegment ? seg : TranscriptSegment.fromDict(seg);
+    const text = map[s.index] !== undefined ? map[s.index] : s.text;
+    const metadata = { ...s.metadata };
+    if (map[s.index] !== undefined) metadata.edition = "rewrite";
+    return new TranscriptSegment({
+      index: s.index,
+      start: s.start,
+      end: s.end,
+      text,
+      speaker: s.speaker,
+      language: s.language,
+      metadata,
+    });
+  });
+}
+
+export function buildGenerationContext(
+  brief,
+  { prompts = null, targetLanguage = "", mediaType = "audio", constraints = null } = {}
+) {
+  return buildMediaContext("generation", {
+    brief,
+    targetLanguage,
+    pipeline: "from_scratch",
+    constraints: constraints || [
+      "keep deterministic offline demos free of paid APIs",
+      `primary media_type=${mediaType}`,
+    ],
+    generationPrompts: prompts || [brief],
+    metadata: { media_type: mediaType, phase: "generation" },
+  });
+}
+
+export function buildCreationContext(
+  brief,
+  { targetLanguage = "", pipeline = "from_scratch", constraints = null } = {}
+) {
+  return buildMediaContext("creation", {
+    brief,
+    targetLanguage,
+    pipeline,
+    constraints: constraints || [
+      "define audience, length, format, and rights",
+      "prefer explicit handoffs over free-text summaries",
+    ],
+    metadata: { phase: "creation" },
+  });
+}
+
+export function buildEditionContext({
+  brief = "",
+  transcriptSegments = null,
+  editionOps = null,
+  source = null,
+  targetLanguage = "",
+} = {}) {
+  const ctx = buildMediaContext("edition", {
+    brief: brief || "Edit media / transcript",
+    targetLanguage,
+    source,
+    pipeline: "edit_existing",
+    metadata: { phase: "edition" },
+  });
+  if (transcriptSegments) ctx.transcriptSegments = [...transcriptSegments];
+  if (editionOps) ctx.editionOps = [...editionOps];
+  return ctx;
+}
+
+export function mediaContextToWorkflowReport(context, { success = true } = {}) {
+  const source = context.source || new MediaAsset({ path: "(none)", mediaType: "unknown" });
+  return new MediaWorkflowReport({
+    success,
+    source,
+    targetLanguage: context.targetLanguage,
+    transcriptSegments: [...context.transcriptSegments],
+    speakers: [...context.speakers],
+    dubbingSegments: [...context.dubbingSegments],
+    outputFiles: [...context.outputFiles],
+    warnings: [...context.warnings],
+    metadata: {
+      operation: context.operation,
+      history: [...context.history],
+      next_operations: [...context.nextOperations],
+      brief: context.brief,
+      media_context: context.toDict(),
+    },
+  });
 }
