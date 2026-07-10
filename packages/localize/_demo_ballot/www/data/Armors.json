@@ -1,0 +1,15 @@
+[
+  null,
+  {
+    "id": 1,
+    "name": "Press Vest",
+    "description": "Not armor against bullets—armor against being ignored.",
+    "note": ""
+  },
+  {
+    "id": 2,
+    "name": "Union Pin",
+    "description": "A simple pin. Heavy with meaning on the docks.",
+    "note": ""
+  }
+]

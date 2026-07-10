@@ -1,0 +1,204 @@
+{
+  "displayName": "Harbor Docks",
+  "note": "",
+  "width": 17,
+  "height": 13,
+  "events": [
+    null,
+    {
+      "id": 1,
+      "name": "Tor Hale",
+      "note": "",
+      "pages": [
+        {
+          "list": [
+            {
+              "code": 101,
+              "indent": 0,
+              "parameters": [
+                "",
+                0,
+                0,
+                2
+              ]
+            },
+            {
+              "code": 401,
+              "indent": 0,
+              "parameters": [
+                "Tor: Cargo moves. Wages stall. Speeches arrive on time."
+              ]
+            },
+            {
+              "code": 401,
+              "indent": 0,
+              "parameters": [
+                "Tor: Labor doesn't hate bridges. Labor hates being the toll."
+              ]
+            },
+            {
+              "code": 401,
+              "indent": 0,
+              "parameters": [
+                "Tor: If your paper wants quotes, print the overtime sheets too."
+              ]
+            },
+            {
+              "code": 0,
+              "indent": 0,
+              "parameters": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Docker",
+      "note": "",
+      "pages": [
+        {
+          "list": [
+            {
+              "code": 101,
+              "indent": 0,
+              "parameters": [
+                "",
+                0,
+                0,
+                2
+              ]
+            },
+            {
+              "code": 401,
+              "indent": 0,
+              "parameters": [
+                "Docker: They said the new port clause protects security."
+              ]
+            },
+            {
+              "code": 401,
+              "indent": 0,
+              "parameters": [
+                "Docker: Funny how security always needs cheaper hands."
+              ]
+            },
+            {
+              "code": 401,
+              "indent": 0,
+              "parameters": [
+                "Mira: Who negotiates for you when cameras leave?"
+              ]
+            },
+            {
+              "code": 401,
+              "indent": 0,
+              "parameters": [
+                "Docker: Tor. And coffee. Mostly Tor."
+              ]
+            },
+            {
+              "code": 0,
+              "indent": 0,
+              "parameters": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Warehouse",
+      "note": "",
+      "pages": [
+        {
+          "list": [
+            {
+              "code": 101,
+              "indent": 0,
+              "parameters": [
+                "",
+                0,
+                0,
+                2
+              ]
+            },
+            {
+              "code": 401,
+              "indent": 0,
+              "parameters": [
+                "Mira: The lock is new. The dust is old."
+              ]
+            },
+            {
+              "code": 401,
+              "indent": 0,
+              "parameters": [
+                "Mira: Ballot seals. Unopened. Wrong precinct stamps."
+              ]
+            },
+            {
+              "code": 401,
+              "indent": 0,
+              "parameters": [
+                "Mira: Click. Flash. Timestamp. Now it's evidence—or a target."
+              ]
+            },
+            {
+              "code": 0,
+              "indent": 0,
+              "parameters": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Radio",
+      "note": "",
+      "pages": [
+        {
+          "list": [
+            {
+              "code": 101,
+              "indent": 0,
+              "parameters": [
+                "",
+                0,
+                0,
+                2
+              ]
+            },
+            {
+              "code": 401,
+              "indent": 0,
+              "parameters": [
+                "Radio: Officials deny irregularities and urge citizens to reject chaos."
+              ]
+            },
+            {
+              "code": 401,
+              "indent": 0,
+              "parameters": [
+                "Radio: Opposition demands observers in every counting room."
+              ]
+            },
+            {
+              "code": 401,
+              "indent": 0,
+              "parameters": [
+                "Radio: Markets open flat. Rain expected by evening."
+              ]
+            },
+            {
+              "code": 0,
+              "indent": 0,
+              "parameters": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

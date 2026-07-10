@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Ballot and the Bridge — Demo Reader</title>
+<style>
+  :root {
+    --bg: #0c1222;
+    --panel: #141c2e;
+    --ink: #e8eefc;
+    --muted: #93a4c3;
+    --accent: #5b9dff;
+    --line: #243047;
+    --good: #3dd68c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: radial-gradient(1200px 600px at 10% -10%, #1a2744, var(--bg));
+    color: var(--ink);
+  }
+  header {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--line);
+    background: rgba(10,14,24,.85); backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 10;
+  }
+  h1 { font-size: 1.05rem; margin: 0; letter-spacing: .02em; }
+  h1 span { color: var(--muted); font-weight: 500; font-size: .85rem; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  select, button {
+    background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 12px; font: inherit; cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: #061018; border-color: transparent; font-weight: 600; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  main { max-width: 820px; margin: 0 auto; padding: 24px 16px 80px; }
+  .scene {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 16px; padding: 22px; min-height: 280px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.25);
+  }
+  .loc { color: var(--accent); font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+  .line { font-size: 1.2rem; line-height: 1.55; white-space: pre-wrap; min-height: 4.5em; }
+  .meta { margin-top: 18px; color: var(--muted); font-size: .9rem; display:flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .progress { height: 6px; background: #0a101c; border-radius: 99px; overflow: hidden; margin-top: 16px; }
+  .progress > i { display:block; height:100%; background: linear-gradient(90deg,#3b82f6,#22d3ee); width: 0%; }
+  footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 12px; }
+  .tag { color: var(--good); }
+  .err { color: #fb7185; }
+</style>
+</head>
+<body>
+<header>
+  <h1>The Ballot and the Bridge <span>· handoffkit-localize demo reader</span></h1>
+  <div class="controls">
+    <label>Lang
+      <select id="lang">
+        <option value="en">English (data)</option>
+        <option value="es">Español (data_es)</option>
+        <option value="zh">中文 (data_zh)</option>
+        <option value="pt">Português (data_pt)</option>
+        <option value="hi">हिन्दी (data_hi)</option>
+      </select>
+    </label>
+    <button id="reload" type="button">Load pack</button>
+    <button id="prev" type="button">Back</button>
+    <button id="next" class="primary" type="button">Next</button>
+  </div>
+</header>
+<main>
+  <div class="scene">
+    <div class="loc" id="loc">—</div>
+    <div class="line" id="line">Press “Load pack” to begin the political chapter demo.</div>
+    <div class="progress"><i id="bar"></i></div>
+    <div class="meta">
+      <span id="idx">0 / 0</span>
+      <span id="status" class="tag">PG sample · translation showcase</span>
+    </div>
+  </div>
+</main>
+<footer>
+  Built for localization demos — not a full RPG Maker runtime. Switch language packs after <code>hk-localize apply</code>.
+</footer>
+<script>
+const MAPS = ["Map001.json","Map002.json","Map003.json","Map004.json","Map005.json","Map006.json"];
+let script = [];
+let i = 0;
+
+function dataFolder(lang) {
+  if (lang === "en") return "www/data/";
+  return "www/data_" + lang + "/";
+}
+
+async function loadPack() {
+  const lang = document.getElementById("lang").value;
+  const base = dataFolder(lang);
+  const status = document.getElementById("status");
+  status.textContent = "Loading " + base + "…";
+  status.className = "tag";
+  script = [];
+  try {
+    const sys = await fetch(base + "System.json").then(r => {
+      if (!r.ok) throw new Error("missing " + base + "System.json");
+      return r.json();
+    });
+    document.title = (sys.gameTitle || "Demo") + " — Reader";
+    script.push({ loc: "Title", text: sys.gameTitle || "Untitled" });
+
+    for (const name of MAPS) {
+      const map = await fetch(base + name).then(r => r.ok ? r.json() : null);
+      if (!map) continue;
+      const loc = map.displayName || name;
+      const events = map.events || [];
+      for (const ev of events) {
+        if (!ev || !ev.pages) continue;
+        for (const page of ev.pages) {
+          const list = (page && page.list) || [];
+          for (const cmd of list) {
+            if (cmd && cmd.code === 401 && cmd.parameters && cmd.parameters[0]) {
+              script.push({ loc, text: String(cmd.parameters[0]) });
+            }
+          }
+        }
+      }
+    }
+    // CommonEvents
+    const ce = await fetch(base + "CommonEvents.json").then(r => r.ok ? r.json() : []);
+    for (const ev of ce || []) {
+      if (!ev || !ev.list) continue;
+      for (const cmd of ev.list) {
+        if (cmd && cmd.code === 401 && cmd.parameters && cmd.parameters[0]) {
+          script.push({ loc: ev.name || "Common", text: String(cmd.parameters[0]) });
+        }
+      }
+    }
+    i = 0;
+    status.textContent = "Loaded " + script.length + " lines · pack " + lang;
+    render();
+  } catch (e) {
+    status.textContent = String(e.message || e);
+    status.className = "err";
+    document.getElementById("line").textContent =
+      "Could not load language pack. For English use sample data/. After translate+apply, data_es etc. appear.";
+  }
+}
+
+function render() {
+  const line = document.getElementById("line");
+  const loc = document.getElementById("loc");
+  const idx = document.getElementById("idx");
+  const bar = document.getElementById("bar");
+  if (!script.length) {
+    line.textContent = "No lines loaded.";
+    loc.textContent = "—";
+    idx.textContent = "0 / 0";
+    bar.style.width = "0%";
+    return;
+  }
+  const cur = script[i];
+  loc.textContent = cur.loc;
+  line.textContent = cur.text;
+  idx.textContent = (i + 1) + " / " + script.length;
+  bar.style.width = ((i + 1) / script.length * 100).toFixed(1) + "%";
+  document.getElementById("prev").disabled = i <= 0;
+  document.getElementById("next").disabled = i >= script.length - 1;
+}
+
+document.getElementById("reload").onclick = loadPack;
+document.getElementById("next").onclick = () => { if (i < script.length - 1) { i++; render(); } };
+document.getElementById("prev").onclick = () => { if (i > 0) { i--; render(); } };
+document.getElementById("lang").onchange = () => {};
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight" || e.key === " " || e.key === "Enter") {
+    e.preventDefault();
+    document.getElementById("next").click();
+  }
+  if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    document.getElementById("prev").click();
+  }
+});
+loadPack();
+</script>
+</body>
+</html>

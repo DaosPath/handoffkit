@@ -1,0 +1,39 @@
+[
+  null,
+  {
+    "id": 1,
+    "name": "Capital Plaza",
+    "parentId": 0,
+    "expanded": true
+  },
+  {
+    "id": 2,
+    "name": "Parliament Hall",
+    "parentId": 0,
+    "expanded": false
+  },
+  {
+    "id": 3,
+    "name": "Free Ledger Newsroom",
+    "parentId": 0,
+    "expanded": false
+  },
+  {
+    "id": 4,
+    "name": "Bridge District",
+    "parentId": 0,
+    "expanded": false
+  },
+  {
+    "id": 5,
+    "name": "Harbor Docks",
+    "parentId": 0,
+    "expanded": false
+  },
+  {
+    "id": 6,
+    "name": "Election Night HQ",
+    "parentId": 0,
+    "expanded": false
+  }
+]

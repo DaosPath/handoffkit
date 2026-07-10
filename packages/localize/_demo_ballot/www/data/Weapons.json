@@ -1,0 +1,15 @@
+[
+  null,
+  {
+    "id": 1,
+    "name": "Fountain Pen",
+    "description": "An old pen that has signed more truth than treaties.",
+    "note": ""
+  },
+  {
+    "id": 2,
+    "name": "Pocket Camera",
+    "description": "Small enough to smuggle into a closed hearing.",
+    "note": ""
+  }
+]
