@@ -1,81 +1,147 @@
-# External Benchmark & Framework Comparison (P2)
+# Independent Protocol Benchmark (Published Methodology)
 
-This document defines a **reproducible, offline-first** comparison harness so
-HandoffKit can be evaluated against other agent frameworks without marketing
-claims.
+**Status:** Published methodology + offline APIs  
+**Leaderboard:** **None** (explicitly not a public ranking)  
+**IDs:** `handoffkit-protocol-v1` · version `1.0.0`  
+**Default seed:** `handoffkit-independent-2026`
 
-## Goals
+This document is the **public methodology** for HandoffKit’s independent
+benchmark. It ships with the package so third parties can reproduce scores
+without relying on a hosted leaderboard or model beauty contest.
 
-1. Independent-looking **protocol metrics**: handoff completeness, recovery,
-   latency, optional cost.
-2. Side-by-side notes for **LangGraph**, **AutoGen**, **CrewAI**, and
-   **OpenAI Agents SDK** (adapters already under `docs/integrations/`).
-3. Public **Studio export** path for real runs when volume exists
-   (`/api/demos/mai-panel/runs?export=benchmark`).
+## What is measured
 
-## Metrics (implemented)
+| Dimension | Meaning |
+|-----------|---------|
+| **Handoff validation** | Every intermediate `HandoffState` passes `HandoffStateValidator` |
+| **Handoff quality** | Deterministic `HandoffQualityEvaluator` score (structure/content) |
+| **Context loss** | Missing summary / decisions / next_steps / important_files rate |
+| **Latency** | Wall time per task (offline Echo providers → near-zero, still recorded) |
+| **Task pass rate** | Tasks that produce expected handoff count + validate + quality ≥ 0.5 |
 
-Python: `handoffkit.benchmarks.metrics`
+**Not measured:** raw LLM accuracy, clinical correctness of doctor demos, or
+relative ranking of third-party products on a public board.
 
-| Metric | Function | Meaning |
-|--------|----------|---------|
-| Latency | `latency_stats` | mean / p50 / p95 / max ms |
-| Cost | `cost_stats` | tokens + USD when usage present |
-| Context loss | `context_loss_stats` | missing handoff fields rate |
-| Recovery | `recovery_stats` | retries that succeed vs hard fails |
+## Suite: protocol tasks v1
+
+Five fixed multi-role tasks (`PROTOCOL_TASKS_V1`):
+
+| ID | Title | Roles |
+|----|-------|-------|
+| `proto-001` | Release checklist | Planner → Implementer → Reviewer |
+| `proto-002` | Incident triage | Oncall → Engineer → Lead |
+| `proto-003` | API contract change | Architect → Coder → Reviewer |
+| `proto-004` | Docs handoff | Writer → Editor → Approver |
+| `proto-005` | Tool safety review | Requester → Security → Operator |
+
+Each task expects **`len(roles) - 1` handoffs**. Descriptions are hashed in
+`methodology_manifest()` so methodology drift is detectable.
+
+## APIs (Python)
+
+```python
+from handoffkit.benchmarks import (
+    methodology_manifest,
+    build_independent_benchmark,
+    run_independent_benchmark,
+)
+
+# Machine-readable methodology (no execution)
+print(methodology_manifest())
+
+# In-memory offline run (Echo agents)
+report = build_independent_benchmark(seed="handoffkit-independent-2026")
+assert report.success
+print(report.to_markdown())
+
+# Write artifacts under runs/ + reports/
+report = run_independent_benchmark(
+    seed="handoffkit-independent-2026",
+    output_dir="runs/latest",
+    reports_dir="reports",
+)
+```
+
+### CLI
+
+```bash
+# Full offline suite + artifacts
+handoffkit benchmark-independent
+
+# Methodology JSON only
+handoffkit benchmark-independent --manifest
+
+# Optional seed
+handoffkit benchmark-independent --seed handoffkit-independent-2026
+```
+
+Artifacts:
+
+- `runs/latest/independent_methodology.json`
+- `runs/latest/independent_benchmark.json`
+- `runs/latest/independent_benchmark.md`
+- `reports/independent_protocol_benchmark.{json,md}`
+
+### Related metrics API
 
 ```python
 from handoffkit.benchmarks.metrics import build_workflow_metrics
-from handoffkit import HandoffState
-
-report = build_workflow_metrics(
-    durations_ms=[120, 140, 200],
-    runs=[{"usage": {"total_tokens": 900, "cost_usd": 0.01}}],
-    handoffs=[
-        HandoffState("t", "A", "B", summary="ok", decisions=["d1"], next_steps=["n1"])
-    ],
-    attempts=3,
-    recoveries=1,
-    hard_failures=0,
-)
-print(report.to_markdown())
 ```
 
-## Comparison protocol (manual / CI-optional)
+See also doctor/MAI educational harnesses (`benchmark-doctor`, `benchmark-doctor-mai`)
+which use open-access case data — **not** part of this protocol suite’s pass/fail.
 
-For each framework, implement the **same task**:
+## Studio (optional corpus, still no leaderboard)
 
-> “Plan → implement → review a tiny checklist, passing structured state between
-> three roles.”
+Operators can export **their own** MAI panel runs:
 
-Record:
+```http
+GET /api/demos/mai-panel/runs?export=benchmark
+```
 
-1. Whether intermediate state is **structured** (JSON contract) or free text.
-2. Whether handoffs are **validated**.
-3. Tool approval / sandbox model.
-4. Offline testability.
-5. Latency for N offline echo-style steps (if available).
+That export is **opt-in local corpus**, scoped by workspace when present. It is
+**not** aggregated into a public leaderboard. Consent, multi-tenant auth, and
+publication policy remain future work.
+
+## Comparison protocol (frameworks)
+
+For **framework comparison** (not scored on a board), implement the same
+task shape elsewhere:
+
+> Plan → implement → review a tiny checklist, passing structured state between three roles.
 
 | Framework | Structured handoff | Built-in validation | Offline demos | Notes |
 |-----------|--------------------|---------------------|---------------|-------|
-| **HandoffKit** | Yes (`HandoffState`) | Yes | Yes | Contract-first |
-| **LangGraph** | Graph state (custom) | App-defined | Yes | See `docs/integrations/LANGGRAPH.md` |
-| **OpenAI Agents SDK** | SDK-specific | App-defined | Partial | See `docs/integrations/OPENAI_AGENTS.md` |
-| **AutoGen** | Chat/messages | App-defined | Partial | Map messages → HandoffState at boundaries |
-| **CrewAI** | Task/context | App-defined | Partial | Prefer exporting HandoffState between crews |
+| **HandoffKit** | Yes (`HandoffState`) | Yes | Yes | This suite |
+| **LangGraph** | Graph state (custom) | App-defined | Yes | `docs/integrations/LANGGRAPH.md` |
+| **OpenAI Agents SDK** | SDK-specific | App-defined | Partial | `docs/integrations/OPENAI_AGENTS.md` |
+| **AutoGen** | Chat/messages | App-defined | Partial | Map to HandoffState at edges |
+| **CrewAI** | Task/context | App-defined | Partial | Prefer HandoffState between crews |
 
-Adapters: copy/paste patterns live under `docs/integrations/` and
-`examples/*_integration.py`.
+Record structure/validation/sandbox/offline/latency notes; do **not** claim
+cross-product superiority without peer review.
 
-## Independent benchmark policy
+## Reproducibility checklist
 
-- Prefer **external datasets** with clear licenses (e.g. MedCaseReasoning OA
-  cases used offline in doctor demos — educational only).
-- Publish methodology + seeds before scores.
-- Never claim clinical or production superiority without peer review.
-- Studio corpus export is **opt-in aggregate of operator runs**, not a public
-  leaderboard until multi-tenant auth + consent exist.
+1. Pin `handoffkit==x.y.z` that includes this methodology version.
+2. Run `handoffkit benchmark-independent --manifest` and confirm `methodology_id`
+   / task SHA-256 digests.
+3. Run full suite offline (no API keys required for Echo path).
+4. Compare `independent_benchmark.json` fields: `pass_rate`, `quality.score`,
+   `metrics.context_loss.loss_rate`.
+5. Do not publish “rankings” of models or frameworks from this suite alone.
 
-## Governance
+## Versioning
 
-Second maintainer + issue hygiene: see root `CONTRIBUTING.md`.
+| Change type | Action |
+|-------------|--------|
+| New tasks or scoring rule change | Bump `METHODOLOGY_VERSION` (or new `methodology_id`) |
+| Bugfix with same tasks | Keep version; note in CHANGELOG |
+| Seed-only metadata | Keep methodology version |
+
+## Governance & ethics
+
+- Educational / engineering protocol only.
+- Medical doctor demos stay separate and labeled non-clinical.
+- Threat model: `docs/THREAT_MODEL.md`.
+- Contributions: root `CONTRIBUTING.md`.

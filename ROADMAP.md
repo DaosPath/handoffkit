@@ -38,7 +38,7 @@ Status legend: **Done** · **In progress** · **Planned** · **Later**
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Independent benchmark | **Foundation** | `docs/EXTERNAL_BENCHMARK.md` + Studio `export=benchmark` |
+| Independent benchmark | **Published** | Methodology `handoffkit-protocol-v1` + APIs/CLI; no public leaderboard |
 | External use cases | **Docs** | Integration guides + comparison table |
 | Comparison vs LangGraph / AutoGen / CrewAI / OpenAI Agents SDK | **Foundation** | Same-task protocol in EXTERNAL_BENCHMARK.md |
 | Cost / latency / context-loss / recovery metrics | **Done** | `handoffkit.benchmarks.metrics` |

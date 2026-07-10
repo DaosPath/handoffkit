@@ -13,6 +13,10 @@ from handoffkit._cli.project import load_dynamic_extensions
 from handoffkit._version import __version__
 from handoffkit.agent import Agent
 from handoffkit.benchmarks.doctor import run_doctor_benchmark as execute_doctor_benchmark
+from handoffkit.benchmarks.independent import (
+    methodology_manifest,
+    run_independent_benchmark,
+)
 from handoffkit.benchmarks.mai import run_mai_style_benchmark
 from handoffkit.evaluation import WorkflowEvaluator
 from handoffkit.extensions import Extension, ExtensionRegistry
@@ -527,6 +531,22 @@ def run_doctor_benchmark_demo(limit: int = 30) -> str:
 def run_mai_style_doctor_benchmark_demo(limit: int = 30) -> str:
     """Run the public MAI-style sequential doctor benchmark."""
     return run_mai_style_benchmark(limit).to_markdown()
+
+
+def run_independent_benchmark_demo(
+    *,
+    seed: str = "handoffkit-independent-2026",
+    manifest_only: bool = False,
+) -> str:
+    """Run the independent protocol benchmark (no leaderboard)."""
+    if manifest_only:
+        return json.dumps(methodology_manifest(), ensure_ascii=False, indent=2) + "\n"
+    report = run_independent_benchmark(seed=seed)
+    arts = "\n".join(f"- {k}: {v}" for k, v in report.artifacts.items())
+    return (
+        f"{report.to_markdown()}\n"
+        f"## Written artifacts\n\n{arts}\n"
+    )
 
 
 def run_doctor_orchestrator_demo() -> str:
