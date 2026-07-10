@@ -1,4 +1,4 @@
-﻿import fs from "node:fs";
+import fs from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path, { join } from "node:path";
 
@@ -74,7 +74,7 @@ export async function loadReportJSON(filePath) {
 
 export async function buildNodeContractParityReport({
   runtime = "node",
-  version = "1.12.0",
+  version = "1.13.0",
   contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts"),
   expectedFixtures,
   expectedSchemas,

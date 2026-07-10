@@ -1,4 +1,4 @@
-﻿"""Stable release metadata tests."""
+"""Stable release metadata tests."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def test_pyproject_is_188_stable() -> None:
     project = data["project"]
     classifiers = project["classifiers"]
 
-    assert project["version"] == "1.12.0"
+    assert project["version"] == "1.13.0"
     assert "Development Status :: 5 - Production/Stable" in classifiers
     assert not any("Alpha" in item or "Beta" in item for item in classifiers)
 

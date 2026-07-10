@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.13.0
+
+- Media **context handoffs** for multi-stage workflows: `MediaContext`,
+  `MediaEditionOp`, `MediaOperationSpec`.
+- Built-in media **-ion operations**: creation, generation, edition,
+  transcription, translation, localization, adaptation, composition,
+  inspection, validation, publication, production.
+- Named pipelines: `from_scratch`, `video_dubbing`, `audiobook`,
+  `subtitle_localization`, `edit_existing`.
+- Helpers: `build_media_context`, `handoff_media_context`,
+  `plan_media_pipeline`, `build_creation_context`, `build_generation_context`,
+  `build_edition_context`, `apply_transcript_editions`,
+  `media_context_to_workflow_report`, `to_handoff_state` / `from_handoff_state`.
+- CLI: `handoffkit media ops`, `handoffkit media pipeline`,
+  `handoffkit demo-media-context`.
+- Docs: expanded `MEDIA_WORKFLOWS.md` for 1.13 context-passing model.
+- **JS parity:** same media context / -ion API in `@handoffkit/recipes`
+  (camelCase DX, snake_case wire JSON matching Python).
+- Workspace rule: Python ↔ JS public surface must ship 1:1 (see `AGENTS.md`).
+- Bumped aligned package versions to 1.13.0 (Python, JS, Rust, C++).
+
 ## 1.12.0
 
 - Added dynamic extension scaffolding demos and CLI helpers for complex audit

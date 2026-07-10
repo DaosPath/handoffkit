@@ -1,4 +1,4 @@
-﻿"""Offline wheel install smoke test."""
+"""Offline wheel install smoke test."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ def test_local_wheel_installs_and_imports_offline(tmp_path: Path) -> None:
             "--no-index",
             "--find-links",
             str(wheelhouse),
-            "handoffkit==1.12.0",
+            "handoffkit==1.13.0",
         ]
     )
     run_command(
