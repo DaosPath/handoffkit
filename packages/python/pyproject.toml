@@ -57,6 +57,9 @@ handoffkit = "handoffkit.cli:main"
 [tool.setuptools.packages.find]
 include = ["handoffkit*"]
 
+[tool.setuptools.package-data]
+handoffkit = ["py.typed", "benchmarks/data/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q -p no:cacheprovider"

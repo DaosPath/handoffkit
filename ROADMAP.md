@@ -21,17 +21,18 @@ Status legend: **Done** · **In progress** · **Planned** · **Later**
 | Tests safe for **sdist** (missing monorepo files) | **Done** | skip helpers when contracts/`.github` absent; docs resolve via package root |
 | **Coverage gate** for tools + validation | **Done** | `--cov-fail-under=80` on tools/safety/sandbox/validation modules |
 
-### P1 — stabilization (**Planned**)
+### P1 — stabilization (**In progress**)
 
-| Item | Status |
-|------|--------|
-| Split `cli.py` and JS `core/index.js` | Planned |
-| Move medical datasets out of `.py` files | Planned |
-| Freeze a smaller public API | Planned |
-| Deprecation policy | Planned |
-| Studio: DB, auth, workspaces | Planned |
-| Fix Rust / C++ docs | Planned |
-| Fewer releases, consolidated changelogs | Planned |
+| Item | Status | Notes |
+|------|--------|-------|
+| Split `cli.py` | **Done** | Implementation under `handoffkit/_cli/` (demos, media, project, main); thin `cli.py` facade |
+| Split JS `core/index.js` | **Partial** | Layout notes; full multi-file split deferred until inter-module deps green in CI |
+| Medical datasets out of `.py` | **Done** | JSON under `handoffkit/benchmarks/data/`; loaders stay thin |
+| Freeze smaller public API | **Done** | `PUBLIC_API.md` tiers: Stable / Extended / Experimental |
+| Deprecation policy | **Done** | `packages/python/docs/DEPRECATION.md` + release cadence |
+| Studio: DB, auth, workspaces | **Foundation** | `apps/web/src/lib/studio/{db,auth,workspace}.ts` file-backed, DB-ready interfaces |
+| Fix Rust / C++ docs | **Done** | Clear “under construction” READMEs (UTF-8) |
+| Fewer releases, consolidated changelogs | **Done** | Documented in DEPRECATION.md |
 
 ### P2 — external credibility (**Later**)
 

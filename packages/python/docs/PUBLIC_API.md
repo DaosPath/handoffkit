@@ -1,10 +1,19 @@
 # HandoffKit Public API
 
-HandoffKit 1.0.0 treats the following exports as stable public API for the 1.x
-series. Runtime behavior is governed by docs, tests, and public type
-signatures.
+HandoffKit 1.x keeps a **small stable core** plus **extended** surface.
+See also `DEPRECATION.md` for how removals work.
 
-## Core Workflow
+| Tier | Compatibility | Examples |
+|------|---------------|----------|
+| **Stable** | Hard 1.x promise | Agent, Team, HandoffState, Tool*, validation, traces |
+| **Extended** | Soft; aliases preferred | Media context handoffs, showcases, CLI helpers |
+| **Experimental** | May change | Provider matrix, Studio APIs, Rust/C++ runtime |
+
+`handoffkit.__all__` may export more than the Stable set for convenience.
+**Application code should import Stable symbols first**; treat the rest as
+Extended unless listed below as Stable.
+
+## Stable — Core Workflow
 
 - `Agent`
 - `Team`
@@ -85,7 +94,7 @@ Stable sync methods remain the compatibility baseline. Async helpers
 - `write_report_files`
 - `load_report_json`
 
-## Media Workflows
+## Stable — Media (classic contracts)
 
 - `MediaAsset`
 - `TranscriptSegment`
@@ -101,7 +110,19 @@ Stable sync methods remain the compatibility baseline. Async helpers
 - `extract_audio`
 - `mux_audio`
 
+## Extended — Media context handoffs (1.13+)
+
+- `MEDIA_OPERATIONS`, `MediaOperationSpec`, `MediaContext`, `MediaEditionOp`
+- `build_media_context`, `handoff_media_context`, `plan_media_pipeline`
+- `build_creation_context`, `build_generation_context`, `build_edition_context`
+- `apply_transcript_editions`, `media_context_to_workflow_report`
+
+## Extended — Tool sandbox (1.14+)
+
+- `ToolSandbox`, `SandboxError`, `get_sandbox`, `set_sandbox`, `reset_sandbox`
+
 ## Compatibility Promise
 
-These APIs should not be removed or receive breaking signature changes in 1.x
-without a documented migration path.
+**Stable** APIs should not be removed or receive breaking signature changes in
+1.x without a documented migration path. **Extended** APIs follow
+`DEPRECATION.md` soft rules.

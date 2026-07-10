@@ -1,13 +1,31 @@
-# HandoffKit Rust
+# HandoffKit (Rust)
 
-> [!WARNING]
-> **ESTADO: EN CONSTRUCCIÓN**
-> Este paquete se encuentra actualmente en desarrollo activo y **no ha sido publicado** en [crates.io](https://crates.io/).
+> **Status: under construction — not published to crates.io**
 
-El paquete de Rust de HandoffKit está diseñado para proporcionar serialización nativa de alto rendimiento y validación de contratos (como `HandoffState` y `RunTrace`) con la misma especificación compartida por Python y JavaScript.
+Rust package for **shared contract types** (`HandoffState`, `RunTrace`, and
+related reports) using the same snake_case JSON wire format as Python and
+JavaScript.
 
-Actualmente, implementa las estructuras de datos base y las pruebas de paridad cruzada para garantizar la compatibilidad de formato de datos.
+## What works today
 
-## Próximos Pasos y Roadmap
+- Core data structures and serde serialization
+- Cross-runtime fixture parity tests (`cargo test`)
 
-Las implementaciones de Python y JavaScript se encuentran en un estado mucho más avanzado y maduro. Una vez que las bases y características núcleo de los runtimes de Python y JS estén 100% consolidadas y estables, se procederá con la construcción y el despliegue del runtime completo de agentes de Rust como un ciudadano de primera clase.
+## What is not ready
+
+- Full multi-agent runtime (Agent/Team execution loop)
+- crates.io release
+- Feature parity with Python/`@handoffkit/core`
+
+## Roadmap
+
+Python and JavaScript are the production runtimes. Rust will grow as a
+first-class runtime **after** the Stable public API (see
+`packages/python/docs/PUBLIC_API.md`) is frozen and deprecation policy is in
+force.
+
+## Develop
+
+```bash
+cargo test --manifest-path packages/rust/Cargo.toml
+```

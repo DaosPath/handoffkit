@@ -1,13 +1,31 @@
-# HandoffKit C++
+# HandoffKit (C++)
 
-> [!WARNING]
-> **ESTADO: EN CONSTRUCCIÓN**
-> Este paquete se encuentra actualmente en desarrollo activo y **no ha sido publicado** en ningún gestor de paquetes.
+> **Status: under construction — not published to a package registry**
 
-El paquete de C++ de HandoffKit está diseñado para proporcionar validación nativa de alto rendimiento y serialización de contratos (como `HandoffState` y `RunTrace`) con la misma especificación JSON compartida por los entornos Python y JavaScript.
+C++ package for **high-performance contract validation/serialization** of
+shared HandoffKit types (`HandoffState`, `RunTrace`, …) with the same JSON
+wire format as Python and JavaScript.
 
-Actualmente, provee las cabeceras base y el motor de validación para garantizar la paridad del formato de los mensajes.
+## What works today
 
-## Próximos Pasos y Roadmap
+- Headers and validation helpers
+- CMake + CTest fixture round-trips
 
-Las implementaciones de Python y JavaScript se encuentran en un estado mucho más avanzado y maduro. Una vez que las bases y características núcleo de los runtimes de Python y JS estén 100% consolidadas y estables, se procederá con la construcción y el despliegue del runtime completo de agentes de C++ para su integración en sistemas nativos.
+## What is not ready
+
+- Full multi-agent runtime
+- Conan/vcpkg published packages
+- Feature parity with Python/`@handoffkit/core`
+
+## Roadmap
+
+Native C++ agent runtime is planned after the Stable API freeze described in
+`packages/python/docs/PUBLIC_API.md` and `DEPRECATION.md`.
+
+## Develop
+
+```bash
+cmake -S packages/cpp -B packages/cpp/build
+cmake --build packages/cpp/build --config Release
+ctest --test-dir packages/cpp/build -C Release --output-on-failure
+```

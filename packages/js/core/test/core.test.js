@@ -446,7 +446,10 @@ test("OpenAIProvider handles successful completions", async () => {
   };
 
   try {
-    const provider = new OpenAIProvider({ apiKey: "mock-key" });
+    const provider = new OpenAIProvider({
+      apiKey: "mock-key",
+      baseUrl: "https://api.openai.com/v1",
+    });
     const response = await provider.agenerate("Hello");
     assert.equal(response, "Hello from mock OpenAI!");
     assert.equal(fetchCall.url, "https://api.openai.com/v1/chat/completions");

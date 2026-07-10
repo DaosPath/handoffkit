@@ -12,9 +12,13 @@
 - Coverage gate (≥80%) for `tools`, `tool_execution`, `safety`, `sandbox`, `validation`.
 - Tests that need monorepo-only paths skip cleanly in bare sdist layouts.
 
-### P1 / P2
+### P1 — stabilization
 
-- Tracked in root `ROADMAP.md` (cli split, smaller public API, Studio DB/auth, external benchmarks, threat model).
+- CLI implementation split into `handoffkit/_cli/` (demos, media, project, main).
+- Doctor benchmark cases moved to packaged JSON (`benchmarks/data/*.json`).
+- Public API tiers + `DEPRECATION.md` (Stable / Extended / Experimental, cadence).
+- Studio foundation: workspace store, auth stub, DB adapter interfaces (file-backed).
+- Rust and C++ READMEs rewritten (clear construction status).
 
 ## 1.13.0
 
