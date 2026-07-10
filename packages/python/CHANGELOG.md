@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.12.0
+
+- Added dynamic extension scaffolding demos and CLI helpers for complex audit
+  style extensions (Python + JS).
+- Expanded fusion-style and media demo entry points in the JS CLI.
+- Added `project-report` command, CLI aliases, and programmatic export helpers.
+- Shipped Studio MAI panel (web) with dual providers and run history docs.
+- Added public monorepo package `packages/localize` (`handoffkit-localize` /
+  `hk-localize`) with PG sample *The Ballot and the Bridge* — separate PyPI
+  name; not part of the `handoffkit` wheel.
+- Bumped aligned package versions to 1.12.0 (Python, JS, Rust, C++).
+
+## 1.11.0
+
+- Refactored Python package layout; expanded benchmarks (doctor, MAI).
+- Ported memory, extension registry, fusion, and media helpers to JavaScript.
+- Added JS doctor and MAI benchmark tooling under `@handoffkit/cli`.
+- Expanded recipes package surface and cross-runtime tests.
+- Bumped aligned package versions to 1.11.0.
+
+## 1.10.0
+
+- Release train aligned with GitHub Release `v1.10.0` / PyPI `1.10.0`.
+- Prior features from the 1.10 line shipped on that tag (see git history and
+  release notes for `v1.10.0`).
+
 ## 1.9.0
 
 - Reorganized JavaScript packages under `packages/js/core` and
