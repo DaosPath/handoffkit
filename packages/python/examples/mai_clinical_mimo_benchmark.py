@@ -17,8 +17,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from handoffkit.handoff import HandoffState
 from handoffkit.benchmarks.mai import SequentialDoctorCase, build_sequential_doctor_cases
+from handoffkit.handoff import HandoffState
 from handoffkit.providers import BaseProvider, NativeOpenAIProvider, OpenCodeGoProvider
 from handoffkit.quality import HandoffQualityEvaluator
 from handoffkit.reports import write_report_files

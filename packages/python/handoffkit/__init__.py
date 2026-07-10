@@ -1,6 +1,22 @@
 """Public API for HandoffKit."""
 
+from handoffkit._version import __version__
 from handoffkit.agent import Agent
+from handoffkit.cli import (
+    create_extension,
+    delete_key,
+    init_project,
+    init_project_interactive,
+    list_keys,
+    list_providers,
+    load_dynamic_extensions,
+    render_report,
+    run_demo,
+    run_named_showcase,
+    run_recipe_demo,
+    set_key,
+    write_project_report,
+)
 from handoffkit.context import (
     ContextDocument,
     ContextPack,
@@ -18,12 +34,25 @@ from handoffkit.evaluation import (
 )
 from handoffkit.extensions import Extension, ExtensionRegistry
 from handoffkit.handoff import HandoffState
-from handoffkit.sandbox import (
-    SandboxError,
-    ToolSandbox,
-    get_sandbox,
-    reset_sandbox,
-    set_sandbox,
+from handoffkit.memory import JsonMemoryStore, MemoryItem, MemoryReport, MemoryStore
+from handoffkit.protocol import HandoffProtocol
+from handoffkit.provider_adapters import (
+    ProviderCapabilities,
+    ProviderToolAdapter,
+    ProviderToolFormat,
+    ToolCallParser,
+)
+from handoffkit.quality import (
+    HandoffQualityEvaluator,
+    HandoffQualityMetric,
+    HandoffQualityReport,
+)
+from handoffkit.recipes import (
+    Recipe,
+    RecipeRunner,
+    RecipeRunResult,
+    RecipeStep,
+    WorkflowTemplate,
 )
 from handoffkit.recipes.media import (
     MEDIA_OPERATIONS,
@@ -56,25 +85,11 @@ from handoffkit.recipes.media import (
     write_srt,
     write_transcript_json,
 )
-from handoffkit.memory import JsonMemoryStore, MemoryItem, MemoryReport, MemoryStore
-from handoffkit.protocol import HandoffProtocol
-from handoffkit.provider_adapters import (
-    ProviderCapabilities,
-    ProviderToolAdapter,
-    ProviderToolFormat,
-    ToolCallParser,
-)
-from handoffkit.quality import (
-    HandoffQualityEvaluator,
-    HandoffQualityMetric,
-    HandoffQualityReport,
-)
-from handoffkit.recipes import (
-    Recipe,
-    RecipeRunner,
-    RecipeRunResult,
-    RecipeStep,
-    WorkflowTemplate,
+from handoffkit.recipes.showcases import (
+    ShowcaseResult,
+    build_showcase,
+    run_showcase,
+    showcase_names,
 )
 from handoffkit.replay import ReplayRunner, ReplaySummary
 from handoffkit.reports import (
@@ -84,7 +99,13 @@ from handoffkit.reports import (
     write_report_html,
 )
 from handoffkit.runner import Team, TeamRunResult
-from handoffkit.recipes.showcases import ShowcaseResult, build_showcase, run_showcase, showcase_names
+from handoffkit.sandbox import (
+    SandboxError,
+    ToolSandbox,
+    get_sandbox,
+    reset_sandbox,
+    set_sandbox,
+)
 from handoffkit.structured import (
     JsonOutputParser,
     OutputRepairer,
@@ -109,23 +130,6 @@ from handoffkit.validation import (
     ValidationIssue,
     ValidationReport,
 )
-from handoffkit.cli import (
-    create_extension,
-    delete_key,
-    init_project,
-    init_project_interactive,
-    list_keys,
-    list_providers,
-    load_dynamic_extensions,
-    render_report,
-    run_demo,
-    run_named_showcase,
-    run_recipe_demo,
-    set_key,
-    write_project_report,
-)
-
-from handoffkit._version import __version__
 
 __all__ = [
     "Agent",

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
-from handoffkit.errors import ProviderExecutionError, ProviderConfigurationError
+from handoffkit.errors import ProviderConfigurationError, ProviderExecutionError
 from handoffkit.providers.base import BaseProvider
 
 
@@ -20,7 +20,9 @@ class FallbackProvider(BaseProvider):
     ) -> None:
         self.providers = [p for p in providers if p is not None]
         if not self.providers:
-            raise ProviderConfigurationError("FallbackProvider requires at least one underlying provider.")
+            raise ProviderConfigurationError(
+                "FallbackProvider requires at least one underlying provider."
+            )
         self.model = model or self.providers[0].model
 
     def generate(self, prompt: str, **kwargs: Any) -> str:
@@ -32,8 +34,11 @@ class FallbackProvider(BaseProvider):
             except Exception as exc:
                 errors.append(exc)
 
-        messages = "; ".join(f"[{getattr(e, 'provider', provider.__class__.__name__)}]: {str(e)}" for e, provider in zip(errors, self.providers))
-        raise ProviderExecutionError(f"All fallback providers failed: {messages}")
+        parts = []
+        for err, provider in zip(errors, self.providers, strict=True):
+            name = getattr(err, "provider", provider.__class__.__name__)
+            parts.append(f"[{name}]: {err}")
+        raise ProviderExecutionError(f"All fallback providers failed: {'; '.join(parts)}")
 
     async def agenerate(self, prompt: str, **kwargs: Any) -> str:
         """Asynchronously generate a response using the first working provider."""
@@ -44,5 +49,8 @@ class FallbackProvider(BaseProvider):
             except Exception as exc:
                 errors.append(exc)
 
-        messages = "; ".join(f"[{getattr(e, 'provider', provider.__class__.__name__)}]: {str(e)}" for e, provider in zip(errors, self.providers))
-        raise ProviderExecutionError(f"All fallback providers failed: {messages}")
+        parts = []
+        for err, provider in zip(errors, self.providers, strict=True):
+            name = getattr(err, "provider", provider.__class__.__name__)
+            parts.append(f"[{name}]: {err}")
+        raise ProviderExecutionError(f"All fallback providers failed: {'; '.join(parts)}")

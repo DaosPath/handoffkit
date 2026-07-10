@@ -12,13 +12,19 @@ from pathlib import Path
 
 from handoffkit._version import __version__
 from handoffkit.agent import Agent
-from handoffkit.recipes.builtins import plan_execute_review_recipe
 from handoffkit.benchmarks.doctor import run_doctor_benchmark as execute_doctor_benchmark
+from handoffkit.benchmarks.mai import run_mai_style_benchmark
+from handoffkit.context import ProjectIndexer
 from handoffkit.evaluation import WorkflowEvaluator
 from handoffkit.extensions import Extension, ExtensionRegistry
-from handoffkit.recipes.fusion import run_fusion_demo
 from handoffkit.handoff import HandoffState
-from handoffkit.benchmarks.mai import run_mai_style_benchmark
+from handoffkit.protocol import HandoffProtocol
+from handoffkit.provider_adapters import ProviderToolAdapter
+from handoffkit.providers import BaseProvider, ProviderSelector
+from handoffkit.quality import HandoffQualityEvaluator
+from handoffkit.recipes import RecipeRunner
+from handoffkit.recipes.builtins import plan_execute_review_recipe
+from handoffkit.recipes.fusion import run_fusion_demo
 from handoffkit.recipes.media import (
     MediaAsset,
     MediaWorkflowReport,
@@ -36,16 +42,15 @@ from handoffkit.recipes.media import (
     write_srt,
     write_transcript_json,
 )
-from handoffkit.context import ProjectIndexer
-from handoffkit.protocol import HandoffProtocol
-from handoffkit.provider_adapters import ProviderToolAdapter
-from handoffkit.providers import BaseProvider, ProviderSelector
-from handoffkit.quality import HandoffQualityEvaluator
-from handoffkit.recipes import RecipeRunner
+from handoffkit.recipes.showcases import (
+    build_showcase,
+    load_showcase_report,
+    run_showcase,
+    showcase_names,
+)
 from handoffkit.replay import ReplayRunner
 from handoffkit.reports import load_report_json, write_report_files, write_report_html
 from handoffkit.runner import Team
-from handoffkit.recipes.showcases import build_showcase, load_showcase_report, run_showcase, showcase_names
 from handoffkit.structured import StructuredOutputSchema
 from handoffkit.templates import TemplateScaffolder
 from handoffkit.tool import tool
@@ -908,10 +913,14 @@ def init_project_interactive(
                 pass
 
     import json
-    config = {
-        "provider": provider,
-        "model": "gpt-4o-mini" if provider == "openai" else ("meta/llama-3.1-8b-instruct" if provider == "nvidia" else "default")
-    }
+
+    if provider == "openai":
+        model = "gpt-4o-mini"
+    elif provider == "nvidia":
+        model = "meta/llama-3.1-8b-instruct"
+    else:
+        model = "default"
+    config = {"provider": provider, "model": model}
     config_path = target_dir / "handoff.config.json"
     config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
@@ -919,7 +928,7 @@ def init_project_interactive(
         f"\n## Next Commands\n\n"
         f"cd {name}\n"
         f"Configured provider: {provider}\n"
-        + (f"Saved API Key to .env\n" if api_key else "No API Key saved\n")
+        + ("Saved API Key to .env\n" if api_key else "No API Key saved\n")
     )
     return rendered
 
@@ -1049,8 +1058,10 @@ def create_extension(name: str, output: str = ".", force: bool = False) -> str:
     """Scaffold a custom HandoffKit extension directory."""
     ext_dir = Path(output) / name
     if ext_dir.exists() and not force:
-        raise FileExistsError(f"Extension directory {ext_dir} already exists. Use --force to overwrite.")
-        
+        raise FileExistsError(
+            f"Extension directory {ext_dir} already exists. Use --force to overwrite."
+        )
+
     ext_dir.mkdir(parents=True, exist_ok=True)
     
     init_content = f'''from handoffkit.extensions import Extension
@@ -1107,8 +1118,8 @@ def load_dynamic_extensions(registry: ExtensionRegistry) -> None:
     if not isinstance(extensions, list):
         return
         
-    import sys
     import importlib.util
+    import sys
     
     for ext_path_str in extensions:
         p = Path(ext_path_str)
@@ -1122,20 +1133,21 @@ def load_dynamic_extensions(registry: ExtensionRegistry) -> None:
                     sys.path.insert(0, parent_dir)
                     
                 if (ext_dir / "__init__.py").exists():
-                    spec = importlib.util.spec_from_file_location(module_name, str(ext_dir / "__init__.py"))
+                    init_path = str(ext_dir / "__init__.py")
+                    spec = importlib.util.spec_from_file_location(module_name, init_path)
                 else:
                     spec = importlib.util.spec_from_file_location(module_name, str(ext_dir))
-                    
+
                 if spec and spec.loader:
                     mod = importlib.util.module_from_spec(spec)
                     sys.modules[module_name] = mod
                     spec.loader.exec_module(mod)
                     if hasattr(mod, "extension"):
-                        registry.register(getattr(mod, "extension"))
+                        registry.register(mod.extension)
             else:
                 mod = importlib.import_module(ext_path_str)
                 if hasattr(mod, "extension"):
-                    registry.register(getattr(mod, "extension"))
+                    registry.register(mod.extension)
         except Exception as exc:
             print(f"Warning: Failed to load extension '{ext_path_str}': {exc}")
 
@@ -1263,8 +1275,18 @@ def main(argv: list[str] | None = None) -> int:
     report_parser.add_argument("--html", action="store_true", help="Write a polished HTML report.")
     report_parser.add_argument("--output", default=None, help="Output path for --html.")
     init_parser = subparsers.add_parser("init", help="Scaffold a HandoffKit starter project.")
-    init_parser.add_argument("project_name", nargs="?", default=None, help="Project directory name.")
-    init_parser.add_argument("--interactive", "-i", action="store_true", help="Scaffold interactively.")
+    init_parser.add_argument(
+        "project_name",
+        nargs="?",
+        default=None,
+        help="Project directory name.",
+    )
+    init_parser.add_argument(
+        "--interactive",
+        "-i",
+        action="store_true",
+        help="Scaffold interactively.",
+    )
     init_parser.add_argument("--template", default=None, help="Template name.")
     init_parser.add_argument("--output", default=".", help="Parent output directory.")
     init_parser.add_argument("--force", action="store_true", help="Overwrite existing files.")
@@ -1304,7 +1326,7 @@ def main(argv: list[str] | None = None) -> int:
     keys_delete_parser = keys_subparsers.add_parser("delete", help="Delete a local key.")
     keys_delete_parser.add_argument("name", help="Key name.")
     
-    keys_list_parser = keys_subparsers.add_parser("list", help="List configured keys.")
+    keys_subparsers.add_parser("list", help="List configured keys.")
 
     args = parser.parse_args(argv)
 

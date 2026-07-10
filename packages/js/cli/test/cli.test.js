@@ -27,7 +27,7 @@ test("version and help work offline", async () => {
 
   const child = spawnSync(process.execPath, [binPath, "--version"], { encoding: "utf8" });
   assert.equal(child.status, 0);
-  assert.match(child.stdout, /handoffkit-js 1\.12\.0/);
+  assert.match(child.stdout, new RegExp(`handoffkit-js ${VERSION.replace(/\./g, "\\.")}`));
 });
 
 test("basic and recipe demos use JS core offline", async () => {

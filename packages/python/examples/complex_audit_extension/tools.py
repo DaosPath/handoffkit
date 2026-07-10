@@ -1,5 +1,6 @@
 from handoffkit.tool import tool
 
+
 @tool
 def query_database(user_id: str) -> str:
     """Query user profile information from the database."""

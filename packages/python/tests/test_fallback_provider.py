@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from handoffkit.errors import ProviderExecutionError
-from handoffkit.providers import EchoProvider, FallbackProvider, BaseProvider
+from handoffkit.providers import BaseProvider, EchoProvider, FallbackProvider
 
 
 class BrokenProvider(BaseProvider):

@@ -1,0 +1,129 @@
+{
+  "success": true,
+  "source": {
+    "path": "(none)",
+    "media_type": "unknown",
+    "language": "",
+    "duration_seconds": null,
+    "metadata": {}
+  },
+  "target_language": "es",
+  "transcript_segments": [
+    {
+      "index": 1,
+      "start": 0.0,
+      "end": 2.0,
+      "text": "Welcome to HandoffKit media workflows.",
+      "speaker": "NARR",
+      "language": "en",
+      "metadata": {
+        "edition": "rewrite"
+      }
+    },
+    {
+      "index": 2,
+      "start": 2.0,
+      "end": 5.0,
+      "text": "Pass structured context between stages.",
+      "speaker": "NARR",
+      "language": "en",
+      "metadata": {}
+    }
+  ],
+  "speakers": [],
+  "dubbing_segments": [],
+  "output_files": [
+    "examples\\output\\media_context_demo\\media_context_edition.json",
+    "examples\\output\\media_context_demo\\handoff_to_validator.json"
+  ],
+  "warnings": [],
+  "metadata": {
+    "operation": "edition",
+    "history": [
+      "creation",
+      "generation"
+    ],
+    "next_operations": [
+      "validation",
+      "publication"
+    ],
+    "brief": "Short product explainer with bilingual captions",
+    "media_context": {
+      "operation": "edition",
+      "brief": "Short product explainer with bilingual captions",
+      "target_language": "es",
+      "source": null,
+      "assets": [
+        {
+          "path": "examples/output/media_context_demo/script.txt",
+          "media_type": "text",
+          "language": "en",
+          "duration_seconds": null,
+          "metadata": {}
+        }
+      ],
+      "transcript_segments": [
+        {
+          "index": 1,
+          "start": 0.0,
+          "end": 2.0,
+          "text": "Welcome to HandoffKit media workflows.",
+          "speaker": "NARR",
+          "language": "en",
+          "metadata": {
+            "edition": "rewrite"
+          }
+        },
+        {
+          "index": 2,
+          "start": 2.0,
+          "end": 5.0,
+          "text": "Pass structured context between stages.",
+          "speaker": "NARR",
+          "language": "en",
+          "metadata": {}
+        }
+      ],
+      "speakers": [],
+      "dubbing_segments": [],
+      "generation_prompts": [
+        "Narrate a 30s product explainer in a calm tone",
+        "Keep claims factual; no music under speech"
+      ],
+      "edition_ops": [
+        {
+          "op_type": "rewrite",
+          "target": "1",
+          "payload": {
+            "text": "Welcome to HandoffKit media workflows."
+          },
+          "notes": []
+        }
+      ],
+      "constraints": [
+        "define audience, length, format, and rights",
+        "prefer explicit handoffs over free-text summaries"
+      ],
+      "history": [
+        "creation",
+        "generation"
+      ],
+      "next_operations": [
+        "validation",
+        "publication"
+      ],
+      "warnings": [],
+      "output_files": [],
+      "metadata": {
+        "phase": "creation",
+        "pipeline": "from_scratch",
+        "last_handoff": {
+          "from_agent": "media-generator",
+          "to_agent": "media-editor",
+          "from_operation": "generation",
+          "to_operation": "edition"
+        }
+      }
+    }
+  }
+}
