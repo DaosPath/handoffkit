@@ -26,25 +26,25 @@ Status legend: **Done** · **In progress** · **Planned** · **Later**
 | Item | Status | Notes |
 |------|--------|-------|
 | Split `cli.py` | **Done** | Implementation under `handoffkit/_cli/` (demos, media, project, main); thin `cli.py` facade |
-| Split JS `core/index.js` | **Partial** | Layout notes; full multi-file split deferred until inter-module deps green in CI |
+| Split JS `core/index.js` | **Done** | Modular sibling modules + `index.js` facade; tests green |
 | Medical datasets out of `.py` | **Done** | JSON under `handoffkit/benchmarks/data/`; loaders stay thin |
 | Freeze smaller public API | **Done** | `PUBLIC_API.md` tiers: Stable / Extended / Experimental |
 | Deprecation policy | **Done** | `packages/python/docs/DEPRECATION.md` + release cadence |
-| Studio: DB, auth, workspaces | **Foundation** | `apps/web/src/lib/studio/{db,auth,workspace}.ts` file-backed, DB-ready interfaces |
+| Studio: DB, auth, workspaces | **Done (v1)** | Wired into MAI panel run save/list APIs; file-backed, DB-ready |
 | Fix Rust / C++ docs | **Done** | Clear “under construction” READMEs (UTF-8) |
 | Fewer releases, consolidated changelogs | **Done** | Documented in DEPRECATION.md |
 
-### P2 — external credibility (**Later**)
+### P2 — external credibility (**In progress / foundation**)
 
-| Item | Status |
-|------|--------|
-| Independent benchmark | Later |
-| External use cases | Later |
-| Reproducible comparison vs LangGraph, AutoGen, CrewAI, OpenAI Agents SDK | Later |
-| Cost / latency / context-loss / recovery metrics | Later |
-| Open contributions + issues hygiene | Later |
-| Second maintainer | Later |
-| Published threat model | Later |
+| Item | Status | Notes |
+|------|--------|-------|
+| Independent benchmark | **Foundation** | `docs/EXTERNAL_BENCHMARK.md` + Studio `export=benchmark` |
+| External use cases | **Docs** | Integration guides + comparison table |
+| Comparison vs LangGraph / AutoGen / CrewAI / OpenAI Agents SDK | **Foundation** | Same-task protocol in EXTERNAL_BENCHMARK.md |
+| Cost / latency / context-loss / recovery metrics | **Done** | `handoffkit.benchmarks.metrics` |
+| Open contributions + issues hygiene | **Done** | Root `CONTRIBUTING.md` |
+| Second maintainer | **Policy** | Stated goal in CONTRIBUTING (onboarding pending people) |
+| Published threat model | **Done** | `docs/THREAT_MODEL.md` |
 
 ---
 

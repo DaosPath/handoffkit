@@ -4,8 +4,9 @@ import {
   exportBenchmarkCorpus,
   getStoredRun,
   listStoredRuns,
-  saveStoredRun,
+  saveStoredRunWithStudio,
 } from "@/lib/studio/run-history";
+import { studioDb } from "@/lib/studio/db";
 
 export const runtime = "nodejs";
 
@@ -23,12 +24,19 @@ export async function GET(request: Request) {
     200,
     Math.max(1, Number(searchParams.get("limit") || 40))
   );
+  const workspace = await studioDb.ensureDefaultWorkspace();
+  const session = await studioDb.auth.getSession();
+  const workspaceId =
+    searchParams.get("workspaceId") ||
+    session?.workspaceId ||
+    workspace.id;
 
   if (exp === "benchmark") {
     const corpus = exportBenchmarkCorpus(500);
     return NextResponse.json({
       ok: true,
       kind: "benchmark-corpus",
+      workspaceId,
       ...corpus,
       note: "Aggregated studio runs with benchmarkReady=true. Use for future public benchmarks when volume is high.",
     });
@@ -42,12 +50,13 @@ export async function GET(request: Request) {
         { status: 404 }
       );
     }
-    return NextResponse.json({ ok: true, run });
+    return NextResponse.json({ ok: true, workspaceId, run });
   }
 
-  const runs = listStoredRuns(limit);
+  const runs = listStoredRuns(limit, { workspaceId });
   return NextResponse.json({
     ok: true,
+    workspaceId,
     count: runs.length,
     runs,
   });
@@ -72,7 +81,7 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    const stored = saveStoredRun(
+    const stored = await saveStoredRunWithStudio(
       buildStoredRun({
         result: body.result,
         casePreset: body.casePreset,
@@ -82,6 +91,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       id: stored.id,
+      workspaceId: stored.workspaceId,
       benchmarkReady: stored.benchmarkReady,
       rankings: stored.rankings.length,
     });

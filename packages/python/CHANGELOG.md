@@ -19,6 +19,13 @@
 - Public API tiers + `DEPRECATION.md` (Stable / Extended / Experimental, cadence).
 - Studio foundation: workspace store, auth stub, DB adapter interfaces (file-backed).
 - Rust and C++ READMEs rewritten (clear construction status).
+- JS `@handoffkit/core` modular split (`utils`, `contracts`, `tools`, `agent`, …).
+
+### P2 — credibility foundations
+
+- `handoffkit.benchmarks.metrics` (latency, cost, context-loss, recovery).
+- `docs/THREAT_MODEL.md`, root `CONTRIBUTING.md`, `docs/EXTERNAL_BENCHMARK.md`.
+- Studio MAI runs stamp `workspaceId`/`userId` via `saveStoredRunWithStudio`.
 
 ## 1.13.0
 

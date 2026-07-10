@@ -1,13 +1,27 @@
-﻿# @handoffkit/core source layout (P1)
+# @handoffkit/core source layout
 
-The public entry remains `index.js` (single bundle for Node resolution + types).
+Modular split (P1/P2) — public entry remains `index.js`.
 
-**Planned incremental split** (same export surface):
-- `contracts.js` — HandoffState, Validation*, ContractParity
-- `runtime.js` — Agent, Team, Protocol
-- `tools.js` — Tool*, safety
-- `memory.js` / `extensions.js` / `evaluation.js`
+| Module | Responsibility |
+|--------|----------------|
+| `utils.js` | Constants, pure helpers, JSON helpers, version |
+| `contracts.js` | HandoffState, Validation*, ContractParity |
+| `providers-core.js` | BaseProvider, Echo, OpenAI, Ollama |
+| `safety.js` | Dangerous commands, approval helpers |
+| `tools.js` | Tool*, ToolRegistry, ProviderToolAdapter |
+| `agent.js` | Agent, AgentRunResult, ToolAgentRunResult |
+| `team.js` | HandoffProtocol, Team |
+| `quality.js` | HandoffQuality* |
+| `tracing.js` | Trace*, RunTrace, ReplayRunner |
+| `context.js` | Context* packs |
+| `evaluation.js` | WorkflowEvaluator |
+| `memory.js` | Memory* |
+| `extensions.js` | Extension* |
 
-Until the split lands with full inter-module imports and tests green,
-keep `index.js` as the canonical implementation. Do not reintroduce a
-half-split without updating `core.test.js`.
+`index.monolith.js` is a backup of the pre-split sources.  
+`split.mjs` regenerates modules from the monolith if needed.
+
+```bash
+cd packages/js/core
+pnpm test
+```
