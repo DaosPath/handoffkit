@@ -17,9 +17,19 @@ DANGEROUS_COMMAND_PATTERNS = (
     re.compile(r"\breboot\b", re.IGNORECASE),
     re.compile(r"\bmkfs(\.[a-z0-9]+)?\b", re.IGNORECASE),
     re.compile(r"\bdiskpart\b", re.IGNORECASE),
+    re.compile(r"\bcurl\s+[^\n]*\|\s*(sh|bash)\b", re.IGNORECASE),
+    re.compile(r"\bwget\s+[^\n]*\|\s*(sh|bash)\b", re.IGNORECASE),
 )
 
-APPROVAL_REQUIRED_TOOLS = {"run_command", "write_file"}
+# Mutating / high-impact tools require explicit approval by default (P0).
+APPROVAL_REQUIRED_TOOLS = frozenset(
+    {
+        "run_command",
+        "write_file",
+        "extract_audio",
+        "mux_audio",
+    }
+)
 
 
 def is_dangerous_command(command: str) -> bool:

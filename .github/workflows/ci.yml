@@ -30,11 +30,31 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
 
+      # P0: Ruff must pass before tests (blocks merge / release readiness)
+      - name: Run Ruff (blocking)
+        run: ruff check --no-cache .
+
       - name: Run tests
         run: pytest -q
 
-      - name: Run lint
-        run: ruff check .
+      - name: Tools + validation coverage gate
+        # Mandatory coverage for sandbox / shell / tool execution / validation (P0)
+        # (excludes medical/text helpers until those modules are split/refactored in P1)
+        run: >
+          pytest -q
+          tests/test_tool_execution.py
+          tests/test_shell_safety.py
+          tests/test_sandbox_policy.py
+          tests/test_validation.py
+          tests/test_contract_validation.py
+          --cov=handoffkit.tools.shell
+          --cov=handoffkit.tools.filesystem
+          --cov=handoffkit.tool_execution
+          --cov=handoffkit.safety
+          --cov=handoffkit.sandbox
+          --cov=handoffkit.validation
+          --cov-report=term-missing
+          --cov-fail-under=80
 
       - name: Build package
         run: python -m build

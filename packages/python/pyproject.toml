@@ -39,6 +39,7 @@ dependencies = []
 dev = [
   "build>=1.2.0",
   "pytest>=8.0.0",
+  "pytest-cov>=5.0.0",
   "ruff>=0.8.0",
   "setuptools>=77",
   "twine>=6.0.0",
@@ -59,6 +60,22 @@ include = ["handoffkit*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q -p no:cacheprovider"
+markers = [
+  "monorepo: needs full monorepo files (skipped in bare sdist layouts)",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["handoffkit"]
+omit = [
+  "handoffkit/cli.py",
+  "handoffkit/benchmarks/*",
+]
+
+[tool.coverage.report]
+fail_under = 0
+show_missing = true
+skip_covered = false
 
 [tool.ruff]
 line-length = 100

@@ -10,6 +10,7 @@ from typing import Any
 
 from handoffkit.errors import ToolExecutionError
 from handoffkit.safety import UnsafeToolCallError, is_dangerous_command, requires_approval
+from handoffkit.sandbox import SandboxError, get_sandbox
 from handoffkit.tool import Tool, ensure_tool
 
 
@@ -137,16 +138,16 @@ class ToolRegistry:
         """Return JSON-schema-style descriptions for all registered tools."""
         return [self._tools[name].to_schema() for name in self.list_tools()]
 
-    def execute(self, call: ToolCall, *, require_approval: bool = False) -> ToolResult:
-        """Execute one tool call and return a structured result."""
-        if require_approval and requires_approval(call.tool_name):
-            return ToolResult(
-                tool_name=call.tool_name,
-                success=False,
-                error="approval_required",
-                call_id=call.call_id,
-                metadata={"approval_required": True},
-            )
+    def execute(self, call: ToolCall, *, require_approval: bool | None = None) -> ToolResult:
+        """Execute one tool call and return a structured result.
+
+        Approvals default to the process sandbox policy (True by default, P0).
+        Pass ``require_approval=False`` only for trusted offline tests/demos.
+        """
+        policy = get_sandbox()
+        if require_approval is None:
+            require_approval = policy.require_approval
+        # Always evaluate safety before approval so unsafe commands are never queued.
         if call.tool_name == "run_command":
             command = str(call.arguments.get("command", ""))
             if is_dangerous_command(command):
@@ -157,6 +158,14 @@ class ToolRegistry:
                     call_id=call.call_id,
                     metadata={"unsafe": True},
                 )
+        if require_approval and requires_approval(call.tool_name):
+            return ToolResult(
+                tool_name=call.tool_name,
+                success=False,
+                error="approval_required",
+                call_id=call.call_id,
+                metadata={"approval_required": True, "sandbox": True},
+            )
         tool = self._tools.get(call.tool_name)
         if tool is None:
             return ToolResult(
@@ -172,6 +181,7 @@ class ToolRegistry:
                 success=True,
                 result=result,
                 call_id=call.call_id,
+                metadata={"sandbox": policy.sandbox_enabled},
             )
         except TypeError as exc:
             return ToolResult(
@@ -180,12 +190,13 @@ class ToolRegistry:
                 error=f"Invalid arguments for {call.tool_name}: {exc}",
                 call_id=call.call_id,
             )
-        except (ToolExecutionError, UnsafeToolCallError) as exc:
+        except (ToolExecutionError, UnsafeToolCallError, SandboxError, OSError) as exc:
             return ToolResult(
                 tool_name=call.tool_name,
                 success=False,
                 error=str(exc),
                 call_id=call.call_id,
+                metadata={"sandbox": policy.sandbox_enabled},
             )
 
 

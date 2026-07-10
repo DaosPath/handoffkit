@@ -21,10 +21,11 @@ CONTRACTS_ROOT = Path(__file__).resolve().parents[2] / "contracts"
 
 
 def load_fixture(name: str) -> dict[str, object]:
-    """Load a shared contract fixture or skip outside the monorepo."""
+    """Load a shared contract fixture or skip outside the monorepo / sdist."""
     path = CONTRACTS_ROOT / "fixtures" / name
     if not path.exists():
-        pytest.skip("shared contracts folder is not present in this source layout")
+        # Fallback: embedded package may ship fixtures later; skip bare sdist layouts.
+        pytest.skip("shared contracts folder is not present in this source layout (sdist-safe)")
     return json.loads(path.read_text(encoding="utf-8"))
 
 

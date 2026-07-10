@@ -154,18 +154,23 @@ def test_dangerous_command_blocked() -> None:
 
 
 def test_require_approval_blocks_write_and_shell() -> None:
+    """Approvals are on by default (P0); mutating tools need an explicit bypass."""
     output = fresh_test_output()
     registry = ToolRegistry([write_file, run_command])
     write_result = registry.execute(
         ToolCall("write_file", {"path": str(output / "x.txt"), "content": "x"}),
-        require_approval=True,
     )
     shell_result = registry.execute(
-        ToolCall("run_command", {"command": "echo hi"}),
-        require_approval=True,
+        ToolCall("run_command", {"command": f"{__import__('sys').executable} -c \"print(1)\""}),
     )
     assert write_result.error == "approval_required"
     assert shell_result.error == "approval_required"
+
+    ok = registry.execute(
+        ToolCall("write_file", {"path": str(output / "y.txt"), "content": "y"}),
+        require_approval=False,
+    )
+    assert ok.success is True
 
 
 def test_tool_execution_report_markdown_and_json() -> None:

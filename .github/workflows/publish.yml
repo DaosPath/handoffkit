@@ -9,8 +9,53 @@ permissions:
   contents: read
 
 jobs:
+  # P0: never publish if lint or core tests fail
+  quality-gate:
+    name: Ruff + tests (release gate)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/python
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install package and dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Run Ruff (blocking)
+        run: ruff check --no-cache .
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Tools + validation coverage gate
+        run: >
+          pytest -q
+          tests/test_tool_execution.py
+          tests/test_shell_safety.py
+          tests/test_sandbox_policy.py
+          tests/test_validation.py
+          tests/test_contract_validation.py
+          --cov=handoffkit.tools.shell
+          --cov=handoffkit.tools.filesystem
+          --cov=handoffkit.tool_execution
+          --cov=handoffkit.safety
+          --cov=handoffkit.sandbox
+          --cov=handoffkit.validation
+          --cov-report=term-missing
+          --cov-fail-under=80
+
   build:
     name: Build distributions
+    needs: quality-gate
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -90,6 +135,7 @@ jobs:
 
   publish-npm:
     name: Publish to npm
+    needs: quality-gate
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     permissions:

@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.14.0 (unreleased)
+
+### P0 — security & quality gates
+
+- Terminal tools run **without** `shell=True` (argv list only; shell metacharacters blocked).
+- Mandatory **tool sandbox**: workspace FS root (`HANDOFFKIT_WORKSPACE` or cwd).
+- Filesystem tools (`read_file` / `write_file` / `list_files` / `file_exists`) cannot escape the workspace.
+- **Approvals default on** for mutating tools (`run_command`, `write_file`, …).
+- CI runs **Ruff before tests**; Publish workflow has a blocking `quality-gate` (Ruff + tests + coverage).
+- Coverage gate (≥80%) for `tools`, `tool_execution`, `safety`, `sandbox`, `validation`.
+- Tests that need monorepo-only paths skip cleanly in bare sdist layouts.
+
+### P1 / P2
+
+- Tracked in root `ROADMAP.md` (cli split, smaller public API, Studio DB/auth, external benchmarks, threat model).
+
 ## 1.13.0
 
 - Media **context handoffs** for multi-stage workflows: `MediaContext`,

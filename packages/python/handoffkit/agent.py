@@ -104,7 +104,7 @@ class Agent:
         task: str,
         tools: Sequence[Tool | Callable[..., Any]] | None = None,
         max_steps: int = 5,
-        require_approval: bool = False,
+        require_approval: bool | None = None,
         tool_call_mode: str = "auto",
         provider_adapter: ProviderToolAdapter | None = None,
     ) -> ToolExecutionReport:
@@ -112,6 +112,8 @@ class Agent:
 
         EchoProvider uses a deterministic local command parser. Other providers
         can return JSON with `tool_calls` and/or `final`.
+
+        Approvals default to the process sandbox policy (``True`` by default).
         """
         if tool_call_mode not in {"auto", "deterministic", "provider_json"}:
             raise ValueError("tool_call_mode must be 'auto', 'deterministic', or 'provider_json'")
@@ -371,7 +373,7 @@ class Agent:
         task: str,
         tools: Sequence[Tool | Callable[..., Any]] | None = None,
         max_steps: int = 5,
-        require_approval: bool = False,
+        require_approval: bool | None = None,
         tool_call_mode: str = "auto",
         provider_adapter: ProviderToolAdapter | None = None,
     ) -> ToolExecutionReport:
@@ -391,7 +393,7 @@ class Agent:
         task: str,
         *,
         registry: ToolRegistry,
-        require_approval: bool,
+        require_approval: bool | None,
     ) -> ToolExecutionReport:
         """Run deterministic local tool calls for common file/shell tasks."""
         calls = self._infer_local_tool_calls(task, registry)
@@ -455,7 +457,7 @@ class Agent:
         *,
         registry: ToolRegistry,
         max_steps: int,
-        require_approval: bool,
+        require_approval: bool | None,
         provider_adapter: ProviderToolAdapter | None,
     ) -> ToolExecutionReport:
         """Run provider JSON tool-call loop."""

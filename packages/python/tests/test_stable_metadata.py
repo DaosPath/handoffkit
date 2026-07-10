@@ -13,6 +13,13 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PACKAGE_ROOT.parents[1]
 
 
+def _require_repo() -> None:
+    import pytest
+
+    if not (REPO_ROOT / ".github" / "workflows" / "ci.yml").is_file():
+        pytest.skip("monorepo paths not available (sdist-safe)")
+
+
 def test_pyproject_is_188_stable() -> None:
     data = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = data["project"]
@@ -24,6 +31,7 @@ def test_pyproject_is_188_stable() -> None:
 
 
 def test_ci_python_matrix_includes_310_to_314() -> None:
+    _require_repo()
     text = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
     for version in ["3.10", "3.11", "3.12", "3.13", "3.14"]:

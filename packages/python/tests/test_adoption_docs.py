@@ -4,9 +4,22 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _docs_root() -> Path:
+    # Prefer package-local docs (shipped in sdist); fall back to CWD monorepo layout.
+    if (PACKAGE_ROOT / "README.md").is_file():
+        return PACKAGE_ROOT
+    if Path("README.md").is_file():
+        return Path(".")
+    pytest.skip("package docs not present (sdist-safe)")
+
 
 def test_readme_links_showcases_post_and_integrations() -> None:
-    text = Path("README.md").read_text(encoding="utf-8")
+    text = (_docs_root() / "README.md").read_text(encoding="utf-8")
 
     assert "docs/assets/handoffkit-showcases.svg" in text
     assert "docs/assets/coding-review-terminal.svg" in text
@@ -26,7 +39,7 @@ def test_readme_links_showcases_post_and_integrations() -> None:
 
 
 def test_context_soup_post_exists() -> None:
-    text = Path("docs/CONTEXT_SOUP_VS_CONTRACT_HANDOFFS.md").read_text(encoding="utf-8")
+    text = (_docs_root() / "docs/CONTEXT_SOUP_VS_CONTRACT_HANDOFFS.md").read_text(encoding="utf-8")
 
     assert "Context Soup" in text
     assert "HandoffState" in text
@@ -50,14 +63,15 @@ def test_integration_docs_are_explicit_and_offline() -> None:
             "Copy/Paste Adapter",
         ],
     }
+    root = _docs_root()
     for filename, terms in docs.items():
-        text = (Path("docs") / "integrations" / filename).read_text(encoding="utf-8")
+        text = (root / "docs" / "integrations" / filename).read_text(encoding="utf-8")
         for term in terms:
             assert term in text
 
 
 def test_launch_kit_has_channel_specific_copy() -> None:
-    text = Path("docs/launch/CONTEXT_SOUP_LAUNCH_KIT.md").read_text(encoding="utf-8")
+    text = (_docs_root() / "docs/launch/CONTEXT_SOUP_LAUNCH_KIT.md").read_text(encoding="utf-8")
 
     for term in ["Hacker News", "r/Python", "r/LocalLLaMA", "X / Twitter", "LinkedIn"]:
         assert term in text
