@@ -1,6 +1,7 @@
 from handoffkit.extensions import Extension
-from .tools import query_database, verify_security_policy, post_audit_alert
+
 from .recipes import audit_recipe
+from .tools import post_audit_alert, query_database, verify_security_policy
 
 extension = Extension(
     name="complex_audit_extension",

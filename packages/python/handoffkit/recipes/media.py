@@ -1034,7 +1034,11 @@ def build_edition_context(
     return ctx
 
 
-def media_context_to_workflow_report(context: MediaContext, *, success: bool = True) -> MediaWorkflowReport:
+def media_context_to_workflow_report(
+    context: MediaContext,
+    *,
+    success: bool = True,
+) -> MediaWorkflowReport:
     """Fold a media context into the classic MediaWorkflowReport shape."""
     source = context.source or MediaAsset(path="(none)", media_type="unknown")
     return MediaWorkflowReport(

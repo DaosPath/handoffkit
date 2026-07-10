@@ -22,12 +22,12 @@ from handoffkit import (
     WorkflowTemplate,
     tool,
 )
+from handoffkit.providers import BaseProvider
 from handoffkit.recipes.builtins import (
     coding_review_recipe,
     plan_execute_review_recipe,
     research_summary_recipe,
 )
-from handoffkit.providers import BaseProvider
 
 ROOT = Path(__file__).resolve().parents[1]
 
