@@ -1,0 +1,29 @@
+name: Fix npm latest tags
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  retag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - name: Point latest dist-tag to 1.12.0
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -e
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+          for pkg in core node cli providers recipes templates; do
+            echo "tagging @handoffkit/${pkg}@1.12.0 as latest"
+            npm dist-tag add "@handoffkit/${pkg}@1.12.0" latest
+            npm dist-tag ls "@handoffkit/${pkg}"
+          done
