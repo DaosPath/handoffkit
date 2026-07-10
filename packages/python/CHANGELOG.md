@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.14.0 (unreleased)
+## 1.14.0
 
 ### P0 — security & quality gates
 

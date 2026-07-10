@@ -74,4 +74,4 @@ def test_new_public_helpers_import_from_public_namespace() -> None:
 def test_version_is_188() -> None:
     from handoffkit import __version__  # noqa: PLC0415
 
-    assert __version__ == "1.13.0"
+    assert __version__ == "1.14.0"

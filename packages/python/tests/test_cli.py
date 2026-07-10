@@ -51,7 +51,7 @@ def test_cli_version(capsys) -> None:  # type: ignore[no-untyped-def]
     captured = capsys.readouterr()
 
     assert exc_info.value.code == 0
-    assert "handoffkit 1.13.0" in captured.out
+    assert "handoffkit 1.14.0" in captured.out
 
 
 def test_run_demo_reports_handoff_count() -> None:
@@ -358,7 +358,7 @@ def test_keys_management_cli(tmp_path, monkeypatch, capsys) -> None:  # type: ig
 
 
 # ---------------------------------------------------------------------------
-# Extension scaffolding & dynamic loading tests (v1.13.0)
+# Extension scaffolding & dynamic loading tests (v1.14.0)
 # ---------------------------------------------------------------------------
 
 def test_create_extension_scaffolds_files(tmp_path) -> None:  # type: ignore[no-untyped-def]
