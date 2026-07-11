@@ -1,8 +1,8 @@
-# Packages
+﻿# Packages
 
 Workspace packages live here.
 
-**Parity:** public Python ↔ JavaScript runtime surface ships **1:1** (same
+**Parity:** public Python â†” JavaScript runtime surface ships **1:1** (same
 release, snake_case wire JSON). See `python/docs/API_STABILITY.md`.
 
 - `python/`: published Python package (`handoffkit` on PyPI).

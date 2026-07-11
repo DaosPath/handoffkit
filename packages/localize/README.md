@@ -1,4 +1,4 @@
-# handoffkit-localize
+﻿# handoffkit-localize
 
 **Public** multi-agent game localization CLI + rich TUI for [HandoffKit](https://github.com/DaosPath/handoffkit).
 
@@ -79,4 +79,4 @@ Chat-fix          residual issues
 
 ## License
 
-MIT
+Same as HandoffKit monorepo (see repository root).
