@@ -2,14 +2,14 @@
 
 **Public** multi-agent game localization CLI + rich TUI for [HandoffKit](https://github.com/DaosPath/handoffkit).
 
-- Includes a short PG sample game for demos
+- Includes a short **PG** sample game for demos (`hk-localize sample-init` / `play`)
 - Multi-engine: RPG Maker MV/MZ, Ren'Py, Unity (loose assets), Godot, generic
 - Multi-provider via HandoffKit (OpenCode, Groq, NVIDIA, …)
 - Heuristic quality scores (transparent, not LLM “magic scores”)
 - Rich **Textual** TUI + classic CLI
 
-> This package ships a short PG sample; your own game files stay local.  
-
+Point `hk-localize set-game` at any supported game folder on your machine.  
+This package ships only the PG sample; your own game files stay local and are not part of the published package.
 
 ## Install
 

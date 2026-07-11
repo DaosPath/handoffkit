@@ -9,7 +9,7 @@ multi-agent workflows, **offline-friendly tests**, and **Python ↔ JS parity**.
 2. Read `packages/python/docs/DEPRECATION.md`.
 3. For security-sensitive changes, read `packages/python/docs/THREAT_MODEL.md`.
 4. Follow monorepo rules in local `AGENTS.md` when present (workspace layout,
-   keep public samples PG-rated only).
+   keep public samples PG-rated; never commit private game assets or secrets).
 
 ## Development setup
 

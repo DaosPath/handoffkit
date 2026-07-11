@@ -6,7 +6,7 @@ Workspace packages live here.
 release, snake_case wire JSON). See `python/docs/API_STABILITY.md`.
 
 - `python/`: published Python package (`handoffkit` on PyPI).
-- `localize/`: public game i18n app (`handoffkit-localize` / `hk-localize`) — PG samples, multi-engine, Textual TUI. Ships a multi-engine TUI and a short PG sample demo.
+- `localize/`: public game i18n app (`handoffkit-localize` / `hk-localize`) — multi-engine, Textual TUI, PG sample demo.
 - `contracts/`: shared JSON schemas and canonical fixtures used by Python,
   JavaScript, Rust, and C++ tests.
 - `js/core/`: browser-safe JavaScript/TypeScript contract layer
