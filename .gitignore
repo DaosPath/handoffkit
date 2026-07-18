@@ -71,3 +71,7 @@ apps/*/.data/
 packages/*/node_modules/
 packages/*/dist/
 packages/*/target/
+
+# Local agent terminal logs
+terminals/
+
