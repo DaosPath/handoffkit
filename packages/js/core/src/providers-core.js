@@ -22,6 +22,66 @@ export class EchoProvider extends BaseProvider {
   }
 }
 
+/** Always-fail provider for offline fallback demos/tests. */
+export class FailingProvider extends BaseProvider {
+  constructor({ model = "fail", message = "forced failure" } = {}) {
+    super({ model });
+    this.message = message;
+  }
+
+  generate() {
+    throw new Error(this.message);
+  }
+}
+
+/**
+ * Try providers in order until one succeeds (mirrors Python/C++ FallbackProvider).
+ */
+export class FallbackProvider extends BaseProvider {
+  constructor({ providers = [], model = "fallback" } = {}) {
+    const chain = (providers || []).filter(Boolean);
+    if (!chain.length) {
+      throw new Error("FallbackProvider requires at least one provider");
+    }
+    super({ model: model || chain[0].model || "fallback" });
+    this.providers = chain;
+    /** @type {string[]} */
+    this.lastErrors = [];
+    /** @type {string} */
+    this.selectedModel = "";
+  }
+
+  generate(prompt, kwargs = {}) {
+    this.lastErrors = [];
+    this.selectedModel = "";
+    for (const provider of this.providers) {
+      try {
+        const out = provider.generate(prompt, kwargs);
+        this.selectedModel = provider.model || provider.constructor?.name || "unknown";
+        return out;
+      } catch (err) {
+        this.lastErrors.push(`${provider.model || provider.constructor?.name}: ${err.message || err}`);
+      }
+    }
+    throw new Error(`All fallback providers failed: ${this.lastErrors.join("; ")}`);
+  }
+
+  async agenerate(prompt, kwargs = {}) {
+    this.lastErrors = [];
+    this.selectedModel = "";
+    for (const provider of this.providers) {
+      try {
+        const out = await provider.agenerate(prompt, kwargs);
+        this.selectedModel = provider.model || provider.constructor?.name || "unknown";
+        return out;
+      } catch (err) {
+        this.lastErrors.push(`${provider.model || provider.constructor?.name}: ${err.message || err}`);
+      }
+    }
+    throw new Error(`All fallback providers failed: ${this.lastErrors.join("; ")}`);
+  }
+}
+
 export class OpenAIProvider extends BaseProvider {
   constructor({
     model = "",

@@ -144,6 +144,18 @@ export class EchoProvider extends BaseProvider {
   constructor(init?: { model?: string });
 }
 
+export class FailingProvider extends BaseProvider {
+  message: string;
+  constructor(init?: { model?: string; message?: string });
+}
+
+export class FallbackProvider extends BaseProvider {
+  providers: BaseProvider[];
+  lastErrors: string[];
+  selectedModel: string;
+  constructor(init?: { providers?: BaseProvider[]; model?: string });
+}
+
 export class OpenAIProvider extends BaseProvider {
   apiKey: string;
   baseUrl: string;

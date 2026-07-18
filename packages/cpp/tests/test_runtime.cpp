@@ -9,7 +9,7 @@ using namespace handoffkit;
 namespace {
 
 void test_version_string() {
-    assert(std::string(version()) == "1.14.0");
+    assert(std::string(version()) == "1.14.1");
     std::cout << "test_version_string passed!" << std::endl;
 }
 

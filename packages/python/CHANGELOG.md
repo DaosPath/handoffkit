@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.14.1
+
+### Patch — native C++ core packaging + cross-runtime safety demos
+
+- **C++:** `handoffkit_core` vs demos/fusion split, `handoffkit::core` install consumer
+  (`examples/consumer_core`), FallbackProvider + usage metrics, default safe tools
+  (no shell), CI install/consumer smoke, release tarball path for GitHub assets.
+- **Python:** mini demo `examples/demos/core_runtime_safety_demo.py` (FallbackProvider +
+  offline text tools + Team hybrid_state).
+- **JS:** `FallbackProvider` / `FailingProvider` in `@handoffkit/core` +
+  `examples/core_runtime_safety_demo.js`.
+- **Rust:** `examples/core_runtime_safety.rs` (HandoffState wire round-trip).
+- Version bump across Python / JS / C++ / Rust package metadata.
+
 ## 1.14.0
 
 ### P0 — security & quality gates

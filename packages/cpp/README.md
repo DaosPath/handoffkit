@@ -257,7 +257,7 @@ Offline OpenAI response parsing is always available via `parse_openai_chat_compl
 
 ## Version
 
-`1.14.0` Ã¢â‚¬â€ keep `CMakeLists.txt`, `version.hpp`, and `conanfile.py` in sync.
+`1.14.1` — keep `CMakeLists.txt`, `version.hpp`, and `conanfile.py` in sync.
 
 ## Publishing / Trusted path
 

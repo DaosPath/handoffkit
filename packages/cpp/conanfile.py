@@ -6,7 +6,7 @@ import os
 
 class HandoffKitConan(ConanFile):
     name = "handoffkit"
-    version = "1.14.0"
+    version = "1.14.1"
     license = "MIT"
     author = "DaosPath <daospath@gmail.com>"
     url = "https://github.com/DaosPath/handoffkit"

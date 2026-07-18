@@ -1,6 +1,6 @@
 {
   "name": "handoffkit",
-  "version-string": "1.14.0",
+  "version-string": "1.14.1",
   "description": "Native C++20 multi-agent runtime with structured handoffs",
   "homepage": "https://github.com/DaosPath/handoffkit",
   "license": "MIT",

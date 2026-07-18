@@ -132,7 +132,7 @@ def test_contract_parity_report_covers_shared_contract_inventory() -> None:
 
     report = build_contract_parity_report(
         runtime="python",
-        version="1.14.0",
+        version="1.14.1",
         contracts_root=CONTRACTS_ROOT,
     )
 
@@ -151,7 +151,7 @@ def test_contract_parity_report_uses_embedded_inventory_when_installed(
 
     monkeypatch.setattr(contracts, "_default_contracts_root", lambda: tmp_path / "missing")
 
-    report = contracts.build_contract_parity_report(runtime="python", version="1.14.0")
+    report = contracts.build_contract_parity_report(runtime="python", version="1.14.1")
 
     assert report.success is True
     assert report.fixture_count == 7

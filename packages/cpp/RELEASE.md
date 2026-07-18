@@ -86,17 +86,17 @@ Reference app: `examples/consumer_core/`.
 - [ ] Optional: open Conan Center Index PR
 - [ ] Optional: open vcpkg port PR (template under `vcpkg-overlay/ports/handoffkit`)
 
-### After first GitHub Release publishes `handoffkit-cpp-1.14.0.tar.gz`
+### After GitHub Release publishes `handoffkit-cpp-1.14.1.tar.gz`
 
 1. Download `SHA256SUMS` from the release assets.
-2. Put the hash into `conandata.yml` → `sources."1.14.0".sha256`.
+2. Put the hash into `conandata.yml` → `sources."1.14.1".sha256`.
 3. Document FetchContent snippet in the release notes:
 
 ```cmake
 include(FetchContent)
 FetchContent_Declare(
   handoffkit
-  URL https://github.com/DaosPath/handoffkit/releases/download/v1.14.0/handoffkit-cpp-1.14.0.tar.gz
+  URL https://github.com/DaosPath/handoffkit/releases/download/v1.14.1/handoffkit-cpp-1.14.1.tar.gz
   URL_HASH SHA256=<paste-from-SHA256SUMS>
 )
 # Prefer installing the tarball and find_package; or add_subdirectory after extract.
