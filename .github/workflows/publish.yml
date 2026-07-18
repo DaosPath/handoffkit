@@ -202,3 +202,85 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  quality-gate-cpp:
+    name: C++ cmake + ctest (release gate)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure C++ package
+        run: cmake -S packages/cpp -B packages/cpp/build -DCMAKE_BUILD_TYPE=Release -DHANDOFFKIT_WITH_HTTP=OFF
+
+      - name: Build C++ package
+        run: cmake --build packages/cpp/build --config Release
+
+      - name: Test C++ package
+        run: ctest --test-dir packages/cpp/build -C Release --output-on-failure
+
+  build-cpp-release-asset:
+    name: Build C++ source tarball
+    needs: [quality-gate, quality-gate-cpp]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure packaging build
+        run: >
+          cmake -S packages/cpp -B packages/cpp/build-package
+          -DCMAKE_BUILD_TYPE=Release
+          -DHANDOFFKIT_BUILD_TESTS=OFF
+          -DHANDOFFKIT_BUILD_EXAMPLES=OFF
+
+      - name: Create source tarball
+        run: cmake --build packages/cpp/build-package --target package_source_tarball --config Release
+
+      - name: Resolve version
+        id: ver
+        run: |
+          VER=$(grep -E '^project\(handoffkit VERSION' packages/cpp/CMakeLists.txt | sed -E 's/.*VERSION ([0-9.]+).*/\1/')
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          ls -la packages/cpp/build-package/handoffkit-cpp-*.tar.gz packages/cpp/build-package/SHA256SUMS
+
+      - name: Upload C++ release assets (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: handoffkit-cpp-release
+          path: |
+            packages/cpp/build-package/handoffkit-cpp-*.tar.gz
+            packages/cpp/build-package/SHA256SUMS
+
+  publish-cpp-release-assets:
+    name: Attach C++ assets + OIDC attestation
+    needs: build-cpp-release-asset
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    environment:
+      name: cpp-release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download C++ assets
+        uses: actions/download-artifact@v4
+        with:
+          name: handoffkit-cpp-release
+          path: cpp-assets
+
+      - name: Upload assets to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            cpp-assets/handoffkit-cpp-*.tar.gz
+            cpp-assets/SHA256SUMS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attest build provenance (OIDC)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            cpp-assets/handoffkit-cpp-*.tar.gz

@@ -127,10 +127,23 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configure C++ package
-        run: cmake -S packages/cpp -B packages/cpp/build
+        run: >
+          cmake -S packages/cpp -B packages/cpp/build
+          -DCMAKE_BUILD_TYPE=Release
+          -DHANDOFFKIT_WITH_HTTP=OFF
 
       - name: Build C++ package
         run: cmake --build packages/cpp/build --config Release
 
       - name: Test C++ package
         run: ctest --test-dir packages/cpp/build -C Release --output-on-failure
+
+      - name: Package source tarball (smoke)
+        run: cmake --build packages/cpp/build --target package_source_tarball --config Release
+
+      - name: Install prefix smoke
+        run: |
+          cmake --install packages/cpp/build --prefix "$HOME/handoffkit-prefix" --config Release
+          test -f "$HOME/handoffkit-prefix/include/handoffkit/handoffkit.hpp"
+          test -f "$HOME/handoffkit-prefix/lib/cmake/handoffkit/HandoffKitConfig.cmake" \
+            || test -f "$HOME/handoffkit-prefix/lib64/cmake/handoffkit/HandoffKitConfig.cmake"

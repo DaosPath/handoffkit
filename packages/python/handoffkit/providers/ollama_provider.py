@@ -27,12 +27,29 @@ class OllamaProvider(BaseProvider):
 
     def generate(self, prompt: str, **kwargs: Any) -> str:
         """Generate text using Ollama's `/api/generate` endpoint."""
-        payload = {
-            "model": kwargs.pop("model", self.model),
+        model = kwargs.pop("model", self.model)
+        # Map common OpenAI-style kwargs → Ollama options
+        options: dict[str, Any] = dict(kwargs.pop("options", None) or {})
+        if "max_tokens" in kwargs:
+            options.setdefault("num_predict", int(kwargs.pop("max_tokens")))
+        if "temperature" in kwargs:
+            options.setdefault("temperature", float(kwargs.pop("temperature")))
+        keep_alive = kwargs.pop("keep_alive", "24h")
+        # Drop unknown OpenAI-ish keys that Ollama rejects at top level
+        for k in ("top_p", "stop", "frequency_penalty", "presence_penalty"):
+            kwargs.pop(k, None)
+
+        payload: dict[str, Any] = {
+            "model": model,
             "prompt": prompt,
             "stream": False,
-            **kwargs,
+            "keep_alive": keep_alive,
         }
+        if options:
+            payload["options"] = options
+        # Allow intentional extra Ollama fields (e.g. format, system)
+        payload.update(kwargs)
+
         data = json.dumps(payload).encode("utf-8")
         request = urllib.request.Request(
             f"{self.base_url}/api/generate",

@@ -115,7 +115,8 @@ Local file history is the **bootstrap**. Database history is the **prerequisite*
 | JS/TS core + monorepo packages | **Done** | `@handoffkit/core`, CLI, recipes, … |
 | OpenAI-compatible provider usage capture | **Done** | `lastUsage` for Studio cost estimates |
 | Rust contracts | **Done** | Full agent runtime still limited |
-| C++ contracts | **Done** | Full agent runtime still limited |
+| C++ contracts | **Done** | Wire types + fixture round-trips |
+| C++ runtime core | **Done (local)** | C++20 Agent/Team/Tools/Protocol/Validation/Trace + CMake install; Conan/vcpkg overlays; release tarball+attestations in publish.yml |
 | Go runtime package | **Planned** | README target `1.9.0`-era idea; keep if still desired |
 | Cross-runtime contract suite in CI | **In progress** | Python + JS + Rust + C++ + web jobs |
 
