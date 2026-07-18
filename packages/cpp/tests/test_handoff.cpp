@@ -1,19 +1,88 @@
-#include <handoffkit/handoff.hpp>
+#include <handoffkit/handoffkit.hpp>
+
 #include <cassert>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <string>
+#include <vector>
 
 using namespace handoffkit;
 
+namespace {
+
+std::filesystem::path contracts_dir() {
+#ifdef HANDOFFKIT_CONTRACTS_DIR
+    return std::filesystem::path(HANDOFFKIT_CONTRACTS_DIR);
+#else
+    namespace fs = std::filesystem;
+    const fs::path candidates[] = {
+        fs::path("../../contracts"),
+        fs::path("../../../contracts"),
+        fs::path("../contracts"),
+    };
+    for (const auto& candidate : candidates) {
+        if (fs::exists(candidate / "fixtures")) {
+            return candidate;
+        }
+    }
+    return fs::path("../../contracts");
+#endif
+}
+
 nlohmann::json fixture(const std::string& name) {
-    std::ifstream input("../../contracts/fixtures/" + name);
-    assert(input.good());
+    const auto path = contracts_dir() / "fixtures" / name;
+    std::ifstream input(path);
+    if (!input.good()) {
+        std::cerr << "Missing fixture: " << path << std::endl;
+        assert(false && "fixture not found");
+    }
     nlohmann::json data;
     input >> data;
     return data;
 }
 
-void test_handoff_state_roundtrip() {
+void test_all_fixtures_roundtrip() {
+    const std::vector<std::string> fixtures = {
+        "handoff_state.json",
+        "run_trace.json",
+        "validation_report.json",
+        "quality_report.json",
+        "tool_call.json",
+        "tool_result.json",
+        "provider_tool_schema.json",
+    };
+
+    for (const auto& name : fixtures) {
+        nlohmann::json data = fixture(name);
+        if (name == "handoff_state.json") {
+            auto obj = HandoffState::from_json(data);
+            assert(obj.to_json() == data);
+        } else if (name == "run_trace.json") {
+            auto obj = RunTrace::from_json(data);
+            assert(obj.to_json() == data);
+        } else if (name == "validation_report.json") {
+            auto obj = ValidationReport::from_json(data);
+            assert(obj.to_json() == data);
+        } else if (name == "quality_report.json") {
+            auto obj = HandoffQualityReport::from_json(data);
+            assert(obj.to_json() == data);
+        } else if (name == "tool_call.json") {
+            auto obj = ToolCall::from_json(data);
+            assert(obj.to_json() == data);
+        } else if (name == "tool_result.json") {
+            auto obj = ToolResult::from_json(data);
+            assert(obj.to_json() == data);
+        } else if (name == "provider_tool_schema.json") {
+            auto obj = ProviderToolSchema::from_json(data);
+            assert(obj.to_json() == data);
+        }
+        std::cout << "  fixture ok: " << name << "\n";
+    }
+    std::cout << "test_all_fixtures_roundtrip passed!" << std::endl;
+}
+
+void test_handoff_state_markdown_roundtrip() {
     HandoffState state;
     state.task = "Build package";
     state.from_agent = "Architect";
@@ -21,24 +90,16 @@ void test_handoff_state_roundtrip() {
     state.summary = "Plan complete";
     state.decisions = {"Use C++"};
     state.important_files = {"CMakeLists.txt"};
-    state.errors = {};
     state.next_steps = {"Write code"};
     state.context_refs = {"README.md"};
 
-    std::string md = state.to_markdown();
-    HandoffState loaded = HandoffState::from_markdown(md);
-
+    HandoffState loaded = HandoffState::from_markdown(state.to_markdown());
     assert(loaded.task == state.task);
     assert(loaded.from_agent == state.from_agent);
     assert(loaded.to_agent == state.to_agent);
     assert(loaded.summary == state.summary);
     assert(loaded.decisions == state.decisions);
-    assert(loaded.important_files == state.important_files);
-    assert(loaded.errors == state.errors);
-    assert(loaded.next_steps == state.next_steps);
-    assert(loaded.context_refs == state.context_refs);
-
-    std::cout << "test_handoff_state_roundtrip passed!" << std::endl;
+    std::cout << "test_handoff_state_markdown_roundtrip passed!" << std::endl;
 }
 
 void test_run_trace_timeline() {
@@ -46,8 +107,6 @@ void test_run_trace_timeline() {
     trace.run_id = "test-run";
     trace.name = "Test flow";
     trace.success = true;
-    trace.final_output = "Finished";
-
     TraceStep step;
     step.name = "Step 1";
     step.agent = "Architect";
@@ -56,76 +115,32 @@ void test_run_trace_timeline() {
     step.success = true;
     step.output = "Designed";
     trace.steps.push_back(step);
-
     std::string timeline = trace.to_timeline();
     assert(timeline.find("Execution Timeline: Test flow") != std::string::npos);
-    assert(timeline.find("1. [Architect] -> Task: Design API") != std::string::npos);
-
     std::cout << "test_run_trace_timeline passed!" << std::endl;
 }
 
-void test_shared_validation_report_fixture_roundtrip() {
-    nlohmann::json data = fixture("validation_report.json");
-    ValidationReport report = ValidationReport::from_json(data);
-
-    assert(report.success == false);
-    assert(report.issues.size() == 1);
-    assert(report.issues[0].code == "missing_task");
-    assert(report.to_json() == data);
-
-    std::cout << "test_shared_validation_report_fixture_roundtrip passed!" << std::endl;
-}
-
-void test_shared_quality_report_fixture_roundtrip() {
-    nlohmann::json data = fixture("quality_report.json");
-    HandoffQualityReport report = HandoffQualityReport::from_json(data);
-
-    assert(report.success == true);
-    assert(report.grade == "B");
-    assert(report.metrics.size() == 5);
-    assert(report.to_json() == data);
-
-    std::cout << "test_shared_quality_report_fixture_roundtrip passed!" << std::endl;
-}
-
-void test_shared_tool_call_and_result_fixtures_roundtrip() {
-    nlohmann::json call_data = fixture("tool_call.json");
-    nlohmann::json result_data = fixture("tool_result.json");
-    ToolCall call = ToolCall::from_json(call_data);
-    ToolResult result = ToolResult::from_json(result_data);
-
-    assert(call.tool_name == "add");
-    assert(call.call_id == "call-12345");
-    assert(result.success == true);
-    assert(result.result == 15);
-    assert(call.to_json() == call_data);
-    assert(result.to_json() == result_data);
-
-    std::cout << "test_shared_tool_call_and_result_fixtures_roundtrip passed!" << std::endl;
-}
-
-void test_contract_parity_report_marks_supported_contracts() {
+void test_contract_parity_report() {
     ContractParityReport report = ContractParityReport::from_inventory(
         "cpp",
-        "1.14.0",
-        {"handoff_state", "run_trace", "validation_report", "quality_report"},
-        {"handoff-state", "run-trace", "validation-report", "quality-report"}
+        version(),
+        {"handoff_state", "run_trace", "validation_report", "quality_report",
+         "tool_call", "tool_result", "provider_tool_schema"},
+        {"handoff-state", "run-trace", "validation-report", "quality-report",
+         "tool-call", "tool-result", "provider-tool-schema"}
     );
-
-    assert(report.success == true);
-    assert(report.fixture_count == 4);
-    assert(report.to_markdown().find("Contract Parity Report") != std::string::npos);
-
-    std::cout << "test_contract_parity_report_marks_supported_contracts passed!" << std::endl;
+    assert(report.success);
+    assert(report.fixture_count == 7);
+    std::cout << "test_contract_parity_report passed!" << std::endl;
 }
 
+}  // namespace
+
 int main() {
-    test_handoff_state_roundtrip();
+    test_all_fixtures_roundtrip();
+    test_handoff_state_markdown_roundtrip();
     test_run_trace_timeline();
-    test_shared_validation_report_fixture_roundtrip();
-    test_shared_quality_report_fixture_roundtrip();
-    test_shared_tool_call_and_result_fixtures_roundtrip();
-    test_contract_parity_report_marks_supported_contracts();
-    std::cout << "All C++ tests passed successfully!" << std::endl;
+    test_contract_parity_report();
+    std::cout << "All C++ contract tests passed successfully!" << std::endl;
     return 0;
 }

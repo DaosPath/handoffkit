@@ -17,4 +17,4 @@ release, snake_case wire JSON). See `python/docs/API_STABILITY.md`.
 - `js/next/`: reserved for future Next.js helpers.
 - `js/providers/`: reserved for future provider routing helpers.
 - `rust/`: Rust contract layer.
-- `cpp/`: C++ contract layer.
+- `cpp/`: C++20 runtime core + contract layer (CMake installable; Conan recipe local).

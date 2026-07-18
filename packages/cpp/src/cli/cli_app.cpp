@@ -1,0 +1,1126 @@
+#include <handoffkit/cli/cli_app.hpp>
+#include <handoffkit/demos/fusion/types.hpp>
+#include <handoffkit/demos/fusion/scenarios.hpp>
+#include <handoffkit/demos/fusion/audit_loc.hpp>
+#include <handoffkit/demos/fusion/cache.hpp>
+#include <handoffkit/demos/fusion/bench.hpp>
+#include <handoffkit/demos/fusion/engine.hpp>
+#include <handoffkit/demos/fusion/scenarios_deep.hpp>
+#include <handoffkit/demos/fusion/war_room.hpp>
+#include <handoffkit/core/quality.hpp>
+#include <handoffkit/core/validation.hpp>
+#include <handoffkit/demos/cases.hpp>
+#include <handoffkit/demos/demo_types.hpp>
+#include <handoffkit/evaluation/workflow_eval.hpp>
+#include <handoffkit/io/reports.hpp>
+#include <handoffkit/runtime/builtin_tools.hpp>
+#include <handoffkit/runtime/echo_provider.hpp>
+#include <handoffkit/runtime/providers.hpp>
+#include <handoffkit/runtime/orchestrator.hpp>
+#include <handoffkit/runtime/replay.hpp>
+#include <handoffkit/runtime/structured.hpp>
+#include <handoffkit/runtime/diff_score.hpp>
+#include <handoffkit/runtime/team.hpp>
+#include <handoffkit/runtime/trace.hpp>
+#include <handoffkit/explore/explorer.hpp>
+#include <handoffkit/explore/tools.hpp>
+#include <handoffkit/version.hpp>
+#include <handoffkit/workflows/templates.hpp>
+
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <sstream>
+
+namespace handoffkit {
+namespace cli {
+namespace {
+
+std::string require_arg(const std::vector<std::string>& args, std::size_t idx, const char* name) {
+    if (idx >= args.size()) {
+        return {};
+    }
+    return args[idx];
+}
+
+CliResult ok(std::string out) {
+    return CliResult{0, std::move(out), {}};
+}
+
+CliResult fail(int code, std::string err) {
+    return CliResult{code, {}, std::move(err)};
+}
+
+std::filesystem::path default_out_dir(const std::vector<std::string>& args) {
+    for (std::size_t i = 0; i + 1 < args.size(); ++i) {
+        if (args[i] == "--out") {
+            return args[i + 1];
+        }
+    }
+    return "runs/cpp-cli";
+}
+
+std::string optional_flag_value(const std::vector<std::string>& args, const std::string& flag) {
+    for (std::size_t i = 0; i + 1 < args.size(); ++i) {
+        if (args[i] == flag) {
+            return args[i + 1];
+        }
+    }
+    return {};
+}
+
+bool has_flag(const std::vector<std::string>& args, const std::string& flag) {
+    for (const auto& a : args) {
+        if (a == flag) return true;
+    }
+    return false;
+}
+
+CliResult cmd_help() {
+    return ok(help_text());
+}
+
+CliResult cmd_version() {
+    return ok(version_text());
+}
+
+CliResult cmd_list_demos() {
+    return ok(demos::list_demos_text());
+}
+
+CliResult cmd_list_cases(const std::vector<std::string>& args) {
+    const std::string domain = optional_flag_value(args, "--domain");
+    std::ostringstream ss;
+    ss << "case_corpus_size=" << demos::case_corpus_size() << "\n";
+    std::size_t shown = 0;
+    for (const auto& c : demos::case_corpus()) {
+        if (!domain.empty() && c.domain != domain) continue;
+        ss << c.id << "\t" << c.domain << "\t" << c.title << "\n";
+        if (++shown >= 40) {
+            ss << "... (" << demos::case_corpus_size() << " total; showing first matches)\n";
+            break;
+        }
+    }
+    return ok(ss.str());
+}
+
+CliResult cmd_demo(const std::vector<std::string>& args) {
+    if (args.size() < 2) {
+        return fail(2, "usage: demo <id> [--out DIR] [--case ID] [--no-write]\n" + demos::list_demos_text());
+    }
+    demos::DemoOptions opt;
+    opt.output_dir = default_out_dir(args);
+    opt.case_id = optional_flag_value(args, "--case");
+    opt.write_files = !has_flag(args, "--no-write");
+    auto result = demos::run_demo_by_id(args[1], opt);
+    if (!result) {
+        return fail(1, result.error().message + "\n");
+    }
+    std::ostringstream ss;
+    ss << result.value().to_markdown() << "\n";
+    ss << "JSON keys: task / final_output / handoffs present in report wire\n";
+    const auto wire = result.value().to_json();
+    ss << "wire.task=" << wire.value("task", "") << "\n";
+    ss << "wire.final_output_chars=" << wire.value("final_output", std::string{}).size() << "\n";
+    ss << "wire.handoffs=" << wire.at("handoffs").size() << "\n";
+    if (!result.value().artifact_paths.empty()) {
+        ss << "artifacts:\n";
+        for (const auto& p : result.value().artifact_paths) {
+            ss << "  - " << p << "\n";
+        }
+    }
+    if (!result.value().success) {
+        return CliResult{1, ss.str(), "demo reported success=false\n"};
+    }
+    return ok(ss.str());
+}
+
+CliResult cmd_team(const std::vector<std::string>& args) {
+    demos::DemoOptions opt;
+    opt.output_dir = default_out_dir(args);
+    opt.write_files = !has_flag(args, "--no-write");
+    if (args.size() >= 2 && args[1].rfind("-", 0) != 0) {
+        opt.case_id = args[1];
+    }
+    auto result = demos::run_team_handoff_demo(opt);
+    if (!result) return fail(1, result.error().message + "\n");
+    std::ostringstream ss;
+    ss << "final_output:\n" << result.value().final_output << "\n\n";
+    ss << "handoffs=" << result.value().handoffs.size() << "\n";
+    for (const auto& h : result.value().handoffs) {
+        ss << h.from_agent << " -> " << h.to_agent << "\n";
+    }
+    auto wire = result.value().to_json();
+    ss << "task=" << wire.value("task", "") << "\n";
+    return result.value().success ? ok(ss.str()) : fail(1, ss.str());
+}
+
+CliResult cmd_validate(const std::vector<std::string>& args) {
+    // Validate either a JSON file or a built-in good/bad sample.
+    HandoffStateValidator validator;
+    if (args.size() >= 2 && args[1] != "--sample-bad" && args[1] != "--sample-good") {
+        auto loaded = load_report_json(args[1]);
+        if (!loaded) return fail(1, loaded.error().message + "\n");
+        // Accept either handoff state or report containing handoffs[0]
+        nlohmann::json j = loaded.value();
+        HandoffState state;
+        if (j.contains("task") && j.contains("from_agent")) {
+            state = HandoffState::from_json(j);
+        } else if (j.contains("handoffs") && j["handoffs"].is_array() && !j["handoffs"].empty()) {
+            state = HandoffState::from_json(j["handoffs"][0]);
+        } else {
+            return fail(1, "JSON is not a handoff state or report with handoffs\n");
+        }
+        auto report = validator.validate(state);
+        return report.success ? ok(report.to_markdown() + "\n")
+                              : CliResult{1, report.to_markdown() + "\n", "validation failed\n"};
+    }
+    HandoffState state;
+    if (has_flag(args, "--sample-bad") || (args.size() >= 2 && args[1] == "--sample-bad")) {
+        state.task = "";
+        state.from_agent = "";
+        state.to_agent = "X";
+    } else {
+        state.task = "Validate sample handoff";
+        state.from_agent = "A";
+        state.to_agent = "B";
+        state.summary = "Sample strong enough summary with multiple words for clarity.";
+        state.decisions = {"Use offline validation"};
+        state.next_steps = {"Implement checks", "Run tests"};
+    }
+    auto report = validator.validate(state);
+    return report.success ? ok(report.to_markdown() + "\n")
+                          : CliResult{1, report.to_markdown() + "\n", "validation failed\n"};
+}
+
+CliResult cmd_quality(const std::vector<std::string>& args) {
+    HandoffState state;
+    state.task = "Score handoff quality offline";
+    state.from_agent = "Architect";
+    state.to_agent = "Coder";
+    state.summary = "Complete design for CLI commands, demos, and packaging with clear acceptance checks.";
+    state.decisions = {"Keep demos offline", "Prefer snake_case wire reports"};
+    state.important_files = {"packages/cpp/src/cli/cli_app.cpp"};
+    state.errors = {"None observed in Echo path"};
+    state.next_steps = {"Run ctest", "Write reports", "Review CLI help"};
+    state.context_refs = {"packages/cpp/README.md"};
+    if (args.size() >= 2 && args[1].rfind("--", 0) != 0) {
+        auto loaded = load_report_json(args[1]);
+        if (!loaded) return fail(1, loaded.error().message + "\n");
+        if (loaded.value().contains("task")) {
+            state = HandoffState::from_json(loaded.value());
+        }
+    }
+    auto report = HandoffQualityEvaluator{}.evaluate(state);
+    return ok(report.to_markdown() + "\n" + report.to_json().dump(2) + "\n");
+}
+
+CliResult cmd_tools(const std::vector<std::string>& args) {
+    ToolRegistry registry;
+    register_demo_toolbox(registry);
+    if (args.size() >= 2 && args[1] == "list") {
+        std::ostringstream ss;
+        for (const auto& name : builtin_tool_names()) {
+            ss << name << "\n";
+        }
+        return ok(ss.str());
+    }
+    auto demo = demos::run_tools_demo(demos::DemoOptions{
+        default_out_dir(args),
+        {},
+        !has_flag(args, "--no-write"),
+        ProtocolMode::HybridState,
+        {},
+    });
+    if (!demo) return fail(1, demo.error().message + "\n");
+    return ok(demo.value().to_markdown() + "\n" + demo.value().report.dump(2) + "\n");
+}
+
+CliResult cmd_report(const std::vector<std::string>& args) {
+    if (args.size() < 2) {
+        return fail(2, "usage: report <path.json>\n");
+    }
+    auto loaded = load_report_json(args[1]);
+    if (!loaded) return fail(1, loaded.error().message + "\n");
+    std::ostringstream ss;
+    ss << loaded.value().dump(2) << "\n";
+    for (const char* key : {"task", "final_output", "handoffs", "run_id", "steps"}) {
+        if (loaded.value().contains(key)) {
+            ss << "has_" << key << "=true\n";
+        }
+    }
+    return ok(ss.str());
+}
+
+CliResult cmd_doctor() {
+    std::ostringstream ss;
+    ss << "handoffkit C++ doctor\n";
+    ss << "version=" << version() << "\n";
+    ss << "demos=" << demos::demo_ids().size() << "\n";
+    ss << "cases=" << demos::case_corpus_size() << "\n";
+    ss << "tools=" << builtin_tool_names().size() << "\n";
+    ss << "templates=" << templates::template_ids().size() << "\n";
+    ss << "orchestrator_plans=" << Orchestrator::catalog().size() << "\n";
+    ss << "providers=" << list_provider_names().size() << "\n";
+#if defined(HANDOFFKIT_WITH_HTTP)
+    ss << "http_client=on\n";
+#else
+    ss << "http_client=off (rebuild -DHANDOFFKIT_WITH_HTTP=ON for live LLMs)\n";
+#endif
+    // quick self-check
+    auto demo = demos::run_team_handoff_demo(demos::DemoOptions{"", {}, false});
+    ss << "self_check_team=" << (demo && demo.value().success ? "ok" : "fail") << "\n";
+    auto echo = make_provider("echo");
+    ss << "self_check_echo=" << (echo ? "ok" : "fail") << "\n";
+    if (!demo) {
+        return fail(1, ss.str() + demo.error().message + "\n");
+    }
+    return ok(ss.str());
+}
+
+CliResult cmd_providers(const std::vector<std::string>& args) {
+    if (args.size() < 2 || args[1] == "list") {
+        return ok(list_providers_text());
+    }
+    if (args[1] == "show") {
+        if (args.size() < 3) return fail(2, "usage: providers show <name>\n");
+        auto cfg = get_provider_config(args[2]);
+        if (!cfg) return fail(1, cfg.error().message + "\n");
+        ProviderResolveOptions show_opt;
+        show_opt.allow_missing_key = true;
+        auto resolved = resolve_provider_settings(args[2], show_opt);
+        nlohmann::json out = cfg.value().to_json();
+        if (resolved) out["resolved"] = resolved.value().to_json();
+        return ok(out.dump(2) + "\n");
+    }
+    if (args[1] == "resolve") {
+        if (args.size() < 3) return fail(2, "usage: providers resolve <name> [--model M]\n");
+        ProviderResolveOptions opt;
+        opt.allow_missing_key = has_flag(args, "--allow-missing-key");
+        const auto model_flag = optional_flag_value(args, "--model");
+        if (!model_flag.empty()) opt.model = model_flag;
+        auto resolved = resolve_provider_settings(args[2], opt);
+        if (!resolved) return fail(1, resolved.error().message + "\n");
+        return ok(resolved.value().to_json().dump(2) + "\n");
+    }
+    // providers <name> as shortcut for show
+    auto cfg = get_provider_config(args[1]);
+    if (cfg) {
+        return cmd_providers({"providers", "show", args[1]});
+    }
+    return fail(2, "usage: providers [list|show <name>|resolve <name>]\n" + list_providers_text());
+}
+
+CliResult cmd_templates(const std::vector<std::string>& args) {
+    if (args.size() < 2 || args[1] == "list") {
+        return ok(templates::list_templates_text());
+    }
+    const std::string id = args[1];
+    const auto* tpl = templates::find_template(id);
+    if (!tpl) return fail(1, "unknown template: " + id + "\n" + templates::list_templates_text());
+
+    demos::DemoOptions opt;
+    opt.output_dir = default_out_dir(args);
+    opt.write_files = !has_flag(args, "--no-write");
+    // Reuse template gallery single-id via orchestrator/recipe path
+    if (tpl->use_orchestrator) {
+        std::vector<Agent> agents;
+        if (id == "support_escalation") {
+            agents = {
+                Agent("L1_Support", "Triages", EchoProvider().as_any()),
+                Agent("L2_Support", "Deep dive", EchoProvider().as_any()),
+                Agent("Incident_Commander", "IC", EchoProvider().as_any()),
+            };
+        } else if (id == "coding_review") {
+            agents = {
+                Agent("Author", "Author", EchoProvider().as_any()),
+                Agent("Reviewer", "Reviewer", EchoProvider().as_any()),
+                Agent("Maintainer", "Maintainer", EchoProvider().as_any()),
+            };
+        } else if (id == "research_digest") {
+            agents = {
+                Agent("Librarian", "Librarian", EchoProvider().as_any()),
+                Agent("Analyst", "Analyst", EchoProvider().as_any()),
+                Agent("Editor", "Editor", EchoProvider().as_any()),
+            };
+        } else if (id == "incident_response") {
+            agents = {
+                Agent("Oncall", "Oncall", EchoProvider().as_any()),
+                Agent("Comms", "Comms", EchoProvider().as_any()),
+                Agent("Scribe", "Scribe", EchoProvider().as_any()),
+            };
+        } else if (id == "product_spec") {
+            agents = {
+                Agent("PM", "PM", EchoProvider().as_any()),
+                Agent("Designer", "Designer", EchoProvider().as_any()),
+                Agent("TechLead", "TechLead", EchoProvider().as_any()),
+            };
+        } else {
+            return fail(1, "no agent roster mapping for template " + id + "\n");
+        }
+        Orchestrator orch(std::move(agents));
+        auto run = orch.run(tpl->orchestrator, "Run template " + id);
+        if (!run) return fail(1, run.error().message + "\n");
+        std::ostringstream ss;
+        ss << run.value().to_json().dump(2) << "\n";
+        ss << "task=" << run.value().task << "\n";
+        ss << "final_output_chars=" << run.value().final_output.size() << "\n";
+        ss << "handoffs=" << run.value().all_handoffs.size() << "\n";
+        if (opt.write_files) {
+            auto path = write_report_json(opt.output_dir / (id + ".json"), run.value().to_json());
+            if (path) ss << "artifact=" << path.value() << "\n";
+        }
+        return run.value().success ? ok(ss.str()) : fail(1, ss.str());
+    }
+
+    // recipe path
+    std::vector<Agent> agents;
+    for (const auto& step : tpl->recipe.steps) {
+        agents.emplace_back(step.agent_name, step.agent_name, EchoProvider().as_any());
+    }
+    // dedupe by name roughly via map
+    std::vector<Agent> unique;
+    for (auto& a : agents) {
+        bool found = false;
+        for (const auto& u : unique) if (u.name() == a.name()) found = true;
+        if (!found) unique.push_back(std::move(a));
+    }
+    RecipeRunner runner(std::move(unique));
+    auto run = runner.run(tpl->recipe, "Run template " + id);
+    if (!run) return fail(1, run.error().message + "\n");
+    std::ostringstream ss;
+    ss << run.value().to_json().dump(2) << "\n";
+    return run.value().success ? ok(ss.str()) : fail(1, ss.str());
+}
+
+CliResult cmd_evaluate(const std::vector<std::string>& args) {
+    demos::DemoOptions opt;
+    opt.write_files = false;
+    auto team = demos::run_team_handoff_demo(opt);
+    if (!team) return fail(1, team.error().message + "\n");
+    // Prefer trace evaluation (always has steps); also score handoffs.
+    auto eval = WorkflowEvaluator{}.evaluate_trace(team.value().trace);
+    auto handoff_eval = WorkflowEvaluator{}.evaluate_handoffs(team.value().handoffs);
+    TeamRunResult tr;
+    tr.task = team.value().task;
+    tr.final_output = team.value().final_output;
+    tr.handoffs = team.value().handoffs;
+    tr.success = team.value().success;
+    auto scorecard = build_scorecard(tr, team.value().trace, eval.score);
+    std::ostringstream ss;
+    ss << eval.to_markdown() << "\n## Handoff-only eval\n\n" << handoff_eval.to_markdown() << "\n";
+    ss << "## Scorecard\n\n" << scorecard.dump(2) << "\n";
+    nlohmann::json combined = {
+        {"trace_eval", eval.to_json()},
+        {"handoff_eval", handoff_eval.to_json()},
+        {"scorecard", scorecard},
+        {"task", team.value().task},
+        {"final_output", team.value().final_output},
+        {"handoffs", team.value().to_json().at("handoffs")},
+    };
+    if (args.size() >= 2 && args[1].rfind("-", 0) != 0) {
+        auto path = write_report_json(args[1], combined);
+        if (!path) return fail(1, path.error().message + "\n");
+        ss << "artifact=" << path.value() << "\n";
+    }
+    const bool ok_flag = eval.success || handoff_eval.success;
+    return ok_flag ? ok(ss.str()) : CliResult{1, ss.str(), "eval failed\n"};
+}
+
+CliResult cmd_replay(const std::vector<std::string>& args) {
+    if (args.size() < 2) {
+        return fail(2, "usage: replay <trace-or-demo.json> [--reexecute]\n");
+    }
+    ReplayOptions opt;
+    opt.reexecute_agents = has_flag(args, "--reexecute");
+    opt.revalidate_handoffs = true;
+    opt.rescore_quality = true;
+    std::vector<Agent> agents = {
+        Agent("Architect", "Designs", EchoProvider().as_any()),
+        Agent("Coder", "Implements", EchoProvider().as_any()),
+        Agent("Reviewer", "Reviews", EchoProvider().as_any()),
+    };
+    ReplayRunner runner(std::move(agents));
+    auto report = runner.replay_file(args[1], opt);
+    if (!report) return fail(1, report.error().message + "\n");
+    return report.value().success ? ok(report.value().to_markdown() + "\n" + report.value().to_json().dump(2) + "\n")
+                                  : CliResult{1, report.value().to_markdown() + "\n", "replay failed\n"};
+}
+
+CliResult cmd_fusion(const std::vector<std::string>& args) {
+    // fusion [--provider P] [--profile neutral|shipping|...] [--mode lean|ultra|dag]
+    //        [--tier lite|medium|pro|ultra|genius] [--model M] [--prompt "..."]
+    //        [--out DIR] [--ultra] [--no-cache] [--cache-dir D]
+    // fusion profiles | fusion modes | fusion tiers | fusion cache stats --cache-dir D
+    if (args.size() >= 2 && args[1] == "profiles") {
+        std::ostringstream ss;
+        for (const auto& n : demos::fusion::fusion_profile_names()) ss << n << "\n";
+        return ok(ss.str());
+    }
+    if (args.size() >= 2 && args[1] == "modes") {
+        std::ostringstream ss;
+        for (const auto& n : demos::fusion::fusion_mode_names()) ss << n << "\n";
+        return ok(ss.str());
+    }
+    if (args.size() >= 2 && args[1] == "tiers") {
+        std::ostringstream ss;
+        for (const auto& n : demos::fusion::fusion_tier_names()) {
+            auto t = demos::fusion::fusion_tier_from_string(n);
+            if (!t) continue;
+            const auto spec = demos::fusion::fusion_tier_spec(t.value());
+            ss << spec.id << "\t" << spec.display_name << "\t"
+               << "mode=" << demos::fusion::fusion_mode_to_string(spec.mode)
+               << " branches=" << spec.branch_count
+               << " planned_calls=" << spec.planned_llm_calls
+               << " pack=" << spec.capability.pack_id
+               << " depth=" << demos::fusion::fusion_prompt_depth_to_string(spec.capability.depth)
+               << " skills=" << spec.capability.skills.size()
+               << " tools=" << spec.capability.tool_slots.size()
+               << "\t" << spec.description << "\n";
+        }
+        return ok(ss.str());
+    }
+    if (args.size() >= 2 && args[1] == "cache") {
+        // fusion cache stats|clear --cache-dir D
+        std::string cdir = optional_flag_value(args, "--cache-dir");
+        if (cdir.empty()) cdir = (default_out_dir(args) / "fusion-cache").string();
+        demos::fusion::FusionCacheConfig cc;
+        cc.cache_dir = cdir;
+        demos::fusion::FusionCache cache(cc);
+        if (args.size() >= 3 && args[2] == "clear") {
+            auto r = cache.clear_all();
+            if (!r) return fail(1, r.error().message + "\n");
+            return ok("cleared cache_dir=" + cdir + "\n");
+        }
+        // stats: read by probing empty get then dump config path
+        (void)cache.get("__stats_probe__");
+        return ok(demos::fusion::format_cache_stats_markdown(cache.stats()) +
+                  "cache_dir=" + cdir + "\n");
+    }
+    if (args.size() >= 2 && args[1] == "bench") {
+        demos::fusion::FusionConfig cfg;
+        cfg.provider = optional_flag_value(args, "--provider");
+        if (cfg.provider.empty()) cfg.provider = "echo";
+        cfg.write_files = false;
+        cfg.cache.enabled = !has_flag(args, "--no-cache");
+        cfg.mode = demos::fusion::FusionMode::Lean;
+        cfg.profile = demos::fusion::FusionProfileId::Diagnostic;
+        std::string case_id = optional_flag_value(args, "--case");
+        std::vector<std::string> ids;
+        if (!case_id.empty()) ids.push_back(case_id);
+        auto batch = demos::fusion::run_bench_batch(ids, cfg);
+        if (!batch) return fail(1, batch.error().message + "\n");
+        return ok(batch.value().to_markdown() + "\n" + batch.value().to_json().dump(2) + "\n");
+    }
+    if (args.size() >= 2 && args[1] == "scenarios") {
+        auto base = demos::fusion::all_fusion_scenarios();
+        auto deep = demos::fusion::all_fusion_scenarios_deep();
+        std::ostringstream ss;
+        for (const auto& s : base) ss << s.id << "\t" << s.title << "\n";
+        for (const auto& s : deep) ss << s.id << "\t" << s.title << "\n";
+        if (args.size() >= 3 && args[2] == "run-all") {
+            auto all = demos::fusion::run_all_fusion_scenarios();
+            if (!all) return fail(1, all.error().message + "\n");
+            auto deep_all = demos::fusion::run_all_fusion_scenarios_deep();
+            if (!deep_all) return fail(1, deep_all.error().message + "\n");
+            int pass = 0;
+            int total = 0;
+            for (const auto& r : all.value()) {
+                ss << (r.passed ? "PASS" : "FAIL") << "\t" << r.id << "\t" << r.message << "\n";
+                if (r.passed) ++pass;
+                ++total;
+            }
+            for (const auto& r : deep_all.value()) {
+                ss << (r.passed ? "PASS" : "FAIL") << "\t" << r.id << "\t" << r.message << "\n";
+                if (r.passed) ++pass;
+                ++total;
+            }
+            ss << "pass=" << pass << " total=" << total << "\n";
+            return pass == total ? ok(ss.str()) : fail(1, ss.str());
+        }
+        return ok(ss.str());
+    }
+    if (args.size() >= 2 && args[1] == "audit-loc") {
+        std::string root = "packages/cpp";
+        const std::string root_flag = optional_flag_value(args, "--root");
+        if (!root_flag.empty()) root = root_flag;
+        auto audit = demos::fusion::audit_fusion_suite_loc(root);
+        return ok(demos::fusion::format_loc_audit(audit));
+    }
+    // fusion war-room | compare — multi-tier native compare (fast with --provider echo)
+    if (args.size() >= 2 && (args[1] == "war-room" || args[1] == "warroom" || args[1] == "compare")) {
+        demos::fusion::WarRoomOptions w;
+        w.provider = optional_flag_value(args, "--provider");
+        if (w.provider.empty()) w.provider = "echo";
+        w.model = optional_flag_value(args, "--model");
+        w.task = optional_flag_value(args, "--prompt");
+        if (w.task.empty()) {
+            w.task =
+                "A 48-year-old man has resistant hypertension, K 2.6, high aldosterone, suppressed renin. "
+                "Give primary diagnosis, 3 differentials, key findings, next 3 tests, confidence 0-100.";
+        }
+        const std::string tiers_csv = optional_flag_value(args, "--tiers");
+        if (!tiers_csv.empty()) {
+            w.tiers.clear();
+            std::string cur;
+            for (char c : tiers_csv) {
+                if (c == ',' || c == ' ') {
+                    if (!cur.empty()) {
+                        w.tiers.push_back(cur);
+                        cur.clear();
+                    }
+                } else {
+                    cur.push_back(c);
+                }
+            }
+            if (!cur.empty()) w.tiers.push_back(cur);
+        }
+        // default: skip genius for speed unless asked
+        if (tiers_csv.empty()) {
+            w.tiers = {"lite", "medium", "pro", "ultra"};
+        }
+        const std::string profile = optional_flag_value(args, "--profile");
+        if (!profile.empty()) {
+            if (auto p = demos::fusion::fusion_profile_from_string(profile)) {
+                w.profile = p.value();
+            }
+        }
+        w.cache_enabled = !has_flag(args, "--no-cache") && has_flag(args, "--cache");
+        w.write_files = has_flag(args, "--write");
+        const std::string prev = optional_flag_value(args, "--preview");
+        if (!prev.empty()) {
+            try {
+                w.preview_chars = static_cast<std::size_t>(std::stoul(prev));
+            } catch (...) {
+            }
+        }
+        auto report = demos::fusion::run_fusion_war_room(w);
+        if (!report) return fail(1, report.error().message + "\n");
+        std::ostringstream ss;
+        ss << report.value().to_markdown();
+        if (has_flag(args, "--json")) {
+            ss << "\n## wire\n\n" << report.value().to_json().dump(2) << "\n";
+        }
+        return ok(ss.str());
+    }
+
+    demos::DemoOptions opt;
+    opt.output_dir = default_out_dir(args);
+    opt.write_files = !has_flag(args, "--no-write");
+    const bool ultra_flag = has_flag(args, "--ultra");
+    std::string tier = optional_flag_value(args, "--tier");
+    std::string mode = optional_flag_value(args, "--mode");
+    // Product tier selects call graph; --ultra remains a shortcut to Pro-like ultra mode.
+    if (tier.empty() && ultra_flag) tier = "pro";
+    if (mode.empty() && tier.empty()) mode = "lean";
+    if (mode.empty() && !tier.empty()) {
+        // mode filled by tier application in router; keep placeholder for logging
+        mode = "(from-tier)";
+    }
+    const bool ultra = (mode == "ultra" || ultra_flag || tier == "pro");
+
+    std::string provider = optional_flag_value(args, "--provider");
+    if (provider.empty()) {
+        // echo is safe offline default for the new suite; live providers remain opt-in
+        provider = "echo";
+    }
+    std::string model = optional_flag_value(args, "--model");
+    std::string prompt = optional_flag_value(args, "--prompt");
+    std::string profile = optional_flag_value(args, "--profile");
+    if (profile.empty()) {
+        // CLI compat: pro/ultra tiers without profile keep shipping; otherwise neutral
+        profile = (ultra || tier == "pro" || tier == "ultra" || tier == "genius") ? "shipping" : "neutral";
+    }
+    if (prompt.empty()) {
+        prompt =
+            "Ship HandoffKit C++ for real multi-agent use: packaging, providers, CLI demos, "
+            "and handoff quality. Propose a practical plan.";
+    }
+    opt.extra = {
+        {"provider", provider},
+        {"prompt", prompt},
+        {"ultra", ultra},
+        {"profile", profile},
+    };
+    if (!tier.empty()) {
+        opt.extra["tier"] = tier;
+    }
+    if (mode != "(from-tier)" && !mode.empty()) {
+        opt.extra["mode"] = mode;
+        if (mode == "dag") opt.extra["ultra"] = false;
+    } else if (tier.empty()) {
+        opt.extra["mode"] = mode.empty() ? "lean" : mode;
+    }
+    if (!model.empty()) {
+        opt.extra["model"] = model;
+    }
+    if (has_flag(args, "--no-cache")) opt.extra["no_cache"] = true;
+    const std::string cache_dir = optional_flag_value(args, "--cache-dir");
+    if (!cache_dir.empty()) opt.extra["cache_dir"] = cache_dir;
+
+    // Optional native web explorer + HTML→Markdown (fusion --web).
+    if (has_flag(args, "--web") || has_flag(args, "--enable-web") || has_flag(args, "--web-tools")) {
+        opt.extra["enable_web_tools"] = true;
+    }
+    const std::string web_transport = optional_flag_value(args, "--web-transport");
+    if (!web_transport.empty()) {
+        opt.extra["web_transport"] = web_transport;
+        opt.extra["enable_web_tools"] = true;
+    }
+    const std::string seed_url = optional_flag_value(args, "--seed-url");
+    if (!seed_url.empty()) {
+        opt.extra["seed_url"] = seed_url;
+        opt.extra["enable_web_tools"] = true;
+    }
+    const std::string web_query = optional_flag_value(args, "--web-query");
+    if (!web_query.empty()) {
+        opt.extra["web_search_query"] = web_query;
+        opt.extra["enable_web_tools"] = true;
+    }
+    if (has_flag(args, "--no-web-search")) {
+        opt.extra["web_auto_search"] = false;
+    }
+    const std::string web_pages = optional_flag_value(args, "--web-max-pages");
+    if (!web_pages.empty()) {
+        try {
+            opt.extra["web_max_pages"] = std::stoi(web_pages);
+        } catch (...) {
+        }
+    }
+
+    auto result = demos::run_fusion_style_router_demo(opt);
+    if (!result) {
+        return fail(1, result.error().message + "\n");
+    }
+    const int calls = result.value().report.value("llm_calls", ultra ? 5 : 3);
+    const std::string tier_disp = result.value().report.value("tier_display", std::string("Fusion"));
+    const std::string mode_out = result.value().report.value("mode", mode);
+    const std::string tier_out = result.value().report.value("tier", tier.empty() ? std::string("medium") : tier);
+    std::ostringstream ss;
+    ss << "# " << tier_disp << " router run\n\n"
+       << "provider=" << provider << "\n"
+       << "profile=" << profile << "\n"
+       << "model=" << (model.empty() ? "(provider default/env)" : model) << "\n"
+       << "tier=" << tier_out << "\n"
+       << "mode=" << mode_out << "\n"
+       << "llm_calls=" << calls << "\n"
+       << "success=" << (result.value().success ? "true" : "false") << "\n";
+    if (result.value().report.contains("capability") && result.value().report["capability"].is_object()) {
+        const auto& cap = result.value().report["capability"];
+        ss << "capability_pack=" << cap.value("pack_id", std::string("")) << "\n"
+           << "capability_depth=" << cap.value("depth", std::string("")) << "\n"
+           << "capability_skills=" << cap.value("skills", nlohmann::json::array()).dump() << "\n"
+           << "capability_tool_slots=" << cap.value("tool_slots", nlohmann::json::array()).dump() << "\n";
+    }
+    if (result.value().report.contains("handoff_count")) {
+        ss << "handoff_count=" << result.value().report["handoff_count"] << "\n";
+    }
+    if (result.value().report.contains("web_research") && result.value().report["web_research"].is_object()) {
+        const auto& wr = result.value().report["web_research"];
+        ss << "web_enabled=" << (wr.value("enabled", false) ? "true" : "false") << "\n"
+           << "web_used=" << (wr.value("used", false) ? "true" : "false") << "\n"
+           << "web_pages_ok=" << wr.value("pages_ok", 0) << "\n"
+           << "web_tool_calls=" << wr.value("tool_calls", 0) << "\n"
+           << "web_transport=" << wr.value("transport", std::string("")) << "\n"
+           << "web_markdown_chars=" << wr.value("markdown_chars", 0) << "\n";
+    }
+    if (result.value().report.contains("web_tools_live")) {
+        ss << "web_tools_live=" << (result.value().report["web_tools_live"].get<bool>() ? "true" : "false")
+           << "\n";
+    }
+    if (result.value().report.contains("cache")) {
+        ss << "cache=" << result.value().report["cache"].dump() << "\n";
+    }
+    ss << "\n";
+    if (result.value().report.contains("branch_a") && result.value().report["branch_a"].contains("output")) {
+        ss << "## Branch A\n\n" << result.value().report["branch_a"]["output"].get<std::string>() << "\n\n";
+        if (ultra && result.value().report["branch_a"].contains("skeptic")) {
+            const auto sk = result.value().report["branch_a"]["skeptic"];
+            if (sk.is_string() && !sk.get<std::string>().empty()) {
+                ss << "### Skeptic A\n\n" << sk.get<std::string>() << "\n\n";
+            }
+        }
+    }
+    if (result.value().report.contains("branch_b") && result.value().report["branch_b"].contains("output")) {
+        ss << "## Branch B\n\n" << result.value().report["branch_b"]["output"].get<std::string>() << "\n\n";
+        if (ultra && result.value().report["branch_b"].contains("skeptic")) {
+            const auto sk = result.value().report["branch_b"]["skeptic"];
+            if (sk.is_string() && !sk.get<std::string>().empty()) {
+                ss << "### Skeptic B\n\n" << sk.get<std::string>() << "\n\n";
+            }
+        }
+    }
+    ss << "## Merged answer\n\n"
+       << result.value().final_output << "\n\n"
+       << "wire.task=" << result.value().task << "\n"
+       << "wire.final_output_chars=" << result.value().final_output.size() << "\n"
+       << "wire.handoffs=" << result.value().handoffs.size() << "\n";
+    if (!result.value().artifact_paths.empty()) {
+        ss << "artifacts:\n";
+        for (const auto& p : result.value().artifact_paths) ss << "  - " << p << "\n";
+    }
+    return result.value().success ? ok(ss.str()) : fail(1, ss.str());
+}
+
+CliResult cmd_generate(const std::vector<std::string>& args) {
+    // handoffkit-cli generate --provider nvidia --prompt "..." [--model M]
+    // One live request; keep usage minimal for rate limits.
+    const std::string provider = optional_flag_value(args, "--provider");
+    std::string prompt = optional_flag_value(args, "--prompt");
+    const std::string model = optional_flag_value(args, "--model");
+    if (provider.empty()) {
+        return fail(2, "usage: generate --provider <name> --prompt \"...\" [--model M]\n");
+    }
+    if (prompt.empty()) {
+        // allow: generate nvidia "prompt text"
+        if (args.size() >= 3 && args[1].rfind("-", 0) != 0) {
+            // generate <provider> <prompt...>
+        }
+        // positional fallback: generate --provider x hello world...
+        for (std::size_t i = 1; i < args.size(); ++i) {
+            if (args[i] == "--prompt" && i + 1 < args.size()) {
+                prompt = args[i + 1];
+                break;
+            }
+        }
+    }
+    if (prompt.empty()) {
+        // join remaining non-flag tokens after provider as prompt
+        std::ostringstream ps;
+        bool take = false;
+        for (std::size_t i = 1; i < args.size(); ++i) {
+            if (args[i] == "--provider" || args[i] == "--model" || args[i] == "--prompt") {
+                ++i;
+                continue;
+            }
+            if (args[i].rfind("--", 0) == 0) continue;
+            if (!take) {
+                // skip bare provider name if first positional equals provider
+                if (args[i] == provider) {
+                    take = true;
+                    continue;
+                }
+                take = true;
+            }
+            if (!ps.str().empty()) ps << ' ';
+            ps << args[i];
+        }
+        prompt = ps.str();
+    }
+    if (prompt.empty()) {
+        return fail(2, "usage: generate --provider <name> --prompt \"...\" [--model M]\n");
+    }
+
+    ProviderResolveOptions opt;
+    if (!model.empty()) opt.model = model;
+    auto provider_any = make_provider(provider, opt);
+    if (!provider_any) {
+        return fail(1, provider_any.error().message + "\n");
+    }
+    GenerateOptions gopt;
+    gopt.task = prompt;
+    auto out = provider_any.value().generate(prompt, gopt);
+    if (!out) {
+        return fail(1, out.error().message + "\n");
+    }
+    ProviderResolveOptions show_opt;
+    show_opt.allow_missing_key = true;
+    if (!model.empty()) show_opt.model = model;
+    auto settings = resolve_provider_settings(provider, show_opt);
+    std::ostringstream ss;
+    ss << "provider=" << provider << "\n";
+    if (settings) {
+        ss << "model=" << settings.value().model << "\n";
+        ss << "base_url=" << settings.value().base_url << "\n";
+    }
+    ss << "output:\n" << out.value() << "\n";
+    return ok(ss.str());
+}
+
+CliResult cmd_parse_structured(const std::vector<std::string>& args) {
+    if (args.size() < 2) {
+        return fail(2, "usage: parse-structured <json-or-text-file>\n");
+    }
+    auto loaded = load_report_json(args[1]);
+    std::string text;
+    if (loaded) {
+        text = loaded.value().dump();
+    } else {
+        std::ifstream in(args[1]);
+        if (!in) return fail(1, "cannot read file\n");
+        text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    auto parsed = parse_agent_structured(text, action_plan_schema(), true);
+    return parsed.success ? ok(parsed.to_json().dump(2) + "\n")
+                          : CliResult{1, parsed.to_json().dump(2) + "\n", "parse failed\n"};
+}
+
+explore::ExplorePolicy policy_from_cli_args(const std::vector<std::string>& args) {
+    explore::ExplorePolicy p;
+    const std::string md = optional_flag_value(args, "--max-depth");
+    if (!md.empty()) p.max_depth = std::stoi(md);
+    const std::string mp = optional_flag_value(args, "--max-pages");
+    if (!mp.empty()) p.max_pages = std::stoi(mp);
+    const std::string to = optional_flag_value(args, "--timeout-ms");
+    if (!to.empty()) p.timeout_ms = std::stoi(to);
+    if (has_flag(args, "--any-host")) p.same_host_only = false;
+    const std::string deny = optional_flag_value(args, "--deny-host");
+    if (!deny.empty()) p.deny_hosts.push_back(deny);
+    const std::string allow = optional_flag_value(args, "--allow-host");
+    if (!allow.empty()) p.allow_hosts.push_back(allow);
+    const std::string ua = optional_flag_value(args, "--user-agent");
+    if (!ua.empty()) p.user_agent = ua;
+    return p;
+}
+
+CliResult cmd_explore(const std::vector<std::string>& args) {
+    // explore fixture | fetch | crawl | tools
+    //   --url U --transport map|http|fixture --max-depth N --max-pages N
+    //   --deny-host H --allow-host H --any-host --user-agent UA --json
+    if (args.size() < 2 || args[1] == "help" || args[1] == "-h") {
+        return ok(
+            "explore fixture              Offline multi-page fixture explore (no network)\n"
+            "explore fetch --url URL      Single-page fetch\n"
+            "explore crawl --url URL      Multi-step explore (bounded)\n"
+            "explore md --url URL         Fetch and print Markdown only\n"
+            "explore html2md              Convert --html-file or fixture HTML to Markdown\n"
+            "explore tools                List web explorer tool names\n"
+            "  --transport map|http|fixture   (default fixture for fixture; map/http for others)\n"
+            "  --max-depth N --max-pages N --timeout-ms N\n"
+            "  --deny-host H --allow-host H --any-host --user-agent UA\n"
+            "  --json                     Emit full snake_case JSON result\n"
+            "  --markdown                 Prefer markdown excerpt in text output\n"
+            "Inject explore::WebTransport / ExplorePolicy; prefer result markdown for prompts.\n"
+        );
+    }
+    const std::string sub = args[1];
+    if (sub == "tools") {
+        ToolRegistry reg;
+        explore::register_web_explorer_tools(reg, explore::make_fixture_map_transport());
+        std::ostringstream ss;
+        for (const auto& n : reg.names()) ss << n << "\n";
+        return ok(ss.str());
+    }
+    if (sub == "html2md") {
+        std::string html;
+        const std::string file = optional_flag_value(args, "--html-file");
+        std::string url = optional_flag_value(args, "--url");
+        if (!file.empty()) {
+            std::ifstream in(file);
+            if (!in) return fail(1, "cannot read --html-file\n");
+            html.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        } else {
+            // default: fixture home HTML via map transport body
+            auto map = explore::make_fixture_map_transport();
+            if (url.empty()) url = "https://fixture.local/";
+            explore::TransportRequest treq;
+            treq.url = url;
+            auto resp = map->get(treq);
+            if (!resp.error.empty()) return fail(1, resp.error + "\n");
+            html = resp.body;
+        }
+        explore::HtmlToMarkdownOptions opts;
+        opts.base_url = url.empty() ? "https://fixture.local/" : url;
+        opts.include_source_header = true;
+        opts.include_links_section = true;
+        auto md = explore::html_to_markdown(html, opts);
+        if (has_flag(args, "--json")) {
+            nlohmann::json j{
+                {"success", true},
+                {"url", opts.base_url},
+                {"title", explore::extract_title(html)},
+                {"markdown", md},
+                {"markdown_chars", md.size()},
+                {"format", "markdown"},
+            };
+            return ok(j.dump(2) + "\n");
+        }
+        return ok(md + (md.empty() || md.back() == '\n' ? "" : "\n"));
+    }
+
+    auto policy = policy_from_cli_args(args);
+    std::string transport_kind = optional_flag_value(args, "--transport");
+    std::string url = optional_flag_value(args, "--url");
+    explore::TransportPtr transport;
+
+    if (sub == "fixture") {
+        transport = explore::make_fixture_map_transport();
+        if (url.empty()) url = "https://fixture.local/";
+        if (transport_kind.empty()) transport_kind = "fixture";
+        // sensible defaults for offline demo
+        if (!has_flag(args, "--max-depth") && optional_flag_value(args, "--max-depth").empty()) {
+            // policy_from already default max_depth=1
+        }
+        if (optional_flag_value(args, "--max-pages").empty()) {
+            policy.max_pages = 8;
+        }
+        policy.max_depth = std::max(policy.max_depth, 1);
+        policy.same_host_only = true;
+        policy.allow_hosts = {"fixture.local"};
+    } else if (sub == "fetch" || sub == "crawl" || sub == "explore" || sub == "md") {
+        if (url.empty()) {
+            return fail(2, "explore " + sub + " requires --url URL\n");
+        }
+        if (transport_kind.empty()) {
+#if defined(HANDOFFKIT_WITH_HTTP)
+            transport_kind = "http";
+#else
+            transport_kind = "map";
+#endif
+        }
+        if (transport_kind == "fixture") {
+            transport = explore::make_fixture_map_transport();
+        } else if (transport_kind == "http" || transport_kind == "live") {
+            transport = explore::make_transport("http");
+        } else {
+            transport = explore::make_transport("map");
+        }
+    } else {
+        return fail(2, "unknown explore subcommand: " + sub + "\n");
+    }
+
+    policy.emit_markdown = true;
+    explore::WebExplorer explorer(transport);
+    const bool fetch_only = (sub == "fetch" || sub == "md");
+    auto result = fetch_only ? explorer.fetch(url, policy) : explorer.explore(url, policy);
+    if (!result) {
+        return fail(1, result.error().message + "\n");
+    }
+    const auto& er = result.value();
+    if (sub == "md") {
+        if (!er.success) {
+            return CliResult{1, er.markdown, er.error + "\n"};
+        }
+        if (has_flag(args, "--json")) {
+            nlohmann::json j{
+                {"success", true},
+                {"url", er.final_url},
+                {"title", er.title},
+                {"markdown", er.markdown},
+                {"markdown_chars", er.markdown.size()},
+                {"format", "markdown"},
+            };
+            return ok(j.dump(2) + "\n");
+        }
+        return ok(er.markdown + (er.markdown.empty() || er.markdown.back() == '\n' ? "" : "\n"));
+    }
+    if (has_flag(args, "--json")) {
+        return ok(er.to_json().dump(2) + "\n");
+    }
+    std::ostringstream ss;
+    ss << "success=" << (er.success ? "true" : "false") << "\n"
+       << "transport=" << (transport ? transport->name() : "none") << "\n"
+       << "start_url=" << er.start_url << "\n"
+       << "final_url=" << er.final_url << "\n"
+       << "pages_fetched=" << er.pages_fetched << "\n"
+       << "max_depth_reached=" << er.max_depth_reached << "\n"
+       << "title=" << er.title << "\n"
+       << "text_chars=" << er.text.size() << "\n"
+       << "markdown_chars=" << er.markdown.size() << "\n"
+       << "links=" << er.links.size() << "\n"
+       << "steps=" << er.steps.size() << "\n"
+       << "error=" << er.error << "\n";
+    const bool prefer_md = has_flag(args, "--markdown") || !er.markdown.empty();
+    if (prefer_md && !er.markdown.empty()) {
+        ss << "\n## Markdown (excerpt)\n\n";
+        ss << er.markdown.substr(0, std::min<std::size_t>(er.markdown.size(), 2000)) << "\n";
+    } else if (!er.text.empty()) {
+        ss << "\n## Extracted text (excerpt)\n\n";
+        ss << er.text.substr(0, std::min<std::size_t>(er.text.size(), 1200)) << "\n";
+    }
+    ss << "\nwire.success=" << (er.success ? "true" : "false") << "\n"
+       << "wire.title=" << er.title << "\n"
+       << "wire.final_url=" << er.final_url << "\n"
+       << "wire.markdown_chars=" << er.markdown.size() << "\n";
+    if (!er.success) {
+        return CliResult{1, ss.str(), er.error + "\n"};
+    }
+    return ok(ss.str());
+}
+
+}  // namespace
+
+std::string help_text() {
+    std::ostringstream ss;
+    ss << "handoffkit-cli " << version() << " — offline multi-agent handoff toolkit\n\n"
+       << "Usage:\n"
+       << "  handoffkit-cli <command> [args]\n\n"
+       << "Commands:\n"
+       << "  help                 Show this help\n"
+       << "  version              Print version\n"
+       << "  doctor               Offline self-check\n"
+       << "  demos                List demo ids\n"
+       << "  demo <id>            Run a demo (see demos)\n"
+       << "      --out DIR        Artifact directory (default runs/cpp-cli)\n"
+       << "      --case ID        Optional corpus case id\n"
+       << "      --no-write       Skip writing artifacts\n"
+       << "  explore fixture|fetch|crawl|tools   Native web explorer (injectable transport)\n"
+       << "  team [case]          Quick 3-agent team handoff demo\n"
+       << "  tools [list]         Run tools demo or list tool names\n"
+       << "  validate [file|--sample-good|--sample-bad]\n"
+       << "  quality [file]       Score handoff quality offline\n"
+       << "  report <file.json>   Load and display a report JSON\n"
+       << "  cases [--domain D]   List offline case corpus entries\n"
+       << "  templates [list|id]  List/run workflow templates\n"
+       << "  evaluate [out.json]  Evaluate a team run offline\n"
+       << "  replay <file> [--reexecute]\n"
+       << "  parse-structured <file>\n"
+       << "  providers [list|show <name>|resolve <name>]\n"
+       << "  generate --provider <name> --prompt \"...\" [--model M]\n"
+       << "      Live LLM call (needs HANDOFFKIT_WITH_HTTP=ON + API key). Keep under rate limits.\n"
+       << "  fusion [--provider echo|nvidia|...] [--profile neutral|shipping|diagnostic|...]\n"
+       << "         [--tier lite|medium|pro|ultra|genius] [--mode lean|ultra|dag]\n"
+       << "         [--web] [--web-transport http|map] [--seed-url URL] [--web-query Q]\n"
+       << "         [--web-max-pages N] [--no-web-search]\n"
+       << "  fusion war-room [--provider echo] [--tiers lite,medium,pro,ultra] [--prompt ...]\n"
+       << "                  [--profile research] [--json]   # multi-tier native compare (fast echo)\n"
+       << "         [--model M] [--prompt \"...\"] [--out DIR]\n"
+       << "         [--ultra] [--cache-dir D] [--no-cache]\n"
+       << "      Tiers: Lite/Medium=lean(3), Pro=ultra(5), Ultra=DAG4(5), Genius=DAG6(7).\n"
+       << "  fusion profiles | fusion modes | fusion tiers\n\n"
+       << demos::list_demos_text()
+       << "\n" << templates::list_templates_text();
+    return ss.str();
+}
+
+std::string version_text() {
+    return std::string("handoffkit ") + version() + "\n";
+}
+
+std::vector<std::string> command_names() {
+    return {
+        "help", "version", "doctor", "demos", "demo", "explore", "team", "tools",
+        "validate", "quality", "report", "cases",
+        "templates", "evaluate", "replay", "parse-structured", "providers", "generate", "fusion",
+    };
+}
+
+CliResult run_cli(const std::vector<std::string>& args) {
+    if (args.empty() || args[0] == "help" || args[0] == "-h" || args[0] == "--help") {
+        return cmd_help();
+    }
+    if (args[0] == "version" || args[0] == "--version" || args[0] == "-V") {
+        return cmd_version();
+    }
+    if (args[0] == "doctor") return cmd_doctor();
+    if (args[0] == "demos") return cmd_list_demos();
+    if (args[0] == "demo") return cmd_demo(args);
+    if (args[0] == "explore") return cmd_explore(args);
+    if (args[0] == "team") return cmd_team(args);
+    if (args[0] == "tools") return cmd_tools(args);
+    if (args[0] == "validate") return cmd_validate(args);
+    if (args[0] == "quality") return cmd_quality(args);
+    if (args[0] == "report") return cmd_report(args);
+    if (args[0] == "cases") return cmd_list_cases(args);
+    if (args[0] == "templates") return cmd_templates(args);
+    if (args[0] == "evaluate") return cmd_evaluate(args);
+    if (args[0] == "replay") return cmd_replay(args);
+    if (args[0] == "parse-structured") return cmd_parse_structured(args);
+    if (args[0] == "providers") return cmd_providers(args);
+    if (args[0] == "generate") return cmd_generate(args);
+    if (args[0] == "fusion") return cmd_fusion(args);
+    return fail(2, "Unknown command: " + args[0] + "\n\n" + help_text());
+}
+
+}  // namespace cli
+}  // namespace handoffkit

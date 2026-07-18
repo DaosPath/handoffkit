@@ -1,0 +1,243 @@
+#include <handoffkit/demos/fusion/fusion_style.hpp>
+#include <handoffkit/demos/fusion/persist.hpp>
+#include <handoffkit/runtime/trace.hpp>
+#include <handoffkit/runtime/team.hpp>
+
+namespace handoffkit {
+namespace demos {
+namespace {
+
+fusion::FusionConfig config_from_demo_options(const DemoOptions& options) {
+    fusion::FusionConfig cfg;
+    cfg.task = options.extra.value("prompt", std::string(
+        "Design how to ship HandoffKit C++ to production: packaging, CLI, and multi-agent handoffs. "
+        "Give concrete steps and risks in under 12 bullets."
+    ));
+    const bool ultra = options.extra.value("ultra", false);
+    std::string mode = options.extra.value("mode", std::string(ultra ? "ultra" : "lean"));
+    if (auto m = fusion::fusion_mode_from_string(mode)) {
+        cfg.mode = m.value();
+    } else {
+        cfg.mode = ultra ? fusion::FusionMode::Ultra : fusion::FusionMode::Lean;
+    }
+
+    std::string profile = options.extra.value("profile", std::string("shipping"));
+    if (auto p = fusion::fusion_profile_from_string(profile)) {
+        cfg.profile = p.value();
+    } else {
+        cfg.profile = fusion::FusionProfileId::Shipping;
+    }
+
+    cfg.provider = options.extra.value("provider", std::string("echo"));
+    if (options.extra.contains("model") && options.extra["model"].is_string()) {
+        cfg.model = options.extra["model"].get<std::string>();
+    }
+    cfg.output_dir = options.output_dir;
+    cfg.write_files = options.write_files;
+    if (options.extra.contains("cache_dir") && options.extra["cache_dir"].is_string()) {
+        cfg.cache.cache_dir = options.extra["cache_dir"].get<std::string>();
+    } else {
+        cfg.cache.cache_dir = options.output_dir / "fusion-cache";
+    }
+    if (options.extra.contains("no_cache") && options.extra["no_cache"].get<bool>()) {
+        cfg.cache.enabled = false;
+    }
+    // Product tier (lite/medium/pro/ultra/genius) sets mode + branches + budget.
+    // Applied after raw mode so tier is the product selector when present.
+    if (options.extra.contains("tier") && options.extra["tier"].is_string()) {
+        if (auto t = fusion::fusion_tier_from_string(options.extra["tier"].get<std::string>())) {
+            fusion::apply_fusion_tier(cfg, t.value());
+        }
+    }
+    if (options.extra.contains("branch_count") && options.extra["branch_count"].is_number_integer()) {
+        cfg.branch_count = options.extra["branch_count"].get<int>();
+        if (cfg.branch_count < 2) cfg.branch_count = 2;
+        if (cfg.branch_count > 8) cfg.branch_count = 8;
+    }
+    // Optional native web explorer → Markdown context (opt-in via enable_web_tools).
+    if (options.extra.contains("enable_web_tools")) {
+        if (options.extra["enable_web_tools"].is_boolean()) {
+            cfg.enable_web_tools = options.extra["enable_web_tools"].get<bool>();
+        } else if (options.extra["enable_web_tools"].is_number_integer()) {
+            cfg.enable_web_tools = options.extra["enable_web_tools"].get<int>() != 0;
+        }
+    }
+    if (options.extra.contains("web") && options.extra["web"].is_boolean()) {
+        cfg.enable_web_tools = options.extra["web"].get<bool>();
+    }
+    if (options.extra.contains("web_transport") && options.extra["web_transport"].is_string()) {
+        cfg.web_transport = options.extra["web_transport"].get<std::string>();
+    }
+    if (options.extra.contains("seed_url") && options.extra["seed_url"].is_string()) {
+        cfg.seed_urls.push_back(options.extra["seed_url"].get<std::string>());
+    }
+    if (options.extra.contains("seed_urls") && options.extra["seed_urls"].is_array()) {
+        for (const auto& u : options.extra["seed_urls"]) {
+            if (u.is_string()) cfg.seed_urls.push_back(u.get<std::string>());
+        }
+    }
+    if (options.extra.contains("web_auto_search") && options.extra["web_auto_search"].is_boolean()) {
+        cfg.web_auto_search = options.extra["web_auto_search"].get<bool>();
+    }
+    if (options.extra.contains("web_search_query") && options.extra["web_search_query"].is_string()) {
+        cfg.web_search_query = options.extra["web_search_query"].get<std::string>();
+    }
+    if (options.extra.contains("web_max_pages") && options.extra["web_max_pages"].is_number_integer()) {
+        cfg.web_max_pages = options.extra["web_max_pages"].get<int>();
+    }
+    if (options.extra.contains("web_max_depth") && options.extra["web_max_depth"].is_number_integer()) {
+        cfg.web_max_depth = options.extra["web_max_depth"].get<int>();
+    }
+    cfg.extra = options.extra;
+    return cfg;
+}
+
+}  // namespace
+
+DemoResult demo_result_from_fusion(const fusion::FusionRunResult& run, std::string name, std::string title) {
+    DemoResult result;
+    result.name = std::move(name);
+    result.title = std::move(title);
+    result.task = run.config.task;
+    result.final_output = run.final_output;
+    result.success = run.success;
+    result.handoffs = run.handoffs;
+    result.artifact_paths = run.artifact_paths;
+    result.report = run.report;
+    result.report["final_output"] = run.final_output;
+    result.report["task"] = run.config.task;
+    result.summary_markdown =
+        std::string("Fusion ") + fusion::fusion_mode_to_string(run.config.mode) +
+        " profile=" + fusion::fusion_profile_to_string(run.config.profile) +
+        " llm_calls=" + std::to_string(run.metrics.llm_calls) +
+        " cache_hit_rate=" + std::to_string(run.metrics.cache.hit_rate());
+
+    TeamRunResult fake;
+    fake.task = run.config.task;
+    fake.final_output = run.final_output;
+    fake.success = run.success;
+    fake.handoffs = run.handoffs;
+    for (const auto& b : run.branches) {
+        fake.agent_outputs.push_back({b.label, b.architect_output});
+        if (!b.skeptic_output.empty()) {
+            fake.agent_outputs.push_back({b.label + "_skeptic", b.skeptic_output});
+        }
+    }
+    fake.agent_outputs.push_back({"Merger", run.merge_output});
+    result.trace = build_run_trace(run.run_id, result.name, fake, "hybrid_min");
+    return result;
+}
+
+Result<DemoResult> run_fusion_style_router_demo(const DemoOptions& options) {
+    auto cfg = config_from_demo_options(options);
+    auto run = fusion::run_fusion(cfg);
+    if (!run) return run.error();
+
+    const bool ultra = cfg.mode == fusion::FusionMode::Ultra;
+    DemoResult result = demo_result_from_fusion(
+        run.value(),
+        ultra ? "fusion_style_ultra" : "fusion_style_router",
+        ultra ? "Fusion-style ULTRA via FusionEngine" : "Fusion-style dual branch via FusionEngine"
+    );
+
+    // Populate branch report keys expected by CLI pretty-printer.
+    if (run.value().branches.size() >= 2) {
+        result.report["branch_a"] = {
+            {"agent", run.value().branches[0].label},
+            {"output", run.value().branches[0].architect_output},
+            {"skeptic", run.value().branches[0].skeptic_output},
+        };
+        result.report["branch_b"] = {
+            {"agent", run.value().branches[1].label},
+            {"output", run.value().branches[1].architect_output},
+            {"skeptic", run.value().branches[1].skeptic_output},
+        };
+    }
+    result.report["merger"] = {{"agent", "Merger"}, {"output", run.value().merge_output}};
+    result.report["llm_calls"] = run.value().metrics.llm_calls;
+    result.report["planned_llm_calls"] = fusion::planned_llm_calls_for_config(cfg);
+    result.report["provider"] = cfg.provider;
+    result.report["ultra"] = ultra;
+    result.report["style"] = ultra ? "fusion_ultra_dual_branch_skeptic_merge" : "fusion_dual_branch_merge";
+    result.report["profile"] = fusion::fusion_profile_to_string(cfg.profile);
+    result.report["tier"] = fusion::fusion_tier_to_string(cfg.tier);
+    result.report["tier_display"] = fusion::fusion_tier_spec(cfg.tier).display_name;
+    result.report["branch_count"] = cfg.branch_count;
+    result.report["mode"] = fusion::fusion_mode_to_string(cfg.mode);
+    result.report["cache"] = run.value().metrics.cache.to_json();
+    if (run.value().report.contains("web_research")) {
+        result.report["web_research"] = run.value().report["web_research"];
+    }
+    if (run.value().report.contains("web_tools_live")) {
+        result.report["web_tools_live"] = run.value().report["web_tools_live"];
+    }
+
+    if (options.write_files) {
+        // also write classic demo artifacts name
+        auto arts = write_demo_artifacts(options, result);
+        if (!arts) return arts.error();
+    }
+    return Result<DemoResult>::success(std::move(result));
+}
+
+Result<DemoResult> run_fusion_cache_lab_demo(const DemoOptions& options) {
+    DemoResult result;
+    result.name = "fusion_cache_lab";
+    result.title = "Fusion cache memory+disk lab";
+    result.task = "Exercise fusion cache put/get/evict/disk round-trip";
+
+    fusion::FusionCacheConfig cc;
+    cc.cache_dir = options.output_dir / "fusion-cache-lab";
+    cc.max_memory_entries = 8;
+    cc.max_memory_bytes = 4096;
+    cc.ttl_seconds = 3600;
+    fusion::FusionCache cache(cc);
+
+    const std::string key = "lab-key-1";
+    auto p1 = cache.put(key, "hello-fusion-cache", {{"tag", "lab"}});
+    if (!p1) return p1.error();
+    auto g1 = cache.get(key);
+    if (!g1 || g1.value() != "hello-fusion-cache") {
+        return Error::validation_failed("cache get mismatch after put");
+    }
+    // second get should hit memory
+    auto g2 = cache.get(key);
+    if (!g2) return Error::validation_failed("cache second get miss");
+
+    // fill to force eviction
+    for (int i = 0; i < 20; ++i) {
+        (void)cache.put("k" + std::to_string(i), std::string(200, 'x'));
+    }
+    const auto st = cache.stats();
+    result.report = {
+        {"task", result.task},
+        {"stats", st.to_json()},
+        {"stats_text", fusion::format_cache_stats_text(st)},
+    };
+    result.final_output = fusion::format_cache_stats_markdown(st);
+    result.success = fusion::cache_stats_healthy(st) && st.puts >= 1 && st.hits >= 1;
+    result.summary_markdown = "Fusion cache lab complete";
+    auto arts = write_demo_artifacts(options, result);
+    if (!arts) return arts.error();
+    return Result<DemoResult>::success(std::move(result));
+}
+
+Result<DemoResult> run_fusion_neutral_ultra_demo(const DemoOptions& options) {
+    DemoOptions o = options;
+    o.extra["ultra"] = true;
+    o.extra["profile"] = "neutral";
+    if (!o.extra.contains("provider")) o.extra["provider"] = "echo";
+    if (!o.extra.contains("prompt")) {
+        o.extra["prompt"] =
+            "A 48-year-old man has resistant hypertension, K 2.6, high aldosterone, suppressed renin. "
+            "Give primary diagnosis, 3 differentials, key findings, next 3 tests, confidence 0-100.";
+    }
+    auto r = run_fusion_style_router_demo(o);
+    if (!r) return r;
+    r.value().name = "fusion_neutral_ultra";
+    r.value().title = "Fusion neutral ULTRA (task-faithful)";
+    return r;
+}
+
+}  // namespace demos
+}  // namespace handoffkit

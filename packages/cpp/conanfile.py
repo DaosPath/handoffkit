@@ -1,5 +1,7 @@
 from conan import ConanFile
-from conan.tools.cmake import CMake, cmake_layout, CMakeDeps, CMakeToolchain
+from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
+from conan.tools.files import copy
+import os
 
 
 class HandoffKitConan(ConanFile):
@@ -8,24 +10,50 @@ class HandoffKitConan(ConanFile):
     license = "MIT"
     author = "DaosPath <daospath@gmail.com>"
     url = "https://github.com/DaosPath/handoffkit"
-    description = "C++ contract layer for multi-agent workflows with structured handoffs"
-    topics = ("multi-agent", "state-transfer", "json", "handoffs")
+    homepage = "https://github.com/DaosPath/handoffkit"
+    description = "Native C++20 multi-agent runtime with structured handoffs"
+    topics = ("multi-agent", "handoffs", "llm", "json", "cpp20")
     settings = "os", "compiler", "build_type", "arch"
-    options = {"shared": [True, False], "fPIC": [True, False]}
-    default_options = {"shared": False, "fPIC": True}
+    options = {
+        "shared": [True, False],
+        "fPIC": [True, False],
+        "with_http": [True, False],
+    }
+    default_options = {
+        "shared": False,
+        "fPIC": True,
+        "with_http": False,
+    }
+    exports_sources = (
+        "CMakeLists.txt",
+        "cmake/*",
+        "include/*",
+        "src/*",
+        "LICENSE",
+        "README.md",
+        "conandata.yml",
+    )
 
     def config_options(self):
         if self.settings.os == "Windows":
             del self.options.fPIC
 
+    def configure(self):
+        if self.options.shared:
+            self.options.rm_safe("fPIC")
+
     def layout(self):
         cmake_layout(self)
 
     def requirements(self):
-        self.requires("nlohmann_json/3.11.3")
+        self.requires("nlohmann_json/3.11.3", transitive_headers=True)
 
     def generate(self):
         tc = CMakeToolchain(self)
+        tc.variables["HANDOFFKIT_BUILD_TESTS"] = False
+        tc.variables["HANDOFFKIT_BUILD_EXAMPLES"] = False
+        tc.variables["HANDOFFKIT_FETCH_JSON"] = False
+        tc.variables["HANDOFFKIT_WITH_HTTP"] = bool(self.options.with_http)
         tc.generate()
         deps = CMakeDeps(self)
         deps.generate()
@@ -36,8 +64,11 @@ class HandoffKitConan(ConanFile):
         cmake.build()
 
     def package(self):
+        copy(self, "LICENSE", src=self.source_folder, dst=os.path.join(self.package_folder, "licenses"))
         cmake = CMake(self)
         cmake.install()
 
     def package_info(self):
+        self.cpp_info.set_property("cmake_file_name", "handoffkit")
+        self.cpp_info.set_property("cmake_target_name", "handoffkit::handoffkit")
         self.cpp_info.libs = ["handoffkit"]

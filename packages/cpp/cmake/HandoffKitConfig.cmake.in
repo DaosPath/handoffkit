@@ -1,0 +1,31 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+set(_handoffkit_have_json FALSE)
+find_package(nlohmann_json 3.11 QUIET CONFIG)
+if(nlohmann_json_FOUND)
+  set(_handoffkit_have_json TRUE)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/HandoffKitTargets.cmake")
+
+if(TARGET handoffkit::handoffkit)
+  if(_handoffkit_have_json AND TARGET nlohmann_json::nlohmann_json)
+    set_property(
+      TARGET handoffkit::handoffkit
+      APPEND PROPERTY INTERFACE_LINK_LIBRARIES nlohmann_json::nlohmann_json
+    )
+  else()
+    # Bundled install layout: nlohmann headers shipped next to handoffkit includes.
+    get_filename_component(_handoffkit_prefix "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
+    if(EXISTS "${_handoffkit_prefix}/include/nlohmann/json.hpp")
+      set_property(
+        TARGET handoffkit::handoffkit
+        APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${_handoffkit_prefix}/include"
+      )
+    endif()
+  endif()
+endif()
+
+check_required_components(handoffkit)
