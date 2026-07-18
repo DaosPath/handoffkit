@@ -2,6 +2,7 @@
 
 #include <handoffkit/error.hpp>
 #include <handoffkit/runtime/echo_provider.hpp>
+#include <handoffkit/runtime/fallback_provider.hpp>
 #include <handoffkit/runtime/http_provider.hpp>
 #include <handoffkit/runtime/provider.hpp>
 

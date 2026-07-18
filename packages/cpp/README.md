@@ -15,17 +15,36 @@ Native **C++20** multi-agent runtime with structured handoffs.
 | Contract types + all `packages/contracts/fixtures/*` round-trips | Done |
 | `HandoffStateValidator` + `ToolSchemaValidator` | Done |
 | Deterministic `HandoffQualityEvaluator` | Done |
-| `EchoProvider`, `Agent`, `Team`, `ToolRegistry` | Done |
+| `EchoProvider`, `FallbackProvider`, usage metrics on `AnyProvider` | Done |
+| `Agent`, `Team`, `ToolRegistry` (default safe tools, no shell) | Done |
 | Protocol modes: natural, compressed, hybrid_min, hybrid_state | Done |
 | In-memory `AgentMemory` | Done |
 | `build_run_trace` + `write_report_json` / `write_report_files` | Done |
-| Provider catalog (NVIDIA/Groq/Grok/OpenRouter/Ollama/OpenCode/â€¦) | Done |
+| Provider catalog (NVIDIA/Groq/Grok/OpenRouter/Ollama/OpenCode/…) | Done |
 | Live HTTP via `OpenAiCompatibleProvider` (`HANDOFFKIT_WITH_HTTP`) | Done (default OFF) |
 | Native web explorer (`explore::WebExplorer`, injectable `WebTransport`) | Done (offline fixture + optional live HTTP) |
-| CMake install + `handoffkit::handoffkit` | Done |
+| CMake: `handoffkit_core` vs optional `handoffkit_demos` (fusion) | Done |
+| CMake install + `handoffkit::core` / `handoffkit::handoffkit` | Done |
 | Conan recipe + `test_package` | Done |
 | vcpkg overlay port | Done |
 | Release tarball + publish workflow attestations | Done |
+
+### Library targets
+
+| Target | Contents |
+|--------|----------|
+| `handoffkit_core` / `handoffkit::core` | Runtime only (agent/team/protocol/providers/tools/explore/io) — **no fusion demos** |
+| `handoffkit_demos` / `handoffkit::demos` | Demo catalog + fusion suite + CLI app sources (optional, `HANDOFFKIT_BUILD_DEMOS=ON` default) |
+| `handoffkit` / `handoffkit::handoffkit` | INTERFACE → demos (full monorepo) or core when demos OFF |
+
+```cmake
+# Runtime-only consumer
+target_link_libraries(app PRIVATE handoffkit::core)
+# Monorepo / CLI surface
+target_link_libraries(app PRIVATE handoffkit::handoffkit)
+```
+
+Core umbrella: `#include <handoffkit/handoffkit_core.hpp>`.
 
 ## Quick start
 

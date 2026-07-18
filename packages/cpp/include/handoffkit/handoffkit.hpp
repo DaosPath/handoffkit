@@ -1,36 +1,9 @@
 #pragma once
 
-/// Umbrella header for the HandoffKit C++ runtime.
-#include <handoffkit/error.hpp>
-#include <handoffkit/handoff.hpp>
-#include <handoffkit/version.hpp>
+/// Umbrella header for the HandoffKit C++ monorepo surface (core + demos).
+/// Prefer <handoffkit/handoffkit_core.hpp> for runtime-only consumers.
+#include <handoffkit/handoffkit_core.hpp>
 #include <handoffkit/cli/cli_app.hpp>
-#include <handoffkit/core/quality.hpp>
-#include <handoffkit/core/validation.hpp>
 #include <handoffkit/demos/cases.hpp>
 #include <handoffkit/demos/demo_types.hpp>
-#include <handoffkit/evaluation/workflow_eval.hpp>
-#include <handoffkit/io/html_report.hpp>
-#include <handoffkit/io/reports.hpp>
-#include <handoffkit/runtime/agent.hpp>
-#include <handoffkit/runtime/builtin_tools.hpp>
-#include <handoffkit/runtime/echo_provider.hpp>
-#include <handoffkit/runtime/http_provider.hpp>
-#include <handoffkit/runtime/providers.hpp>
-#include <handoffkit/runtime/memory.hpp>
-#include <handoffkit/runtime/orchestrator.hpp>
-#include <handoffkit/runtime/protocol.hpp>
-#include <handoffkit/runtime/provider.hpp>
-#include <handoffkit/runtime/replay.hpp>
-#include <handoffkit/runtime/structured.hpp>
-#include <handoffkit/runtime/team.hpp>
-#include <handoffkit/runtime/tool.hpp>
-#include <handoffkit/runtime/trace.hpp>
-#include <handoffkit/explore/web_types.hpp>
-#include <handoffkit/explore/transport.hpp>
-#include <handoffkit/explore/html_extract.hpp>
-#include <handoffkit/explore/explorer.hpp>
-#include <handoffkit/explore/tools.hpp>
-#include <handoffkit/util/text.hpp>
-#include <handoffkit/workflows/recipe.hpp>
-#include <handoffkit/workflows/templates.hpp>
+

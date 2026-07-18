@@ -1,4 +1,4 @@
-#include <handoffkit/handoffkit.hpp>
+#include <handoffkit/handoffkit_core.hpp>
 
 #include <cassert>
 #include <iostream>

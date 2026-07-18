@@ -304,7 +304,25 @@ Tool make_checklist_tool() {
 // Note: web explorer tools are registered via explore::register_web_explorer_tools
 // so offline demos stay free of network defaults. Call that explicitly for crawl tools.
 
-void register_demo_toolbox(ToolRegistry& registry) {
+Tool make_shell_tool_denied() {
+    return Tool(
+        "shell",
+        "Opt-in shell tool slot (always denied offline; never in default safe registry)",
+        [](const nlohmann::json& /*args*/) -> Result<nlohmann::json> {
+            return Error::invalid_argument(
+                "shell execution denied: not enabled in default safe mode",
+                "shell"
+            );
+        },
+        nlohmann::json{
+            {"type", "object"},
+            {"properties", {{"command", {{"type", "string"}}}}},
+            {"required", nlohmann::json::array({"command"})},
+        }
+    );
+}
+
+void register_default_safe_tools(ToolRegistry& registry) {
     registry.add(make_calculator_tool());
     registry.add(make_string_stats_tool());
     registry.add(make_ticket_lookup_tool());
@@ -314,6 +332,14 @@ void register_demo_toolbox(ToolRegistry& registry) {
     registry.add(make_keyword_extract_tool());
     registry.add(make_priority_score_tool());
     registry.add(make_checklist_tool());
+}
+
+void register_demo_toolbox(ToolRegistry& registry) {
+    register_default_safe_tools(registry);
+}
+
+void register_shell_tool(ToolRegistry& registry) {
+    registry.add(make_shell_tool_denied());
 }
 
 void register_support_tools(ToolRegistry& registry) {
@@ -330,11 +356,15 @@ void register_coding_tools(ToolRegistry& registry) {
     registry.add(make_string_stats_tool());
 }
 
-std::vector<std::string> builtin_tool_names() {
+std::vector<std::string> default_safe_tool_names() {
     return {
         "calculator", "string_stats", "ticket_lookup", "sla_check", "code_lint_stub",
         "diff_summary", "keyword_extract", "priority_score", "checklist",
     };
+}
+
+std::vector<std::string> builtin_tool_names() {
+    return default_safe_tool_names();
 }
 
 }  // namespace handoffkit
