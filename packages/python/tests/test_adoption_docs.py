@@ -25,7 +25,7 @@ def test_readme_links_showcases_post_and_integrations() -> None:
     assert "docs/assets/coding-review-terminal.svg" in text
     assert "docs/assets/handoffkit-report-gallery.svg" in text
     assert "docs/SHOWCASE_GALLERY.md" in text
-    assert "reports/coding_review.md" in text
+    assert "examples/fixtures/reports/coding_review.md" in text
     assert "Context Soup vs Contract Handoffs" in text
     assert "docs/launch/CONTEXT_SOUP_LAUNCH_KIT.md" in text
     assert "docs/integrations/LANGGRAPH.md" in text
@@ -85,9 +85,9 @@ def test_showcase_gallery_doc_exists() -> None:
 
     assert "handoffkit demos" in text
     assert "handoffkit showcase coding-review" in text
-    assert "reports/coding_review.md" in text
-    assert "reports/support_escalation.md" in text
-    assert "reports/research_workflow.md" in text
+    assert "examples/fixtures/reports/coding_review.md" in text
+    assert "examples/fixtures/reports/support_escalation.md" in text
+    assert "examples/fixtures/reports/research_workflow.md" in text
 
 
 def test_showcase_svg_asset_exists() -> None:

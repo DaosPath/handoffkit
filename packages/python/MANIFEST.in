@@ -1,18 +1,16 @@
 include README.md
 include LICENSE
+include LAYOUT.md
 graft docs
 graft examples
-graft reports
 graft scripts
 graft tests
 prune examples/output
 prune tests/_tmp_tool_execution
 prune tests/_tmp_memory_context
-exclude reports/opencode_*
-exclude reports/nvidia_*
-exclude reports/groq_*
-exclude reports/*partial.json
-exclude reports/*runner_*.log
+# Local CLI output (not shipped); golden reports are under examples/fixtures/reports/
+prune reports
+prune runs
 global-exclude __pycache__
 global-exclude __pycache__/*
 global-exclude *.py[cod]

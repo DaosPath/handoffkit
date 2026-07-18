@@ -1,0 +1,28 @@
+{
+  "query": "argparse divide tests",
+  "documents": [
+    {
+      "path": "README.md",
+      "content": "Calculator CLI\n\nUse argparse. Test add, subtract, multiply, and divide.",
+      "summary": "README.md: 3 lines, 71 bytes, extension .md. Calculator CLI Use argparse. Test add, subtract, multiply, and divide.",
+      "metadata": {
+        "extension": ".md",
+        "size": 73,
+        "line_count": 3
+      }
+    },
+    {
+      "path": "calculator.py",
+      "content": "def add(a: int, b: int) -> int:\n    return a + b\n\ndef divide(a: int, b: int) -> float:\n    if b == 0:\n        raise ValueError('division by zero')\n    return a / b",
+      "summary": "calculator.py: 7 lines, 163 bytes, extension .py. def add(a: int, b: int) -> int: return a + b",
+      "metadata": {
+        "extension": ".py",
+        "size": 169,
+        "line_count": 7
+      }
+    }
+  ],
+  "memories": [],
+  "summary": "",
+  "metadata": {}
+}

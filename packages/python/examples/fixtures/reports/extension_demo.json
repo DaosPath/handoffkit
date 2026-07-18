@@ -1,0 +1,59 @@
+{
+  "name": "local-demo",
+  "description": "A local extension with one recipe and one tool.",
+  "version": "0.1.0",
+  "recipes": [
+    {
+      "name": "extension-plan-review",
+      "description": "A recipe bundled by an extension.",
+      "steps": [
+        {
+          "name": "plan",
+          "task": "Plan a tiny extension workflow.",
+          "agent": {
+            "name": "ExtensionPlanner",
+            "role": "Plan extension-backed workflows.",
+            "model": "echo",
+            "provider": "EchoProvider"
+          },
+          "tools": [],
+          "use_context": false,
+          "use_memory": false,
+          "structured_schema": null,
+          "metadata": {}
+        },
+        {
+          "name": "review",
+          "task": "Review the extension workflow.",
+          "agent": {
+            "name": "ExtensionReviewer",
+            "role": "Review extension-backed workflow output.",
+            "model": "echo",
+            "provider": "EchoProvider"
+          },
+          "tools": [],
+          "use_context": false,
+          "use_memory": false,
+          "structured_schema": null,
+          "metadata": {}
+        }
+      ],
+      "metadata": {}
+    }
+  ],
+  "tools": [
+    {
+      "name": "uppercase_text",
+      "description": "Uppercase text.",
+      "parameters": {
+        "text": {
+          "type": "str",
+          "required": true,
+          "default": null
+        }
+      },
+      "return_type": "str"
+    }
+  ],
+  "metadata": {}
+}

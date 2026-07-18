@@ -22,12 +22,6 @@ env/
 .reference_state_transfer_protocols/
 examples/output/
 /runs/
-reports/context_handoff_demo.md
-reports/coding_review_recipe.*
-reports/extension_demo.*
-reports/memory_demo.*
-reports/project_context_demo.*
-reports/recipe_demo.*
 reports/*partial.json
 reports/*runner_*.log
 reports/opencode_*
@@ -38,21 +32,14 @@ reports/mai_style_doctor_benchmark_3.*
 tests/_tmp_tool_execution/
 tests/_tmp_memory_context/
 
+# Python package: local outputs only (golden reports: examples/fixtures/reports/)
 packages/python/examples/output/
 packages/python/runs/
-packages/python/reports/context_handoff_demo.md
-packages/python/reports/coding_review_recipe.*
-packages/python/reports/extension_demo.*
-packages/python/reports/memory_demo.*
-packages/python/reports/project_context_demo.*
-packages/python/reports/recipe_demo.*
-packages/python/reports/*partial.json
-packages/python/reports/*runner_*.log
-packages/python/reports/opencode_*
-packages/python/reports/nvidia_*
-packages/python/reports/doctor_benchmark_3.*
-packages/python/reports/doctor_benchmark_400.*
-packages/python/reports/mai_style_doctor_benchmark_3.*
+packages/python/reports/**
+!packages/python/reports/README.md
+packages/python/build/
+packages/python/dist/
+packages/python/*.egg-info/
 packages/python/tests/_tmp_tool_execution/
 packages/python/tests/_tmp_memory_context/
 

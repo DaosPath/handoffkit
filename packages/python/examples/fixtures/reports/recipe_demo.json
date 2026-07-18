@@ -1,0 +1,113 @@
+{
+  "recipe_name": "plan-execute-review",
+  "success": true,
+  "final_output": "EchoProvider[echo] response\nSummary: Agent: Reviewer Role: Review the result. Task: Previous output: EchoProvider[echo] response Summary: Agent: Executor Role: Execute the plan. Task: Previous output: EchoProvider[echo] response Summary: Agent: Planner Role: Plan the task. Task: Initial task: Prepare a local package release. Step task: Create a release checklist. Tools: - No tools registered Recent memory: No prior memory. Handoff state: No handoff s...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+  "step_results": [
+    {
+      "step_name": "plan",
+      "agent_name": "Planner",
+      "task": "Initial task: Prepare a local package release.\n\nStep task: Create a release checklist.",
+      "output": "EchoProvider[echo] response\nSummary: Agent: Planner Role: Plan the task. Task: Initial task: Prepare a local package release. Step task: Create a release checklist. Tools: - No tools registered Recent memory: No prior memory. Handoff state: No handoff state. Respond with useful progress, decisions, errors if any, and next steps.\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "success": true,
+      "mode": "agent",
+      "structured_output": null,
+      "metadata": {}
+    },
+    {
+      "step_name": "execute",
+      "agent_name": "Executor",
+      "task": "Previous output: EchoProvider[echo] response\nSummary: Agent: Planner Role: Plan the task. Task: Initial task: Prepare a local package release. Step task: Create a release checklist. Tools: - No tools registered Recent memory: No prior memory. Handoff state: No handoff state. Respond with useful progress, decisions, errors if any, and next steps.\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.\n\nStep task: Execute the checklist locally.",
+      "output": "EchoProvider[echo] response\nSummary: Agent: Executor Role: Execute the plan. Task: Previous output: EchoProvider[echo] response Summary: Agent: Planner Role: Plan the task. Task: Initial task: Prepare a local package release. Step task: Create a release checklist. Tools: - No tools registered Recent memory: No prior memory. Handoff state: No handoff state. Respond with useful progress, decisions, errors if any, and next steps. Decisions: keep state e...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "success": true,
+      "mode": "agent",
+      "structured_output": null,
+      "metadata": {}
+    },
+    {
+      "step_name": "review",
+      "agent_name": "Reviewer",
+      "task": "Previous output: EchoProvider[echo] response\nSummary: Agent: Executor Role: Execute the plan. Task: Previous output: EchoProvider[echo] response Summary: Agent: Planner Role: Plan the task. Task: Initial task: Prepare a local package release. Step task: Create a release checklist. Tools: - No tools registered Recent memory: No prior memory. Handoff state: No handoff state. Respond with useful progress, decisions, errors if any, and next steps. Decisions: keep state e...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.\n\nStep task: Review the result.",
+      "output": "EchoProvider[echo] response\nSummary: Agent: Reviewer Role: Review the result. Task: Previous output: EchoProvider[echo] response Summary: Agent: Executor Role: Execute the plan. Task: Previous output: EchoProvider[echo] response Summary: Agent: Planner Role: Plan the task. Task: Initial task: Prepare a local package release. Step task: Create a release checklist. Tools: - No tools registered Recent memory: No prior memory. Handoff state: No handoff s...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "success": true,
+      "mode": "agent",
+      "structured_output": null,
+      "metadata": {}
+    }
+  ],
+  "handoff_states": [
+    {
+      "task": "Execute the checklist locally.",
+      "from_agent": "Planner",
+      "to_agent": "Executor",
+      "summary": "EchoProvider[echo] response\nSummary: Agent: Planner Role: Plan the task. Task: Initial task: Prepare a local package release. Step task: Create a release checklist. Tools: - No tools registered Recent memory: No prior memory. Handoff state: No handoff state. Respond with useful progress, decisions, errors if any, and next steps.\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "decisions": [
+        "Step plan completed with success=True."
+      ],
+      "important_files": [],
+      "errors": [],
+      "next_steps": [
+        "Execute the checklist locally."
+      ],
+      "context_refs": [],
+      "metadata": {
+        "mode": "hybrid_state",
+        "handoff_version": "1.0",
+        "state_contract": [
+          "task",
+          "from_agent",
+          "to_agent",
+          "summary",
+          "decisions",
+          "important_files",
+          "errors",
+          "next_steps",
+          "context_refs",
+          "metadata"
+        ],
+        "recipe": "plan-execute-review",
+        "from_step": "plan",
+        "to_step": "execute"
+      }
+    },
+    {
+      "task": "Review the result.",
+      "from_agent": "Executor",
+      "to_agent": "Reviewer",
+      "summary": "EchoProvider[echo] response\nSummary: Agent: Executor Role: Execute the plan. Task: Previous output: EchoProvider[echo] response Summary: Agent: Planner Role: Plan the task. Task: Initial task: Prepare a local package release. Step task: Create a release checklist. Tools: - No tools registered Recent memory: No prior memory. Handoff state: No handoff state. Respond with useful progress, decisions, errors if any, and next steps. Decisions: keep state e...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "decisions": [
+        "Step execute completed with success=True."
+      ],
+      "important_files": [],
+      "errors": [],
+      "next_steps": [
+        "Review the result."
+      ],
+      "context_refs": [],
+      "metadata": {
+        "mode": "hybrid_state",
+        "handoff_version": "1.0",
+        "state_contract": [
+          "task",
+          "from_agent",
+          "to_agent",
+          "summary",
+          "decisions",
+          "important_files",
+          "errors",
+          "next_steps",
+          "context_refs",
+          "metadata"
+        ],
+        "recipe": "plan-execute-review",
+        "from_step": "execute",
+        "to_step": "review"
+      }
+    }
+  ],
+  "context_used": [],
+  "memories_used": [],
+  "tool_results": [],
+  "metadata": {
+    "step_count": 3
+  }
+}

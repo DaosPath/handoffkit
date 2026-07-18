@@ -1,0 +1,176 @@
+{
+  "recipe_name": "coding-review",
+  "success": true,
+  "final_output": "EchoProvider[echo] response\nSummary: Agent: ReviewReporter Role: Summarize findings and recommended next steps. Task: Previous output: EchoProvider[echo] response Summary: Agent: CodeReviewer Role: Review code for correctness, clarity, and tests. Task: Previous output: EchoProvider[echo] response Summary: Agent: CodeReader Role: Read code context and identify relevant behavior. Task: Initial task: Review the local calculator code. Step task: Read the...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+  "step_results": [
+    {
+      "step_name": "read-context",
+      "agent_name": "CodeReader",
+      "task": "Initial task: Review the local calculator code.\n\nStep task: Read the provided code context.",
+      "output": "EchoProvider[echo] response\nSummary: Agent: CodeReader Role: Read code context and identify relevant behavior. Task: Initial task: Review the local calculator code. Step task: Read the provided code context. Project context: # Context Pack ## Query Review calculator divide behavior and tests. ## Summary Local sample files for a coding review recipe. ## Documents - `test_calculator.py`: test_calculator.py: 4 lines, 78 bytes, extension .py. from calcul...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "success": true,
+      "mode": "context",
+      "structured_output": null,
+      "metadata": {}
+    },
+    {
+      "step_name": "review",
+      "agent_name": "CodeReviewer",
+      "task": "Previous output: EchoProvider[echo] response\nSummary: Agent: CodeReader Role: Read code context and identify relevant behavior. Task: Initial task: Review the local calculator code. Step task: Read the provided code context. Project context: # Context Pack ## Query Review calculator divide behavior and tests. ## Summary Local sample files for a coding review recipe. ## Documents - `test_calculator.py`: test_calculator.py: 4 lines, 78 bytes, extension .py. from calcul...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.\n\nStep task: Review behavior, risks, and missing tests.",
+      "output": "EchoProvider[echo] response\nSummary: Agent: CodeReviewer Role: Review code for correctness, clarity, and tests. Task: Previous output: EchoProvider[echo] response Summary: Agent: CodeReader Role: Read code context and identify relevant behavior. Task: Initial task: Review the local calculator code. Step task: Read the provided code context. Project context: # Context Pack ## Query Review calculator divide behavior and tests. ## Summary Local sample f...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "success": true,
+      "mode": "context",
+      "structured_output": null,
+      "metadata": {}
+    },
+    {
+      "step_name": "report",
+      "agent_name": "ReviewReporter",
+      "task": "Previous output: EchoProvider[echo] response\nSummary: Agent: CodeReviewer Role: Review code for correctness, clarity, and tests. Task: Previous output: EchoProvider[echo] response Summary: Agent: CodeReader Role: Read code context and identify relevant behavior. Task: Initial task: Review the local calculator code. Step task: Read the provided code context. Project context: # Context Pack ## Query Review calculator divide behavior and tests. ## Summary Local sample f...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.\n\nStep task: Write concise review findings.",
+      "output": "EchoProvider[echo] response\nSummary: Agent: ReviewReporter Role: Summarize findings and recommended next steps. Task: Previous output: EchoProvider[echo] response Summary: Agent: CodeReviewer Role: Review code for correctness, clarity, and tests. Task: Previous output: EchoProvider[echo] response Summary: Agent: CodeReader Role: Read code context and identify relevant behavior. Task: Initial task: Review the local calculator code. Step task: Read the...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "success": true,
+      "mode": "agent",
+      "structured_output": null,
+      "metadata": {}
+    }
+  ],
+  "handoff_states": [
+    {
+      "task": "Review behavior, risks, and missing tests.",
+      "from_agent": "CodeReader",
+      "to_agent": "CodeReviewer",
+      "summary": "EchoProvider[echo] response\nSummary: Agent: CodeReader Role: Read code context and identify relevant behavior. Task: Initial task: Review the local calculator code. Step task: Read the provided code context. Project context: # Context Pack ## Query Review calculator divide behavior and tests. ## Summary Local sample files for a coding review recipe. ## Documents - `test_calculator.py`: test_calculator.py: 4 lines, 78 bytes, extension .py. from calcul...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "decisions": [
+        "Step read-context completed with success=True."
+      ],
+      "important_files": [],
+      "errors": [],
+      "next_steps": [
+        "Review behavior, risks, and missing tests."
+      ],
+      "context_refs": [
+        "test_calculator.py",
+        "calculator.py"
+      ],
+      "metadata": {
+        "mode": "hybrid_state",
+        "handoff_version": "1.0",
+        "state_contract": [
+          "task",
+          "from_agent",
+          "to_agent",
+          "summary",
+          "decisions",
+          "important_files",
+          "errors",
+          "next_steps",
+          "context_refs",
+          "metadata"
+        ],
+        "recipe": "coding-review",
+        "from_step": "read-context",
+        "to_step": "review"
+      }
+    },
+    {
+      "task": "Write concise review findings.",
+      "from_agent": "CodeReviewer",
+      "to_agent": "ReviewReporter",
+      "summary": "EchoProvider[echo] response\nSummary: Agent: CodeReviewer Role: Review code for correctness, clarity, and tests. Task: Previous output: EchoProvider[echo] response Summary: Agent: CodeReader Role: Read code context and identify relevant behavior. Task: Initial task: Review the local calculator code. Step task: Read the provided code context. Project context: # Context Pack ## Query Review calculator divide behavior and tests. ## Summary Local sample f...\nDecisions: keep state explicit, preserve constraints, continue with next step.\nNext steps: inspect the handoff state, act on the task, report errors.",
+      "decisions": [
+        "Step review completed with success=True."
+      ],
+      "important_files": [],
+      "errors": [],
+      "next_steps": [
+        "Write concise review findings."
+      ],
+      "context_refs": [
+        "test_calculator.py",
+        "calculator.py"
+      ],
+      "metadata": {
+        "mode": "hybrid_state",
+        "handoff_version": "1.0",
+        "state_contract": [
+          "task",
+          "from_agent",
+          "to_agent",
+          "summary",
+          "decisions",
+          "important_files",
+          "errors",
+          "next_steps",
+          "context_refs",
+          "metadata"
+        ],
+        "recipe": "coding-review",
+        "from_step": "review",
+        "to_step": "report"
+      }
+    }
+  ],
+  "context_used": [
+    {
+      "query": "Review calculator divide behavior and tests.",
+      "documents": [
+        {
+          "path": "test_calculator.py",
+          "content": "from calculator import divide\n\ndef test_divide():\n    assert divide(6, 3) == 2",
+          "summary": "test_calculator.py: 4 lines, 78 bytes, extension .py. from calculator import divide def test_divide():",
+          "metadata": {
+            "extension": ".py",
+            "size": 81,
+            "line_count": 4
+          }
+        },
+        {
+          "path": "calculator.py",
+          "content": "def divide(a: int, b: int) -> float:\n    if b == 0:\n        raise ValueError('division by zero')\n    return a / b",
+          "summary": "calculator.py: 4 lines, 113 bytes, extension .py. def divide(a: int, b: int) -> float: if b == 0: raise ValueError('division by zero')",
+          "metadata": {
+            "extension": ".py",
+            "size": 116,
+            "line_count": 4
+          }
+        }
+      ],
+      "memories": [],
+      "summary": "Local sample files for a coding review recipe.",
+      "metadata": {}
+    },
+    {
+      "query": "Review calculator divide behavior and tests.",
+      "documents": [
+        {
+          "path": "test_calculator.py",
+          "content": "from calculator import divide\n\ndef test_divide():\n    assert divide(6, 3) == 2",
+          "summary": "test_calculator.py: 4 lines, 78 bytes, extension .py. from calculator import divide def test_divide():",
+          "metadata": {
+            "extension": ".py",
+            "size": 81,
+            "line_count": 4
+          }
+        },
+        {
+          "path": "calculator.py",
+          "content": "def divide(a: int, b: int) -> float:\n    if b == 0:\n        raise ValueError('division by zero')\n    return a / b",
+          "summary": "calculator.py: 4 lines, 113 bytes, extension .py. def divide(a: int, b: int) -> float: if b == 0: raise ValueError('division by zero')",
+          "metadata": {
+            "extension": ".py",
+            "size": 116,
+            "line_count": 4
+          }
+        }
+      ],
+      "memories": [],
+      "summary": "Local sample files for a coding review recipe.",
+      "metadata": {}
+    }
+  ],
+  "memories_used": [],
+  "tool_results": [],
+  "metadata": {
+    "step_count": 3
+  }
+}

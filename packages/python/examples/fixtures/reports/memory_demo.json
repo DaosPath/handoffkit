@@ -1,0 +1,33 @@
+{
+  "memories_stored": [
+    {
+      "id": "f459aab224e641938150dec7125389d1",
+      "content": "Calculator CLI should use argparse and pure functions.",
+      "kind": "decision",
+      "tags": [
+        "calculator",
+        "cli"
+      ],
+      "metadata": {},
+      "created_at": "2026-07-09T10:34:54.913823+00:00",
+      "updated_at": null
+    },
+    {
+      "id": "992d9d5284e5415c8d5c5c5dec845fd7",
+      "content": "Tester agent must verify divide-by-zero behavior.",
+      "kind": "test-note",
+      "tags": [
+        "calculator",
+        "tests"
+      ],
+      "metadata": {},
+      "created_at": "2026-07-09T10:34:54.914102+00:00",
+      "updated_at": null
+    }
+  ],
+  "searches_executed": [
+    "calculator cli tests"
+  ],
+  "context_documents_used": [],
+  "final_result": "Found 2 relevant memories."
+}

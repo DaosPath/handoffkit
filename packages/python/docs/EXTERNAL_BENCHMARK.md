@@ -54,7 +54,7 @@ report = build_independent_benchmark(seed="handoffkit-independent-2026")
 assert report.success
 print(report.to_markdown())
 
-# Write artifacts under runs/ + reports/
+# Write artifacts under runs/ + reports/ (local only; gitignored)
 report = run_independent_benchmark(
     seed="handoffkit-independent-2026",
     output_dir="runs/latest",
@@ -80,7 +80,7 @@ Artifacts:
 - `runs/latest/independent_methodology.json`
 - `runs/latest/independent_benchmark.json`
 - `runs/latest/independent_benchmark.md`
-- `reports/independent_protocol_benchmark.{json,md}`
+- `reports/independent_protocol_benchmark.{json,md}` (generated under local `reports/`)
 
 ### Related metrics API
 

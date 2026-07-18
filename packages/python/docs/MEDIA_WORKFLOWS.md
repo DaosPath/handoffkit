@@ -174,8 +174,8 @@ handoffkit media plan input_zh.mp4 --from zh --to es
 - `examples/output/media_dubbing_demo/transcript_zh.json`,
 - `examples/output/media_dubbing_demo/subtitles_zh.srt`,
 - `examples/output/media_dubbing_demo/subtitles_es.srt`,
-- `reports/media_dubbing_demo.json`,
-- `reports/media_dubbing_demo.md`.
+- `examples/fixtures/reports/media_dubbing_demo.json`,
+- `examples/fixtures/reports/media_dubbing_demo.md`.
 
 ## Real Provider Path
 
