@@ -52,6 +52,8 @@ class HandoffKitConan(ConanFile):
         tc = CMakeToolchain(self)
         tc.variables["HANDOFFKIT_BUILD_TESTS"] = False
         tc.variables["HANDOFFKIT_BUILD_EXAMPLES"] = False
+        tc.variables["HANDOFFKIT_BUILD_CLI"] = False
+        tc.variables["HANDOFFKIT_BUILD_DEMOS"] = True
         tc.variables["HANDOFFKIT_FETCH_JSON"] = False
         tc.variables["HANDOFFKIT_WITH_HTTP"] = bool(self.options.with_http)
         tc.generate()
@@ -71,4 +73,10 @@ class HandoffKitConan(ConanFile):
     def package_info(self):
         self.cpp_info.set_property("cmake_file_name", "handoffkit")
         self.cpp_info.set_property("cmake_target_name", "handoffkit::handoffkit")
-        self.cpp_info.libs = ["handoffkit"]
+        # Link demos then core (demos depends on core symbols).
+        self.cpp_info.libs = ["handoffkit_demos", "handoffkit_core"]
+        self.cpp_info.components["core"].libs = ["handoffkit_core"]
+        self.cpp_info.components["core"].set_property("cmake_target_name", "handoffkit::core")
+        self.cpp_info.components["demos"].libs = ["handoffkit_demos"]
+        self.cpp_info.components["demos"].requires = ["core"]
+        self.cpp_info.components["demos"].set_property("cmake_target_name", "handoffkit::demos")
