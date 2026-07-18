@@ -9,7 +9,7 @@ from typing import Any
 from handoffkit import Agent, StructuredOutputSchema
 from handoffkit.providers import BaseProvider
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 REPORTS_DIR = ROOT / "reports"
 
 

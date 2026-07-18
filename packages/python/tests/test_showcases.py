@@ -46,14 +46,14 @@ def test_run_showcase_writes_latest_and_report_files(tmp_path: Path) -> None:
 
 def test_showcase_examples_run_without_api_key(tmp_path: Path) -> None:
     for script in [
-        "examples/coding_review.py",
-        "examples/support_escalation.py",
-        "examples/research_workflow.py",
-        "examples/doctor_orchestrator.py",
-        "examples/doctor_benchmark.py",
-        "examples/langgraph_integration.py",
-        "examples/openai_agents_sdk_integration.py",
-        "examples/pydantic_ai_integration.py",
+        "examples/demos/coding_review.py",
+        "examples/demos/support_escalation.py",
+        "examples/demos/research_workflow.py",
+        "examples/demos/doctor_orchestrator.py",
+        "examples/demos/doctor_benchmark.py",
+        "examples/integrations/langgraph_integration.py",
+        "examples/integrations/openai_agents_sdk_integration.py",
+        "examples/integrations/pydantic_ai_integration.py",
     ]:
         completed = subprocess.run(
             [sys.executable, script],

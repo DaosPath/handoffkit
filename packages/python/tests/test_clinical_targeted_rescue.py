@@ -7,8 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from examples.mai_clinical_mimo_benchmark import _is_match  # noqa: E402
-from examples.mai_clinical_targeted_rescue import (  # noqa: E402
+from examples.demos.mai_clinical_mimo_benchmark import _is_match  # noqa: E402
+from examples.demos.mai_clinical_targeted_rescue import (  # noqa: E402
     build_evidence_packet,
     build_retrieval_queries,
     build_targeted_query,

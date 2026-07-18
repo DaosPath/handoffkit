@@ -51,7 +51,7 @@ reporting in HandoffKit.
 
 ## Runnable Example
 
-See [`examples/langgraph_integration.py`](../../examples/langgraph_integration.py).
+See [`examples/integrations/langgraph_integration.py`](../../examples/integrations/langgraph_integration.py).
 
 The example uses LangGraph-style node functions and runs offline without
 requiring LangGraph as a dependency. If your application already uses LangGraph,

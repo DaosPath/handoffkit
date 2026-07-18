@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "examples" / "real_task_calculator.py"
+SCRIPT = ROOT / "examples" / "demos" / "real_task_calculator.py"
 OUTPUT_DIR = ROOT / "examples" / "output" / "calculator_cli"
 JSON_REPORT = ROOT / "reports" / "real_task_calculator.json"
 MARKDOWN_REPORT = ROOT / "reports" / "real_task_calculator.md"

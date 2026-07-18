@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def run_example(script_name: str) -> subprocess.CompletedProcess[str]:
     """Run one example script."""
     return subprocess.run(
-        [sys.executable, str(ROOT / "examples" / script_name)],
+        [sys.executable, str(ROOT / "examples" / "demos" / script_name)],
         cwd=ROOT,
         capture_output=True,
         text=True,

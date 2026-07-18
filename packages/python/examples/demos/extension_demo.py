@@ -6,7 +6,7 @@ from pathlib import Path
 
 from handoffkit import Agent, Extension, ExtensionRegistry, Recipe, RecipeRunner, RecipeStep, tool
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 REPORTS_DIR = ROOT / "reports"
 
 

@@ -10,7 +10,7 @@ from handoffkit import Agent
 from handoffkit.providers import BaseProvider
 from handoffkit.tools.filesystem import read_file
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SAMPLE = ROOT / "examples" / "output" / "tool_execution_demo" / "sample.txt"
 
 

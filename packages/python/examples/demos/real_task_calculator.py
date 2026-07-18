@@ -16,7 +16,7 @@ from handoffkit import Agent, HandoffProtocol
 from handoffkit.errors import ProviderConfigurationError, ProviderExecutionError
 from handoffkit.providers import EchoProvider, OpenAIProvider, choose_openai_compatible_model
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = ROOT / "examples" / "output" / "calculator_cli"
 REPORTS_DIR = ROOT / "reports"
 MARKDOWN_REPORT = REPORTS_DIR / "real_task_calculator.md"

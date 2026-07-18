@@ -296,7 +296,7 @@ def test_built_in_recipes_create_valid_recipes() -> None:
 )
 def test_recipe_examples_run(script_name: str) -> None:
     completed = subprocess.run(
-        [sys.executable, str(ROOT / "examples" / script_name)],
+        [sys.executable, str(ROOT / "examples" / "demos" / script_name)],
         cwd=ROOT,
         capture_output=True,
         text=True,

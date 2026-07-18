@@ -6,7 +6,7 @@ from pathlib import Path
 
 from handoffkit import Agent, HandoffProtocol, RunTrace, Team, write_report_files
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 REPORTS_DIR = ROOT / "reports"
 
 

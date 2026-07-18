@@ -31,9 +31,9 @@ def test_readme_links_showcases_post_and_integrations() -> None:
     assert "docs/integrations/LANGGRAPH.md" in text
     assert "docs/integrations/OPENAI_AGENTS.md" in text
     assert "docs/integrations/PYDANTIC_AI.md" in text
-    assert "examples/langgraph_integration.py" in text
-    assert "examples/openai_agents_sdk_integration.py" in text
-    assert "examples/pydantic_ai_integration.py" in text
+    assert "examples/integrations/langgraph_integration.py" in text
+    assert "examples/integrations/openai_agents_sdk_integration.py" in text
+    assert "examples/integrations/pydantic_ai_integration.py" in text
     assert "handoffkit demos" in text
     assert "handoffkit showcase coding-review" in text
 

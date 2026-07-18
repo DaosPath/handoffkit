@@ -13,7 +13,7 @@ from handoffkit import (
     ProjectIndexer,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = ROOT / "examples" / "output" / "context_handoff_demo"
 SAMPLE_PROJECT = OUTPUT_DIR / "sample_project"
 REPORTS_DIR = ROOT / "reports"

@@ -170,7 +170,7 @@ def test_context_refs_move_through_handoff_protocol() -> None:
 )
 def test_memory_context_examples_run(script_name: str) -> None:
     completed = subprocess.run(
-        [sys.executable, str(ROOT / "examples" / script_name)],
+        [sys.executable, str(ROOT / "examples" / "demos" / script_name)],
         cwd=ROOT,
         capture_output=True,
         text=True,

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from handoffkit import ProviderToolAdapter, ToolRegistry, tool
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 REPORTS_DIR = ROOT / "reports"
 
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from handoffkit import ContextPack, ContextRetriever, ProjectIndexer, RecipeRunner
 from handoffkit.recipes.builtins import coding_review_recipe
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = ROOT / "examples" / "output" / "coding_review_recipe"
 SAMPLE_PROJECT = OUTPUT_DIR / "sample_project"
 REPORTS_DIR = ROOT / "reports"

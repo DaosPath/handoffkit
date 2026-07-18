@@ -147,7 +147,7 @@ handoffkit/
     cpp/             # C++17 contract package
     python/
       handoffkit/      # Python package published to PyPI
-      examples/        # Python examples and demos
+      examples/        # demos/, integrations/, fixtures/reports/
       tests/           # Python tests
       docs/            # Python package docs and assets
   apps/
@@ -236,7 +236,7 @@ Fusion-style model panel preview:
 
 ```bash
 handoffkit demo-fusion
-python examples/fusion_style_demo.py
+python examples/demos/fusion_style_demo.py
 ```
 
 `demo-fusion` is inspired by multi-model deliberation systems: a panel of model
@@ -448,9 +448,9 @@ print(tool.to_schema())
 Research/evidence helpers are opt-in and public-data only:
 
 ```bash
-python examples/medical_tools_demo.py
-python examples/opencode_go_agent.py --help
-python examples/opencode_zen_agent.py --help
+python examples/demos/medical_tools_demo.py
+python examples/integrations/opencode_go_agent.py --help
+python examples/integrations/opencode_zen_agent.py --help
 ```
 
 Medical and benchmark tooling is for research workflows only. It is not
@@ -558,7 +558,7 @@ HandoffKit can also model a Fusion-style workflow without external APIs:
 
 ```bash
 handoffkit demo-fusion
-python examples/fusion_style_demo.py --help
+python examples/demos/fusion_style_demo.py --help
 ```
 
 For real provider probes, pass `--real` and configure provider credentials in
@@ -593,9 +593,9 @@ Use it as the contract and reporting layer beside orchestration frameworks:
   probing, model selection, and fallback routing.
 
 Runnable offline examples:
-[`examples/langgraph_integration.py`](examples/langgraph_integration.py),
-[`examples/openai_agents_sdk_integration.py`](examples/openai_agents_sdk_integration.py),
-and [`examples/pydantic_ai_integration.py`](examples/pydantic_ai_integration.py).
+[`examples/integrations/langgraph_integration.py`](examples/integrations/langgraph_integration.py),
+[`examples/integrations/openai_agents_sdk_integration.py`](examples/integrations/openai_agents_sdk_integration.py),
+and [`examples/integrations/pydantic_ai_integration.py`](examples/integrations/pydantic_ai_integration.py).
 
 ## Release Highlights
 
@@ -1106,9 +1106,9 @@ print(context.to_markdown())
 Run the included demos:
 
 ```bash
-python examples/memory_demo.py
-python examples/project_context_demo.py
-python examples/context_handoff_demo.py
+python examples/demos/memory_demo.py
+python examples/demos/project_context_demo.py
+python examples/demos/context_handoff_demo.py
 ```
 
 ## Recipes + Extension API
@@ -1182,7 +1182,7 @@ structured state, memory, context packs, recipes, and extension registries.
 HandoffKit includes a reproducible real task demo:
 
 ```bash
-python examples/real_task_calculator.py
+python examples/demos/real_task_calculator.py
 ```
 
 It runs this workflow:
@@ -1234,7 +1234,7 @@ print(agent.run("Prepare a package release."))
 ```bash
 ollama pull llama3.1
 ollama serve
-python examples/ollama_agent.py --model llama3.1
+python examples/integrations/ollama_agent.py --model llama3.1
 ```
 
 ### OpenAI-compatible APIs
@@ -1243,7 +1243,7 @@ python examples/ollama_agent.py --model llama3.1
 $env:OPENAI_API_KEY="..."
 $env:OPENAI_BASE_URL="https://api.freemodel.dev/v1"
 $env:OPENAI_MODEL="gpt-4o-mini"
-python examples/freemodel_openai_compatible.py
+python examples/integrations/freemodel_openai_compatible.py
 ```
 
 Optional real API tests are skipped unless explicitly enabled:
@@ -1268,13 +1268,13 @@ selection, and fallback routing, use the provider registry commands above.
 ```powershell
 $env:OPENCODE_API_KEY="..."
 $env:OPENCODE_GO_MODEL="deepseek-v4-flash"
-python examples/opencode_go_agent.py
+python examples/integrations/opencode_go_agent.py
 ```
 
 ```powershell
 $env:OPENCODE_API_KEY="..."
 $env:OPENCODE_ZEN_MODEL="gpt-5.4"
-python examples/opencode_zen_agent.py
+python examples/integrations/opencode_zen_agent.py
 ```
 
 Docs:
@@ -1309,37 +1309,37 @@ handoffkit init my-agent --template basic-agent --output .
 ## Examples
 
 ```bash
-python examples/simple_agent.py
-python examples/coding_review.py
-python examples/support_escalation.py
-python examples/research_workflow.py
-python examples/doctor_orchestrator.py
-python examples/handoff_demo.py
-python examples/coding_team.py
-python examples/tool_schema_demo.py
-python examples/tool_execution_demo.py
-python examples/fake_provider_tool_call_demo.py
-python examples/opencode_go_agent.py
-python examples/opencode_zen_agent.py
-python examples/structured_output_demo.py
-python examples/provider_tool_adapter_demo.py
-python examples/handoff_quality_demo.py
-python examples/contract_validation_demo.py
-python examples/provider_tool_formats_demo.py
-python examples/evaluation_demo.py
-python examples/async_demo.py
-python examples/template_demo.py
-python examples/trace_demo.py
-python examples/replay_demo.py
-python examples/provider_matrix_demo.py
-python examples/structured_recipe_demo.py
-python examples/recipe_demo.py
-python examples/coding_review_recipe.py
-python examples/extension_demo.py
-python examples/memory_demo.py
-python examples/project_context_demo.py
-python examples/context_handoff_demo.py
-python examples/real_task_calculator.py
+python examples/demos/simple_agent.py
+python examples/demos/coding_review.py
+python examples/demos/support_escalation.py
+python examples/demos/research_workflow.py
+python examples/demos/doctor_orchestrator.py
+python examples/demos/handoff_demo.py
+python examples/demos/coding_team.py
+python examples/demos/tool_schema_demo.py
+python examples/demos/tool_execution_demo.py
+python examples/demos/fake_provider_tool_call_demo.py
+python examples/integrations/opencode_go_agent.py
+python examples/integrations/opencode_zen_agent.py
+python examples/demos/structured_output_demo.py
+python examples/demos/provider_tool_adapter_demo.py
+python examples/demos/handoff_quality_demo.py
+python examples/demos/contract_validation_demo.py
+python examples/demos/provider_tool_formats_demo.py
+python examples/demos/evaluation_demo.py
+python examples/demos/async_demo.py
+python examples/demos/template_demo.py
+python examples/demos/trace_demo.py
+python examples/demos/replay_demo.py
+python examples/demos/provider_matrix_demo.py
+python examples/demos/structured_recipe_demo.py
+python examples/demos/recipe_demo.py
+python examples/demos/coding_review_recipe.py
+python examples/demos/extension_demo.py
+python examples/demos/memory_demo.py
+python examples/demos/project_context_demo.py
+python examples/demos/context_handoff_demo.py
+python examples/demos/real_task_calculator.py
 ```
 
 ## Development

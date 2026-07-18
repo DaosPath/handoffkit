@@ -17,17 +17,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from examples.mai_clinical_ensemble_benchmark import (  # noqa: E402
+from examples.demos.mai_clinical_ensemble_benchmark import (  # noqa: E402
     _cached_provider_generate,
     _load_partial_rows,
     _read_json,
     _string_list,
 )
-from examples.mai_clinical_mimo_benchmark import (  # noqa: E402
+from examples.demos.mai_clinical_mimo_benchmark import (  # noqa: E402
     SAFETY_NOTE,
     _extract_json_object,
     _is_match,

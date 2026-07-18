@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_fusion_style_demo_runs_offline() -> None:
     completed = subprocess.run(
-        [sys.executable, "examples/fusion_style_demo.py"],
+        [sys.executable, "examples/demos/fusion_style_demo.py"],
         cwd=ROOT,
         capture_output=True,
         text=True,

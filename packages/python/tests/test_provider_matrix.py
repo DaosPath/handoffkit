@@ -57,7 +57,7 @@ def test_malformed_tool_calls_item_fails_clearly() -> None:
 
 def test_provider_matrix_demo_runs() -> None:
     completed = subprocess.run(
-        [sys.executable, str(ROOT / "examples" / "provider_matrix_demo.py")],
+        [sys.executable, str(ROOT / "examples" / "demos" / "provider_matrix_demo.py")],
         cwd=ROOT,
         capture_output=True,
         text=True,

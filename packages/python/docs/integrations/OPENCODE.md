@@ -36,7 +36,7 @@ Run:
 
 ```powershell
 $env:OPENCODE_GO_MODEL="deepseek-v4-flash"
-python examples/opencode_go_agent.py
+python examples/integrations/opencode_go_agent.py
 ```
 
 Endpoint routing:
@@ -68,7 +68,7 @@ Run:
 
 ```powershell
 $env:OPENCODE_ZEN_MODEL="gpt-5.4"
-python examples/opencode_zen_agent.py
+python examples/integrations/opencode_zen_agent.py
 ```
 
 Endpoint routing:

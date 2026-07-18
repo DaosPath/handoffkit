@@ -8,7 +8,9 @@ packages/python/
   tests/                      # unit/integration tests (pytest)
   tests_api/                  # optional live-API tests
   docs/                       # developer docs
-  examples/                   # runnable demos
+  examples/
+    demos/                    # product showcase scripts
+    integrations/             # third-party stack examples
     fixtures/
       reports/                # golden showcase reports (versioned)
     output/                   # generated demo files (gitignored)
@@ -28,7 +30,7 @@ packages/python/
 |------|---------|---------|
 | `handoffkit/` | yes | Public API / runtime |
 | `tests/` | yes | CI |
-| `examples/*.py` | yes | Demos |
+| `examples/demos/`, `examples/integrations/` | yes | Demos / integrations |
 | `examples/fixtures/reports/` | yes | Frozen gallery / docs links |
 | `examples/output/` | no | Generated sample projects |
 | `reports/` | no (except optional README) | Default CLI `--output reports` |

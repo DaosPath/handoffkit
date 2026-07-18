@@ -15,7 +15,7 @@ from handoffkit.recipes.fusion import (
     run_fusion_demo,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 REPORTS_DIR = ROOT / "reports"
 
 

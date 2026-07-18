@@ -19,7 +19,7 @@ from handoffkit.recipes.media import (
     write_transcript_json,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = ROOT / "examples" / "output" / "media_dubbing_demo"
 REPORTS_DIR = ROOT / "reports"
 

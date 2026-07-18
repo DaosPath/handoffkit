@@ -46,8 +46,9 @@ git push -u origin release/X.Y.Z
 10. Verify installation from TestPyPI in a clean environment.
 11. Publish the GitHub Release. This automatically triggers:
     - PyPI Trusted Publishing for `handoffkit` (Python).
-    - NPM publishing with OIDC provenance for `@handoffkit/core` and `@handoffkit/node` (JS/TS), using the repository secret `NPM_TOKEN`.
-12. Verify installation from both PyPI and npm in clean environments.
+    - NPM publishing with OIDC provenance for `@handoffkit/*` (JS/TS), using the repository secret `NPM_TOKEN`.
+    - C++ source tarball attach + OIDC artifact attestations (`publish-cpp-release-assets`; see `packages/cpp/RELEASE.md`).
+12. Verify installation from both PyPI and npm in clean environments; optionally verify C++ assets with `gh attestation verify`.
 
 ## Notes
 

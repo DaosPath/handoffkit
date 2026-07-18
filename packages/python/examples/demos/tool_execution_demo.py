@@ -7,7 +7,7 @@ from pathlib import Path
 from handoffkit import Agent
 from handoffkit.tools.filesystem import list_files, read_file, write_file
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = ROOT / "examples" / "output" / "tool_execution_demo"
 REPORTS_DIR = ROOT / "reports"
 
