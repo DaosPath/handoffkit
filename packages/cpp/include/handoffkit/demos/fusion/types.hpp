@@ -21,6 +21,7 @@ enum class FusionMode {
     Lean,   // dual branch + merge (3 LLM calls typical)
     Ultra,  // dual branch + skeptic each + merge (5 calls)
     Dag,    // configurable step list
+    Panel,  // multi-model panel (N models/roles) + deterministic judge
 };
 
 /// Product-facing fusion product tiers (map onto mode + branch_count + budget).
@@ -130,6 +131,19 @@ struct FusionConfig {
     std::string model_a;
     std::string model_b;
     std::string model_merge;
+    /// Multi-model panel slot ids (mode=panel). Empty → resolve from model_a/b/model/merge or 4x default.
+    std::vector<std::string> panel_models;
+    /// Optional roles aligned with panel_models; empty → default_panel_roles().
+    std::vector<std::string> panel_roles;
+    /// After dual/dag: pre-merge analysis inject + post report panel_judge.
+    bool attach_panel_judge = true;
+    /// Optional extra LLM call to refine deterministic panel analysis (off = offline gate).
+    bool enable_meta_judge = false;
+    /// Skip ultra skeptics when branch answers highly overlap.
+    bool early_stop_on_overlap = true;
+    double overlap_skip_skeptic_threshold = 0.90;
+    /// If merge drops a concrete branch lead, re-prefix it.
+    bool anti_dilution = true;
     FusionCacheConfig cache;
     FusionPolicyConfig policy;
     std::filesystem::path output_dir{"runs/fusion-runs"};

@@ -24,6 +24,7 @@ std::string fusion_mode_to_string(FusionMode mode) {
         case FusionMode::Lean: return "lean";
         case FusionMode::Ultra: return "ultra";
         case FusionMode::Dag: return "dag";
+        case FusionMode::Panel: return "panel";
     }
     return "lean";
 }
@@ -33,6 +34,7 @@ Result<FusionMode> fusion_mode_from_string(std::string_view s) {
     if (v == "lean" || v == "3" || v == "dual") return FusionMode::Lean;
     if (v == "ultra" || v == "5") return FusionMode::Ultra;
     if (v == "dag" || v == "graph") return FusionMode::Dag;
+    if (v == "panel" || v == "multi" || v == "models") return FusionMode::Panel;
     return Error::invalid_argument("unknown fusion mode: " + std::string(s), "mode");
 }
 
@@ -64,7 +66,7 @@ std::vector<std::string> fusion_profile_names() {
 }
 
 std::vector<std::string> fusion_mode_names() {
-    return {"lean", "ultra", "dag"};
+    return {"lean", "ultra", "dag", "panel"};
 }
 
 std::string fusion_tier_to_string(FusionTier tier) {
@@ -292,6 +294,19 @@ int planned_llm_calls_for_config(const FusionConfig& config) {
             const int n = std::max(2, std::min(config.branch_count, 8));
             return n + 1;  // N architects + merge
         }
+        case FusionMode::Panel: {
+            int n = static_cast<int>(config.panel_models.size());
+            if (n < 1) {
+                // same resolve as panel.cpp without including it here
+                n = 0;
+                if (!config.model_a.empty()) ++n;
+                if (!config.model_b.empty()) ++n;
+                if (!config.model.empty()) ++n;
+                if (!config.model_merge.empty()) ++n;
+                if (n < 1) n = 4;
+            }
+            return std::max(2, std::min(n, 16));
+        }
     }
     return 3;
 }
@@ -359,6 +374,13 @@ nlohmann::json FusionConfig::to_json() const {
         {"model_a", model_a},
         {"model_b", model_b},
         {"model_merge", model_merge},
+        {"panel_models", panel_models},
+        {"panel_roles", panel_roles},
+        {"attach_panel_judge", attach_panel_judge},
+        {"enable_meta_judge", enable_meta_judge},
+        {"early_stop_on_overlap", early_stop_on_overlap},
+        {"overlap_skip_skeptic_threshold", overlap_skip_skeptic_threshold},
+        {"anti_dilution", anti_dilution},
         {"cache", cache.to_json()},
         {"policy", policy.to_json()},
         {"output_dir", output_dir.string()},
@@ -404,6 +426,23 @@ Result<FusionConfig> FusionConfig::from_json(const nlohmann::json& j) {
     if (j.contains("model_a")) c.model_a = j.at("model_a").get<std::string>();
     if (j.contains("model_b")) c.model_b = j.at("model_b").get<std::string>();
     if (j.contains("model_merge")) c.model_merge = j.at("model_merge").get<std::string>();
+    if (j.contains("panel_models") && j.at("panel_models").is_array()) {
+        for (const auto& m : j.at("panel_models")) {
+            if (m.is_string()) c.panel_models.push_back(m.get<std::string>());
+        }
+    }
+    if (j.contains("panel_roles") && j.at("panel_roles").is_array()) {
+        for (const auto& m : j.at("panel_roles")) {
+            if (m.is_string()) c.panel_roles.push_back(m.get<std::string>());
+        }
+    }
+    if (j.contains("attach_panel_judge")) c.attach_panel_judge = j.at("attach_panel_judge").get<bool>();
+    if (j.contains("enable_meta_judge")) c.enable_meta_judge = j.at("enable_meta_judge").get<bool>();
+    if (j.contains("early_stop_on_overlap")) c.early_stop_on_overlap = j.at("early_stop_on_overlap").get<bool>();
+    if (j.contains("overlap_skip_skeptic_threshold")) {
+        c.overlap_skip_skeptic_threshold = j.at("overlap_skip_skeptic_threshold").get<double>();
+    }
+    if (j.contains("anti_dilution")) c.anti_dilution = j.at("anti_dilution").get<bool>();
     if (j.contains("cache")) {
         auto cc = FusionCacheConfig::from_json(j.at("cache"));
         if (!cc) return cc.error();

@@ -36,6 +36,10 @@ struct WarRoomTierRow {
     std::string error;
     std::string preview;
     std::string answer;  // full final_output
+    bool panel_judge_success = false;
+    int consensus_n = 0;
+    int contradictions_n = 0;
+    std::string analysis_preview;
 
     nlohmann::json to_json() const;
 };

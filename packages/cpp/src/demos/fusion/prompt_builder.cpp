@@ -33,6 +33,9 @@ void append_skill_tool_block(std::ostringstream& ss, const FrameOptions& opts) {
     if (!opts.web_research_section.empty()) {
         ss << "\n" << opts.web_research_section << "\n";
     }
+    if (!opts.panel_analysis_section.empty()) {
+        ss << "\n" << opts.panel_analysis_section << "\n";
+    }
 }
 
 const char* depth_branch_guidance(FusionPromptDepth depth) {

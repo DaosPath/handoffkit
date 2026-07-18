@@ -41,6 +41,8 @@ private:
 
     Result<FusionRunResult> run_lean_ultra(const FusionConfig& config, AnyProvider provider, bool ultra);
     Result<FusionRunResult> run_dag(const FusionConfig& config, AnyProvider provider);
+    /// Multi-model panel: one LLM call per model/role + deterministic panel judge.
+    Result<FusionRunResult> run_panel(const FusionConfig& config);
 };
 
 /// Top-level helper used by CLI and demo catalog.

@@ -654,6 +654,35 @@ CliResult cmd_fusion(const std::vector<std::string>& args) {
     if (!model.empty()) {
         opt.extra["model"] = model;
     }
+    const std::string models_csv = optional_flag_value(args, "--models");
+    if (!models_csv.empty()) {
+        opt.extra["models"] = models_csv;
+        if (mode.empty() || mode == "(from-tier)" || mode == "lean") {
+            // Multi-model list implies panel mode unless user forced a tier graph.
+            if (tier.empty()) {
+                opt.extra["mode"] = "panel";
+                mode = "panel";
+            }
+        }
+    }
+    const std::string model_a = optional_flag_value(args, "--model-a");
+    const std::string model_b = optional_flag_value(args, "--model-b");
+    const std::string model_merge = optional_flag_value(args, "--model-merge");
+    if (!model_a.empty()) opt.extra["model_a"] = model_a;
+    if (!model_b.empty()) opt.extra["model_b"] = model_b;
+    if (!model_merge.empty()) opt.extra["model_merge"] = model_merge;
+    if (has_flag(args, "--no-panel-judge")) opt.extra["no_panel_judge"] = true;
+    if (has_flag(args, "--meta-judge")) opt.extra["meta_judge"] = true;
+    if (has_flag(args, "--no-early-stop")) opt.extra["no_early_stop"] = true;
+    if (has_flag(args, "--no-anti-dilution")) opt.extra["no_anti_dilution"] = true;
+    if (mode == "panel") {
+        opt.extra["mode"] = "panel";
+        // Panel is not tier-driven; avoid shipping profile default for research panel
+        if (optional_flag_value(args, "--profile").empty()) {
+            opt.extra["profile"] = "research";
+            profile = "research";
+        }
+    }
     if (has_flag(args, "--no-cache")) opt.extra["no_cache"] = true;
     const std::string cache_dir = optional_flag_value(args, "--cache-dir");
     if (!cache_dir.empty()) opt.extra["cache_dir"] = cache_dir;
@@ -727,6 +756,18 @@ CliResult cmd_fusion(const std::vector<std::string>& args) {
     if (result.value().report.contains("web_tools_live")) {
         ss << "web_tools_live=" << (result.value().report["web_tools_live"].get<bool>() ? "true" : "false")
            << "\n";
+    }
+    if (result.value().report.contains("panel_size")) {
+        ss << "panel_size=" << result.value().report["panel_size"] << "\n";
+    }
+    if (result.value().report.contains("panel_judge") && result.value().report["panel_judge"].is_object()) {
+        const auto& pj = result.value().report["panel_judge"];
+        ss << "panel_judge_success=" << (pj.value("success", false) ? "true" : "false") << "\n";
+        if (pj.contains("analysis") && pj["analysis"].is_object()) {
+            const auto& a = pj["analysis"];
+            ss << "panel_consensus=" << a.value("consensus", nlohmann::json::array()).size() << "\n"
+               << "panel_contradictions=" << a.value("contradictions", nlohmann::json::array()).size() << "\n";
+        }
     }
     if (result.value().report.contains("cache")) {
         ss << "cache=" << result.value().report["cache"].dump() << "\n";
@@ -1069,7 +1110,9 @@ std::string help_text() {
        << "  generate --provider <name> --prompt \"...\" [--model M]\n"
        << "      Live LLM call (needs HANDOFFKIT_WITH_HTTP=ON + API key). Keep under rate limits.\n"
        << "  fusion [--provider echo|nvidia|...] [--profile neutral|shipping|diagnostic|...]\n"
-       << "         [--tier lite|medium|pro|ultra|genius] [--mode lean|ultra|dag]\n"
+       << "         [--tier lite|medium|pro|ultra|genius] [--mode lean|ultra|dag|panel]\n"
+       << "         [--models m1,m2,m3,m4] [--model-a A] [--model-b B] [--model-merge M]\n"
+       << "         [--no-panel-judge] [--meta-judge] [--no-early-stop] [--no-anti-dilution]\n"
        << "         [--web] [--web-transport http|map] [--seed-url URL] [--web-query Q]\n"
        << "         [--web-max-pages N] [--no-web-search]\n"
        << "  fusion war-room [--provider echo] [--tiers lite,medium,pro,ultra] [--prompt ...]\n"

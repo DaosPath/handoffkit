@@ -38,6 +38,10 @@ nlohmann::json WarRoomTierRow::to_json() const {
         {"pack_id", pack_id},
         {"error", error},
         {"preview", preview},
+        {"panel_judge_success", panel_judge_success},
+        {"consensus_n", consensus_n},
+        {"contradictions_n", contradictions_n},
+        {"analysis_preview", analysis_preview},
     };
 }
 
@@ -59,8 +63,8 @@ std::string WarRoomReport::to_markdown() const {
        << "provider=`" << provider << "` profile=`" << profile << "` "
        << "total_wall_ms=" << total_wall_ms << "\n\n"
        << "task: " << task << "\n\n"
-       << "| tier | ok | calls | planned | wall_ms | handoffs | chars | pack | preview |\n"
-       << "|------|:--:|------:|--------:|--------:|---------:|------:|------|---------|\n";
+       << "| tier | ok | calls | planned | wall_ms | handoffs | chars | judge | cons | contra | pack | preview |\n"
+       << "|------|:--:|------:|--------:|--------:|---------:|------:|:-----:|-----:|-------:|------|---------|\n";
     for (const auto& r : rows) {
         ss << "| " << r.tier
            << " | " << (r.success ? "Y" : "N")
@@ -69,6 +73,9 @@ std::string WarRoomReport::to_markdown() const {
            << " | " << r.wall_ms
            << " | " << r.handoff_count
            << " | " << r.answer_chars
+           << " | " << (r.panel_judge_success ? "Y" : "N")
+           << " | " << r.consensus_n
+           << " | " << r.contradictions_n
            << " | " << r.pack_id
            << " | " << one_line(r.preview)
            << " |\n";
@@ -79,6 +86,9 @@ std::string WarRoomReport::to_markdown() const {
         if (!r.success) {
             ss << "ERROR: " << r.error << "\n\n";
             continue;
+        }
+        if (!r.analysis_preview.empty()) {
+            ss << "analysis: " << r.analysis_preview << "\n\n";
         }
         ss << r.answer << "\n\n";
     }
@@ -121,6 +131,7 @@ Result<WarRoomReport> run_fusion_war_room(const WarRoomOptions& opts) {
         cfg.cache.enabled = opts.cache_enabled;
         cfg.cache.use_disk = false;
         cfg.enable_web_tools = false;
+        cfg.attach_panel_judge = true;
         apply_fusion_tier(cfg, tr.value());
         row.planned_calls = planned_llm_calls_for_config(cfg);
         row.mode = fusion_mode_to_string(cfg.mode);
@@ -149,6 +160,34 @@ Result<WarRoomReport> run_fusion_war_room(const WarRoomOptions& opts) {
         if (!r.success) row.error = r.error;
         if (r.report.contains("capability") && r.report["capability"].contains("pack_id")) {
             row.pack_id = r.report["capability"].value("pack_id", row.pack_id);
+        }
+        // Prefer unified report.analysis; fall back to panel_judge.analysis nesting.
+        const nlohmann::json* analysis = nullptr;
+        if (r.report.contains("analysis") && r.report["analysis"].is_object()) {
+            analysis = &r.report["analysis"];
+            row.panel_judge_success = true;
+        }
+        if (r.report.contains("panel_judge") && r.report["panel_judge"].is_object()) {
+            const auto& pj = r.report["panel_judge"];
+            row.panel_judge_success = pj.value("success", row.panel_judge_success);
+            if (!analysis && pj.contains("analysis") && pj["analysis"].is_object()) {
+                analysis = &pj["analysis"];
+            }
+            if (row.analysis_preview.empty() && pj.contains("final_answer") &&
+                pj["final_answer"].is_string()) {
+                row.analysis_preview = preview_of(pj["final_answer"].get<std::string>(), 160);
+            }
+        }
+        if (analysis) {
+            row.consensus_n =
+                static_cast<int>(analysis->value("consensus", nlohmann::json::array()).size());
+            row.contradictions_n =
+                static_cast<int>(analysis->value("contradictions", nlohmann::json::array()).size());
+            if (row.analysis_preview.empty() && analysis->contains("final_answer") &&
+                (*analysis)["final_answer"].is_string()) {
+                row.analysis_preview =
+                    preview_of((*analysis)["final_answer"].get<std::string>(), 160);
+            }
         }
         rep.rows.push_back(std::move(row));
     }

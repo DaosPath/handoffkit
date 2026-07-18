@@ -88,6 +88,62 @@ fusion::FusionConfig config_from_demo_options(const DemoOptions& options) {
     if (options.extra.contains("web_max_depth") && options.extra["web_max_depth"].is_number_integer()) {
         cfg.web_max_depth = options.extra["web_max_depth"].get<int>();
     }
+    // Multi-model panel (mode=panel)
+    if (options.extra.contains("panel_models") && options.extra["panel_models"].is_array()) {
+        for (const auto& m : options.extra["panel_models"]) {
+            if (m.is_string()) cfg.panel_models.push_back(m.get<std::string>());
+        }
+    }
+    if (options.extra.contains("models") && options.extra["models"].is_string()) {
+        // comma-separated "m1,m2,m3,m4"
+        std::string csv = options.extra["models"].get<std::string>();
+        std::string cur;
+        for (char c : csv) {
+            if (c == ',' || c == ' ') {
+                if (!cur.empty()) {
+                    cfg.panel_models.push_back(cur);
+                    cur.clear();
+                }
+            } else {
+                cur.push_back(c);
+            }
+        }
+        if (!cur.empty()) cfg.panel_models.push_back(cur);
+    }
+    if (options.extra.contains("model_a") && options.extra["model_a"].is_string()) {
+        cfg.model_a = options.extra["model_a"].get<std::string>();
+    }
+    if (options.extra.contains("model_b") && options.extra["model_b"].is_string()) {
+        cfg.model_b = options.extra["model_b"].get<std::string>();
+    }
+    if (options.extra.contains("model_merge") && options.extra["model_merge"].is_string()) {
+        cfg.model_merge = options.extra["model_merge"].get<std::string>();
+    }
+    if (options.extra.contains("attach_panel_judge") && options.extra["attach_panel_judge"].is_boolean()) {
+        cfg.attach_panel_judge = options.extra["attach_panel_judge"].get<bool>();
+    }
+    if (options.extra.contains("no_panel_judge") && options.extra["no_panel_judge"].get<bool>()) {
+        cfg.attach_panel_judge = false;
+    }
+    if (options.extra.contains("enable_meta_judge") && options.extra["enable_meta_judge"].is_boolean()) {
+        cfg.enable_meta_judge = options.extra["enable_meta_judge"].get<bool>();
+    }
+    if (options.extra.contains("meta_judge") && options.extra["meta_judge"].get<bool>()) {
+        cfg.enable_meta_judge = true;
+    }
+    if (options.extra.contains("no_early_stop") && options.extra["no_early_stop"].get<bool>()) {
+        cfg.early_stop_on_overlap = false;
+    }
+    if (options.extra.contains("no_anti_dilution") && options.extra["no_anti_dilution"].get<bool>()) {
+        cfg.anti_dilution = false;
+    }
+    // Explicit mode=panel wins over tier rewrite if set after tier
+    if (options.extra.contains("mode") && options.extra["mode"].is_string()) {
+        const std::string m = options.extra["mode"].get<std::string>();
+        if (m == "panel") {
+            cfg.mode = fusion::FusionMode::Panel;
+        }
+    }
     cfg.extra = options.extra;
     return cfg;
 }

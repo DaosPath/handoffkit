@@ -67,6 +67,8 @@ struct FrameOptions {
     std::string prior_handoff_section;
     /// Live web research markdown (from native explorer tools); empty = none.
     std::string web_research_section;
+    /// Pre-merge panel/branch analysis (consensus, contradictions, …); empty = none.
+    std::string panel_analysis_section;
     /// When true, tool_slots are real executable tools (not only scaffolds).
     bool tools_are_live = false;
 };
