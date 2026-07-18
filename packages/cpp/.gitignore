@@ -1,0 +1,7 @@
+# Local build / install smoke trees (not shipped)
+build/
+build-*/
+.local-prefix-smoke/
+.local-tests-consumer-reports/
+**/handoffkit-cpp-*.tar.gz
+**/SHA256SUMS

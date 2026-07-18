@@ -288,6 +288,9 @@ add_custom_target(package_source_tarball
   VERBATIM
 )
 
+# Document consumer example path (built separately against an install prefix).
+# See examples/consumer_core/ and scripts/consumer_install_smoke.*
+
 # --- install / export ---
 install(TARGETS ${_hk_install_libs}
   EXPORT HandoffKitTargets

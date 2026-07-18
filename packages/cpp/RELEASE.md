@@ -51,6 +51,22 @@ Or:
 pwsh packages/cpp/scripts/package_release.ps1
 ```
 
+## Consumer install smoke (every PR / local)
+
+CI runs this after `cmake --install`. Locally:
+
+```powershell
+pwsh packages/cpp/scripts/consumer_install_smoke.ps1
+```
+
+```bash
+bash packages/cpp/scripts/consumer_install_smoke.sh
+```
+
+Must print `consumer_core OK` / `consumer_install_smoke OK` and link **`handoffkit::core`** only.
+
+Reference app: `examples/consumer_core/`.
+
 ## Packaging checklist (maintainers)
 
 ### Every code change that ships
@@ -59,15 +75,32 @@ pwsh packages/cpp/scripts/package_release.ps1
 - [ ] `cmake --build` + `ctest` green
 - [ ] Contract fixtures still round-trip (all files under `packages/contracts/fixtures/`)
 - [ ] `cmake --install` prefix is usable with `find_package(handoffkit CONFIG)`
+- [ ] Consumer smoke: `examples/consumer_core` builds against the install prefix (`handoffkit::core`)
 
 ### Public C++ release asset
 
 - [ ] Job packages self-contained tree (include, src, cmake, CMakeLists, LICENSE, README)
 - [ ] Attach to GitHub Release; attestation via `actions/attest-build-provenance`
-- [ ] Document `URL_HASH SHA256=...` for FetchContent
-- [ ] Fill real `sha256` in `conandata.yml` for that version
+- [ ] Document `URL_HASH SHA256=...` for FetchContent (copy from release `SHA256SUMS`)
+- [ ] Fill real `sha256` in `conandata.yml` for that version (replace the zero placeholder)
 - [ ] Optional: open Conan Center Index PR
 - [ ] Optional: open vcpkg port PR (template under `vcpkg-overlay/ports/handoffkit`)
+
+### After first GitHub Release publishes `handoffkit-cpp-1.14.0.tar.gz`
+
+1. Download `SHA256SUMS` from the release assets.
+2. Put the hash into `conandata.yml` → `sources."1.14.0".sha256`.
+3. Document FetchContent snippet in the release notes:
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+  handoffkit
+  URL https://github.com/DaosPath/handoffkit/releases/download/v1.14.0/handoffkit-cpp-1.14.0.tar.gz
+  URL_HASH SHA256=<paste-from-SHA256SUMS>
+)
+# Prefer installing the tarball and find_package; or add_subdirectory after extract.
+```
 
 ### Local Conan smoke
 
@@ -94,9 +127,13 @@ External PR merge is outside this monorepo's CI bar.
 | Option | Default | Meaning |
 |--------|---------|---------|
 | `HANDOFFKIT_BUILD_TESTS` | ON | CTest targets |
-| `HANDOFFKIT_BUILD_EXAMPLES` | ON | Example binaries |
+| `HANDOFFKIT_BUILD_EXAMPLES` | ON | In-tree example binaries |
+| `HANDOFFKIT_BUILD_DEMOS` | ON | `handoffkit_demos` (fusion + demo catalog); OFF = core-only install |
+| `HANDOFFKIT_BUILD_CLI` | ON | `handoffkit-cli` (requires demos) |
 | `HANDOFFKIT_FETCH_JSON` | ON | Fetch nlohmann_json if missing |
 | `HANDOFFKIT_WITH_HTTP` | OFF | OpenAI-compatible HTTP provider (cpp-httplib) |
+
+Installed targets: `handoffkit::core`, optional `handoffkit::demos`, interface `handoffkit::handoffkit`.
 
 ## Out of scope for early C++ releases
 

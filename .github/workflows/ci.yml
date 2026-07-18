@@ -145,5 +145,16 @@ jobs:
         run: |
           cmake --install packages/cpp/build --prefix "$HOME/handoffkit-prefix" --config Release
           test -f "$HOME/handoffkit-prefix/include/handoffkit/handoffkit.hpp"
+          test -f "$HOME/handoffkit-prefix/include/handoffkit/handoffkit_core.hpp"
           test -f "$HOME/handoffkit-prefix/lib/cmake/handoffkit/HandoffKitConfig.cmake" \
             || test -f "$HOME/handoffkit-prefix/lib64/cmake/handoffkit/HandoffKitConfig.cmake"
+          test -f "$HOME/handoffkit-prefix/lib/libhandoffkit_core.a" \
+            || test -f "$HOME/handoffkit-prefix/lib64/libhandoffkit_core.a"
+
+      - name: Consumer core find_package smoke
+        run: |
+          cmake -S packages/cpp/examples/consumer_core -B packages/cpp/build-consumer \
+            -DCMAKE_PREFIX_PATH="$HOME/handoffkit-prefix" \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build packages/cpp/build-consumer --config Release
+          packages/cpp/build-consumer/consumer_core /tmp/handoffkit-consumer-reports

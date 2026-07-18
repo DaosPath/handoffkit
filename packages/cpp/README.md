@@ -46,7 +46,7 @@ target_link_libraries(app PRIVATE handoffkit::handoffkit)
 
 Core umbrella: `#include <handoffkit/handoffkit_core.hpp>`.
 
-## Quick start
+## Quick start (in-tree)
 
 ```powershell
 cmake -S packages/cpp -B packages/cpp/build -DCMAKE_BUILD_TYPE=Release
@@ -55,9 +55,38 @@ ctest --test-dir packages/cpp/build -C Release --output-on-failure
 .\packages\cpp\build\example_team_handoff.exe
 ```
 
+## 5 minutes: install + `handoffkit::core` consumer
+
+Validates the path real apps use (`find_package`, not monorepo `add_subdirectory`):
+
+```powershell
+# 1) Build + install
+cmake -S packages/cpp -B packages/cpp/build -DCMAKE_BUILD_TYPE=Release -DHANDOFFKIT_WITH_HTTP=OFF
+cmake --build packages/cpp/build --config Release
+cmake --install packages/cpp/build --prefix "$env:USERPROFILE/handoffkit-prefix" --config Release
+
+# 2) Out-of-tree consumer (links handoffkit::core only)
+cmake -S packages/cpp/examples/consumer_core -B packages/cpp/build-consumer `
+  -DCMAKE_PREFIX_PATH="$env:USERPROFILE/handoffkit-prefix"
+cmake --build packages/cpp/build-consumer --config Release
+.\packages\cpp\build-consumer\consumer_core.exe runs/consumer_core
+```
+
+One-shot helper (configure, install, build consumer, run):
+
+```powershell
+pwsh packages/cpp/scripts/consumer_install_smoke.ps1
+```
+
+```bash
+bash packages/cpp/scripts/consumer_install_smoke.sh
+```
+
+See [examples/consumer_core/README.md](examples/consumer_core/README.md).
+
 ## CLI (`handoffkit-cli`)
 
-Built by default (`HANDOFFKIT_BUILD_CLI=ON`). Offline Echo-based demos Ã¢â‚¬â€ no API keys required.
+Built by default (`HANDOFFKIT_BUILD_CLI=ON`). Offline Echo-based demos — no API keys required.
 
 ```powershell
 .\packages\cpp\build\handoffkit-cli.exe help
@@ -109,14 +138,29 @@ register_web_explorer_tools(reg, map);  // tools: web_fetch, web_explore
 There are **40+ demos** (team, tools, protocol matrix, validation/quality, support escalation, coding review, research, doctor panel, fusion, recipe, memory, tool stress, multi-case batch, replay, quality gates, incident response, product handoff, ...) plus a **40 unique offline corpus cases** for batch/showcase runs.
 ## Consume
 
-### After `cmake --install`
+### After `cmake --install` (recommended for apps)
 
 ```cmake
 find_package(handoffkit CONFIG REQUIRED)
-target_link_libraries(app PRIVATE handoffkit::handoffkit)
+# Runtime only (no fusion demos):
+target_link_libraries(app PRIVATE handoffkit::core)
+# Or full monorepo surface (demos + fusion when HANDOFFKIT_BUILD_DEMOS=ON):
+# target_link_libraries(app PRIVATE handoffkit::handoffkit)
+```
+
+```cpp
+#include <handoffkit/handoffkit_core.hpp>
+using namespace handoffkit;
+// Team + EchoProvider + Protocol — see examples/consumer_core/main.cpp
 ```
 
 When built with FetchContent for nlohmann_json, headers are installed into the same prefix.
+
+| CMake option | Default | Meaning |
+|--------------|---------|---------|
+| `HANDOFFKIT_BUILD_DEMOS` | ON | Build/install `handoffkit_demos` (fusion + CLI catalog) |
+| `HANDOFFKIT_BUILD_CLI` | ON | `handoffkit-cli` (requires demos) |
+| `HANDOFFKIT_WITH_HTTP` | OFF | Live OpenAI-compatible HTTP provider |
 
 ### FetchContent / monorepo
 
