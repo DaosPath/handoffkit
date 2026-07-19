@@ -12,6 +12,19 @@
 | **E** | NF4 quant + QLoRA train path (`--qlora`) | **done** |
 | **F** | Data-parallel allreduce / `world_size` grad scale | **done** |
 
+## Device-resident (DR) — own-kernel full-GPU train
+
+| Phase | Item | Status |
+|-------|------|--------|
+| **DR-1** | Embedding gather/scatter + rmsnorm/CE/scale kernels (`resident.cu`) | **done** |
+| **DR-2** | `ResidentLinear` AdamW train loop (weights always CUDA) | **done** |
+| **DR-3** | `ResidentMLP` + `ResidentRMSNorm` (device optim) | **done** |
+| **DR-4** | `ResidentMHA`/`ResidentBlock` — head split/merge + full attn bwd on GPU | **done** |
+| **DR-5** | `DeviceGPT` + SFT `--device cuda-resident` | **done** |
+| **DR-6** | CLI/docs + dual smoke | **done** |
+
+See [DEVICE_RESIDENT.md](./DEVICE_RESIDENT.md).
+
 ## Still optional future (not required for this roadmap)
 
 - Full cuBLAS/FlashAttention production kernels on multi-GPU NCCL clusters

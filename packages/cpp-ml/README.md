@@ -10,7 +10,8 @@
 
 ## Roadmap status
 
-All items in [ROADMAP.md](./ROADMAP.md) primary checklist are **implemented** (Phases A–F).
+Primary checklist in [ROADMAP.md](./ROADMAP.md) (Phases A–F) is **implemented**.  
+**Device-resident** path (weights + activations on GPU): [DEVICE_RESIDENT.md](./DEVICE_RESIDENT.md) **DR-1…DR-6**.
 
 ## Build
 
@@ -30,10 +31,21 @@ On Windows use **MSVC + nvcc** (Visual Studio generator). MinGW host is not supp
 cmake -S packages/cpp-ml -B packages/cpp-ml/build-cuda -G "Visual Studio 17 2022" -A x64 -DHANDOFFKIT_ML_CUDA=ON
 cmake --build packages/cpp-ml/build-cuda --config Release
 .\packages\cpp-ml\build-cuda\Release\test_ml_cuda_parity.exe
+.\packages\cpp-ml\build-cuda\Release\test_ml_resident_gpt.exe
 .\packages\cpp-ml\build-cuda\Release\handoffkit-ml.exe doctor
 ```
 
-Policy: **hand-written** `.cu` GEMM/elementwise/softmax; dependency is only **NVIDIA cudart**.
+Policy: **hand-written** `.cu` GEMM/elementwise/softmax/embed/attention helpers; dependency is only **NVIDIA cudart**.
+
+### Device-resident SFT
+
+```powershell
+handoffkit-ml sft --dataset d.jsonl --out runs/resident `
+  --device cuda-resident --allow-tiny --epochs 5 `
+  --n-embd 64 --n-layer 2 --n-head 4 --block-size 48 --tokenizer byte
+```
+
+Asserts mid-loop that weights stay on CUDA. See `DEVICE_RESIDENT.md`.
 
 ## CLI
 
@@ -41,10 +53,13 @@ Policy: **hand-written** `.cu` GEMM/elementwise/softmax; dependency is only **NV
 handoffkit-ml doctor
 handoffkit-ml sft --dataset student.jsonl --out runs/ml --epochs 20
 handoffkit-ml sft --dataset d.jsonl --out runs/qlora --qlora --arch gpt2
+handoffkit-ml sft --dataset d.jsonl --out runs/res --device cuda-resident --allow-tiny
 handoffkit-ml generate --ckpt runs/ml/model.hkckpt --prompt "P:" --bpe runs/ml/tokenizer.bpe
 handoffkit-ml gguf-export --ckpt runs/ml/model.hkckpt --out model.gguf
 handoffkit-ml gguf-import --gguf model.gguf --out runs/from_gguf
 ```
+
+`--device cpu|cuda|cuda-resident` — `cuda` accelerates GEMM; `cuda-resident` keeps **weights + activations** on GPU for the train loop.
 
 Non-tiny defaults: `n_embd=128`, `n_layer=4`, `block_size=128`, tokenizer `bpe`.  
 Pass `--allow-tiny` only for fast experiments below floors.
