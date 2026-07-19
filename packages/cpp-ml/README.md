@@ -61,19 +61,42 @@ handoffkit-ml gguf-import --gguf model.gguf --out runs/from_gguf
 
 `--device cpu|cuda|cuda-resident` — `cuda` accelerates GEMM; `cuda-resident` keeps **weights + activations** on GPU for the train loop.
 
-### Distill bridge (core → this package)
+### Comfortable train (plain SFT)
 
-Teacher distillation lives in **core** (`handoffkit-cli train distill`). The JSONL is the same wire this package loads:
+```powershell
+handoffkit-ml sft --dataset d.jsonl --out runs/sft --allow-tiny `
+  --tokenizer byte --epochs 40 --n-embd 64 --n-layer 2 --n-head 4 --block-size 48 --device cpu
+handoffkit-ml generate --ckpt runs/sft/model.hkckpt --prompt "P:" --max-new 16
+```
+
+### Comfortable QLoRA (one-shot)
+
+NF4-quantized **frozen** bases on all block Linears + `lm_head`; only LoRA **A/B** get Adam; merge to dense `model.hkckpt` at the end.
+
+```powershell
+handoffkit-ml sft --dataset d.jsonl --out runs/qlora --qlora --allow-tiny `
+  --tokenizer byte --epochs 40 --n-embd 64 --n-layer 2 --n-head 4 --block-size 48 `
+  --lora-rank 8 --device cpu
+# optional base: --base-ckpt prev/model.hkckpt   or   --gguf model.gguf
+# optional GPU GEMM: --device cuda   (not cuda-resident — adapters use host GPT path)
+handoffkit-ml generate --ckpt runs/qlora/model.hkckpt --prompt "P:" --max-new 16
+```
+
+Report fields: `backend_id=qlora`, `use_qlora`, `nf4_base`, `adapter_only_optim`, `peft_modules`, `lora_rank`.
+
+### Distill bridge (core → this package)
 
 ```powershell
 handoffkit-cli train distill --out runs/student.jsonl --prompt "P: MARK42"
-handoffkit-ml sft --dataset runs/student.jsonl --out runs/ml --allow-tiny --device cuda-resident
+handoffkit-ml sft --dataset runs/student.jsonl --out runs/ml --qlora --allow-tiny --tokenizer byte
 handoffkit-ml generate --ckpt runs/ml/model.hkckpt --prompt "P:" --max-new 16
 ```
 
-Or invoke this binary from core `train run --backend process` with `{dataset}` / `{output_dir}` / `{epochs}` placeholders (see `packages/cpp/README.md`).
+In-repo: `test_ml_distill_wire`, `test_ml_qlora_sft` (freeze + loss drop + generate).
 
-In-repo coverage: `test_ml_distill_wire` loads distill-shaped lines through `load_sft_jsonl` → `sft_train` → `generate_text`.
+### Honest scope (not Unsloth/HF tops)
+
+This package optimizes for **native C++ comfort** (one CLI, real NF4 freeze, multi-module adapters, loadable ckpt). It does **not** claim Unsloth / Hugging Face / Axolotl **speed or 1B+ scale** parity — see [NONGOALS.md](./NONGOALS.md).
 
 Non-tiny defaults: `n_embd=128`, `n_layer=4`, `block_size=128`, tokenizer `bpe`.  
 Pass `--allow-tiny` only for fast experiments below floors.

@@ -44,15 +44,21 @@ void print_help() {
         << "  handoffkit-ml sft --dataset PATH --out DIR [options]\n"
         << "      --epochs N --lr F --n-embd N --n-layer N --n-head N --block-size N\n"
         << "      --arch gpt2|llama-like|gpt-mini --tokenizer bpe|byte\n"
-        << "      --lora | --qlora | --preference --world-size N --allow-tiny\n"
+        << "      --lora | --qlora | --lora-rank N | --preference --world-size N --allow-tiny\n"
         << "      --gguf BASE.gguf | --base-ckpt model.hkckpt   (load external base)\n"
         << "      --device cpu|cuda|cuda-resident\n"
-        << "         cuda = GPU GEMM; cuda-resident = weights+activations on GPU\n"
+        << "         cuda = GPU GEMM; cuda-resident = full-weight GPU (not LoRA/QLoRA)\n"
         << "  handoffkit-ml generate --ckpt PATH --prompt TEXT [--max-new N] [--bpe PATH]\n"
         << "  handoffkit-ml gguf-export --ckpt PATH --out model.gguf\n"
         << "  handoffkit-ml gguf-import --gguf PATH --out DIR\n"
         << "  handoffkit-ml quant-demo\n\n"
+        << "Comfortable QLoRA (tiny local recipe; NF4 freeze + multi-module adapters):\n"
+        << "  handoffkit-ml sft --dataset d.jsonl --out runs/qlora --qlora --allow-tiny \\\n"
+        << "    --tokenizer byte --epochs 40 --n-embd 64 --n-layer 2 --n-head 4 \\\n"
+        << "    --block-size 48 --lora-rank 8 --device cpu\n"
+        << "  handoffkit-ml generate --ckpt runs/qlora/model.hkckpt --prompt \"P:\" --max-new 16\n\n"
         << "Default profile is non-tiny (n_embd>=128, n_layer>=4) unless --allow-tiny.\n"
+        << "Native stack comfort ≠ Unsloth/HF 1B+ SOTA scale (see NONGOALS.md).\n"
         << "No Python. Core never links this library.\n";
 }
 
@@ -67,6 +73,7 @@ int cmd_doctor() {
               << "cap.tensor_cpu=" << (cap.tensor_cpu ? "true" : "false") << "\n"
               << "cap.mini_transformer=" << (cap.mini_transformer ? "true" : "false") << "\n"
               << "cap.lora=" << (cap.lora ? "true" : "false") << "\n"
+              << "cap.qlora=true\n"
               << "cap.cuda=" << (cap.cuda ? "true" : "false") << "\n"
               << "cap.preference=" << (cap.preference ? "true" : "false") << "\n"
               << "kernel.backend=" << ker.name << "\n"
@@ -118,6 +125,9 @@ int cmd_sft(const std::vector<std::string>& args) {
     cfg.use_qlora = has_flag(args, "--qlora");
     cfg.preference = has_flag(args, "--preference");
     cfg.allow_tiny = has_flag(args, "--allow-tiny");
+    if (auto rk = flag_val(args, "--lora-rank"); !rk.empty()) cfg.lora_rank = std::stoi(rk);
+    // Comfortable QLoRA defaults when user only passes --qlora + allow-tiny without rank
+    if (cfg.use_qlora && cfg.lora_rank <= 0) cfg.lora_rank = 8;
     auto r = handoffkit::ml::sft_train(ds, out, cfg);
     if (!r.success) {
         std::cerr << "sft failed: " << r.error << "\n";
@@ -128,6 +138,10 @@ int cmd_sft(const std::vector<std::string>& args) {
               << "final_loss=" << r.final_loss << "\n"
               << "steps=" << r.steps << "\n"
               << "loss_dropped=" << (r.final_loss < r.initial_loss ? "true" : "false") << "\n"
+              << "use_qlora=" << (cfg.use_qlora ? "true" : "false") << "\n"
+              << "use_lora=" << (cfg.use_lora ? "true" : "false") << "\n"
+              << "lora_rank=" << cfg.lora_rank << "\n"
+              << "device=" << cfg.device << "\n"
               << "ckpt_path=" << r.ckpt_path << "\n"
               << "tokenizer_path=" << r.tokenizer_path << "\n"
               << "report_path=" << r.report_path << "\n"

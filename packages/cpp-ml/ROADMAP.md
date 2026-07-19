@@ -9,7 +9,7 @@
 | **B** | In-tree BPE tokenizer beyond byte-level, wired into SFT/generate | **done** |
 | **C** | GGUF f32 import/export + arch allowlist `gpt-mini` / `gpt2` / `llama-like` | **done** |
 | **D** | Multi-thread CPU matmul + optional CUDA compile path (`matmul_device`) | **done** |
-| **E** | NF4 quant + QLoRA train path (`--qlora`) | **done** |
+| **E** | NF4 quant + QLoRA train path (`--qlora`) multi-module freeze + adapter-only Adam | **done** |
 | **F** | Data-parallel allreduce / `world_size` grad scale | **done** |
 
 ## Device-resident (DR) — own-kernel full-GPU train

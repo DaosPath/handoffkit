@@ -11,7 +11,7 @@ This file is the **careful** list of what we refuse (for now or forever) so the 
 | **cuBLAS / cuDNN / CUTLASS** as product deps | Own CUDA kernels only; NVIDIA **cudart** is platform OK |
 | Core public headers including `handoffkit/ml/*` | Dependency must be ml → core only |
 | Default CI **requiring** GPU or long ML builds | Core gate stays green and fast |
-| Marketing “drop-in HF / Unsloth / 70B QLoRA” before phases say so | Honesty |
+| Marketing “drop-in HF / Unsloth / 70B QLoRA” or “match training tops” on 1B+ | Honesty: native comfort QLoRA ≠ industry SOTA scale/speed |
 
 ## Until a later phase says otherwise
 
