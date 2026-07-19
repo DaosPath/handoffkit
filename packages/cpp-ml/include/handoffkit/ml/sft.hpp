@@ -3,10 +3,12 @@
 #include <handoffkit/ml/bpe.hpp>
 #include <handoffkit/ml/ckpt.hpp>
 #include <handoffkit/ml/data.hpp>
+#include <handoffkit/ml/dist.hpp>
 #include <handoffkit/ml/model_profile.hpp>
 #include <handoffkit/ml/nn.hpp>
 #include <handoffkit/ml/optim.hpp>
 #include <handoffkit/ml/peft.hpp>
+#include <handoffkit/ml/qlora.hpp>
 #include <handoffkit/ml/token.hpp>
 
 #include <algorithm>
@@ -109,14 +111,21 @@ inline SftResult sft_train(const std::string& dataset_path,
         // LoRA: adapters on lm_head; base W frozen, grads projected onto A/B each step.
         LoraLinear lora_head;
         Tensor base_W_frozen;
-        if (cfg.use_lora) {
+        if (cfg.use_lora || cfg.use_qlora) {
+            if (cfg.use_qlora) {
+                // Quantize base lm_head to NF4 then dequant freeze
+                auto nf = quantize_nf4(model.lm_head.W);
+                base_W_frozen = dequantize_nf4(nf);
+                model.lm_head.W = base_W_frozen.clone();
+            } else {
+                base_W_frozen = model.lm_head.W.clone();
+            }
             lora_head = LoraLinear::wrap(model.lm_head, cfg.lora_rank, cfg.seed + 1);
-            base_W_frozen = model.lm_head.W.clone();
         }
 
         AdamW opt;
         opt.lr = cfg.lr;
-        opt.weight_decay = cfg.use_lora ? 0.f : 0.01f;
+        opt.weight_decay = (cfg.use_lora || cfg.use_qlora) ? 0.f : 0.01f;
 
         int steps = 0;
         float last = 0.f;
@@ -145,8 +154,8 @@ inline SftResult sft_train(const std::string& dataset_path,
                 mask.assign(T, 1.f);
                 for (std::size_t i = 0; i < T && i + 1 < prompt_tok; ++i) mask[i] = 0.25f;
 
-                if (cfg.use_lora) {
-                    // W_eff = W_frozen + scale*B@A
+                if (cfg.use_lora || cfg.use_qlora) {
+                    // W_eff = W_frozen + scale*B@A (QLoRA freezes quant base via same projection)
                     Tensor BA = matmul(lora_head.B, lora_head.A);
                     for (std::size_t i = 0; i < model.lm_head.W.numel(); ++i) {
                         model.lm_head.W.data[i] =
@@ -155,7 +164,7 @@ inline SftResult sft_train(const std::string& dataset_path,
                 }
 
                 model.zero_grad();
-                if (cfg.use_lora) lora_head.zero_grad();
+                if (cfg.use_lora || cfg.use_qlora) lora_head.zero_grad();
 
                 last = model.loss_and_backward(input, target, 1, T, mask);
                 if (!have_initial) {
@@ -194,9 +203,12 @@ inline SftResult sft_train(const std::string& dataset_path,
                 }
 
                 std::vector<Param> params;
-                if (cfg.use_lora) {
-                    // Project lm_head.gW onto LoRA factors; freeze base body grads
+                if (cfg.use_lora || cfg.use_qlora) {
                     Tensor dW = model.lm_head.gW.clone();
+                    // data-parallel scale if world_size>1
+                    if (cfg.world_size > 1) {
+                        for (auto& v : dW.data) v *= 1.f / static_cast<float>(cfg.world_size);
+                    }
                     for (auto& v : dW.data) v *= lora_head.scale;
                     Tensor dB = matmul(dW, transpose2d(lora_head.A));
                     Tensor dA = matmul(transpose2d(lora_head.B), dW);
@@ -206,6 +218,12 @@ inline SftResult sft_train(const std::string& dataset_path,
                     lora_head.collect_params(params);
                 } else {
                     model.collect_params(params);
+                    if (cfg.world_size > 1) {
+                        for (auto& p : params) {
+                            if (!p.g) continue;
+                            for (auto& v : p.g->data) v *= 1.f / static_cast<float>(cfg.world_size);
+                        }
+                    }
                 }
                 clip_grad_norm(params, 1.0f);
                 opt.step(params);
@@ -214,7 +232,7 @@ inline SftResult sft_train(const std::string& dataset_path,
             }
         }
 
-        if (cfg.use_lora) {
+        if (cfg.use_lora || cfg.use_qlora) {
             Tensor BA = matmul(lora_head.B, lora_head.A);
             for (std::size_t i = 0; i < model.lm_head.W.numel(); ++i) {
                 model.lm_head.W.data[i] = base_W_frozen.data[i] + lora_head.scale * BA.data[i];
