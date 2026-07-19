@@ -28,7 +28,8 @@ std::string fusion_suite_readme_markdown() {
   ss << "## Roles\n\n";
   ss << "Built-in packs: shipping, neutral, dialectic, diagnostic, coding, research, ";
   ss << "plus incident/product helpers. Load custom packs via load_role_pack_file JSON. ";
-  ss << "CLI: fusion roles --profile neutral | --pack incident | --file pack.json\n\n";
+  ss << "CLI: fusion roles --profile neutral | --pack incident | ";
+  ss << "--file packages/cpp/examples/fusion/role_packs/custom_review.json\n\n";
   ss << "## Explain\n\n";
   ss << "fusion explain --tier medium prints planned_llm_calls and call_plan offline.\n\n";
   ss << "## Engine layout\n\n";
@@ -98,6 +99,7 @@ std::string fusion_suite_quickstart_text() {
 handoffkit-cli fusion --provider echo --profile neutral --mode lean --prompt "..."
 handoffkit-cli fusion roles --profile neutral
 handoffkit-cli fusion roles --pack incident
+handoffkit-cli fusion roles --file packages/cpp/examples/fusion/role_packs/custom_review.json
 handoffkit-cli fusion explain --tier medium --mode ultra
 handoffkit-cli fusion --provider echo --profile diagnostic --mode ultra --prompt "..."
 handoffkit-cli fusion bench --provider echo

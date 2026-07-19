@@ -140,6 +140,7 @@ void test_medcase_validation_and_docs() {
     auto qs = fusion_suite_quickstart_text();
     assert(qs.find("fusion") != std::string::npos);
     assert(qs.find("fusion roles") != std::string::npos);
+    assert(qs.find("custom_review.json") != std::string::npos);
     assert(qs.find("fusion explain") != std::string::npos);
     auto notes = fusion_improvements_notes();
     assert(notes.find("call_steps") != std::string::npos);

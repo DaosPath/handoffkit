@@ -260,6 +260,12 @@ if(HANDOFFKIT_BUILD_TESTS)
     handoffkit_add_test(test_fusion_war_room tests/test_fusion_war_room.cpp)
     handoffkit_add_test(test_fusion_panel tests/test_fusion_panel.cpp)
     handoffkit_add_test(test_fusion_roles tests/test_fusion_roles.cpp)
+    # Shipped example pack path for load_role_pack_file / fusion roles --file smoke
+    file(TO_CMAKE_PATH
+      "${CMAKE_CURRENT_SOURCE_DIR}/examples/fusion/role_packs/custom_review.json"
+      _hk_example_role_pack)
+    target_compile_definitions(test_fusion_roles PRIVATE
+      "HANDOFFKIT_EXAMPLE_ROLE_PACK=\"${_hk_example_role_pack}\"")
   endif()
 endif()
 
@@ -297,6 +303,12 @@ add_custom_target(package_source_tarball
 
 # Document consumer example path (built separately against an install prefix).
 # See examples/consumer_core/ and scripts/consumer_install_smoke.*
+
+# Fusion role pack examples (CLI: fusion roles --file …)
+install(DIRECTORY examples/fusion/role_packs
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/handoffkit/examples/fusion
+  FILES_MATCHING PATTERN "*.json" PATTERN "README.md"
+)
 
 # --- install / export ---
 install(TARGETS ${_hk_install_libs}

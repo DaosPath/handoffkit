@@ -1,0 +1,56 @@
+{
+  "profile": "coding",
+  "description": "Example custom dual-branch pack: correctness review vs. operability review (shipped fixture for fusion roles --file)",
+  "task_faithful_merge": true,
+  "shipping_merge_sections": false,
+  "branches": [
+    {
+      "branch_id": "correctness",
+      "label": "correctness-review",
+      "architect": {
+        "role_id": "ex_corr_arch",
+        "agent_name": "CorrectnessArchitect",
+        "system_role": "You review the user task focusing on correctness: invariants, edge cases, error paths, and test gaps. Stay on-task; do not invent unrelated product roadmaps.",
+        "focus": "Correctness, edge cases, and failing tests first.",
+        "is_skeptic": false,
+        "is_merger": false
+      },
+      "skeptic": {
+        "role_id": "ex_corr_sk",
+        "agent_name": "CorrectnessSkeptic",
+        "system_role": "You critique the correctness branch for false confidence, missing counterexamples, and untested assumptions. Stay in the task domain.",
+        "focus": "Weak evidence and missing failure modes.",
+        "is_skeptic": true,
+        "is_merger": false
+      }
+    },
+    {
+      "branch_id": "ops",
+      "label": "operability-review",
+      "architect": {
+        "role_id": "ex_ops_arch",
+        "agent_name": "OperabilityArchitect",
+        "system_role": "You review the same user task focusing on operability: rollouts, observability, rollback, and operational risk. Stay on-task.",
+        "focus": "Deployability, monitoring, and rollback paths.",
+        "is_skeptic": false,
+        "is_merger": false
+      },
+      "skeptic": {
+        "role_id": "ex_ops_sk",
+        "agent_name": "OperabilitySkeptic",
+        "system_role": "You critique the operability branch for hand-wavy SLOs, missing runbooks, and single points of failure. Stay in the task domain.",
+        "focus": "Ops gaps and silent failure modes.",
+        "is_skeptic": true,
+        "is_merger": false
+      }
+    }
+  ],
+  "merger": {
+    "role_id": "ex_review_merge",
+    "agent_name": "ReviewMerger",
+    "system_role": "You merge correctness and operability into one prioritized review answer to the ORIGINAL user task. Lead with blockers, then high risks, then nice-to-haves. Never invent unrelated product plans.",
+    "focus": "Blockers first, then risks, then polish.",
+    "is_skeptic": false,
+    "is_merger": true
+  }
+}

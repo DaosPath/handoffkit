@@ -138,6 +138,22 @@ jobs:
       - name: Test C++ package
         run: ctest --test-dir packages/cpp/build -C Release --output-on-failure
 
+      - name: Fusion roles --file smoke (offline)
+        run: |
+          CLI=packages/cpp/build/handoffkit-cli
+          PACK=packages/cpp/examples/fusion/role_packs/custom_review.json
+          test -x "$CLI" || CLI=packages/cpp/build/Release/handoffkit-cli
+          test -f "$PACK"
+          out="$("$CLI" fusion roles --file "$PACK")"
+          echo "$out" | head -n 40
+          echo "$out" | grep -q 'ex_corr_arch'
+          echo "$out" | grep -q 'ex_ops_arch'
+          echo "$out" | grep -q 'ex_review_merge'
+          echo "$out" | grep -q 'CorrectnessArchitect'
+          "$CLI" fusion explain --tier medium --mode ultra | tee /tmp/fusion-explain.txt
+          grep -q 'mode=ultra' /tmp/fusion-explain.txt
+          grep -q 'skeptic' /tmp/fusion-explain.txt
+
       - name: Package source tarball (smoke)
         run: cmake --build packages/cpp/build --target package_source_tarball --config Release
 

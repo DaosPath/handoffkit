@@ -227,13 +227,15 @@ There are **40+ demos** (team, tools, protocol matrix, validation/quality, suppo
 # Role packs (built-in profiles, incident/product helpers, or JSON file)
 handoffkit-cli fusion roles --profile neutral
 handoffkit-cli fusion roles --pack incident
+# Shipped example pack (correctness vs operability dual-branch)
+handoffkit-cli fusion roles --file packages/cpp/examples/fusion/role_packs/custom_review.json
 # Call plan without LLM (tier/mode → planned_llm_calls + call_plan)
 handoffkit-cli fusion explain --tier medium --mode ultra
 # Echo run: report includes call_steps + cache_stats when cache is on
 handoffkit-cli fusion --provider echo --profile neutral --prompt "..."
 ```
 
-Engine layout: `engine_run` (dispatch/`call_llm`), `engine_lean_ultra`, `engine_dag_run`, `engine_panel_run`. Loadable role packs: `load_role_pack_file` + `validate_role_pack`.
+Engine layout: `engine_run` (dispatch/`call_llm`), `engine_lean_ultra`, `engine_dag_run`, `engine_panel_run`. Loadable role packs: `load_role_pack_file` + `validate_role_pack`. Example JSON: `examples/fusion/role_packs/`.
 
 ## Consume
 

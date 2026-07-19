@@ -66,6 +66,56 @@ int main() {
         return 1;
     }
 
+    // Shipped monorepo example pack (same file CI uses for fusion roles --file smoke).
+#ifdef HANDOFFKIT_EXAMPLE_ROLE_PACK
+    {
+        const fs::path example_path{HANDOFFKIT_EXAMPLE_ROLE_PACK};
+        if (!fs::exists(example_path)) {
+            std::cerr << "example role pack missing: " << example_path << "\n";
+            return 1;
+        }
+        auto ex = load_role_pack_file(example_path);
+        if (!ex) {
+            std::cerr << "example pack load failed: " << ex.error().message << "\n";
+            return 1;
+        }
+        if (!validate_role_pack(ex.value())) {
+            std::cerr << "example pack invalid\n";
+            return 1;
+        }
+        const auto& ep = ex.value();
+        if (ep.branches.size() < 2 || ep.merger.role_id != "ex_review_merge") {
+            std::cerr << "example pack structure unexpected merger=" << ep.merger.role_id << "\n";
+            return 1;
+        }
+        bool saw_corr = false;
+        bool saw_ops = false;
+        for (const auto& b : ep.branches) {
+            if (b.architect.role_id == "ex_corr_arch") saw_corr = true;
+            if (b.architect.role_id == "ex_ops_arch") saw_ops = true;
+            if (b.architect.system_role.empty() || b.architect.agent_name.empty()) {
+                std::cerr << "example branch architect incomplete\n";
+                return 1;
+            }
+        }
+        if (!saw_corr || !saw_ops) {
+            std::cerr << "example pack missing correctness/ops architects\n";
+            return 1;
+        }
+        auto ex_text = format_role_pack_text(ep);
+        if (ex_text.find("ex_corr_arch") == std::string::npos ||
+            ex_text.find("CorrectnessArchitect") == std::string::npos) {
+            std::cerr << "example format_role_pack_text missing custom ids\n";
+            return 1;
+        }
+        std::cout << "shipped example pack ok path=" << example_path << " branches="
+                  << ep.branches.size() << "\n";
+    }
+#else
+    std::cerr << "HANDOFFKIT_EXAMPLE_ROLE_PACK not defined (CMake must pass example path)\n";
+    return 1;
+#endif
+
     FusionConfig cfg;
     cfg.tier = FusionTier::Medium;
     cfg.profile = FusionProfileId::Neutral;
