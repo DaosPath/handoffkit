@@ -26,6 +26,9 @@ int main() {
         return 1;
     }
     SftConfig cfg;
+    cfg.allow_tiny = true;
+    cfg.tokenizer = TokenizerKind::Byte;
+    cfg.arch = "gpt-mini";
     cfg.epochs = 15;
     cfg.n_layer = 1;
     cfg.n_embd = 32;

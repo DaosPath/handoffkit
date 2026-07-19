@@ -32,6 +32,9 @@ int main() {
     }
 
     SftConfig cfg;
+    cfg.allow_tiny = true;
+    cfg.tokenizer = TokenizerKind::Byte;  // fast path for this suite
+    cfg.arch = "gpt-mini";
     cfg.epochs = 80;
     cfg.n_embd = 64;
     cfg.n_head = 4;

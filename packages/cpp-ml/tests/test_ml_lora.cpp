@@ -71,6 +71,9 @@ static int test_lora_sft_ckpt_generate() {
     }
 
     SftConfig cfg;
+    cfg.allow_tiny = true;
+    cfg.tokenizer = TokenizerKind::Byte;
+    cfg.arch = "gpt-mini";
     cfg.epochs = 40;
     cfg.n_embd = 32;
     cfg.n_head = 4;

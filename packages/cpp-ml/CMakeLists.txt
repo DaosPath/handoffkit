@@ -68,6 +68,8 @@ if(HANDOFFKIT_ML_BUILD_TESTS)
   hk_ml_test(test_ml_preference tests/test_ml_preference.cpp)
   hk_ml_test(test_ml_quant tests/test_ml_quant.cpp)
   hk_ml_test(test_ml_attn_parity tests/test_ml_attn_parity.cpp)
+  hk_ml_test(test_ml_bpe tests/test_ml_bpe.cpp)
+  hk_ml_test(test_ml_gguf tests/test_ml_gguf.cpp)
 endif()
 
 install(TARGETS handoffkit_ml

@@ -1,7 +1,9 @@
 #pragma once
 
+#include <handoffkit/ml/bpe.hpp>
 #include <handoffkit/ml/ckpt.hpp>
 #include <handoffkit/ml/data.hpp>
+#include <handoffkit/ml/model_profile.hpp>
 #include <handoffkit/ml/nn.hpp>
 #include <handoffkit/ml/optim.hpp>
 #include <handoffkit/ml/peft.hpp>
@@ -10,6 +12,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <random>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -17,18 +20,29 @@
 namespace handoffkit {
 namespace ml {
 
+enum class TokenizerKind { Byte, Bpe };
+
 struct SftConfig {
     int epochs = 20;
-    int block_size = 64;
-    int n_embd = 32;
+    // Non-tiny Standard floors by default (Phase A/B)
+    int block_size = 128;
+    int n_embd = 128;
     int n_head = 4;
-    int n_layer = 2;
+    int n_layer = 4;
     float lr = 3e-3f;
     int seed = 42;
     bool use_lora = false;
-    int lora_rank = 4;
-    bool preference = false;  // F5: use chosen/rejected DPO-like
+    int lora_rank = 8;
+    bool preference = false;
     float dpo_beta = 0.1f;
+    TokenizerKind tokenizer = TokenizerKind::Bpe;
+    int bpe_merges = 256;
+    std::string bpe_path;       // optional load; else train from dataset text
+    bool allow_tiny = false;    // unit tests may set true
+    bool use_qlora = false;     // Phase E
+    int world_size = 1;         // Phase F
+    int rank = 0;
+    std::string arch{"gpt2"};
 };
 
 struct SftResult {
@@ -39,6 +53,7 @@ struct SftResult {
     int steps = 0;
     std::string ckpt_path;
     std::string report_path;
+    std::string tokenizer_path;
     std::vector<float> loss_curve;
 };
 
@@ -50,15 +65,45 @@ inline SftResult sft_train(const std::string& dataset_path,
     std::error_code ec;
     fs::create_directories(out_dir, ec);
     try {
+        enforce_non_tiny(cfg.n_embd, cfg.n_layer, cfg.n_head, cfg.block_size, cfg.allow_tiny);
+        if (!is_allowed_arch(cfg.arch)) {
+            throw std::runtime_error("unsupported arch: " + cfg.arch);
+        }
         auto examples = load_sft_jsonl(dataset_path);
-        ByteTokenizer tok;
+
+        ByteTokenizer byte_tok;
+        BpeTokenizer bpe_tok;
+        auto encode = [&](const std::string& s, bool special) -> std::vector<int> {
+            if (cfg.tokenizer == TokenizerKind::Bpe) return bpe_tok.encode(s, special);
+            return byte_tok.encode(s, special);
+        };
+
+        if (cfg.tokenizer == TokenizerKind::Bpe) {
+            if (!cfg.bpe_path.empty() && fs::exists(cfg.bpe_path)) {
+                bpe_tok = BpeTokenizer::load(cfg.bpe_path);
+            } else {
+                std::string corpus;
+                for (const auto& ex : examples) {
+                    corpus += ex.prompt;
+                    corpus += ex.completion;
+                    corpus += ex.chosen;
+                    corpus += " ";
+                }
+                bpe_tok.train(corpus, cfg.bpe_merges);
+            }
+            r.tokenizer_path = (fs::path(out_dir) / "tokenizer.bpe").string();
+            bpe_tok.save(r.tokenizer_path);
+        }
+
         GPTConfig gcfg;
-        gcfg.vocab_size = ByteTokenizer::VOCAB;
+        gcfg.vocab_size = (cfg.tokenizer == TokenizerKind::Bpe) ? bpe_tok.vocab_size()
+                                                               : ByteTokenizer::VOCAB;
         gcfg.n_embd = cfg.n_embd;
         gcfg.n_head = cfg.n_head;
         gcfg.n_layer = cfg.n_layer;
         gcfg.block_size = cfg.block_size;
         gcfg.seed = cfg.seed;
+        gcfg.arch = cfg.arch;
         GPT model(gcfg);
 
         // LoRA: adapters on lm_head; base W frozen, grads projected onto A/B each step.
@@ -83,10 +128,10 @@ inline SftResult sft_train(const std::string& dataset_path,
                 std::vector<int> ids;
                 if (cfg.preference && !ex.chosen.empty() && !ex.rejected.empty()) {
                     full = ex.prompt + ex.chosen;
-                    ids = tok.encode(full, true);
+                    ids = encode(full, true);
                 } else {
                     full = ex.prompt + ex.completion;
-                    ids = tok.encode(full, true);
+                    ids = encode(full, true);
                 }
                 if (static_cast<int>(ids.size()) < 3) continue;
                 if (static_cast<int>(ids.size()) > cfg.block_size) {
@@ -95,7 +140,7 @@ inline SftResult sft_train(const std::string& dataset_path,
                 const std::size_t T = ids.size() - 1;
                 std::vector<int> input(ids.begin(), ids.end() - 1);
                 std::vector<int> target(ids.begin() + 1, ids.end());
-                auto pids = tok.encode(ex.prompt, true);
+                auto pids = encode(ex.prompt, true);
                 std::size_t prompt_tok = pids.empty() ? 1 : pids.size() - 1;
                 mask.assign(T, 1.f);
                 for (std::size_t i = 0; i < T && i + 1 < prompt_tok; ++i) mask[i] = 0.25f;
@@ -119,7 +164,7 @@ inline SftResult sft_train(const std::string& dataset_path,
                 }
 
                 if (cfg.preference && !ex.rejected.empty()) {
-                    auto ids_r = tok.encode(ex.prompt + ex.rejected, true);
+                    auto ids_r = encode(ex.prompt + ex.rejected, true);
                     if (static_cast<int>(ids_r.size()) > cfg.block_size)
                         ids_r.resize(static_cast<std::size_t>(cfg.block_size));
                     if (ids_r.size() >= 3) {
@@ -191,7 +236,13 @@ inline SftResult sft_train(const std::string& dataset_path,
                 << "  \"steps\": " << r.steps << ",\n"
                 << "  \"ckpt_path\": \"" << r.ckpt_path << "\",\n"
                 << "  \"use_lora\": " << (cfg.use_lora ? "true" : "false") << ",\n"
-                << "  \"preference\": " << (cfg.preference ? "true" : "false") << "\n"
+                << "  \"use_qlora\": " << (cfg.use_qlora ? "true" : "false") << ",\n"
+                << "  \"preference\": " << (cfg.preference ? "true" : "false") << ",\n"
+                << "  \"tokenizer\": \""
+                << (cfg.tokenizer == TokenizerKind::Bpe ? "bpe" : "byte") << "\",\n"
+                << "  \"vocab_size\": " << gcfg.vocab_size << ",\n"
+                << "  \"arch\": \"" << cfg.arch << "\",\n"
+                << "  \"world_size\": " << cfg.world_size << "\n"
                 << "}\n";
         }
         r.success = true;
@@ -204,21 +255,55 @@ inline SftResult sft_train(const std::string& dataset_path,
 
 /// Generate continuation. temperature<=0 => greedy (argmax). Returns full decoded text
 /// (prompt bytes + new). Also fills optional new_only with just the continuation.
+struct GenerateOpts {
+    int max_new_tokens = 32;
+    float temperature = 0.f;
+    TokenizerKind tokenizer = TokenizerKind::Bpe;
+    std::string bpe_path;
+    int eos_id = -1;  // -1 => auto
+};
+
 inline std::string generate_text(GPT& model,
                                  const std::string& prompt,
                                  int max_new_tokens = 32,
                                  float temperature = 0.f,
                                  std::mt19937* rng_ptr = nullptr,
-                                 std::string* new_only = nullptr) {
-    ByteTokenizer tok;
-    auto ids = tok.encode(prompt, true);
-    if (!ids.empty() && ids.back() == ByteTokenizer::EOS) ids.pop_back();
+                                 std::string* new_only = nullptr,
+                                 const GenerateOpts* opts = nullptr) {
+    GenerateOpts o;
+    if (opts) o = *opts;
+    else {
+        o.max_new_tokens = max_new_tokens;
+        o.temperature = temperature;
+        // Infer tokenizer: byte vocab is 259
+        o.tokenizer = (model.cfg.vocab_size <= 300) ? TokenizerKind::Byte : TokenizerKind::Bpe;
+    }
+
+    ByteTokenizer byte_tok;
+    BpeTokenizer bpe_tok;
+    if (o.tokenizer == TokenizerKind::Bpe) {
+        if (!o.bpe_path.empty()) bpe_tok = BpeTokenizer::load(o.bpe_path);
+        else bpe_tok.train(prompt + " MARK42 hello world supervised fine tuning", 128);
+    }
+    auto encode = [&](const std::string& s, bool sp) {
+        return o.tokenizer == TokenizerKind::Bpe ? bpe_tok.encode(s, sp) : byte_tok.encode(s, sp);
+    };
+    auto decode = [&](const std::vector<int>& ids) {
+        return o.tokenizer == TokenizerKind::Bpe ? bpe_tok.decode(ids) : byte_tok.decode(ids);
+    };
+    int eos = o.eos_id;
+    if (eos < 0) {
+        eos = (o.tokenizer == TokenizerKind::Bpe) ? bpe_tok.eos_id : ByteTokenizer::EOS;
+    }
+
+    auto ids = encode(prompt, true);
+    if (!ids.empty() && ids.back() == eos) ids.pop_back();
     const std::size_t prompt_len = ids.size();
     std::mt19937 local(0);
     std::mt19937& rng = rng_ptr ? *rng_ptr : local;
     const int Tmax = model.cfg.block_size;
-    const bool greedy = temperature <= 0.f;
-    for (int n = 0; n < max_new_tokens; ++n) {
+    const bool greedy = o.temperature <= 0.f;
+    for (int n = 0; n < o.max_new_tokens; ++n) {
         std::vector<int> ctx = ids;
         if (static_cast<int>(ctx.size()) > Tmax) {
             ctx.erase(ctx.begin(), ctx.end() - Tmax);
@@ -230,7 +315,6 @@ inline std::string generate_text(GPT& model,
         int pick = 0;
         if (greedy) {
             float best = logits.data[last * V];
-            pick = 0;
             for (std::size_t j = 1; j < V; ++j) {
                 float v = logits.data[last * V + j];
                 if (v > best) {
@@ -241,7 +325,7 @@ inline std::string generate_text(GPT& model,
         } else {
             std::vector<float> row(V);
             for (std::size_t j = 0; j < V; ++j) {
-                row[j] = logits.data[last * V + j] / std::max(temperature, 1e-3f);
+                row[j] = logits.data[last * V + j] / std::max(o.temperature, 1e-3f);
             }
             float m = *std::max_element(row.begin(), row.end());
             float sum = 0.f;
@@ -251,23 +335,23 @@ inline std::string generate_text(GPT& model,
             }
             for (auto& v : row) v /= sum;
             std::uniform_real_distribution<float> u(0.f, 1.f);
-            float r = u(rng);
+            float rr = u(rng);
             float cum = 0.f;
-            pick = ByteTokenizer::EOS;
+            pick = eos;
             for (std::size_t j = 0; j < V; ++j) {
                 cum += row[j];
-                if (r <= cum) {
+                if (rr <= cum) {
                     pick = static_cast<int>(j);
                     break;
                 }
             }
         }
         ids.push_back(pick);
-        if (pick == ByteTokenizer::EOS) break;
+        if (pick == eos) break;
     }
     std::vector<int> cont(ids.begin() + static_cast<std::ptrdiff_t>(prompt_len), ids.end());
-    if (new_only) *new_only = tok.decode(cont);
-    return tok.decode(ids);
+    if (new_only) *new_only = decode(cont);
+    return decode(ids);
 }
 
 }  // namespace ml
