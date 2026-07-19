@@ -32,3 +32,8 @@
 #include <handoffkit/util/text.hpp>
 #include <handoffkit/workflows/recipe.hpp>
 #include <handoffkit/workflows/templates.hpp>
+#include <handoffkit/train/types.hpp>
+#include <handoffkit/train/dataset.hpp>
+#include <handoffkit/train/distill.hpp>
+#include <handoffkit/train/backend.hpp>
+#include <handoffkit/train/runner.hpp>

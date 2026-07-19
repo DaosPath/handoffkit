@@ -88,6 +88,11 @@ set(HANDOFFKIT_CORE_SOURCES
   src/io/html_report.cpp
   src/io/report_gallery.cpp
   src/io/markdown_table.cpp
+  src/train/types.cpp
+  src/train/dataset.cpp
+  src/train/distill.cpp
+  src/train/backends.cpp
+  src/train/runner.cpp
 )
 
 # --- demos + fusion + CLI app sources (optional) ---
@@ -234,6 +239,7 @@ if(HANDOFFKIT_BUILD_TESTS)
   handoffkit_add_test(test_structured_replay_text tests/test_structured_replay_text.cpp LINK handoffkit_core)
   handoffkit_add_test(test_web_explorer tests/test_web_explorer.cpp LINK handoffkit_core)
   handoffkit_add_test(test_core_runtime tests/test_core_runtime.cpp LINK handoffkit_core)
+  handoffkit_add_test(test_train_core tests/test_train_core.cpp LINK handoffkit_core)
 
   if(HANDOFFKIT_BUILD_DEMOS)
     handoffkit_add_test(test_cli_and_demos tests/test_cli_and_demos.cpp)

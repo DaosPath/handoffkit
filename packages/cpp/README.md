@@ -46,6 +46,37 @@ target_link_libraries(app PRIVATE handoffkit::handoffkit)
 
 Core umbrella: `#include <handoffkit/handoffkit_core.hpp>`.
 
+## Train / distill / finetune (core, lightweight)
+
+HandoffKit does **not** embed PyTorch. It prepares **datasets**, runs **distill** (teacher LLM → student SFT JSONL), and executes a **TrainJob** via pluggable backends:
+
+| Backend | Use |
+|---------|-----|
+| `echo` | Offline CI: synthetic epochs + `metrics.json` + adapter marker |
+| `process` | Real trainers: `config.extra_args` = argv (`{dataset}`, `{output_dir}`, …) |
+
+```cpp
+#include <handoffkit/train/runner.hpp>
+#include <handoffkit/runtime/echo_provider.hpp>
+using namespace handoffkit;
+using namespace handoffkit::train;
+
+auto teacher = EchoProvider("teacher").as_any();
+EchoTrainBackend student;
+auto pipe = distill_then_train(
+    teacher,
+    {"Explain structured handoffs.", "What is SFT?"},
+    student,
+    DistillThenTrainConfig{}
+);
+// pipe->distill.dataset.path  JSONL for student
+// pipe->train.report.metrics  snake_case loss curve (echo) or process logs
+```
+
+JSONL example line: `{"format":"prompt_completion","prompt":"...","completion":"...","meta":{...}}`.
+
+Point `ProcessTrainBackend` at your HF/Unsloth/llama.cpp script after distill; HandoffKit owns job manifests, handoffs, and reports.
+
 ## Quick start (in-tree)
 
 ```powershell
