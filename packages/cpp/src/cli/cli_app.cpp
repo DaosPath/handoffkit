@@ -5,6 +5,7 @@
 #include <handoffkit/demos/fusion/cache.hpp>
 #include <handoffkit/demos/fusion/bench.hpp>
 #include <handoffkit/demos/fusion/engine.hpp>
+#include <handoffkit/demos/fusion/roles.hpp>
 #include <handoffkit/demos/fusion/scenarios_deep.hpp>
 #include <handoffkit/demos/fusion/war_room.hpp>
 #include <handoffkit/core/quality.hpp>
@@ -490,11 +491,60 @@ CliResult cmd_fusion(const std::vector<std::string>& args) {
     // fusion [--provider P] [--profile neutral|shipping|...] [--mode lean|ultra|dag]
     //        [--tier lite|medium|pro|ultra|genius] [--model M] [--prompt "..."]
     //        [--out DIR] [--ultra] [--no-cache] [--cache-dir D]
-    // fusion profiles | fusion modes | fusion tiers | fusion cache stats --cache-dir D
+    // fusion profiles | modes | tiers | roles | explain | cache ...
     if (args.size() >= 2 && args[1] == "profiles") {
         std::ostringstream ss;
         for (const auto& n : demos::fusion::fusion_profile_names()) ss << n << "\n";
+        ss << "(also packs: incident, product via --pack)\n";
         return ok(ss.str());
+    }
+    if (args.size() >= 2 && args[1] == "roles") {
+        // fusion roles [--profile neutral] [--file pack.json] [--pack incident|product]
+        std::string file = optional_flag_value(args, "--file");
+        std::string pack_name = optional_flag_value(args, "--pack");
+        std::string profile = optional_flag_value(args, "--profile");
+        if (profile.empty()) profile = "neutral";
+        demos::fusion::RolePack pack;
+        if (!file.empty()) {
+            auto loaded = demos::fusion::load_role_pack_file(file);
+            if (!loaded) return fail(1, loaded.error().message + "\n");
+            pack = std::move(loaded.value());
+        } else if (pack_name == "incident") {
+            pack = demos::fusion::make_incident_pack();
+        } else if (pack_name == "product") {
+            pack = demos::fusion::make_product_pack();
+        } else {
+            auto pr = demos::fusion::fusion_profile_from_string(profile);
+            if (!pr) return fail(2, "unknown --profile " + profile + "\n");
+            pack = demos::fusion::make_role_pack(pr.value());
+        }
+        auto v = demos::fusion::validate_role_pack(pack);
+        if (!v) return fail(1, v.error().message + "\n");
+        return ok(demos::fusion::format_role_pack_text(pack));
+    }
+    if (args.size() >= 2 && args[1] == "explain") {
+        // fusion explain [--tier medium] [--mode lean|ultra|dag|panel] [--profile neutral]
+        demos::fusion::FusionConfig cfg;
+        cfg.provider = "echo";
+        cfg.write_files = false;
+        std::string tier = optional_flag_value(args, "--tier");
+        if (tier.empty()) tier = "medium";
+        if (auto t = demos::fusion::fusion_tier_from_string(tier)) {
+            demos::fusion::apply_fusion_tier(cfg, t.value());
+        } else {
+            return fail(2, "unknown --tier " + tier + "\n");
+        }
+        std::string mode = optional_flag_value(args, "--mode");
+        if (!mode.empty()) {
+            if (auto m = demos::fusion::fusion_mode_from_string(mode)) cfg.mode = m.value();
+            else return fail(2, "unknown --mode " + mode + "\n");
+        }
+        std::string profile = optional_flag_value(args, "--profile");
+        if (!profile.empty()) {
+            if (auto p = demos::fusion::fusion_profile_from_string(profile)) cfg.profile = p.value();
+            else return fail(2, "unknown --profile " + profile + "\n");
+        }
+        return ok(demos::fusion::explain_fusion_plan(cfg));
     }
     if (args.size() >= 2 && args[1] == "modes") {
         std::ostringstream ss;
@@ -1305,7 +1355,9 @@ std::string help_text() {
        << "         [--model M] [--prompt \"...\"] [--out DIR]\n"
        << "         [--ultra] [--cache-dir D] [--no-cache]\n"
        << "      Tiers: Lite/Medium=lean(3), Pro=ultra(5), Ultra=DAG4(5), Genius=DAG6(7).\n"
-       << "  fusion profiles | fusion modes | fusion tiers\n\n"
+       << "  fusion profiles | fusion modes | fusion tiers\n"
+       << "  fusion roles [--profile neutral] [--pack incident|product] [--file pack.json]\n"
+       << "  fusion explain [--tier medium] [--mode lean|ultra|dag] [--profile neutral]\n\n"
        << demos::list_demos_text()
        << "\n" << templates::list_templates_text();
     return ss.str();
