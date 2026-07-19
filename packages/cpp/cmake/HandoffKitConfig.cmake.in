@@ -8,7 +8,13 @@ if(nlohmann_json_FOUND)
   set(_handoffkit_have_json TRUE)
 endif()
 
-include("${CMAKE_CURRENT_LIST_DIR}/HandoffKitTargets.cmake")
+# Linux find_package(handoffkit) is case-sensitive: expects handoffkitConfig.cmake
+# and handoffkitTargets.cmake (not HandoffKit*).
+if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/handoffkitTargets.cmake")
+  include("${CMAKE_CURRENT_LIST_DIR}/handoffkitTargets.cmake")
+else()
+  include("${CMAKE_CURRENT_LIST_DIR}/HandoffKitTargets.cmake")
+endif()
 
 # Attach nlohmann (system or bundled include) to installed targets.
 foreach(_hk_t handoffkit::core handoffkit::demos handoffkit::handoffkit)

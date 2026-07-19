@@ -304,25 +304,46 @@ install(DIRECTORY include/handoffkit
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
+# find_package(handoffkit) on Linux is case-sensitive and needs:
+#   handoffkitConfig.cmake / handoffkitTargets.cmake
+# Also ship HandoffKit* aliases so older CI/scripts keep working.
 install(EXPORT HandoffKitTargets
-  FILE HandoffKitTargets.cmake
+  FILE handoffkitTargets.cmake
   NAMESPACE handoffkit::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit
 )
 
 configure_package_config_file(
   cmake/HandoffKitConfig.cmake.in
-  "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfig.cmake"
   INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit
 )
 
 write_basic_package_version_file(
-  "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfigVersion.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfigVersion.cmake"
   VERSION ${PROJECT_VERSION}
   COMPATIBILITY SameMajorVersion
 )
 
+# Case aliases (Windows was fine with either; Linux find_package is picky).
+file(COPY_FILE
+  "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfig.cmake"
+)
+file(COPY_FILE
+  "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfigVersion.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfigVersion.cmake"
+)
+# Targets alias name for scripts that include HandoffKitTargets.cmake
+install(EXPORT HandoffKitTargets
+  FILE HandoffKitTargets.cmake
+  NAMESPACE handoffkit::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit
+)
+
 install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfigVersion.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfig.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfigVersion.cmake"
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit
