@@ -61,6 +61,20 @@ handoffkit-ml gguf-import --gguf model.gguf --out runs/from_gguf
 
 `--device cpu|cuda|cuda-resident` — `cuda` accelerates GEMM; `cuda-resident` keeps **weights + activations** on GPU for the train loop.
 
+### Distill bridge (core → this package)
+
+Teacher distillation lives in **core** (`handoffkit-cli train distill`). The JSONL is the same wire this package loads:
+
+```powershell
+handoffkit-cli train distill --out runs/student.jsonl --prompt "P: MARK42"
+handoffkit-ml sft --dataset runs/student.jsonl --out runs/ml --allow-tiny --device cuda-resident
+handoffkit-ml generate --ckpt runs/ml/model.hkckpt --prompt "P:" --max-new 16
+```
+
+Or invoke this binary from core `train run --backend process` with `{dataset}` / `{output_dir}` / `{epochs}` placeholders (see `packages/cpp/README.md`).
+
+In-repo coverage: `test_ml_distill_wire` loads distill-shaped lines through `load_sft_jsonl` → `sft_train` → `generate_text`.
+
 Non-tiny defaults: `n_embd=128`, `n_layer=4`, `block_size=128`, tokenizer `bpe`.  
 Pass `--allow-tiny` only for fast experiments below floors.
 
