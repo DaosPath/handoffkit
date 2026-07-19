@@ -83,8 +83,12 @@ inline SftResult sft_train(const std::string& dataset_path,
         const bool want_cuda =
             (cfg.device == "cuda" || cfg.device == "gpu" || cfg.device == "cuda-resident" ||
              cfg.device == "resident");
-        const bool want_resident =
+        bool want_resident =
             (cfg.device == "cuda-resident" || cfg.device == "resident");
+        // LoRA/QLoRA adapters train on host GPT path (merge to dense ckpt). Not DeviceGPT-resident.
+        if (want_resident && (cfg.use_qlora || cfg.use_lora)) {
+            want_resident = false;
+        }
         if (want_cuda) {
 #if defined(HANDOFFKIT_ML_WITH_CUDA) && HANDOFFKIT_ML_WITH_CUDA
             if (!cuda_rt::available()) {
@@ -261,20 +265,41 @@ inline SftResult sft_train(const std::string& dataset_path,
             gcfg.vocab_size = model.cfg.vocab_size;
         }
 
-        // LoRA: adapters on lm_head; base W frozen, grads projected onto A/B each step.
-        LoraLinear lora_head;
-        Tensor base_W_frozen;
-        if (cfg.use_lora || cfg.use_qlora) {
+        // LoRA / QLoRA: multi-module adapters. Base W frozen (QLoRA: NF4→dequant freeze);
+        // only A/B receive Adam updates. Merge into dense W at end for model.hkckpt.
+        std::vector<PeftTarget> peft;
+        auto add_peft = [&](Linear& lin, const std::string& name, int seed_off) {
+            PeftTarget t;
+            t.lin = &lin;
+            t.name = name;
             if (cfg.use_qlora) {
-                // Quantize base lm_head to NF4 then dequant freeze
-                auto nf = quantize_nf4(model.lm_head.W);
-                base_W_frozen = dequantize_nf4(nf);
-                model.lm_head.W = base_W_frozen.clone();
+                auto nf = quantize_nf4(lin.W);
+                t.base_frozen = dequantize_nf4(nf);
             } else {
-                base_W_frozen = model.lm_head.W.clone();
+                t.base_frozen = lin.W.clone();
             }
-            lora_head = LoraLinear::wrap(model.lm_head, cfg.lora_rank, cfg.seed + 1);
+            lin.W = t.base_frozen.clone();
+            t.lora = LoraLinear::wrap(lin, cfg.lora_rank, cfg.seed + seed_off);
+            // α/r style scale keeps multi-module QLoRA/LoRA stable at normal LRs
+            t.lora.scale = 2.f / static_cast<float>(std::max(1, cfg.lora_rank));
+            peft.push_back(std::move(t));
+        };
+        if (cfg.use_lora || cfg.use_qlora) {
+            int so = 11;
+            // Multi-module PEFT: attention proj + MLP + lm_head (qkv optional via all-attn)
+            for (std::size_t li = 0; li < model.blocks.size(); ++li) {
+                auto& bl = model.blocks[li];
+                add_peft(bl.attn.qkv, "block" + std::to_string(li) + ".attn.qkv", so++);
+                add_peft(bl.attn.proj, "block" + std::to_string(li) + ".attn.proj", so++);
+                add_peft(bl.mlp.fc1, "block" + std::to_string(li) + ".mlp.fc1", so++);
+                add_peft(bl.mlp.fc2, "block" + std::to_string(li) + ".mlp.fc2", so++);
+            }
+            add_peft(model.lm_head, "lm_head", so++);
         }
+        // Snapshots of frozen bases for freeze honesty checks (never written by optim)
+        std::vector<Tensor> peft_frozen_snap;
+        peft_frozen_snap.reserve(peft.size());
+        for (const auto& t : peft) peft_frozen_snap.push_back(t.base_frozen.clone());
 
         AdamW opt;
         opt.lr = cfg.lr;
@@ -308,17 +333,10 @@ inline SftResult sft_train(const std::string& dataset_path,
                 mask.assign(T, 1.f);
                 for (std::size_t i = 0; i < T && i + 1 < prompt_tok; ++i) mask[i] = 0.15f;
 
-                if (cfg.use_lora || cfg.use_qlora) {
-                    // W_eff = W_frozen + scale*B@A (QLoRA freezes quant base via same projection)
-                    Tensor BA = matmul(lora_head.B, lora_head.A);
-                    for (std::size_t i = 0; i < model.lm_head.W.numel(); ++i) {
-                        model.lm_head.W.data[i] =
-                            base_W_frozen.data[i] + lora_head.scale * BA.data[i];
-                    }
-                }
+                if (cfg.use_lora || cfg.use_qlora) peft_materialize(peft);
 
                 model.zero_grad();
-                if (cfg.use_lora || cfg.use_qlora) lora_head.zero_grad();
+                if (cfg.use_lora || cfg.use_qlora) peft_zero_grad(peft);
 
                 last = model.loss_and_backward(input, target, 1, T, mask);
                 if (!have_initial) {
@@ -358,18 +376,12 @@ inline SftResult sft_train(const std::string& dataset_path,
 
                 std::vector<Param> params;
                 if (cfg.use_lora || cfg.use_qlora) {
-                    Tensor dW = model.lm_head.gW.clone();
-                    // data-parallel scale if world_size>1
-                    if (cfg.world_size > 1) {
-                        for (auto& v : dW.data) v *= 1.f / static_cast<float>(cfg.world_size);
-                    }
-                    for (auto& v : dW.data) v *= lora_head.scale;
-                    Tensor dB = matmul(dW, transpose2d(lora_head.A));
-                    Tensor dA = matmul(transpose2d(lora_head.B), dW);
-                    add_inplace(lora_head.gA, dA);
-                    add_inplace(lora_head.gB, dB);
+                    const float ws =
+                        (cfg.world_size > 1) ? (1.f / static_cast<float>(cfg.world_size)) : 1.f;
+                    peft_project_and_clear_base(peft, ws);
+                    // Drop non-adapter grads (embeddings, norms, etc.) — only A/B step
                     model.zero_grad();
-                    lora_head.collect_params(params);
+                    peft_collect_params(peft, params);
                 } else {
                     model.collect_params(params);
                     if (cfg.world_size > 1) {
@@ -381,34 +393,54 @@ inline SftResult sft_train(const std::string& dataset_path,
                 }
                 clip_grad_norm(params, 1.0f);
                 opt.step(params);
+
+                // Freeze honesty: NF4/dequant frozen bases must be bit-identical after Adam
+                if (cfg.use_lora || cfg.use_qlora) {
+                    for (std::size_t ti = 0; ti < peft.size(); ++ti) {
+                        const auto& fr = peft[ti].base_frozen;
+                        const auto& sn = peft_frozen_snap[ti];
+                        for (std::size_t i = 0; i < fr.numel(); ++i) {
+                            if (fr.data[i] != sn.data[i]) {
+                                throw std::runtime_error(
+                                    "peft base_frozen mutated during train (adapter-only violated): " +
+                                    peft[ti].name);
+                            }
+                        }
+                    }
+                }
+
                 ++steps;
                 r.loss_curve.push_back(last);
             }
         }
 
-        if (cfg.use_lora || cfg.use_qlora) {
-            Tensor BA = matmul(lora_head.B, lora_head.A);
-            for (std::size_t i = 0; i < model.lm_head.W.numel(); ++i) {
-                model.lm_head.W.data[i] = base_W_frozen.data[i] + lora_head.scale * BA.data[i];
-            }
-        }
+        if (cfg.use_lora || cfg.use_qlora) peft_merge_into_base(peft);
 
         r.final_loss = last;
         r.steps = steps;
+        r.success = steps > 0 && r.final_loss < r.initial_loss;
         r.ckpt_path = (fs::path(out_dir) / "model.hkckpt").string();
         save_gpt(r.ckpt_path, model);
         r.report_path = (fs::path(out_dir) / "train_report.json").string();
         {
+            const char* backend = "native";
+            if (cfg.use_qlora) backend = "qlora";
+            else if (cfg.use_lora) backend = "lora";
             std::ofstream rep(r.report_path);
             rep << "{\n"
-                << "  \"success\": true,\n"
-                << "  \"backend_id\": \"native\",\n"
+                << "  \"success\": " << (r.success ? "true" : "false") << ",\n"
+                << "  \"backend_id\": \"" << backend << "\",\n"
                 << "  \"initial_loss\": " << r.initial_loss << ",\n"
                 << "  \"final_loss\": " << r.final_loss << ",\n"
                 << "  \"steps\": " << r.steps << ",\n"
                 << "  \"ckpt_path\": \"" << r.ckpt_path << "\",\n"
                 << "  \"use_lora\": " << (cfg.use_lora ? "true" : "false") << ",\n"
                 << "  \"use_qlora\": " << (cfg.use_qlora ? "true" : "false") << ",\n"
+                << "  \"lora_rank\": " << cfg.lora_rank << ",\n"
+                << "  \"peft_modules\": " << peft.size() << ",\n"
+                << "  \"nf4_base\": " << (cfg.use_qlora ? "true" : "false") << ",\n"
+                << "  \"adapter_only_optim\": "
+                << ((cfg.use_lora || cfg.use_qlora) ? "true" : "false") << ",\n"
                 << "  \"preference\": " << (cfg.preference ? "true" : "false") << ",\n"
                 << "  \"tokenizer\": \""
                 << (cfg.tokenizer == TokenizerKind::Bpe ? "bpe" : "byte") << "\",\n"
@@ -418,7 +450,10 @@ inline SftResult sft_train(const std::string& dataset_path,
                 << "  \"world_size\": " << cfg.world_size << "\n"
                 << "}\n";
         }
-        r.success = true;
+        if (!r.success) {
+            // steps completed without exception but loss did not drop
+            r.error = "train completed but final_loss did not drop below initial_loss";
+        }
     } catch (const std::exception& ex) {
         r.success = false;
         r.error = ex.what();

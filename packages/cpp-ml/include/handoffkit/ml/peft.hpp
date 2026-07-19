@@ -90,5 +90,61 @@ struct LoraLinear {
     }
 };
 
+/// One adapted Linear: frozen base (f32 snapshot; QLoRA stores NF4-dequant freeze) + LoRA A/B.
+struct PeftTarget {
+    Linear* lin = nullptr;
+    Tensor base_frozen;
+    LoraLinear lora;
+    std::string name;
+};
+
+/// Rebuild W = frozen + scale * B @ A for every target (base never receives Adam).
+inline void peft_materialize(std::vector<PeftTarget>& targets) {
+    for (auto& t : targets) {
+        if (!t.lin) continue;
+        Tensor BA = matmul(t.lora.B, t.lora.A);
+        for (std::size_t i = 0; i < t.lin->W.numel(); ++i) {
+            t.lin->W.data[i] = t.base_frozen.data[i] + t.lora.scale * BA.data[i];
+        }
+    }
+}
+
+/// Project Linear.gW into LoRA gA/gB, then clear base grads so only adapters are optimized.
+inline void peft_project_and_clear_base(std::vector<PeftTarget>& targets, float world_scale = 1.f) {
+    for (auto& t : targets) {
+        if (!t.lin) continue;
+        Tensor dW = t.lin->gW.clone();
+        if (world_scale != 1.f) {
+            for (auto& v : dW.data) v *= world_scale;
+        }
+        for (auto& v : dW.data) v *= t.lora.scale;
+        Tensor dB = matmul(dW, transpose2d(t.lora.A));
+        Tensor dA = matmul(transpose2d(t.lora.B), dW);
+        add_inplace(t.lora.gA, dA);
+        add_inplace(t.lora.gB, dB);
+        t.lin->gW.zero();
+        if (t.lin->use_bias) t.lin->gb.zero();
+    }
+}
+
+inline void peft_zero_grad(std::vector<PeftTarget>& targets) {
+    for (auto& t : targets) t.lora.zero_grad();
+}
+
+inline void peft_collect_params(std::vector<PeftTarget>& targets, std::vector<Param>& out) {
+    for (auto& t : targets) t.lora.collect_params(out);
+}
+
+/// Merge adapters into frozen base → final dense W on each Linear (for save_gpt / generate).
+inline void peft_merge_into_base(std::vector<PeftTarget>& targets) {
+    for (auto& t : targets) {
+        if (!t.lin) continue;
+        Tensor BA = matmul(t.lora.B, t.lora.A);
+        for (std::size_t i = 0; i < t.lin->W.numel(); ++i) {
+            t.lin->W.data[i] = t.base_frozen.data[i] + t.lora.scale * BA.data[i];
+        }
+    }
+}
+
 }  // namespace ml
 }  // namespace handoffkit

@@ -74,14 +74,14 @@ static int test_lora_sft_ckpt_generate() {
     cfg.allow_tiny = true;
     cfg.tokenizer = TokenizerKind::Byte;
     cfg.arch = "gpt-mini";
-    cfg.epochs = 40;
-    cfg.n_embd = 32;
+    cfg.epochs = 60;
+    cfg.n_embd = 64;
     cfg.n_head = 4;
-    cfg.n_layer = 1;
-    cfg.block_size = 24;
-    cfg.lr = 8e-3f;
+    cfg.n_layer = 2;
+    cfg.block_size = 48;
+    cfg.lr = 3e-2f;
     cfg.use_lora = true;
-    cfg.lora_rank = 4;
+    cfg.lora_rank = 8;
     auto r = sft_train(ds, (dir / "out").string(), cfg);
     if (!r.success) {
         std::cerr << "lora sft failed: " << r.error << "\n";
