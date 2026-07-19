@@ -37,7 +37,51 @@ void fill_f32(float* p, std::size_t n, float v);
 /// Causal mask: scores (T,T) set upper triangle to -1e9
 void causal_mask_f32(float* scores, int T);
 
+/// Embedding: table (V,D), indices (N,) int, out (N,D)
+void embedding_fwd_f32(const float* table, const int* indices, float* out, int N, int D);
+
+/// Embedding backward: scatter-add dy (N,D) into gtable (V,D)
+void embedding_bwd_f32(const float* dy, const int* indices, float* gtable, int N, int D, int V);
+
+/// Scale tensor by scalar: out = x * s
+void scale_f32(const float* x, float* out, std::size_t n, float s);
+
+/// axpy: y += a * x
+void axpy_f32(float* y, const float* x, std::size_t n, float a);
+
+/// RMSNorm forward: x (rows, D), weight (D), out (rows, D); writes rstd (rows) optional
+void rmsnorm_fwd_f32(const float* x, const float* weight, float* out, float* rstd, int rows, int D,
+                     float eps);
+
+/// RMSNorm backward (approx matching CPU: treat rms as constant per row for weight grad)
+void rmsnorm_bwd_f32(const float* x, const float* weight, const float* rstd, const float* dy,
+                     float* dx, float* dweight, int rows, int D);
+
+/// Cross-entropy mean loss (device logits + device targets) → scalar on host via download of 1 float
+float ce_mean_f32(const float* logits, const int* targets, int B, int C);
+
+/// Split one attention head from fused qkv (T, 3*D) into Q,K,V each (T, hs).
+void qkv_split_head_f32(const float* qkv, float* Q, float* K, float* V, int T, int D, int hs,
+                        int head);
+
+/// Merge head output (T, hs) into y (T, D) at head offset (overwrites that slice).
+void merge_head_f32(const float* head_out, float* y, int T, int D, int hs, int head);
+
+/// Inverse of merge: head_out (T, hs) ← y (T, D) slice for head.
+void unmerge_head_f32(const float* y, float* head_out, int T, int D, int hs, int head);
+
+/// Scatter dQ/dK/dV (T, hs) into fused d_qkv (T, 3*D) for one head (additive).
+void qkv_scatter_head_f32(const float* dQ, const float* dK, const float* dV, float* d_qkv, int T,
+                          int D, int hs, int head);
+
+/// Softmax backward over last dim: dout (rows, cols), softmax probs s, writes dx.
+void softmax_bwd_rows_f32(const float* s, const float* dy, float* dx, int rows, int cols);
+
+/// In-place scale: x *= s
+void scale_inplace_f32(float* x, std::size_t n, float s);
+
 }  // namespace cuda_kern
 }  // namespace ml
 }  // namespace handoffkit
+
 

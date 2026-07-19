@@ -35,6 +35,7 @@ if(HANDOFFKIT_ML_CUDA)
     src/cuda/elementwise.cu
     src/cuda/reduce.cu
     src/cuda/extra.cu
+    src/cuda/resident.cu
   )
 endif()
 
@@ -108,6 +109,8 @@ if(HANDOFFKIT_ML_BUILD_TESTS)
   hk_ml_test(test_ml_cuda_attn tests/test_ml_cuda_attn.cpp)
   hk_ml_test(test_ml_cuda_sft tests/test_ml_cuda_sft.cpp)
   hk_ml_test(test_ml_cuda_adamw tests/test_ml_cuda_adamw.cpp)
+  # Device-resident (DR) — tests added per phase
+  hk_ml_test(test_ml_resident_embed tests/test_ml_resident_embed.cpp)
 endif()
 
 install(TARGETS handoffkit_ml
