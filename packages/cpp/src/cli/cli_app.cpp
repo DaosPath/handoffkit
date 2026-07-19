@@ -74,6 +74,17 @@ std::string optional_flag_value(const std::vector<std::string>& args, const std:
     return {};
 }
 
+/// Prefer --prompt; else load UTF-8 body from --prompt-file (avoids Windows argv mangling).
+std::string optional_prompt(const std::vector<std::string>& args) {
+    std::string prompt = optional_flag_value(args, "--prompt");
+    if (!prompt.empty()) return prompt;
+    const std::string path = optional_flag_value(args, "--prompt-file");
+    if (path.empty()) return {};
+    std::ifstream in(path, std::ios::binary);
+    if (!in) return {};
+    return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+}
+
 bool has_flag(const std::vector<std::string>& args, const std::string& flag) {
     for (const auto& a : args) {
         if (a == flag) return true;
@@ -714,7 +725,7 @@ CliResult cmd_fusion(const std::vector<std::string>& args) {
         provider = "echo";
     }
     std::string model = optional_flag_value(args, "--model");
-    std::string prompt = optional_flag_value(args, "--prompt");
+    std::string prompt = optional_prompt(args);
     std::string profile = optional_flag_value(args, "--profile");
     if (profile.empty()) {
         // CLI compat: pro/ultra tiers without profile keep shipping; otherwise neutral
@@ -895,11 +906,12 @@ CliResult cmd_fusion(const std::vector<std::string>& args) {
 CliResult cmd_generate(const std::vector<std::string>& args) {
     // handoffkit-cli generate --provider nvidia --prompt "..." [--model M]
     // One live request; keep usage minimal for rate limits.
+    // Prefer --prompt-file for long/UTF-8 prompts on Windows.
     const std::string provider = optional_flag_value(args, "--provider");
-    std::string prompt = optional_flag_value(args, "--prompt");
+    std::string prompt = optional_prompt(args);
     const std::string model = optional_flag_value(args, "--model");
     if (provider.empty()) {
-        return fail(2, "usage: generate --provider <name> --prompt \"...\" [--model M]\n");
+        return fail(2, "usage: generate --provider <name> --prompt \"...\"|--prompt-file PATH [--model M]\n");
     }
     if (prompt.empty()) {
         // allow: generate nvidia "prompt text"
