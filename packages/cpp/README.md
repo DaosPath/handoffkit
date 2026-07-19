@@ -93,7 +93,17 @@ handoffkit-cli train run --dataset data.jsonl --backend process --out DIR \
   -- python scripts/hk_train_echo_stub.py --dataset {dataset} --output-dir {output_dir}
 ```
 
-Point `ProcessTrainBackend` at your HF/Unsloth/llama.cpp script after distill; HandoffKit owns job manifests, handoffs, and reports.
+Point `ProcessTrainBackend` at an external **C++** trainer binary after distill (or any non-Python exe); HandoffKit core owns job manifests, handoffs, and reports — **not** weight math.
+
+### Optional: native weight training (`handoffkit-ml`)
+
+**Core does not ship a neural trainer** (no autograd/CUDA in `handoffkit_core`).  
+For experimental **C++-only** SFT/LoRA later, see the sibling complement:
+
+- [`packages/cpp-ml/`](../cpp-ml/) — `handoffkit-ml` (version `0.x`, opt-in; **not** linked from core)
+- Product split: `handoffkit-cli train …` = jobs/distill; `handoffkit-ml sft …` = weights (Fase 2+)
+
+Default Conan/tarball/core CI remain light. See `packages/cpp-ml/NONGOALS.md`.
 
 ## Quick start (in-tree)
 
