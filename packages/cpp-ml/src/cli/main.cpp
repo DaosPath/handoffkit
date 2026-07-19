@@ -50,7 +50,7 @@ void print_help() {
         << "      --arch gpt2|llama-like|gpt-mini --tokenizer bpe|byte\n"
         << "      --lora | --qlora | --lora-rank N | --preference --world-size N --allow-tiny\n"
         << "      --log-every N\n"
-        << "      --gguf BASE.gguf | --base-ckpt model.hkckpt   (load external base)\n"
+        << "      --gguf BASE.gguf | --base-ckpt model.hkckpt | --resume-config sft_config.json\n"
         << "      --device cpu|cuda|cuda-resident\n"
         << "         cuda = GPU GEMM; cuda-resident = full-weight GPU (not LoRA/QLoRA)\n"
         << "  handoffkit-ml generate --ckpt PATH --prompt TEXT [--max-new N] [--temperature F]\n"
@@ -145,6 +145,9 @@ int cmd_sft(const std::vector<std::string>& args) {
     }
     if (auto w = flag_val(args, "--world-size"); !w.empty()) cfg.world_size = std::stoi(w);
     if (auto b = flag_val(args, "--bpe"); !b.empty()) cfg.bpe_path = b;
+    if (auto rc = flag_val(args, "--resume-config"); !rc.empty()) {
+        handoffkit::ml::apply_sft_config_json(cfg, rc, true);
+    }
     if (auto g = flag_val(args, "--gguf"); !g.empty()) cfg.base_gguf = g;
     if (auto c = flag_val(args, "--base-ckpt"); !c.empty()) cfg.base_ckpt = c;
     if (auto c = flag_val(args, "--ckpt"); !c.empty() && cfg.base_ckpt.empty()) cfg.base_ckpt = c;

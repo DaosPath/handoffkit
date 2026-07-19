@@ -83,6 +83,81 @@ inline void apply_sft_profile(SftConfig& cfg, ModelProfile p) {
     else cfg.tokenizer = TokenizerKind::Bpe;
 }
 
+namespace sft_cfg_detail {
+inline int extract_bare_int(const std::string& body, const std::string& key, int def) {
+    const std::string pat = "\"" + key + "\"";
+    auto pos = body.find(pat);
+    if (pos == std::string::npos) return def;
+    pos = body.find(':', pos + pat.size());
+    if (pos == std::string::npos) return def;
+    try {
+        return std::stoi(body.substr(pos + 1));
+    } catch (...) {
+        return def;
+    }
+}
+inline float extract_bare_float(const std::string& body, const std::string& key, float def) {
+    const std::string pat = "\"" + key + "\"";
+    auto pos = body.find(pat);
+    if (pos == std::string::npos) return def;
+    pos = body.find(':', pos + pat.size());
+    if (pos == std::string::npos) return def;
+    try {
+        return std::stof(body.substr(pos + 1));
+    } catch (...) {
+        return def;
+    }
+}
+inline bool extract_bare_bool(const std::string& body, const std::string& key, bool def) {
+    const std::string pat = "\"" + key + "\"";
+    auto pos = body.find(pat);
+    if (pos == std::string::npos) return def;
+    pos = body.find(':', pos + pat.size());
+    if (pos == std::string::npos) return def;
+    auto rest = body.substr(pos + 1, 20);
+    if (rest.find("true") != std::string::npos) return true;
+    if (rest.find("false") != std::string::npos) return false;
+    return def;
+}
+}  // namespace sft_cfg_detail
+
+/// Load dims/knobs from a prior `sft_config.json` (does not set dataset paths).
+/// Sets base_ckpt to sibling model.hkckpt when `set_base_from_dir` and file lives next to it.
+inline void apply_sft_config_json(SftConfig& cfg, const std::string& path,
+                                  bool set_base_from_dir = true) {
+    std::ifstream in(path);
+    if (!in) throw std::runtime_error("cannot open sft_config.json: " + path);
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    const std::string body = ss.str();
+    using namespace sft_cfg_detail;
+    cfg.n_embd = extract_bare_int(body, "n_embd", cfg.n_embd);
+    cfg.n_layer = extract_bare_int(body, "n_layer", cfg.n_layer);
+    cfg.n_head = extract_bare_int(body, "n_head", cfg.n_head);
+    cfg.block_size = extract_bare_int(body, "block_size", cfg.block_size);
+    cfg.epochs = extract_bare_int(body, "epochs", cfg.epochs);
+    cfg.lr = extract_bare_float(body, "lr", cfg.lr);
+    cfg.lora_rank = extract_bare_int(body, "lora_rank", cfg.lora_rank);
+    cfg.allow_tiny = extract_bare_bool(body, "allow_tiny", cfg.allow_tiny);
+    cfg.use_qlora = extract_bare_bool(body, "use_qlora", cfg.use_qlora);
+    cfg.use_lora = extract_bare_bool(body, "use_lora", cfg.use_lora);
+    auto prof = detail::extract_json_string(body, "profile");
+    if (!prof.empty()) cfg.profile = prof;
+    auto arch = detail::extract_json_string(body, "arch");
+    if (!arch.empty()) cfg.arch = arch;
+    auto tok = detail::extract_json_string(body, "tokenizer");
+    if (tok == "byte") cfg.tokenizer = TokenizerKind::Byte;
+    else if (tok == "bpe") cfg.tokenizer = TokenizerKind::Bpe;
+    auto dev = detail::extract_json_string(body, "device");
+    if (!dev.empty()) cfg.device = dev;
+    if (set_base_from_dir && cfg.base_ckpt.empty()) {
+        namespace fs = std::filesystem;
+        fs::path p(path);
+        auto ck = p.parent_path() / "model.hkckpt";
+        if (fs::exists(ck)) cfg.base_ckpt = ck.string();
+    }
+}
+
 struct SftResult {
     bool success = false;
     std::string error;
@@ -270,8 +345,12 @@ inline SftResult sft_train(const std::string& dataset_path,
             if (model.cfg.n_embd != gcfg.n_embd || model.cfg.n_layer != gcfg.n_layer ||
                 model.cfg.n_head != gcfg.n_head) {
                 throw std::runtime_error(
-                    "base_gguf config mismatch vs SFT n_embd/n_layer/n_head; "
-                    "pass matching --n-embd/--n-layer/--n-head"
+                    "base_gguf dim mismatch: base n_embd=" + std::to_string(model.cfg.n_embd) +
+                    " n_layer=" + std::to_string(model.cfg.n_layer) +
+                    " n_head=" + std::to_string(model.cfg.n_head) + " vs SFT n_embd=" +
+                    std::to_string(gcfg.n_embd) + " n_layer=" + std::to_string(gcfg.n_layer) +
+                    " n_head=" + std::to_string(gcfg.n_head) +
+                    " (use matching --n-embd/--n-layer/--n-head or --resume-config)"
                 );
             }
             if (cfg.tokenizer == TokenizerKind::Bpe &&
@@ -285,11 +364,21 @@ inline SftResult sft_train(const std::string& dataset_path,
             gcfg.vocab_size = model.cfg.vocab_size;
         } else if (!cfg.base_ckpt.empty()) {
             model = load_gpt(cfg.base_ckpt);
-            if (model.cfg.n_embd != gcfg.n_embd || model.cfg.n_layer != gcfg.n_layer) {
-                throw std::runtime_error("base_ckpt config mismatch vs SFT dims");
+            if (model.cfg.n_embd != gcfg.n_embd || model.cfg.n_layer != gcfg.n_layer ||
+                model.cfg.n_head != gcfg.n_head) {
+                throw std::runtime_error(
+                    "base_ckpt dim mismatch: base n_embd=" + std::to_string(model.cfg.n_embd) +
+                    " n_layer=" + std::to_string(model.cfg.n_layer) +
+                    " n_head=" + std::to_string(model.cfg.n_head) + " vs SFT n_embd=" +
+                    std::to_string(gcfg.n_embd) + " n_layer=" + std::to_string(gcfg.n_layer) +
+                    " n_head=" + std::to_string(gcfg.n_head) +
+                    " (pass --resume-config prior/sft_config.json or matching dims)"
+                );
             }
             gcfg.arch = model.cfg.arch;
             gcfg.vocab_size = model.cfg.vocab_size;
+            // Prefer base block_size if larger (context headroom)
+            if (model.cfg.block_size > gcfg.block_size) gcfg.block_size = model.cfg.block_size;
         }
 
         // LoRA / QLoRA: multi-module adapters. Base W frozen (QLoRA: NF4→dequant freeze);
