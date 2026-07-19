@@ -128,56 +128,42 @@ int cmd_sft(const std::vector<std::string>& args) {
         return 2;
     }
     handoffkit::ml::SftConfig cfg;
-
-    // Profile first (comfort/qlora one-shots), then explicit flags override.
-    if (auto pr = flag_val(args, "--profile"); !pr.empty()) {
-        handoffkit::ml::ModelProfile mp = handoffkit::ml::ModelProfile::Standard;
-        if (!handoffkit::ml::parse_profile_name(pr, mp)) {
-            std::cerr << "unknown --profile " << pr
-                      << " (use comfort|qlora|standard|large|tiny)\n";
-            return 2;
-        }
-        handoffkit::ml::apply_sft_profile(cfg, mp);
-    } else if (has_flag(args, "--qlora") && !has_flag(args, "--allow-tiny") &&
-               flag_val(args, "--n-embd").empty() && flag_val(args, "--n-layer").empty()) {
-        // Bare --qlora without dims → comfort-qlora profile (local happy path)
-        handoffkit::ml::apply_sft_profile(cfg, handoffkit::ml::ModelProfile::ComfortQlora);
-    }
-
-    if (auto e = flag_val(args, "--epochs"); !e.empty()) cfg.epochs = std::stoi(e);
-    if (auto lr = flag_val(args, "--lr"); !lr.empty()) cfg.lr = std::stof(lr);
-    if (auto b = flag_val(args, "--block-size"); !b.empty()) cfg.block_size = std::stoi(b);
-    if (auto n = flag_val(args, "--n-embd"); !n.empty()) cfg.n_embd = std::stoi(n);
-    if (auto n = flag_val(args, "--n-layer"); !n.empty()) cfg.n_layer = std::stoi(n);
-    if (auto n = flag_val(args, "--n-head"); !n.empty()) cfg.n_head = std::stoi(n);
-    if (auto a = flag_val(args, "--arch"); !a.empty()) cfg.arch = a;
-    if (auto t = flag_val(args, "--tokenizer"); !t.empty()) {
-        cfg.tokenizer = (t == "byte") ? handoffkit::ml::TokenizerKind::Byte
-                                      : handoffkit::ml::TokenizerKind::Bpe;
-    }
-    if (auto w = flag_val(args, "--world-size"); !w.empty()) cfg.world_size = std::stoi(w);
+    handoffkit::ml::SftCliOverrides ov;
+    // Precedence (shipped): resume dims/base → profile knobs → explicit CLI last.
+    ov.resume_config = flag_val(args, "--resume-config");
+    ov.profile = flag_val(args, "--profile");
+    if (auto e = flag_val(args, "--epochs"); !e.empty()) ov.epochs = std::stoi(e);
+    if (auto lr = flag_val(args, "--lr"); !lr.empty()) ov.lr = std::stof(lr);
+    if (auto b = flag_val(args, "--block-size"); !b.empty()) ov.block_size = std::stoi(b);
+    if (auto n = flag_val(args, "--n-embd"); !n.empty()) ov.n_embd = std::stoi(n);
+    if (auto n = flag_val(args, "--n-layer"); !n.empty()) ov.n_layer = std::stoi(n);
+    if (auto n = flag_val(args, "--n-head"); !n.empty()) ov.n_head = std::stoi(n);
+    ov.arch = flag_val(args, "--arch");
+    ov.tokenizer = flag_val(args, "--tokenizer");
+    ov.device = flag_val(args, "--device");
+    ov.base_ckpt = flag_val(args, "--base-ckpt");
+    if (ov.base_ckpt.empty()) ov.base_ckpt = flag_val(args, "--ckpt");
+    ov.base_gguf = flag_val(args, "--gguf");
+    if (auto le = flag_val(args, "--log-every"); !le.empty()) ov.log_every = std::stoi(le);
+    if (auto rk = flag_val(args, "--lora-rank"); !rk.empty()) ov.lora_rank = std::stoi(rk);
+    ov.use_lora = has_flag(args, "--lora");
+    ov.use_qlora = has_flag(args, "--qlora");
+    ov.preference = has_flag(args, "--preference");
+    if (auto db = flag_val(args, "--dpo-beta"); !db.empty()) ov.dpo_beta = std::stof(db);
+    ov.allow_tiny = has_flag(args, "--allow-tiny");
+    ov.bare_qlora_profile = has_flag(args, "--qlora") && ov.profile.empty() &&
+                            ov.resume_config.empty() && ov.n_embd < 0 && ov.n_layer < 0 &&
+                            !has_flag(args, "--allow-tiny");
+    ov.force_require_loss_drop = has_flag(args, "--require-loss-drop");
     if (auto b = flag_val(args, "--bpe"); !b.empty()) cfg.bpe_path = b;
-    if (auto rc = flag_val(args, "--resume-config"); !rc.empty()) {
-        handoffkit::ml::apply_sft_config_json(cfg, rc, true);
+    if (auto w = flag_val(args, "--world-size"); !w.empty()) cfg.world_size = std::stoi(w);
+
+    try {
+        handoffkit::ml::apply_sft_cli_overrides(cfg, ov);
+    } catch (const std::exception& ex) {
+        std::cerr << "sft config error: " << ex.what() << "\n";
+        return 2;
     }
-    if (auto g = flag_val(args, "--gguf"); !g.empty()) cfg.base_gguf = g;
-    if (auto c = flag_val(args, "--base-ckpt"); !c.empty()) cfg.base_ckpt = c;
-    if (auto c = flag_val(args, "--ckpt"); !c.empty() && cfg.base_ckpt.empty()) cfg.base_ckpt = c;
-    if (auto d = flag_val(args, "--device"); !d.empty()) cfg.device = d;
-    if (auto le = flag_val(args, "--log-every"); !le.empty()) cfg.log_every = std::stoi(le);
-    if (has_flag(args, "--lora")) cfg.use_lora = true;
-    if (has_flag(args, "--qlora")) cfg.use_qlora = true;
-    cfg.preference = has_flag(args, "--preference");
-    if (auto db = flag_val(args, "--dpo-beta"); !db.empty()) cfg.dpo_beta = std::stof(db);
-    if (has_flag(args, "--allow-tiny")) cfg.allow_tiny = true;
-    if (auto rk = flag_val(args, "--lora-rank"); !rk.empty()) cfg.lora_rank = std::stoi(rk);
-    if (cfg.use_qlora && cfg.lora_rank <= 0) cfg.lora_rank = 8;
-    // Warm-start often plateaus; do not fail the CLI solely on loss drop
-    if ((!cfg.base_ckpt.empty() || !cfg.base_gguf.empty()) &&
-        !has_flag(args, "--require-loss-drop")) {
-        cfg.require_loss_drop = false;
-    }
-    if (has_flag(args, "--require-loss-drop")) cfg.require_loss_drop = true;
 
     std::cout << "sft start profile=" << cfg.profile
               << " qlora=" << (cfg.use_qlora ? "true" : "false")

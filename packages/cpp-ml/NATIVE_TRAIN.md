@@ -26,6 +26,7 @@ It **is** a coherent native pipeline for a small GPT student you own end-to-end.
 handoffkit-cli train distill --out data/all.jsonl --prompt "P: MARK42"
 handoffkit-ml dataset split --dataset data/all.jsonl --out data/ --val-ratio 0.2
 handoffkit-ml sft --dataset data/train.jsonl --out runs/s1 --profile comfort
+# Precedence: resume dims/base → profile knobs (qlora) → explicit flags last
 handoffkit-ml sft --dataset data/train.jsonl --out runs/s2 `
   --resume-config runs/s1/sft_config.json --profile qlora --epochs 20
 handoffkit-ml eval --ckpt runs/s2/model.hkckpt --dataset data/val.jsonl --tokenizer byte

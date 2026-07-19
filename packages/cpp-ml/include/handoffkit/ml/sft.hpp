@@ -64,23 +64,27 @@ struct SftConfig {
 };
 
 /// Apply a named comfort / size profile. Does not clear base_ckpt / device / dataset paths.
-inline void apply_sft_profile(SftConfig& cfg, ModelProfile p) {
+/// If apply_dims is false (e.g. after --resume-config), keep n_embd/n_layer/n_head/block/arch/tokenizer
+/// and only apply train knobs (epochs, lr, qlora/lora, log_every, profile name).
+inline void apply_sft_profile(SftConfig& cfg, ModelProfile p, bool apply_dims = true) {
     const ProfileSpec s = profile_spec(p);
-    cfg.n_embd = s.n_embd;
-    cfg.n_head = s.n_head;
-    cfg.n_layer = s.n_layer;
-    cfg.block_size = s.block_size;
-    cfg.arch = s.arch;
+    if (apply_dims) {
+        cfg.n_embd = s.n_embd;
+        cfg.n_head = s.n_head;
+        cfg.n_layer = s.n_layer;
+        cfg.block_size = s.block_size;
+        cfg.arch = s.arch;
+        if (s.tokenizer_byte) cfg.tokenizer = TokenizerKind::Byte;
+        else cfg.tokenizer = TokenizerKind::Bpe;
+    }
     cfg.epochs = s.epochs;
     cfg.lr = s.lr;
-    cfg.allow_tiny = s.allow_tiny;
+    cfg.allow_tiny = s.allow_tiny || cfg.allow_tiny;
     cfg.use_qlora = s.use_qlora;
     cfg.use_lora = s.use_lora;
     cfg.lora_rank = s.lora_rank;
     cfg.log_every = s.log_every;
     cfg.profile = s.name;
-    if (s.tokenizer_byte) cfg.tokenizer = TokenizerKind::Byte;
-    else cfg.tokenizer = TokenizerKind::Bpe;
 }
 
 namespace sft_cfg_detail {
@@ -156,6 +160,99 @@ inline void apply_sft_config_json(SftConfig& cfg, const std::string& path,
         auto ck = p.parent_path() / "model.hkckpt";
         if (fs::exists(ck)) cfg.base_ckpt = ck.string();
     }
+}
+
+/// Resume dims + base only (no epochs/lr/qlora from file — CLI re-applies those).
+inline void apply_sft_resume_dims(SftConfig& cfg, const std::string& path,
+                                  bool set_base_from_dir = true) {
+    std::ifstream in(path);
+    if (!in) throw std::runtime_error("cannot open sft_config.json: " + path);
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    const std::string body = ss.str();
+    using namespace sft_cfg_detail;
+    cfg.n_embd = extract_bare_int(body, "n_embd", cfg.n_embd);
+    cfg.n_layer = extract_bare_int(body, "n_layer", cfg.n_layer);
+    cfg.n_head = extract_bare_int(body, "n_head", cfg.n_head);
+    cfg.block_size = extract_bare_int(body, "block_size", cfg.block_size);
+    cfg.allow_tiny = true;
+    auto arch = detail::extract_json_string(body, "arch");
+    if (!arch.empty()) cfg.arch = arch;
+    auto tok = detail::extract_json_string(body, "tokenizer");
+    if (tok == "byte") cfg.tokenizer = TokenizerKind::Byte;
+    else if (tok == "bpe") cfg.tokenizer = TokenizerKind::Bpe;
+    if (set_base_from_dir && cfg.base_ckpt.empty()) {
+        namespace fs = std::filesystem;
+        fs::path p(path);
+        auto ck = p.parent_path() / "model.hkckpt";
+        if (fs::exists(ck)) cfg.base_ckpt = ck.string();
+    }
+}
+
+/// CLI merge layers: resume dims/base → profile knobs → explicit overrides (last wins).
+struct SftCliOverrides {
+    std::string profile;
+    std::string resume_config;
+    int epochs = -1;
+    float lr = -1.f;
+    int block_size = -1;
+    int n_embd = -1;
+    int n_layer = -1;
+    int n_head = -1;
+    std::string arch;
+    std::string tokenizer;
+    std::string device;
+    std::string base_ckpt;
+    std::string base_gguf;
+    int lora_rank = -1;
+    int log_every = -1;
+    bool use_qlora = false;
+    bool use_lora = false;
+    bool preference = false;
+    float dpo_beta = -1.f;
+    bool allow_tiny = false;
+    bool bare_qlora_profile = false;
+    bool force_require_loss_drop = false;
+};
+
+inline void apply_sft_cli_overrides(SftConfig& cfg, const SftCliOverrides& o) {
+    const bool has_resume = !o.resume_config.empty();
+    if (has_resume) {
+        apply_sft_resume_dims(cfg, o.resume_config, true);
+    }
+    if (!o.profile.empty()) {
+        ModelProfile mp = ModelProfile::Standard;
+        if (!parse_profile_name(o.profile, mp)) {
+            throw std::runtime_error("unknown profile: " + o.profile);
+        }
+        apply_sft_profile(cfg, mp, /*apply_dims=*/!has_resume);
+    } else if (o.bare_qlora_profile && !has_resume && o.n_embd < 0 && o.n_layer < 0) {
+        apply_sft_profile(cfg, ModelProfile::ComfortQlora, true);
+    }
+    if (o.epochs >= 0) cfg.epochs = o.epochs;
+    if (o.lr > 0.f) cfg.lr = o.lr;
+    if (o.block_size >= 0) cfg.block_size = o.block_size;
+    if (o.n_embd >= 0) cfg.n_embd = o.n_embd;
+    if (o.n_layer >= 0) cfg.n_layer = o.n_layer;
+    if (o.n_head >= 0) cfg.n_head = o.n_head;
+    if (!o.arch.empty()) cfg.arch = o.arch;
+    if (o.tokenizer == "byte") cfg.tokenizer = TokenizerKind::Byte;
+    else if (o.tokenizer == "bpe") cfg.tokenizer = TokenizerKind::Bpe;
+    if (!o.device.empty()) cfg.device = o.device;
+    if (!o.base_ckpt.empty()) cfg.base_ckpt = o.base_ckpt;
+    if (!o.base_gguf.empty()) cfg.base_gguf = o.base_gguf;
+    if (o.lora_rank >= 0) cfg.lora_rank = o.lora_rank;
+    if (o.log_every >= 0) cfg.log_every = o.log_every;
+    if (o.use_qlora) cfg.use_qlora = true;
+    if (o.use_lora) cfg.use_lora = true;
+    if (o.preference) cfg.preference = true;
+    if (o.dpo_beta >= 0.f) cfg.dpo_beta = o.dpo_beta;
+    if (o.allow_tiny) cfg.allow_tiny = true;
+    if (cfg.use_qlora && cfg.lora_rank <= 0) cfg.lora_rank = 8;
+    if ((!cfg.base_ckpt.empty() || !cfg.base_gguf.empty()) && !o.force_require_loss_drop) {
+        cfg.require_loss_drop = false;
+    }
+    if (o.force_require_loss_drop) cfg.require_loss_drop = true;
 }
 
 struct SftResult {
