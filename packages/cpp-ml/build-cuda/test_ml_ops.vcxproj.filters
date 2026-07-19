@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\tests\test_ml_ops.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{57B66C42-500A-3833-A811-3FE8231C050D}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

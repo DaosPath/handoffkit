@@ -6,6 +6,11 @@
 #include <thread>
 #include <vector>
 
+#if defined(HANDOFFKIT_ML_WITH_CUDA) && HANDOFFKIT_ML_WITH_CUDA
+extern "C" bool handoffkit_ml_cuda_matmul(const float* A, const float* B, float* C, int M, int K,
+                                          int N);
+#endif
+
 namespace handoffkit {
 namespace ml {
 namespace {
@@ -71,18 +76,16 @@ Tensor matmul(const Tensor& a, const Tensor& b) {
     const int N = static_cast<int>(b.shape[1]);
     if (K != K2) throw std::runtime_error("matmul inner dim mismatch");
 
-#if defined(HANDOFFKIT_ML_WITH_CUDA) && HANDOFFKIT_ML_WITH_CUDA
-    // Prefer CUDA runtime when linked; declarations live in kernels path.
-    // Host fallback below if not available — cuda_kernels.cpp provides runtime_available.
-    extern bool handoffkit_ml_cuda_matmul(const float*, const float*, float*, int, int, int);
     Tensor o({static_cast<std::size_t>(M), static_cast<std::size_t>(N)});
+
+#if defined(HANDOFFKIT_ML_WITH_CUDA) && HANDOFFKIT_ML_WITH_CUDA
+    // Own tiled GEMM via cudart only (no cuBLAS) — see src/cuda/gemm.cu
     if (handoffkit_ml_cuda_matmul(a.data.data(), b.data.data(), o.data.data(), M, K, N)) {
         return o;
     }
 #endif
 
-    // Multi-thread CPU (Phase D on the real train path)
-    Tensor o({static_cast<std::size_t>(M), static_cast<std::size_t>(N)});
+    // Multi-thread CPU fallback
     unsigned hw = std::thread::hardware_concurrency();
     int threads = hw == 0 ? 2 : static_cast<int>(hw);
     threads = std::max(1, std::min(threads, M));

@@ -8,6 +8,7 @@ This file is the **careful** list of what we refuse (for now or forever) so the 
 |----------|---------|
 | Live **inside** `handoffkit_core` | Breaks light core / Conan / default CI |
 | **Python** in the train/finetune/export/infer path | User constraint; also keeps one runtime story |
+| **cuBLAS / cuDNN / CUTLASS** as product deps | Own CUDA kernels only; NVIDIA **cudart** is platform OK |
 | Core public headers including `handoffkit/ml/*` | Dependency must be ml → core only |
 | Default CI **requiring** GPU or long ML builds | Core gate stays green and fast |
 | Marketing “drop-in HF / Unsloth / 70B QLoRA” before phases say so | Honesty |

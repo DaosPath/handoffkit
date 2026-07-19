@@ -19,7 +19,7 @@ Capabilities capabilities() noexcept {
     c.mini_transformer = true;
     c.lora = true;
     auto dev = query_devices();
-    c.cuda = dev.cuda_compiled;
+    c.cuda = dev.cuda_compiled && dev.cuda_available;
     c.preference = true;
     c.quant_stub = true;
     c.dist_stub = true;
@@ -28,7 +28,7 @@ Capabilities capabilities() noexcept {
 
 const char* status_message() noexcept {
     return "handoffkit-ml — native C++ train complement (not core). "
-           "BPE, non-tiny GPT/llama-like, GGUF, LoRA/QLoRA, mt-matmul, DP allreduce.";
+           "Own CUDA kernels (cudart only, no cuBLAS); BPE/GGUF/LoRA/QLoRA/DP.";
 }
 
 }  // namespace ml

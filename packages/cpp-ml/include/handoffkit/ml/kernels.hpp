@@ -3,6 +3,7 @@
 /// Device kernels (Phase D): multi-threaded CPU matmul always;
 /// optional CUDA path when HANDOFFKIT_ML_WITH_CUDA and runtime available.
 
+#include <handoffkit/ml/cuda/runtime.hpp>
 #include <handoffkit/ml/device.hpp>
 #include <handoffkit/ml/ops.hpp>
 #include <handoffkit/ml/tensor.hpp>
@@ -14,18 +15,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-
-#if defined(HANDOFFKIT_ML_WITH_CUDA) && HANDOFFKIT_ML_WITH_CUDA
-// Declaration only — link cuda kernels when building with CUDA toolkit.
-namespace handoffkit {
-namespace ml {
-namespace cuda_detail {
-bool runtime_available();
-void matmul_f32(const float* A, const float* B, float* C, int M, int K, int N);
-}  // namespace cuda_detail
-}  // namespace ml
-}  // namespace handoffkit
-#endif
 
 namespace handoffkit {
 namespace ml {
@@ -88,31 +77,23 @@ inline KernelBackendInfo query_kernel_backend() {
     info.cpu_threads = default_threads();
     info.name = "cpu_mt";
     info.cuda_runtime = false;
-#if defined(HANDOFFKIT_ML_WITH_CUDA) && HANDOFFKIT_ML_WITH_CUDA
-    if (cuda_detail::runtime_available()) {
+    if (cuda_rt::available()) {
         info.cuda_runtime = true;
-        info.name = "cuda";
+        info.name = "cuda_own_gemm";
     }
-#endif
     return info;
 }
 
-/// Unified matmul: CUDA if available & requested, else multi-thread CPU.
+/// Unified matmul: own CUDA GEMM if available, else multi-thread CPU.
 inline Tensor matmul_device(const Tensor& a, const Tensor& b, bool prefer_cuda = true) {
-#if defined(HANDOFFKIT_ML_WITH_CUDA) && HANDOFFKIT_ML_WITH_CUDA
-    if (prefer_cuda && cuda_detail::runtime_available()) {
-        a.require_cpu();
-        b.require_cpu();
-        const int M = static_cast<int>(a.shape[0]);
-        const int K = static_cast<int>(a.shape[1]);
-        const int N = static_cast<int>(b.shape[1]);
-        Tensor o({a.shape[0], b.shape[1]});
-        cuda_detail::matmul_f32(a.data.data(), b.data.data(), o.data.data(), M, K, N);
-        return o;
+    if (prefer_cuda && cuda_rt::available() && a.device == Device::Cpu && b.device == Device::Cpu) {
+        // Uses handoffkit_ml_cuda_matmul (own tiled kernel, no cuBLAS)
+        return matmul(a, b);
     }
-#else
-    (void)prefer_cuda;
-#endif
+    if (a.device == Device::Cuda || b.device == Device::Cuda) {
+        // Device tensors: still go through matmul which must download or use device path
+        return matmul(a.to(Device::Cpu), b.to(Device::Cpu)).to(a.device == Device::Cuda ? Device::Cuda : Device::Cpu);
+    }
     return matmul_cpu_mt(a, b);
 }
 

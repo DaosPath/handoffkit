@@ -1,97 +1,37 @@
-// Optional CUDA backend for train-path matmul (Phase D).
-// Linked from ops.cpp via handoffkit_ml_cuda_matmul when HANDOFFKIT_ML_WITH_CUDA=1.
+// Compatibility shim: train-path matmul CUDA entry uses OWN gemm (no cuBLAS).
+// Device pointers preferred; this host-pointer API is for gradual migration.
 
-#include <handoffkit/ml/kernels.hpp>
+#include <handoffkit/ml/cuda/kernels.hpp>
+#include <handoffkit/ml/cuda/runtime.hpp>
 
-// Always export a C-linkage hook so ops.cpp can call it when CUDA is enabled.
-extern "C" bool handoffkit_ml_cuda_matmul(const float* A, const float* B, float* C, int M, int K,
-                                          int N);
-
-#if defined(HANDOFFKIT_ML_WITH_CUDA) && HANDOFFKIT_ML_WITH_CUDA && __has_include(<cuda_runtime.h>)
-#include <cublas_v2.h>
-#include <cuda_runtime.h>
-
-namespace handoffkit {
-namespace ml {
-namespace cuda_detail {
-
-bool runtime_available() {
-    int n = 0;
-    if (cudaGetDeviceCount(&n) != cudaSuccess) return false;
-    return n > 0;
-}
-
-void matmul_f32(const float* A, const float* B, float* C, int M, int K, int N) {
-    float *dA = nullptr, *dB = nullptr, *dC = nullptr;
-    if (cudaMalloc(&dA, sizeof(float) * static_cast<std::size_t>(M * K)) != cudaSuccess ||
-        cudaMalloc(&dB, sizeof(float) * static_cast<std::size_t>(K * N)) != cudaSuccess ||
-        cudaMalloc(&dC, sizeof(float) * static_cast<std::size_t>(M * N)) != cudaSuccess) {
-        for (int i = 0; i < M; ++i)
-            for (int j = 0; j < N; ++j) {
-                float s = 0.f;
-                for (int k = 0; k < K; ++k) s += A[i * K + k] * B[k * N + j];
-                C[i * N + j] = s;
-            }
-        if (dA) cudaFree(dA);
-        if (dB) cudaFree(dB);
-        if (dC) cudaFree(dC);
-        return;
-    }
-    cudaMemcpy(dA, A, sizeof(float) * static_cast<std::size_t>(M * K), cudaMemcpyHostToDevice);
-    cudaMemcpy(dB, B, sizeof(float) * static_cast<std::size_t>(K * N), cudaMemcpyHostToDevice);
-    cublasHandle_t h{};
-    cublasCreate(&h);
-    const float alpha = 1.f, beta = 0.f;
-    // Row-major A(M,K)*B(K,N) via column-major cuBLAS: C^T = B^T * A^T
-    cublasStatus_t st =
-        cublasSgemm(h, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, dB, N, dA, K, &beta, dC, N);
-    if (st == CUBLAS_STATUS_SUCCESS) {
-        cudaMemcpy(C, dC, sizeof(float) * static_cast<std::size_t>(M * N), cudaMemcpyDeviceToHost);
-    } else {
-        for (int i = 0; i < M; ++i)
-            for (int j = 0; j < N; ++j) {
-                float s = 0.f;
-                for (int k = 0; k < K; ++k) s += A[i * K + k] * B[k * N + j];
-                C[i * N + j] = s;
-            }
-    }
-    cublasDestroy(h);
-    cudaFree(dA);
-    cudaFree(dB);
-    cudaFree(dC);
-}
-
-}  // namespace cuda_detail
-}  // namespace ml
-}  // namespace handoffkit
+#include <vector>
 
 extern "C" bool handoffkit_ml_cuda_matmul(const float* A, const float* B, float* C, int M, int K,
                                           int N) {
-    if (!handoffkit::ml::cuda_detail::runtime_available()) return false;
-    handoffkit::ml::cuda_detail::matmul_f32(A, B, C, M, K, N);
-    return true;
+    if (!handoffkit::ml::cuda_rt::available()) return false;
+    if (M <= 0 || K <= 0 || N <= 0) return false;
+
+    const std::size_t a_bytes = static_cast<std::size_t>(M) * static_cast<std::size_t>(K) * 4;
+    const std::size_t b_bytes = static_cast<std::size_t>(K) * static_cast<std::size_t>(N) * 4;
+    const std::size_t c_bytes = static_cast<std::size_t>(M) * static_cast<std::size_t>(N) * 4;
+
+    void* dA = handoffkit::ml::cuda_rt::device_alloc(a_bytes);
+    void* dB = handoffkit::ml::cuda_rt::device_alloc(b_bytes);
+    void* dC = handoffkit::ml::cuda_rt::device_alloc(c_bytes);
+    if (!dA || !dB || !dC) {
+        handoffkit::ml::cuda_rt::device_free(dA);
+        handoffkit::ml::cuda_rt::device_free(dB);
+        handoffkit::ml::cuda_rt::device_free(dC);
+        return false;
+    }
+    handoffkit::ml::cuda_rt::copy_h2d(dA, A, a_bytes);
+    handoffkit::ml::cuda_rt::copy_h2d(dB, B, b_bytes);
+    handoffkit::ml::cuda_kern::gemm_f32(static_cast<const float*>(dA), static_cast<const float*>(dB),
+                                        static_cast<float*>(dC), M, K, N);
+    handoffkit::ml::cuda_rt::device_sync();
+    handoffkit::ml::cuda_rt::copy_d2h(C, dC, c_bytes);
+    handoffkit::ml::cuda_rt::device_free(dA);
+    handoffkit::ml::cuda_rt::device_free(dB);
+    handoffkit::ml::cuda_rt::device_free(dC);
+    return handoffkit::ml::cuda_rt::last_error().empty();
 }
-
-#else
-
-namespace handoffkit {
-namespace ml {
-namespace cuda_detail {
-bool runtime_available() { return false; }
-void matmul_f32(const float* A, const float* B, float* C, int M, int K, int N) {
-    for (int i = 0; i < M; ++i)
-        for (int j = 0; j < N; ++j) {
-            float s = 0.f;
-            for (int k = 0; k < K; ++k) s += A[i * K + k] * B[k * N + j];
-            C[i * N + j] = s;
-        }
-}
-}  // namespace cuda_detail
-}  // namespace ml
-}  // namespace handoffkit
-
-extern "C" bool handoffkit_ml_cuda_matmul(const float*, const float*, float*, int, int, int) {
-    return false;  // CPU path in ops.cpp
-}
-
-#endif

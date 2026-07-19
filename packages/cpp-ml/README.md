@@ -15,12 +15,25 @@ All items in [ROADMAP.md](./ROADMAP.md) primary checklist are **implemented** (P
 ## Build
 
 ```powershell
+# CPU (default)
 cmake -S packages/cpp-ml -B packages/cpp-ml/build -DCMAKE_BUILD_TYPE=Release
-# optional CUDA definitions:
-# cmake -S packages/cpp-ml -B packages/cpp-ml/build -DHANDOFFKIT_ML_CUDA=ON
 cmake --build packages/cpp-ml/build --config Release
 ctest --test-dir packages/cpp-ml/build -C Release --output-on-failure
 ```
+
+### CUDA (own kernels, **cudart only — no cuBLAS/cuDNN**)
+
+On Windows use **MSVC + nvcc** (Visual Studio generator). MinGW host is not supported for `.cu`.
+
+```powershell
+# From "x64 Native Tools" / after vcvars64.bat:
+cmake -S packages/cpp-ml -B packages/cpp-ml/build-cuda -G "Visual Studio 17 2022" -A x64 -DHANDOFFKIT_ML_CUDA=ON
+cmake --build packages/cpp-ml/build-cuda --config Release
+.\packages\cpp-ml\build-cuda\Release\test_ml_cuda_parity.exe
+.\packages\cpp-ml\build-cuda\Release\handoffkit-ml.exe doctor
+```
+
+Policy: **hand-written** `.cu` GEMM/elementwise/softmax; dependency is only **NVIDIA cudart**.
 
 ## CLI
 

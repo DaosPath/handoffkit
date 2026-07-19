@@ -1,6 +1,14 @@
 # HandoffKit ML — optional complement (NOT part of handoffkit_core).
-cmake_minimum_required(VERSION 3.16)
-project(handoffkit_ml VERSION 0.3.0 LANGUAGES CXX)
+# CUDA: own kernels + cudart only (no cuBLAS / cuDNN / third-party BLAS).
+cmake_minimum_required(VERSION 3.18)
+
+option(HANDOFFKIT_ML_CUDA "Build own CUDA kernels (cudart only, no cuBLAS)" OFF)
+
+if(HANDOFFKIT_ML_CUDA)
+  project(handoffkit_ml VERSION 0.4.0 LANGUAGES CXX CUDA)
+else()
+  project(handoffkit_ml VERSION 0.4.0 LANGUAGES CXX)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,7 +16,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(HANDOFFKIT_ML_BUILD_TESTS "Build handoffkit-ml unit tests" ON)
 option(HANDOFFKIT_ML_BUILD_CLI "Build handoffkit-ml CLI" ON)
-option(HANDOFFKIT_ML_CUDA "Enable CUDA compile definitions (F4; kernels optional)" OFF)
 option(HANDOFFKIT_ML_LINK_CORE "Link handoffkit_core when available" OFF)
 set(HANDOFFKIT_CORE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cpp"
     CACHE PATH "In-tree path to packages/cpp (core)")
@@ -18,8 +25,17 @@ include(GNUInstallDirs)
 set(HANDOFFKIT_ML_SOURCES
   src/version.cpp
   src/ops.cpp
+  src/cuda/runtime.cpp
   src/cuda_kernels.cpp
 )
+
+if(HANDOFFKIT_ML_CUDA)
+  list(APPEND HANDOFFKIT_ML_SOURCES
+    src/cuda/gemm.cu
+    src/cuda/elementwise.cu
+    src/cuda/reduce.cu
+  )
+endif()
 
 add_library(handoffkit_ml STATIC ${HANDOFFKIT_ML_SOURCES})
 add_library(handoffkit::ml ALIAS handoffkit_ml)
@@ -33,15 +49,17 @@ target_compile_features(handoffkit_ml PUBLIC cxx_std_20)
 
 if(HANDOFFKIT_ML_CUDA)
   target_compile_definitions(handoffkit_ml PUBLIC HANDOFFKIT_ML_WITH_CUDA=1)
-  enable_language(CUDA OPTIONAL)
-  find_package(CUDAToolkit QUIET)
-  if(CUDAToolkit_FOUND)
-    target_link_libraries(handoffkit_ml PUBLIC CUDA::cudart CUDA::cublas)
-    message(STATUS "HANDOFFKIT_ML_CUDA=ON linked CUDA::cudart CUDA::cublas")
-  else()
-    message(STATUS "HANDOFFKIT_ML_CUDA=ON but CUDAToolkit not found — host matmul fallback")
-  endif()
+  set_target_properties(handoffkit_ml PROPERTIES
+    CUDA_SEPARABLE_COMPILATION OFF
+    CUDA_RESOLVE_DEVICE_SYMBOLS ON
+    CUDA_ARCHITECTURES "75;86;89;120"
+  )
+  find_package(CUDAToolkit REQUIRED)
+  # Purist: cudart only — never cuBLAS/cuDNN
+  target_link_libraries(handoffkit_ml PUBLIC CUDA::cudart)
+  message(STATUS "HANDOFFKIT_ML_CUDA=ON: own .cu kernels + CUDA::cudart (no cuBLAS)")
 endif()
+
 find_package(Threads REQUIRED)
 target_link_libraries(handoffkit_ml PUBLIC Threads::Threads)
 
@@ -84,6 +102,7 @@ if(HANDOFFKIT_ML_BUILD_TESTS)
   hk_ml_test(test_ml_qlora tests/test_ml_qlora.cpp)
   hk_ml_test(test_ml_dist tests/test_ml_dist.cpp)
   hk_ml_test(test_ml_base_load tests/test_ml_base_load.cpp)
+  hk_ml_test(test_ml_cuda_parity tests/test_ml_cuda_parity.cpp)
 endif()
 
 install(TARGETS handoffkit_ml

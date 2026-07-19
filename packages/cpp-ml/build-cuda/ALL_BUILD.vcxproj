@@ -1,0 +1,246 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ResolveNugetPackages>false</ResolveNugetPackages>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{D9DBABDE-DBED-3E18-AB29-379515294FFD}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>ALL_BUILD</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.9.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <Midl>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule C:/Hijosdelsol/handoffkit/packages/cpp-ml/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+C:\Strawberry\c\bin\cmake.exe -SC:/Hijosdelsol/handoffkit/packages/cpp-ml -BC:/Hijosdelsol/handoffkit/packages/cpp-ml/build-cuda --check-stamp-file C:/Hijosdelsol/handoffkit/packages/cpp-ml/build-cuda/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeCUDACompiler.cmake;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeCXXCompiler.cmake;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeRCCompiler.cmake;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeSystem.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeCUDAInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeCXXInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeCommonLanguageInclude.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeGenericSystem.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeInitializeConfigs.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeLanguageInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeRCInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeSystemSpecificInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeSystemSpecificInitialize.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CheckCXXSourceCompiles.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CheckIncludeFileCXX.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CheckLibraryExists.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\MSVC-CXX.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\MSVC.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\NVIDIA-CUDA.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\NVIDIA.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindCUDAToolkit.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindPackageHandleStandardArgs.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindPackageMessage.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindThreads.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\GNUInstallDirs.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Internal\CheckSourceCompiles.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-Initialize.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-MSVC.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-NVIDIA-CUDA.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\WindowsPaths.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule C:/Hijosdelsol/handoffkit/packages/cpp-ml/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+C:\Strawberry\c\bin\cmake.exe -SC:/Hijosdelsol/handoffkit/packages/cpp-ml -BC:/Hijosdelsol/handoffkit/packages/cpp-ml/build-cuda --check-stamp-file C:/Hijosdelsol/handoffkit/packages/cpp-ml/build-cuda/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeCUDACompiler.cmake;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeCXXCompiler.cmake;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeRCCompiler.cmake;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeSystem.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeCUDAInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeCXXInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeCommonLanguageInclude.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeGenericSystem.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeInitializeConfigs.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeLanguageInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeRCInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeSystemSpecificInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeSystemSpecificInitialize.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CheckCXXSourceCompiles.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CheckIncludeFileCXX.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CheckLibraryExists.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\MSVC-CXX.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\MSVC.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\NVIDIA-CUDA.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\NVIDIA.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindCUDAToolkit.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindPackageHandleStandardArgs.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindPackageMessage.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindThreads.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\GNUInstallDirs.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Internal\CheckSourceCompiles.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-Initialize.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-MSVC.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-NVIDIA-CUDA.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\WindowsPaths.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule C:/Hijosdelsol/handoffkit/packages/cpp-ml/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+C:\Strawberry\c\bin\cmake.exe -SC:/Hijosdelsol/handoffkit/packages/cpp-ml -BC:/Hijosdelsol/handoffkit/packages/cpp-ml/build-cuda --check-stamp-file C:/Hijosdelsol/handoffkit/packages/cpp-ml/build-cuda/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeCUDACompiler.cmake;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeCXXCompiler.cmake;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeRCCompiler.cmake;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeSystem.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeCUDAInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeCXXInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeCommonLanguageInclude.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeGenericSystem.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeInitializeConfigs.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeLanguageInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeRCInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeSystemSpecificInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeSystemSpecificInitialize.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CheckCXXSourceCompiles.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CheckIncludeFileCXX.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CheckLibraryExists.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\MSVC-CXX.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\MSVC.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\NVIDIA-CUDA.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\NVIDIA.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindCUDAToolkit.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindPackageHandleStandardArgs.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindPackageMessage.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindThreads.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\GNUInstallDirs.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Internal\CheckSourceCompiles.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-Initialize.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-MSVC.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-NVIDIA-CUDA.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\WindowsPaths.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule C:/Hijosdelsol/handoffkit/packages/cpp-ml/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+C:\Strawberry\c\bin\cmake.exe -SC:/Hijosdelsol/handoffkit/packages/cpp-ml -BC:/Hijosdelsol/handoffkit/packages/cpp-ml/build-cuda --check-stamp-file C:/Hijosdelsol/handoffkit/packages/cpp-ml/build-cuda/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeCUDACompiler.cmake;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeCXXCompiler.cmake;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeRCCompiler.cmake;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\3.29.2\CMakeSystem.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeCUDAInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeCXXInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeCommonLanguageInclude.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeGenericSystem.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeInitializeConfigs.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeLanguageInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeRCInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeSystemSpecificInformation.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CMakeSystemSpecificInitialize.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CheckCXXSourceCompiles.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CheckIncludeFileCXX.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\CheckLibraryExists.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\CMakeCommonCompilerMacros.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\MSVC-CXX.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\MSVC.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\NVIDIA-CUDA.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Compiler\NVIDIA.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindCUDAToolkit.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindPackageHandleStandardArgs.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindPackageMessage.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\FindThreads.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\GNUInstallDirs.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Internal\CheckSourceCompiles.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-Initialize.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-MSVC-CXX.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-MSVC.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows-NVIDIA-CUDA.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\Windows.cmake;C:\Strawberry\c\share\cmake-3.29\Modules\Platform\WindowsPaths.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\ZERO_CHECK.vcxproj">
+      <Project>{BA4FD603-7576-3D34-987B-12D23A0BBC07}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\handoffkit-ml.vcxproj">
+      <Project>{45B7ACD0-61C4-3B34-9758-B3440265D159}</Project>
+      <Name>handoffkit-ml</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\handoffkit_ml.vcxproj">
+      <Project>{B09118E5-B406-3B21-A315-06E3BDCA1802}</Project>
+      <Name>handoffkit_ml</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_attn_parity.vcxproj">
+      <Project>{56A905F4-A99A-39D0-9058-67B66554E9B4}</Project>
+      <Name>test_ml_attn_parity</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_base_load.vcxproj">
+      <Project>{74600365-1598-3534-ACBD-27CAD026B2E3}</Project>
+      <Name>test_ml_base_load</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_bpe.vcxproj">
+      <Project>{4C92F48A-880A-3F41-B3F9-838728352CBD}</Project>
+      <Name>test_ml_bpe</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_cuda_parity.vcxproj">
+      <Project>{839E23E4-EFCB-3BBF-8603-FB7BFB925809}</Project>
+      <Name>test_ml_cuda_parity</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_dist.vcxproj">
+      <Project>{96D19DB2-B8D3-3124-B86A-507A65167931}</Project>
+      <Name>test_ml_dist</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_gguf.vcxproj">
+      <Project>{04A63BDE-7EB0-3564-B3AD-2D6E0D66DB4F}</Project>
+      <Name>test_ml_gguf</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_kernels.vcxproj">
+      <Project>{AC9A385C-D14A-3352-B173-4711409C72E0}</Project>
+      <Name>test_ml_kernels</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_lora.vcxproj">
+      <Project>{4077C6C5-9851-3957-92A3-7F4D35E58DAE}</Project>
+      <Name>test_ml_lora</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_ops.vcxproj">
+      <Project>{C7BF328C-D5B7-3262-A45E-FD7810CC20B2}</Project>
+      <Name>test_ml_ops</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_preference.vcxproj">
+      <Project>{6419A886-A88F-369E-A4B2-CC76FDE2161C}</Project>
+      <Name>test_ml_preference</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_qlora.vcxproj">
+      <Project>{24F04D21-2E54-3BCA-986A-51A2CC4E8C39}</Project>
+      <Name>test_ml_qlora</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_quant.vcxproj">
+      <Project>{129FD3AF-3A65-32A7-B293-2E7144ABFD25}</Project>
+      <Name>test_ml_quant</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_sft.vcxproj">
+      <Project>{9F213D8B-3794-3955-9815-D3D44F9BDEC0}</Project>
+      <Name>test_ml_sft</Name>
+    </ProjectReference>
+    <ProjectReference Include="C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\test_ml_smoke.vcxproj">
+      <Project>{3B47A09B-BAFC-3F93-9452-D40D1490A44A}</Project>
+      <Name>test_ml_smoke</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.9.targets" />
+  </ImportGroup>
+</Project>

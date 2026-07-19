@@ -1,0 +1,4 @@
+C:\Hijosdelsol\handoffkit\packages\cpp-ml\src\version.cpp;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\handoffkit_ml.dir\Release\version.obj
+C:\Hijosdelsol\handoffkit\packages\cpp-ml\src\ops.cpp;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\handoffkit_ml.dir\Release\ops.obj
+C:\Hijosdelsol\handoffkit\packages\cpp-ml\src\cuda\runtime.cpp;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\handoffkit_ml.dir\Release\runtime.obj
+C:\Hijosdelsol\handoffkit\packages\cpp-ml\src\cuda_kernels.cpp;C:\Hijosdelsol\handoffkit\packages\cpp-ml\build-cuda\handoffkit_ml.dir\Release\cuda_kernels.obj
