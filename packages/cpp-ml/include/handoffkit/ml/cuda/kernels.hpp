@@ -21,6 +21,23 @@ void bias_grad_rows_f32(const float* dy, float* db, int rows, int cols);
 /// Softmax over last dim for row-major (rows, cols).
 void softmax_rows_f32(const float* x, float* out, int rows, int cols);
 
+/// Softmax-CE backward: dlogits = (softmax - onehot) / B  (targets host or device int)
+void softmax_ce_bwd_f32(const float* logits, const int* targets, float* dlogits, int B, int C);
+
+/// 2D transpose: out(C,R) = in(R,C)
+void transpose2d_f32(const float* in, float* out, int rows, int cols);
+
+/// AdamW parameter update (device): w, m, v, g all length n
+void adamw_step_f32(float* w, float* m, float* v, const float* g, std::size_t n, float lr,
+                    float beta1, float beta2, float eps, float weight_decay, int t);
+
+/// Fill device buffer with scalar
+void fill_f32(float* p, std::size_t n, float v);
+
+/// Causal mask: scores (T,T) set upper triangle to -1e9
+void causal_mask_f32(float* scores, int T);
+
 }  // namespace cuda_kern
 }  // namespace ml
 }  // namespace handoffkit
+

@@ -46,6 +46,7 @@ void print_help() {
         << "      --arch gpt2|llama-like|gpt-mini --tokenizer bpe|byte\n"
         << "      --lora | --qlora | --preference --world-size N --allow-tiny\n"
         << "      --gguf BASE.gguf | --base-ckpt model.hkckpt   (load external base)\n"
+        << "      --device cpu|cuda   (cuda = own GPU GEMM; requires CUDA build+GPU)\n"
         << "  handoffkit-ml generate --ckpt PATH --prompt TEXT [--max-new N] [--bpe PATH]\n"
         << "  handoffkit-ml gguf-export --ckpt PATH --out model.gguf\n"
         << "  handoffkit-ml gguf-import --gguf PATH --out DIR\n"
@@ -110,6 +111,7 @@ int cmd_sft(const std::vector<std::string>& args) {
     if (auto g = flag_val(args, "--gguf"); !g.empty()) cfg.base_gguf = g;
     if (auto c = flag_val(args, "--base-ckpt"); !c.empty()) cfg.base_ckpt = c;
     if (auto c = flag_val(args, "--ckpt"); !c.empty() && cfg.base_ckpt.empty()) cfg.base_ckpt = c;
+    if (auto d = flag_val(args, "--device"); !d.empty()) cfg.device = d;
     cfg.use_lora = has_flag(args, "--lora");
     cfg.use_qlora = has_flag(args, "--qlora");
     cfg.preference = has_flag(args, "--preference");

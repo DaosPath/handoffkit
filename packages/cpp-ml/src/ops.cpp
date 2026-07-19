@@ -13,6 +13,15 @@ extern "C" bool handoffkit_ml_cuda_matmul(const float* A, const float* B, float*
 
 namespace handoffkit {
 namespace ml {
+
+namespace {
+// When true (and CUDA built+available), matmul prefers own GPU GEMM.
+bool g_prefer_cuda_matmul = true;
+}  // namespace
+
+void handoffkit_ml_set_prefer_cuda_matmul(bool prefer) { g_prefer_cuda_matmul = prefer; }
+bool handoffkit_ml_get_prefer_cuda_matmul() { return g_prefer_cuda_matmul; }
+
 namespace {
 
 void check_same_shape(const Tensor& a, const Tensor& b, const char* op) {
@@ -80,7 +89,8 @@ Tensor matmul(const Tensor& a, const Tensor& b) {
 
 #if defined(HANDOFFKIT_ML_WITH_CUDA) && HANDOFFKIT_ML_WITH_CUDA
     // Own tiled GEMM via cudart only (no cuBLAS) — see src/cuda/gemm.cu
-    if (handoffkit_ml_cuda_matmul(a.data.data(), b.data.data(), o.data.data(), M, K, N)) {
+    if (g_prefer_cuda_matmul &&
+        handoffkit_ml_cuda_matmul(a.data.data(), b.data.data(), o.data.data(), M, K, N)) {
         return o;
     }
 #endif

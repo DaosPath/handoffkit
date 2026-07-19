@@ -34,6 +34,7 @@ if(HANDOFFKIT_ML_CUDA)
     src/cuda/gemm.cu
     src/cuda/elementwise.cu
     src/cuda/reduce.cu
+    src/cuda/extra.cu
   )
 endif()
 
@@ -103,6 +104,7 @@ if(HANDOFFKIT_ML_BUILD_TESTS)
   hk_ml_test(test_ml_dist tests/test_ml_dist.cpp)
   hk_ml_test(test_ml_base_load tests/test_ml_base_load.cpp)
   hk_ml_test(test_ml_cuda_parity tests/test_ml_cuda_parity.cpp)
+  hk_ml_test(test_ml_cuda_linear tests/test_ml_cuda_linear.cpp)
 endif()
 
 install(TARGETS handoffkit_ml

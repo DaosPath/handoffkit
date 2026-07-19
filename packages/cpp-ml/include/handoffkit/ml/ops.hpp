@@ -79,5 +79,9 @@ using ScalarFn = float (*)(const std::vector<float>&);
 /// Gradcheck linear + CE overfit helper (returns max relative error).
 [[nodiscard]] float gradcheck_linear_ce(float eps = 1e-3f);
 
+/// Prefer own CUDA GEMM inside matmul when available (default true if CUDA built).
+void handoffkit_ml_set_prefer_cuda_matmul(bool prefer);
+[[nodiscard]] bool handoffkit_ml_get_prefer_cuda_matmul();
+
 }  // namespace ml
 }  // namespace handoffkit
