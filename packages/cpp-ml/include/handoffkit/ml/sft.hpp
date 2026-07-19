@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <random>
 #include <sstream>
 #include <string>
@@ -52,9 +53,33 @@ struct SftConfig {
     /// Load pretrained base before SFT (external GGUF or .hkckpt). Empty = random init.
     std::string base_gguf;
     std::string base_ckpt;
-    /// "cpu" | "cuda" — cuda uses own GPU GEMM for matmul when available.
+    /// "cpu" | "cuda" | "cuda-resident"
     std::string device{"cpu"};
+    /// Log train progress every N steps (0 = quiet). Comfort profiles set 20.
+    int log_every = 0;
+    /// Profile name for reports ("comfort", "qlora", "standard", …)
+    std::string profile{"standard"};
 };
+
+/// Apply a named comfort / size profile. Does not clear base_ckpt / device / dataset paths.
+inline void apply_sft_profile(SftConfig& cfg, ModelProfile p) {
+    const ProfileSpec s = profile_spec(p);
+    cfg.n_embd = s.n_embd;
+    cfg.n_head = s.n_head;
+    cfg.n_layer = s.n_layer;
+    cfg.block_size = s.block_size;
+    cfg.arch = s.arch;
+    cfg.epochs = s.epochs;
+    cfg.lr = s.lr;
+    cfg.allow_tiny = s.allow_tiny;
+    cfg.use_qlora = s.use_qlora;
+    cfg.use_lora = s.use_lora;
+    cfg.lora_rank = s.lora_rank;
+    cfg.log_every = s.log_every;
+    cfg.profile = s.name;
+    if (s.tokenizer_byte) cfg.tokenizer = TokenizerKind::Byte;
+    else cfg.tokenizer = TokenizerKind::Bpe;
+}
 
 struct SftResult {
     bool success = false;
@@ -411,6 +436,13 @@ inline SftResult sft_train(const std::string& dataset_path,
 
                 ++steps;
                 r.loss_curve.push_back(last);
+                if (cfg.log_every > 0 && (steps == 1 || steps % cfg.log_every == 0)) {
+                    std::cout << "sft step=" << steps << " epoch=" << (ep + 1) << "/" << cfg.epochs
+                              << " loss=" << last
+                              << (cfg.use_qlora ? " qlora=1" : "")
+                              << (cfg.use_lora ? " lora=1" : "") << "\n"
+                              << std::flush;
+                }
             }
         }
 
@@ -430,6 +462,7 @@ inline SftResult sft_train(const std::string& dataset_path,
             rep << "{\n"
                 << "  \"success\": " << (r.success ? "true" : "false") << ",\n"
                 << "  \"backend_id\": \"" << backend << "\",\n"
+                << "  \"profile\": \"" << cfg.profile << "\",\n"
                 << "  \"initial_loss\": " << r.initial_loss << ",\n"
                 << "  \"final_loss\": " << r.final_loss << ",\n"
                 << "  \"steps\": " << r.steps << ",\n"
@@ -445,10 +478,37 @@ inline SftResult sft_train(const std::string& dataset_path,
                 << "  \"tokenizer\": \""
                 << (cfg.tokenizer == TokenizerKind::Bpe ? "bpe" : "byte") << "\",\n"
                 << "  \"vocab_size\": " << gcfg.vocab_size << ",\n"
+                << "  \"n_embd\": " << cfg.n_embd << ",\n"
+                << "  \"n_layer\": " << cfg.n_layer << ",\n"
+                << "  \"n_head\": " << cfg.n_head << ",\n"
+                << "  \"block_size\": " << cfg.block_size << ",\n"
+                << "  \"epochs\": " << cfg.epochs << ",\n"
+                << "  \"lr\": " << cfg.lr << ",\n"
                 << "  \"arch\": \"" << cfg.arch << "\",\n"
                 << "  \"device\": \"" << cfg.device << "\",\n"
                 << "  \"world_size\": " << cfg.world_size << "\n"
                 << "}\n";
+        }
+        // Sidecar with effective train knobs (comfort UX)
+        {
+            std::ofstream cfgj((fs::path(out_dir) / "sft_config.json").string());
+            cfgj << "{\n"
+                 << "  \"profile\": \"" << cfg.profile << "\",\n"
+                 << "  \"use_qlora\": " << (cfg.use_qlora ? "true" : "false") << ",\n"
+                 << "  \"use_lora\": " << (cfg.use_lora ? "true" : "false") << ",\n"
+                 << "  \"lora_rank\": " << cfg.lora_rank << ",\n"
+                 << "  \"n_embd\": " << cfg.n_embd << ",\n"
+                 << "  \"n_layer\": " << cfg.n_layer << ",\n"
+                 << "  \"n_head\": " << cfg.n_head << ",\n"
+                 << "  \"block_size\": " << cfg.block_size << ",\n"
+                 << "  \"epochs\": " << cfg.epochs << ",\n"
+                 << "  \"lr\": " << cfg.lr << ",\n"
+                 << "  \"device\": \"" << cfg.device << "\",\n"
+                 << "  \"tokenizer\": \""
+                 << (cfg.tokenizer == TokenizerKind::Bpe ? "bpe" : "byte") << "\",\n"
+                 << "  \"arch\": \"" << cfg.arch << "\",\n"
+                 << "  \"allow_tiny\": " << (cfg.allow_tiny ? "true" : "false") << "\n"
+                 << "}\n";
         }
         if (!r.success) {
             // steps completed without exception but loss did not drop

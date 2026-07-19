@@ -16,9 +16,11 @@ struct ModelFloors {
 };
 
 enum class ModelProfile {
-    DebugTiny,   // unit tests only (below floors allowed)
-    Standard,    // meets floors
-    Large,       // larger defaults
+    DebugTiny,     // unit tests only (below floors allowed)
+    Comfort,       // local comfortable full SFT (allow_tiny)
+    ComfortQlora,  // local comfortable QLoRA (allow_tiny + adapters)
+    Standard,      // meets non-tiny floors
+    Large,         // larger defaults
 };
 
 struct ProfileSpec {
@@ -28,6 +30,16 @@ struct ProfileSpec {
     int block_size = 128;
     int vocab_size = 1024;  // BPE default
     std::string arch{"gpt2"};
+    // Comfort train knobs (CLI / SftConfig)
+    int epochs = 20;
+    float lr = 3e-3f;
+    bool allow_tiny = false;
+    bool use_qlora = false;
+    bool use_lora = false;
+    int lora_rank = 8;
+    bool tokenizer_byte = false;
+    int log_every = 0;
+    std::string name{"standard"};
 };
 
 inline ProfileSpec profile_spec(ModelProfile p) {
@@ -40,6 +52,42 @@ inline ProfileSpec profile_spec(ModelProfile p) {
             s.block_size = 64;
             s.vocab_size = 259;  // byte
             s.arch = "gpt-mini";
+            s.epochs = 10;
+            s.lr = 1e-2f;
+            s.allow_tiny = true;
+            s.tokenizer_byte = true;
+            s.name = "tiny";
+            break;
+        case ModelProfile::Comfort:
+            // One-shot local SFT: fast, reliable loss drop on small JSONL
+            s.n_embd = 64;
+            s.n_head = 4;
+            s.n_layer = 2;
+            s.block_size = 48;
+            s.vocab_size = 259;
+            s.arch = "gpt-mini";
+            s.epochs = 40;
+            s.lr = 1e-2f;
+            s.allow_tiny = true;
+            s.tokenizer_byte = true;
+            s.log_every = 20;
+            s.name = "comfort";
+            break;
+        case ModelProfile::ComfortQlora:
+            s.n_embd = 64;
+            s.n_head = 4;
+            s.n_layer = 2;
+            s.block_size = 48;
+            s.vocab_size = 259;
+            s.arch = "gpt-mini";
+            s.epochs = 40;
+            s.lr = 1e-2f;
+            s.allow_tiny = true;
+            s.use_qlora = true;
+            s.lora_rank = 8;
+            s.tokenizer_byte = true;
+            s.log_every = 20;
+            s.name = "qlora";
             break;
         case ModelProfile::Standard:
             s.n_embd = ModelFloors::kMinEmb;
@@ -48,6 +96,9 @@ inline ProfileSpec profile_spec(ModelProfile p) {
             s.block_size = ModelFloors::kMinBlock;
             s.vocab_size = 1024;
             s.arch = "gpt2";
+            s.epochs = 20;
+            s.lr = 3e-3f;
+            s.name = "standard";
             break;
         case ModelProfile::Large:
             s.n_embd = 256;
@@ -56,9 +107,37 @@ inline ProfileSpec profile_spec(ModelProfile p) {
             s.block_size = 256;
             s.vocab_size = 2048;
             s.arch = "llama-like";
+            s.epochs = 10;
+            s.lr = 1e-3f;
+            s.name = "large";
             break;
     }
     return s;
+}
+
+/// Parse CLI profile name → enum. Empty / unknown → nullopt via bool ok.
+inline bool parse_profile_name(const std::string& name, ModelProfile& out) {
+    if (name == "tiny" || name == "debug" || name == "debug-tiny") {
+        out = ModelProfile::DebugTiny;
+        return true;
+    }
+    if (name == "comfort" || name == "fast" || name == "local") {
+        out = ModelProfile::Comfort;
+        return true;
+    }
+    if (name == "qlora" || name == "comfort-qlora" || name == "q-lora") {
+        out = ModelProfile::ComfortQlora;
+        return true;
+    }
+    if (name == "standard" || name == "default" || name == "std") {
+        out = ModelProfile::Standard;
+        return true;
+    }
+    if (name == "large") {
+        out = ModelProfile::Large;
+        return true;
+    }
+    return false;
 }
 
 inline void enforce_non_tiny(int n_embd, int n_layer, int n_head, int block_size, bool allow_tiny) {

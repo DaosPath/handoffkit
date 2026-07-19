@@ -61,28 +61,32 @@ handoffkit-ml gguf-import --gguf model.gguf --out runs/from_gguf
 
 `--device cpu|cuda|cuda-resident` — `cuda` accelerates GEMM; `cuda-resident` keeps **weights + activations** on GPU for the train loop.
 
-### Comfortable train (plain SFT)
+### Comfortable train (profiles — recommended)
+
+| Profile | Meaning |
+|---------|---------|
+| `comfort` | Full SFT, tiny dims, byte tok, 40 epochs |
+| `qlora` | Same + multi-module NF4 QLoRA |
+| `standard` | Non-tiny floors (128d / 4L) |
+| `large` | 256d / 6L |
+| `tiny` | Debug only |
 
 ```powershell
-handoffkit-ml sft --dataset d.jsonl --out runs/sft --allow-tiny `
-  --tokenizer byte --epochs 40 --n-embd 64 --n-layer 2 --n-head 4 --block-size 48 --device cpu
-handoffkit-ml generate --ckpt runs/sft/model.hkckpt --prompt "P:" --max-new 16
-```
+# One flag each — dims/epochs/lr/tokenizer applied for you
+handoffkit-ml sft --dataset d.jsonl --out runs/sft --profile comfort
+handoffkit-ml sft --dataset d.jsonl --out runs/qlora --profile qlora
+# Bare --qlora without dims also selects the qlora comfort profile
+handoffkit-ml sft --dataset d.jsonl --out runs/qlora2 --qlora
+# Override any knob after the profile:
+handoffkit-ml sft --dataset d.jsonl --out runs/qlora3 --profile qlora --device cuda --epochs 60
 
-### Comfortable QLoRA (one-shot)
-
-NF4-quantized **frozen** bases on all block Linears + `lm_head`; only LoRA **A/B** get Adam; merge to dense `model.hkckpt` at the end.
-
-```powershell
-handoffkit-ml sft --dataset d.jsonl --out runs/qlora --qlora --allow-tiny `
-  --tokenizer byte --epochs 40 --n-embd 64 --n-layer 2 --n-head 4 --block-size 48 `
-  --lora-rank 8 --device cpu
-# optional base: --base-ckpt prev/model.hkckpt   or   --gguf model.gguf
-# optional GPU GEMM: --device cuda   (not cuda-resident — adapters use host GPT path)
 handoffkit-ml generate --ckpt runs/qlora/model.hkckpt --prompt "P:" --max-new 16
 ```
 
-Report fields: `backend_id=qlora`, `use_qlora`, `nf4_base`, `adapter_only_optim`, `peft_modules`, `lora_rank`.
+Artifacts: `model.hkckpt`, `train_report.json`, `sft_config.json`.  
+Progress: profiles set `--log-every 20` (override with `--log-every N`).
+
+QLoRA report: `backend_id=qlora`, `nf4_base`, `adapter_only_optim`, `peft_modules`, `profile`.
 
 ### Distill bridge (core → this package)
 

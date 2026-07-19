@@ -42,9 +42,11 @@ void print_help() {
         << "Usage:\n"
         << "  handoffkit-ml help | version | doctor\n"
         << "  handoffkit-ml sft --dataset PATH --out DIR [options]\n"
+        << "      --profile comfort|qlora|standard|large|tiny\n"
         << "      --epochs N --lr F --n-embd N --n-layer N --n-head N --block-size N\n"
         << "      --arch gpt2|llama-like|gpt-mini --tokenizer bpe|byte\n"
         << "      --lora | --qlora | --lora-rank N | --preference --world-size N --allow-tiny\n"
+        << "      --log-every N\n"
         << "      --gguf BASE.gguf | --base-ckpt model.hkckpt   (load external base)\n"
         << "      --device cpu|cuda|cuda-resident\n"
         << "         cuda = GPU GEMM; cuda-resident = full-weight GPU (not LoRA/QLoRA)\n"
@@ -52,13 +54,13 @@ void print_help() {
         << "  handoffkit-ml gguf-export --ckpt PATH --out model.gguf\n"
         << "  handoffkit-ml gguf-import --gguf PATH --out DIR\n"
         << "  handoffkit-ml quant-demo\n\n"
-        << "Comfortable QLoRA (tiny local recipe; NF4 freeze + multi-module adapters):\n"
-        << "  handoffkit-ml sft --dataset d.jsonl --out runs/qlora --qlora --allow-tiny \\\n"
-        << "    --tokenizer byte --epochs 40 --n-embd 64 --n-layer 2 --n-head 4 \\\n"
-        << "    --block-size 48 --lora-rank 8 --device cpu\n"
+        << "One-shot comfortable train (recommended local recipes):\n"
+        << "  handoffkit-ml sft --dataset d.jsonl --out runs/sft --profile comfort\n"
+        << "  handoffkit-ml sft --dataset d.jsonl --out runs/qlora --profile qlora\n"
         << "  handoffkit-ml generate --ckpt runs/qlora/model.hkckpt --prompt \"P:\" --max-new 16\n\n"
-        << "Default profile is non-tiny (n_embd>=128, n_layer>=4) unless --allow-tiny.\n"
-        << "Native stack comfort ≠ Unsloth/HF 1B+ SOTA scale (see NONGOALS.md).\n"
+        << "Profiles set dims/epochs/lr/tokenizer; flags after --profile still override.\n"
+        << "Default without --profile is non-tiny standard (n_embd>=128, n_layer>=4).\n"
+        << "Native comfort ≠ Unsloth/HF 1B+ SOTA scale (see NONGOALS.md).\n"
         << "No Python. Core never links this library.\n";
 }
 
@@ -104,6 +106,22 @@ int cmd_sft(const std::vector<std::string>& args) {
         return 2;
     }
     handoffkit::ml::SftConfig cfg;
+
+    // Profile first (comfort/qlora one-shots), then explicit flags override.
+    if (auto pr = flag_val(args, "--profile"); !pr.empty()) {
+        handoffkit::ml::ModelProfile mp = handoffkit::ml::ModelProfile::Standard;
+        if (!handoffkit::ml::parse_profile_name(pr, mp)) {
+            std::cerr << "unknown --profile " << pr
+                      << " (use comfort|qlora|standard|large|tiny)\n";
+            return 2;
+        }
+        handoffkit::ml::apply_sft_profile(cfg, mp);
+    } else if (has_flag(args, "--qlora") && !has_flag(args, "--allow-tiny") &&
+               flag_val(args, "--n-embd").empty() && flag_val(args, "--n-layer").empty()) {
+        // Bare --qlora without dims → comfort-qlora profile (local happy path)
+        handoffkit::ml::apply_sft_profile(cfg, handoffkit::ml::ModelProfile::ComfortQlora);
+    }
+
     if (auto e = flag_val(args, "--epochs"); !e.empty()) cfg.epochs = std::stoi(e);
     if (auto lr = flag_val(args, "--lr"); !lr.empty()) cfg.lr = std::stof(lr);
     if (auto b = flag_val(args, "--block-size"); !b.empty()) cfg.block_size = std::stoi(b);
@@ -121,19 +139,28 @@ int cmd_sft(const std::vector<std::string>& args) {
     if (auto c = flag_val(args, "--base-ckpt"); !c.empty()) cfg.base_ckpt = c;
     if (auto c = flag_val(args, "--ckpt"); !c.empty() && cfg.base_ckpt.empty()) cfg.base_ckpt = c;
     if (auto d = flag_val(args, "--device"); !d.empty()) cfg.device = d;
-    cfg.use_lora = has_flag(args, "--lora");
-    cfg.use_qlora = has_flag(args, "--qlora");
+    if (auto le = flag_val(args, "--log-every"); !le.empty()) cfg.log_every = std::stoi(le);
+    if (has_flag(args, "--lora")) cfg.use_lora = true;
+    if (has_flag(args, "--qlora")) cfg.use_qlora = true;
     cfg.preference = has_flag(args, "--preference");
-    cfg.allow_tiny = has_flag(args, "--allow-tiny");
+    if (has_flag(args, "--allow-tiny")) cfg.allow_tiny = true;
     if (auto rk = flag_val(args, "--lora-rank"); !rk.empty()) cfg.lora_rank = std::stoi(rk);
-    // Comfortable QLoRA defaults when user only passes --qlora + allow-tiny without rank
     if (cfg.use_qlora && cfg.lora_rank <= 0) cfg.lora_rank = 8;
+
+    std::cout << "sft start profile=" << cfg.profile
+              << " qlora=" << (cfg.use_qlora ? "true" : "false")
+              << " n_embd=" << cfg.n_embd << " n_layer=" << cfg.n_layer
+              << " epochs=" << cfg.epochs << " lr=" << cfg.lr
+              << " device=" << cfg.device << "\n"
+              << std::flush;
+
     auto r = handoffkit::ml::sft_train(ds, out, cfg);
     if (!r.success) {
         std::cerr << "sft failed: " << r.error << "\n";
         return 1;
     }
     std::cout << "sft ok\n"
+              << "profile=" << cfg.profile << "\n"
               << "initial_loss=" << r.initial_loss << "\n"
               << "final_loss=" << r.final_loss << "\n"
               << "steps=" << r.steps << "\n"
