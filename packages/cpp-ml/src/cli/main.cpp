@@ -48,7 +48,9 @@ void print_help() {
         << "      --profile comfort|qlora|standard|large|tiny\n"
         << "      --epochs N --lr F --n-embd N --n-layer N --n-head N --block-size N\n"
         << "      --arch gpt2|llama-like|gpt-mini --tokenizer bpe|byte\n"
-        << "      --lora | --qlora | --lora-rank N | --preference --world-size N --allow-tiny\n"
+        << "      --lora | --qlora | --lora-rank N | --preference [--dpo-beta F]\n"
+        << "      --world-size N --allow-tiny\n"
+        << "         preference JSONL: prompt + chosen + rejected (completion optional)\n"
         << "      --log-every N\n"
         << "      --gguf BASE.gguf | --base-ckpt model.hkckpt | --resume-config sft_config.json\n"
         << "      --device cpu|cuda|cuda-resident\n"
@@ -157,6 +159,7 @@ int cmd_sft(const std::vector<std::string>& args) {
     if (has_flag(args, "--lora")) cfg.use_lora = true;
     if (has_flag(args, "--qlora")) cfg.use_qlora = true;
     cfg.preference = has_flag(args, "--preference");
+    if (auto db = flag_val(args, "--dpo-beta"); !db.empty()) cfg.dpo_beta = std::stof(db);
     if (has_flag(args, "--allow-tiny")) cfg.allow_tiny = true;
     if (auto rk = flag_val(args, "--lora-rank"); !rk.empty()) cfg.lora_rank = std::stoi(rk);
     if (cfg.use_qlora && cfg.lora_rank <= 0) cfg.lora_rank = 8;
@@ -181,6 +184,7 @@ int cmd_sft(const std::vector<std::string>& args) {
               << "loss_dropped=" << (r.final_loss < r.initial_loss ? "true" : "false") << "\n"
               << "use_qlora=" << (cfg.use_qlora ? "true" : "false") << "\n"
               << "use_lora=" << (cfg.use_lora ? "true" : "false") << "\n"
+              << "preference=" << (cfg.preference ? "true" : "false") << "\n"
               << "lora_rank=" << cfg.lora_rank << "\n"
               << "device=" << cfg.device << "\n"
               << "ckpt_path=" << r.ckpt_path << "\n"
@@ -350,6 +354,7 @@ int cmd_dataset(const std::vector<std::string>& args) {
                       << "max_prompt_chars=" << s.max_prompt_chars << "\n"
                       << "max_completion_chars=" << s.max_completion_chars << "\n"
                       << "empty_completion=" << s.empty_completion << "\n"
+                      << "preference_pairs=" << s.preference_pairs << "\n"
                       << "success=true\n";
             return 0;
         } catch (const std::exception& ex) {

@@ -25,6 +25,7 @@ struct DatasetStats {
     std::size_t max_prompt_chars = 0;
     std::size_t max_completion_chars = 0;
     int empty_completion = 0;
+    int preference_pairs = 0;  // rows with both chosen and rejected
 };
 
 inline DatasetStats dataset_stats(const std::string& path) {
@@ -38,6 +39,7 @@ inline DatasetStats dataset_stats(const std::string& path) {
         s.max_prompt_chars = std::max(s.max_prompt_chars, e.prompt.size());
         s.max_completion_chars = std::max(s.max_completion_chars, e.completion.size());
         if (e.completion.empty()) ++s.empty_completion;
+        if (!e.chosen.empty() && !e.rejected.empty()) ++s.preference_pairs;
     }
     return s;
 }
