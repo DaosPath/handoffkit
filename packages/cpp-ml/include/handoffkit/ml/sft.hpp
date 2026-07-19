@@ -59,6 +59,8 @@ struct SftConfig {
     int log_every = 0;
     /// Profile name for reports ("comfort", "qlora", "standard", …)
     std::string profile{"standard"};
+    /// If true (default), success requires final_loss < initial_loss. Multi-stage recipes may disable.
+    bool require_loss_drop = true;
 };
 
 /// Apply a named comfort / size profile. Does not clear base_ckpt / device / dataset paths.
@@ -450,7 +452,8 @@ inline SftResult sft_train(const std::string& dataset_path,
 
         r.final_loss = last;
         r.steps = steps;
-        r.success = steps > 0 && r.final_loss < r.initial_loss;
+        const bool dropped = r.final_loss < r.initial_loss;
+        r.success = steps > 0 && (!cfg.require_loss_drop || dropped);
         r.ckpt_path = (fs::path(out_dir) / "model.hkckpt").string();
         save_gpt(r.ckpt_path, model);
         r.report_path = (fs::path(out_dir) / "train_report.json").string();
@@ -510,8 +513,7 @@ inline SftResult sft_train(const std::string& dataset_path,
                  << "  \"allow_tiny\": " << (cfg.allow_tiny ? "true" : "false") << "\n"
                  << "}\n";
         }
-        if (!r.success) {
-            // steps completed without exception but loss did not drop
+        if (!r.success && steps > 0 && cfg.require_loss_drop) {
             r.error = "train completed but final_loss did not drop below initial_loss";
         }
     } catch (const std::exception& ex) {

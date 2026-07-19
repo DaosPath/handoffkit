@@ -25,12 +25,23 @@
 
 See [DEVICE_RESIDENT.md](./DEVICE_RESIDENT.md).
 
+## Native train toolkit (ecosystem depth)
+
+| Item | Status |
+|------|--------|
+| Comfort / QLoRA profiles (`--profile`) | **done** |
+| `eval` CE + perplexity | **done** |
+| `dataset stats` / `dataset split` | **done** |
+| Multi-stage `recipe` runner | **done** |
+| Guide [NATIVE_TRAIN.md](./NATIVE_TRAIN.md) | **done** |
+
 ## Still optional future (not required for this roadmap)
 
 - Full cuBLAS/FlashAttention production kernels on multi-GPU NCCL clusters
 - Official GGUF Q4_K load from third-party Llama-70B dumps
 - Tensor-parallel / ZeRO-3
 - Claiming HF/Unsloth SOTA parity
+- Top-k sampling, packed sequences, resume-from-config
 
 ## Non-tiny floors (Standard profile)
 

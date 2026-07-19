@@ -51,13 +51,17 @@ Asserts mid-loop that weights stay on CUDA. See `DEVICE_RESIDENT.md`.
 
 ```text
 handoffkit-ml doctor
-handoffkit-ml sft --dataset student.jsonl --out runs/ml --epochs 20
-handoffkit-ml sft --dataset d.jsonl --out runs/qlora --qlora --arch gpt2
-handoffkit-ml sft --dataset d.jsonl --out runs/res --device cuda-resident --allow-tiny
-handoffkit-ml generate --ckpt runs/ml/model.hkckpt --prompt "P:" --bpe runs/ml/tokenizer.bpe
+handoffkit-ml sft --dataset d.jsonl --out runs/sft --profile comfort
+handoffkit-ml sft --dataset d.jsonl --out runs/qlora --profile qlora
+handoffkit-ml dataset stats --dataset d.jsonl
+handoffkit-ml dataset split --dataset d.jsonl --out data/ --val-ratio 0.2
+handoffkit-ml eval --ckpt runs/qlora/model.hkckpt --dataset data/val.jsonl
+handoffkit-ml recipe --file train.recipe.jsonl
+handoffkit-ml generate --ckpt runs/qlora/model.hkckpt --prompt "P:"
 handoffkit-ml gguf-export --ckpt runs/ml/model.hkckpt --out model.gguf
-handoffkit-ml gguf-import --gguf model.gguf --out runs/from_gguf
 ```
+
+Full native toolkit guide: [NATIVE_TRAIN.md](./NATIVE_TRAIN.md).
 
 `--device cpu|cuda|cuda-resident` — `cuda` accelerates GEMM; `cuda-resident` keeps **weights + activations** on GPU for the train loop.
 

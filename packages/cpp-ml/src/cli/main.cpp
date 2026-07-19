@@ -1,12 +1,15 @@
 #include <handoffkit/ml/ckpt.hpp>
 #include <handoffkit/ml/data.hpp>
+#include <handoffkit/ml/dataset_tools.hpp>
 #include <handoffkit/ml/device.hpp>
 #include <handoffkit/ml/dist.hpp>
+#include <handoffkit/ml/eval.hpp>
 #include <handoffkit/ml/gguf.hpp>
 #include <handoffkit/ml/kernels.hpp>
 #include <handoffkit/ml/ml.hpp>
 #include <handoffkit/ml/model_profile.hpp>
 #include <handoffkit/ml/quant.hpp>
+#include <handoffkit/ml/recipe.hpp>
 #include <handoffkit/ml/sft.hpp>
 #include <handoffkit/ml/version.hpp>
 
@@ -51,16 +54,22 @@ void print_help() {
         << "      --device cpu|cuda|cuda-resident\n"
         << "         cuda = GPU GEMM; cuda-resident = full-weight GPU (not LoRA/QLoRA)\n"
         << "  handoffkit-ml generate --ckpt PATH --prompt TEXT [--max-new N] [--bpe PATH]\n"
+        << "  handoffkit-ml eval --ckpt PATH --dataset PATH [--block-size N] [--tokenizer byte|bpe]\n"
+        << "  handoffkit-ml dataset stats --dataset PATH\n"
+        << "  handoffkit-ml dataset split --dataset PATH --out DIR [--val-ratio 0.2] [--seed N]\n"
+        << "  handoffkit-ml recipe --file recipe.jsonl [--dataset PATH] [--out DIR]\n"
         << "  handoffkit-ml gguf-export --ckpt PATH --out model.gguf\n"
         << "  handoffkit-ml gguf-import --gguf PATH --out DIR\n"
         << "  handoffkit-ml quant-demo\n\n"
-        << "One-shot comfortable train (recommended local recipes):\n"
+        << "Native train toolkit (ecosystem — pure C++):\n"
         << "  handoffkit-ml sft --dataset d.jsonl --out runs/sft --profile comfort\n"
         << "  handoffkit-ml sft --dataset d.jsonl --out runs/qlora --profile qlora\n"
+        << "  handoffkit-ml dataset split --dataset all.jsonl --out data/ --val-ratio 0.2\n"
+        << "  handoffkit-ml eval --ckpt runs/qlora/model.hkckpt --dataset data/val.jsonl\n"
+        << "  handoffkit-ml recipe --file my.recipe.jsonl\n"
         << "  handoffkit-ml generate --ckpt runs/qlora/model.hkckpt --prompt \"P:\" --max-new 16\n\n"
-        << "Profiles set dims/epochs/lr/tokenizer; flags after --profile still override.\n"
-        << "Default without --profile is non-tiny standard (n_embd>=128, n_layer>=4).\n"
-        << "Native comfort ≠ Unsloth/HF 1B+ SOTA scale (see NONGOALS.md).\n"
+        << "Profiles: comfort|qlora|standard|large|tiny. Flags after --profile override.\n"
+        << "Native best-in-ecosystem ≠ Unsloth/HF 1B+ SOTA (see NONGOALS.md / NATIVE_TRAIN.md).\n"
         << "No Python. Core never links this library.\n";
 }
 
@@ -266,6 +275,131 @@ int cmd_quant_demo() {
     return err < 0.1f ? 0 : 1;
 }
 
+int cmd_eval(const std::vector<std::string>& args) {
+    const std::string ckpt = flag_val(args, "--ckpt");
+    const std::string ds = flag_val(args, "--dataset");
+    if (ckpt.empty() || ds.empty()) {
+        std::cerr << "eval requires --ckpt PATH and --dataset PATH\n";
+        return 2;
+    }
+    handoffkit::ml::EvalConfig cfg;
+    if (auto b = flag_val(args, "--block-size"); !b.empty()) cfg.block_size = std::stoi(b);
+    if (auto t = flag_val(args, "--tokenizer"); !t.empty()) {
+        cfg.tokenizer = (t == "byte") ? handoffkit::ml::TokenizerKind::Byte
+                                      : handoffkit::ml::TokenizerKind::Bpe;
+    } else {
+        cfg.tokenizer = handoffkit::ml::TokenizerKind::Byte;
+    }
+    if (auto b = flag_val(args, "--bpe"); !b.empty()) cfg.bpe_path = b;
+    auto r = handoffkit::ml::eval_ckpt_on_jsonl(ckpt, ds, cfg);
+    if (!r.success) {
+        std::cerr << "eval failed: " << r.error << "\n";
+        return 1;
+    }
+    std::cout << "eval ok\n"
+              << "mean_loss=" << r.mean_loss << "\n"
+              << "perplexity=" << r.perplexity << "\n"
+              << "examples=" << r.examples << "\n"
+              << "tokens=" << r.tokens << "\n"
+              << "ckpt_path=" << r.ckpt_path << "\n"
+              << "dataset_path=" << r.dataset_path << "\n"
+              << "success=true\n";
+    return 0;
+}
+
+int cmd_dataset(const std::vector<std::string>& args) {
+    // dataset stats|split ...
+    std::string sub = (args.size() >= 2) ? args[1] : "stats";
+    if (sub == "stats") {
+        const std::string ds = flag_val(args, "--dataset");
+        if (ds.empty()) {
+            std::cerr << "dataset stats requires --dataset PATH\n";
+            return 2;
+        }
+        try {
+            auto s = handoffkit::ml::dataset_stats(ds);
+            const double ap =
+                s.examples ? static_cast<double>(s.total_prompt_chars) / s.examples : 0.0;
+            const double ac =
+                s.examples ? static_cast<double>(s.total_completion_chars) / s.examples : 0.0;
+            std::cout << "dataset stats ok\n"
+                      << "examples=" << s.examples << "\n"
+                      << "avg_prompt_chars=" << ap << "\n"
+                      << "avg_completion_chars=" << ac << "\n"
+                      << "max_prompt_chars=" << s.max_prompt_chars << "\n"
+                      << "max_completion_chars=" << s.max_completion_chars << "\n"
+                      << "empty_completion=" << s.empty_completion << "\n"
+                      << "success=true\n";
+            return 0;
+        } catch (const std::exception& ex) {
+            std::cerr << "dataset stats failed: " << ex.what() << "\n";
+            return 1;
+        }
+    }
+    if (sub == "split") {
+        const std::string ds = flag_val(args, "--dataset");
+        const std::string out = flag_val(args, "--out");
+        if (ds.empty() || out.empty()) {
+            std::cerr << "dataset split requires --dataset PATH and --out DIR\n";
+            return 2;
+        }
+        float vr = 0.2f;
+        if (auto v = flag_val(args, "--val-ratio"); !v.empty()) vr = std::stof(v);
+        int seed = 42;
+        if (auto s = flag_val(args, "--seed"); !s.empty()) seed = std::stoi(s);
+        try {
+            auto r = handoffkit::ml::dataset_split(ds, out, vr, seed, true);
+            std::cout << "dataset split ok\n"
+                      << "train_path=" << r.train_path << "\n"
+                      << "val_path=" << r.val_path << "\n"
+                      << "train_n=" << r.train_n << "\n"
+                      << "val_n=" << r.val_n << "\n"
+                      << "success=true\n";
+            return 0;
+        } catch (const std::exception& ex) {
+            std::cerr << "dataset split failed: " << ex.what() << "\n";
+            return 1;
+        }
+    }
+    std::cerr << "dataset subcommand must be stats|split\n";
+    return 2;
+}
+
+int cmd_recipe(const std::vector<std::string>& args) {
+    const std::string file = flag_val(args, "--file");
+    if (file.empty()) {
+        std::cerr << "recipe requires --file PATH\n";
+        return 2;
+    }
+    try {
+        auto cfg = handoffkit::ml::load_recipe_file(file);
+        if (auto d = flag_val(args, "--dataset"); !d.empty()) cfg.dataset = d;
+        if (auto o = flag_val(args, "--out"); !o.empty()) cfg.out_dir = o;
+        if (auto v = flag_val(args, "--val-dataset"); !v.empty()) cfg.val_dataset = v;
+        if (auto b = flag_val(args, "--base-ckpt"); !b.empty()) cfg.base_ckpt = b;
+        auto r = handoffkit::ml::run_recipe(cfg);
+        if (!r.success) {
+            std::cerr << "recipe failed: " << r.error << "\n";
+            return 1;
+        }
+        std::cout << "recipe ok\n"
+                  << "stages=" << r.stages.size() << "\n"
+                  << "final_ckpt=" << r.final_ckpt << "\n"
+                  << "report_path=" << r.report_path << "\n";
+        for (const auto& s : r.stages) {
+            std::cout << "stage name=" << s.name << " final_loss=" << s.sft.final_loss
+                      << " ckpt=" << s.ckpt_path;
+            if (s.eval.success) std::cout << " eval_loss=" << s.eval.mean_loss;
+            std::cout << "\n";
+        }
+        std::cout << "success=true\n";
+        return 0;
+    } catch (const std::exception& ex) {
+        std::cerr << "recipe failed: " << ex.what() << "\n";
+        return 1;
+    }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -283,6 +417,9 @@ int main(int argc, char** argv) {
     if (args[0] == "doctor") return cmd_doctor();
     if (args[0] == "sft" || args[0] == "train") return cmd_sft(args);
     if (args[0] == "generate") return cmd_generate(args);
+    if (args[0] == "eval") return cmd_eval(args);
+    if (args[0] == "dataset") return cmd_dataset(args);
+    if (args[0] == "recipe") return cmd_recipe(args);
     if (args[0] == "gguf-export") return cmd_gguf_export(args);
     if (args[0] == "gguf-import") return cmd_gguf_import(args);
     if (args[0] == "quant-demo") return cmd_quant_demo();
