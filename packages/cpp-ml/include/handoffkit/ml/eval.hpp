@@ -10,6 +10,8 @@
 #include <handoffkit/ml/token.hpp>
 
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -22,6 +24,10 @@ struct EvalConfig {
     TokenizerKind tokenizer = TokenizerKind::Byte;
     std::string bpe_path;
     bool allow_empty = false;
+    /// If non-empty, write eval_report.json (or this path) after success.
+    std::string report_path;
+    /// If set and report_path empty, write report_path = out_dir/eval_report.json
+    std::string out_dir;
 };
 
 struct EvalResult {
@@ -33,7 +39,28 @@ struct EvalResult {
     int tokens = 0;
     std::string ckpt_path;
     std::string dataset_path;
+    std::string report_path;
 };
+
+inline void write_eval_report(const EvalResult& r, const std::string& path) {
+    namespace fs = std::filesystem;
+    fs::path p(path);
+    if (p.has_parent_path()) {
+        std::error_code ec;
+        fs::create_directories(p.parent_path(), ec);
+    }
+    std::ofstream o(path);
+    if (!o) throw std::runtime_error("cannot write eval report: " + path);
+    o << "{\n"
+      << "  \"success\": " << (r.success ? "true" : "false") << ",\n"
+      << "  \"mean_loss\": " << r.mean_loss << ",\n"
+      << "  \"perplexity\": " << r.perplexity << ",\n"
+      << "  \"examples\": " << r.examples << ",\n"
+      << "  \"tokens\": " << r.tokens << ",\n"
+      << "  \"ckpt_path\": \"" << r.ckpt_path << "\",\n"
+      << "  \"dataset_path\": \"" << r.dataset_path << "\"\n"
+      << "}\n";
+}
 
 /// Mean token CE on prompt+completion sequences (same encode path spirit as SFT).
 inline EvalResult eval_ckpt_on_jsonl(const std::string& ckpt_path, const std::string& dataset_path,
@@ -96,6 +123,15 @@ inline EvalResult eval_ckpt_on_jsonl(const std::string& ckpt_path, const std::st
         r.mean_loss = static_cast<float>(loss_sum / static_cast<double>(tok_n));
         r.perplexity = std::exp(r.mean_loss);
         r.success = true;
+        std::string rep = cfg.report_path;
+        if (rep.empty() && !cfg.out_dir.empty()) {
+            namespace fs = std::filesystem;
+            rep = (fs::path(cfg.out_dir) / "eval_report.json").string();
+        }
+        if (!rep.empty()) {
+            write_eval_report(r, rep);
+            r.report_path = rep;
+        }
     } catch (const std::exception& ex) {
         r.success = false;
         r.error = ex.what();

@@ -55,7 +55,8 @@ void print_help() {
         << "         cuda = GPU GEMM; cuda-resident = full-weight GPU (not LoRA/QLoRA)\n"
         << "  handoffkit-ml generate --ckpt PATH --prompt TEXT [--max-new N] [--temperature F]\n"
         << "      [--top-k N] [--top-p F] [--bpe PATH]\n"
-        << "  handoffkit-ml eval --ckpt PATH --dataset PATH [--block-size N] [--tokenizer byte|bpe]\n"
+        << "  handoffkit-ml eval --ckpt PATH --dataset PATH [--out DIR] [--report PATH]\n"
+        << "      [--block-size N] [--tokenizer byte|bpe]\n"
         << "  handoffkit-ml dataset stats --dataset PATH\n"
         << "  handoffkit-ml dataset split --dataset PATH --out DIR [--val-ratio 0.2] [--seed N]\n"
         << "  handoffkit-ml recipe --file recipe.jsonl [--dataset PATH] [--out DIR]\n"
@@ -303,6 +304,13 @@ int cmd_eval(const std::vector<std::string>& args) {
         cfg.tokenizer = handoffkit::ml::TokenizerKind::Byte;
     }
     if (auto b = flag_val(args, "--bpe"); !b.empty()) cfg.bpe_path = b;
+    if (auto o = flag_val(args, "--out"); !o.empty()) cfg.out_dir = o;
+    if (auto rp = flag_val(args, "--report"); !rp.empty()) cfg.report_path = rp;
+    // Default durable report next to ckpt or under --out
+    if (cfg.report_path.empty() && cfg.out_dir.empty()) {
+        namespace fs = std::filesystem;
+        cfg.out_dir = (fs::path(ckpt).parent_path() / "eval").string();
+    }
     auto r = handoffkit::ml::eval_ckpt_on_jsonl(ckpt, ds, cfg);
     if (!r.success) {
         std::cerr << "eval failed: " << r.error << "\n";
@@ -315,6 +323,7 @@ int cmd_eval(const std::vector<std::string>& args) {
               << "tokens=" << r.tokens << "\n"
               << "ckpt_path=" << r.ckpt_path << "\n"
               << "dataset_path=" << r.dataset_path << "\n"
+              << "report_path=" << r.report_path << "\n"
               << "success=true\n";
     return 0;
 }
