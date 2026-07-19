@@ -28,7 +28,7 @@ Capabilities capabilities() noexcept {
 
 const char* status_message() noexcept {
     return "handoffkit-ml — native C++ train complement (not core). "
-           "CPU tensor/GPT-mini/SFT/LoRA/preference; CUDA/multi-GPU stubs (F4/F6).";
+           "BPE, non-tiny GPT/llama-like, GGUF, LoRA/QLoRA, mt-matmul, DP allreduce.";
 }
 
 }  // namespace ml

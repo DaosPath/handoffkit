@@ -1,27 +1,27 @@
-# handoffkit-ml roadmap (F6)
+# handoffkit-ml roadmap
 
-## Done in-tree (0.2.x)
+## Implemented (0.3.x roadmap complete)
 
 | Phase | Item | Status |
 |-------|------|--------|
-| F0 | Package split from core | done |
-| F1 | CPU tensor, ops, gradcheck, linear overfit | done |
-| F2 | GPT-mini, JSONL SFT, ckpt, generate CLI | done |
-| F3 | LoRA on Linear + SFT `--lora` projection | done |
-| F4 | `HANDOFFKIT_ML_CUDA` flag + device API (CPU runtime) | done (kernels stub) |
-| F5 | Preference / DPO-like proxy via `--preference` | done (tiny proxy) |
-| F6 | int8 quant stub, dist status, this checklist | done |
+| F0–F6 | Package split, train scaffold, LoRA, device API, preference, quant stubs | done (prior) |
+| **A** | Attention backward numerical parity + non-tiny model floors | **done** |
+| **B** | In-tree BPE tokenizer beyond byte-level, wired into SFT/generate | **done** |
+| **C** | GGUF f32 import/export + arch allowlist `gpt-mini` / `gpt2` / `llama-like` | **done** |
+| **D** | Multi-thread CPU matmul + optional CUDA compile path (`matmul_device`) | **done** |
+| **E** | NF4 quant + QLoRA train path (`--qlora`) | **done** |
+| **F** | Data-parallel allreduce / `world_size` grad scale | **done** |
 
-## Still roadmap (not claimed complete)
+## Still optional future (not required for this roadmap)
 
-- [ ] Real CUDA kernels (cuBLAS matmul, attention)
-- [ ] NF4 / QLoRA training
-- [ ] Multi-GPU NCCL data parallel
-- [ ] GGUF import/export for external bases
-- [ ] Full attention backward numerical parity suite
-- [ ] SentencePiece / BPE beyond byte-level
-- [ ] Architecture allowlist beyond GPT-mini
+- Full cuBLAS/FlashAttention production kernels on multi-GPU NCCL clusters
+- Official GGUF Q4_K load from third-party Llama-70B dumps
+- Tensor-parallel / ZeRO-3
+- Claiming HF/Unsloth SOTA parity
 
-## Why not “HF complete”
+## Non-tiny floors (Standard profile)
 
-Shipping a full Hugging Face competitor is multi-year. This package holds the engine **without** breaking `handoffkit_core` lightness. See NONGOALS.md.
+- `n_embd >= 128`, `n_layer >= 4`, `n_head >= 4`, `block_size >= 128`
+- Use `--allow-tiny` only for unit tests / CI speed
+
+See NONGOALS.md for product boundaries (core stays light; no Python).

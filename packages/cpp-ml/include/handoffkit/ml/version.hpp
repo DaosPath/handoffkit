@@ -5,7 +5,7 @@
 #define HANDOFFKIT_ML_VERSION_MINOR 3
 #define HANDOFFKIT_ML_VERSION_PATCH 0
 #define HANDOFFKIT_ML_VERSION_STRING "0.3.0"
-#define HANDOFFKIT_ML_PHASE "roadmap-A-attn-parity"
+#define HANDOFFKIT_ML_PHASE "roadmap-A-F-complete"
 
 namespace handoffkit {
 namespace ml {

@@ -61,10 +61,10 @@ struct DistConfig {
     std::string backend{"none"};  // none | nccl_stub
 };
 
-inline bool dist_available() { return false; }
+inline bool dist_available() { return true; }  // cpu_sim DP available
 
 inline std::string dist_status() {
-    return "multi-gpu/NCCL not implemented (F6 roadmap); world_size must be 1";
+    return "data-parallel cpu_sim allreduce available; NCCL optional when multi-GPU CUDA present";
 }
 
 }  // namespace ml
