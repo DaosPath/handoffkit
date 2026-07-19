@@ -326,13 +326,16 @@ write_basic_package_version_file(
 )
 
 # Case aliases (Windows was fine with either; Linux find_package is picky).
-file(COPY_FILE
+# configure_file COPYONLY works on CMake 3.16+ (file(COPY_FILE) needs 3.21+).
+configure_file(
   "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfig.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfig.cmake"
+  COPYONLY
 )
-file(COPY_FILE
+configure_file(
   "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfigVersion.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfigVersion.cmake"
+  COPYONLY
 )
 # Targets alias name for scripts that include HandoffKitTargets.cmake
 install(EXPORT HandoffKitTargets
