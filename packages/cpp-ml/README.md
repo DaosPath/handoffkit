@@ -1,5 +1,19 @@
 # handoffkit-ml (optional complement)
 
+> ## Status: **FROZEN** (active pause)
+>
+> This package is **intentionally frozen** while monorepo work continues elsewhere  
+> (core, JS, other packages — **not** expanding native ML / 4B / external trainers here).
+>
+> | | |
+> |--|--|
+> | **Use** | Existing APIs/CLI as documented (SFT, QLoRA, eval, generate, recipes) |
+> | **Do not** | Land large new features, refactors, or scale roadmaps in this tree for now |
+> | **OK** | Critical bugfixes only if something already shipped is broken |
+> | **Resume** | When the team unfreezes explicitly (remove this banner + update [STATUS.md](./STATUS.md)) |
+>
+> Baseline: native **v0.5** student suite is complete enough for local use. See [STATUS.md](./STATUS.md).
+
 **C++ weight-training engine for HandoffKit — not part of `handoffkit_core`.**  
 **No Python.** Default train profile is **non-tiny** (128d / 4 layers).
 
@@ -11,7 +25,8 @@
 ## Roadmap status
 
 Primary checklist in [ROADMAP.md](./ROADMAP.md) (Phases A–F) is **implemented**.  
-**Device-resident** path (weights + activations on GPU): [DEVICE_RESIDENT.md](./DEVICE_RESIDENT.md) **DR-1…DR-6**.
+**Device-resident** path (weights + activations on GPU): [DEVICE_RESIDENT.md](./DEVICE_RESIDENT.md) **DR-1…DR-6**.  
+**v0.5** checklist done; further ML work is **on hold** (see freeze banner above).
 
 ## Build
 

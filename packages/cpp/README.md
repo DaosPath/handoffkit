@@ -126,6 +126,7 @@ For **C++-only** SFT/LoRA/QLoRA/device-resident train, see the sibling complemen
 
 - [`packages/cpp-ml/`](../cpp-ml/) — `handoffkit-ml` `0.4+` (opt-in; **not** linked from core)
 - Product split: `handoffkit-cli train …` = jobs/distill; `handoffkit-ml sft|generate …` = native weights (CPU / CUDA / cuda-resident)
+- **Status:** `cpp-ml` is **FROZEN** while other monorepo work proceeds — use as documented; no feature expansion there for now ([STATUS.md](../cpp-ml/STATUS.md)).
 
 Default Conan/tarball/core CI remain light. See `packages/cpp-ml/NONGOALS.md`.
 

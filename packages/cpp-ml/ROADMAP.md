@@ -1,5 +1,8 @@
 # handoffkit-ml roadmap
 
+> **FROZEN:** no new roadmap phases while the monorepo works on other areas.  
+> See [STATUS.md](./STATUS.md). Critical bugfixes only.
+
 ## Implemented (0.3.x roadmap complete)
 
 | Phase | Item | Status |

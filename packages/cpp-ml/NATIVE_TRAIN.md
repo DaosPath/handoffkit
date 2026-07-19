@@ -1,5 +1,7 @@
 # Native train toolkit (HandoffKit ecosystem)
 
+> **Package status: FROZEN** — see [STATUS.md](./STATUS.md). Use as-is; no feature work here for now.
+
 Goal: the **best training experience that stays inside pure C++** — same monorepo,
 no Python, no cuBLAS product dependency, core stays light.
 
