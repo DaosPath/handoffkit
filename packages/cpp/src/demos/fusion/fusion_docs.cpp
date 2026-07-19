@@ -23,8 +23,20 @@ std::string fusion_suite_readme_markdown() {
   ss << "Rubrics (diagnostic/shipping/task-faithful), quality gates, branch ";
   ss << "alignment (NW/SW), DAG analysis.\n\n";
   ss << "## CLI\n\n";
-  ss << "fusion --profile --mode --provider; fusion cache; fusion bench; fusion ";
-  ss << "scenarios run-all; fusion audit-loc.\n\n";
+  ss << "fusion --profile --mode --provider; fusion roles; fusion explain; ";
+  ss << "fusion cache; fusion bench; fusion scenarios run-all; fusion audit-loc.\n\n";
+  ss << "## Roles\n\n";
+  ss << "Built-in packs: shipping, neutral, dialectic, diagnostic, coding, research, ";
+  ss << "plus incident/product helpers. Load custom packs via load_role_pack_file JSON. ";
+  ss << "CLI: fusion roles --profile neutral | --pack incident | --file pack.json\n\n";
+  ss << "## Explain\n\n";
+  ss << "fusion explain --tier medium prints planned_llm_calls and call_plan offline.\n\n";
+  ss << "## Engine layout\n\n";
+  ss << "engine_run (dispatch/call_llm), engine_lean_ultra, engine_dag_run, ";
+  ss << "engine_panel_run, engine_internal helpers.\n\n";
+  ss << "## Observability\n\n";
+  ss << "FusionRunResult.report includes call_steps (step_id/role_id/agent_name) and ";
+  ss << "cache_stats when cache is enabled.\n\n";
   ss << "## Safety\n\n";
   ss << "Medical fixtures are research/benchmark only and not clinical advice.\n\n";
   ss << "## Non-goals\n\n";
@@ -84,6 +96,9 @@ std::string fusion_suite_readme_markdown() {
 std::string fusion_suite_quickstart_text() {
   return R"QS(
 handoffkit-cli fusion --provider echo --profile neutral --mode lean --prompt "..."
+handoffkit-cli fusion roles --profile neutral
+handoffkit-cli fusion roles --pack incident
+handoffkit-cli fusion explain --tier medium --mode ultra
 handoffkit-cli fusion --provider echo --profile diagnostic --mode ultra --prompt "..."
 handoffkit-cli fusion bench --provider echo
 handoffkit-cli fusion scenarios run-all
@@ -92,5 +107,9 @@ handoffkit-cli fusion audit-loc --root packages/cpp
 handoffkit-cli demo fusion_cache_lab
 handoffkit-cli demo fusion_neutral_ultra
 )QS";
+}
+std::string fusion_improvements_notes() {
+  return "Fusion improvements: loadable role packs (JSON), incident/product packs, "
+         "CLI roles/explain, engine split (lean/dag/panel), report call_steps + cache_stats.\n";
 }
 }}}

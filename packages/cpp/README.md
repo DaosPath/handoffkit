@@ -220,6 +220,21 @@ register_web_explorer_tools(reg, map);  // tools: web_fetch, web_explore
 - **CLI:** `explore fixture | fetch | crawl | md | html2md | tools` with `--max-depth`, `--deny-host`, `--json`, `--markdown`.
 
 There are **40+ demos** (team, tools, protocol matrix, validation/quality, support escalation, coding review, research, doctor panel, fusion, recipe, memory, tool stress, multi-case batch, replay, quality gates, incident response, product handoff, ...) plus a **40 unique offline corpus cases** for batch/showcase runs.
+
+### Fusion (offline introspection)
+
+```bash
+# Role packs (built-in profiles, incident/product helpers, or JSON file)
+handoffkit-cli fusion roles --profile neutral
+handoffkit-cli fusion roles --pack incident
+# Call plan without LLM (tier/mode → planned_llm_calls + call_plan)
+handoffkit-cli fusion explain --tier medium --mode ultra
+# Echo run: report includes call_steps + cache_stats when cache is on
+handoffkit-cli fusion --provider echo --profile neutral --prompt "..."
+```
+
+Engine layout: `engine_run` (dispatch/`call_llm`), `engine_lean_ultra`, `engine_dag_run`, `engine_panel_run`. Loadable role packs: `load_role_pack_file` + `validate_role_pack`.
+
 ## Consume
 
 ### After `cmake --install` (recommended for apps)
