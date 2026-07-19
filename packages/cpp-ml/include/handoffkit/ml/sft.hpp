@@ -528,6 +528,10 @@ inline SftResult sft_train(const std::string& dataset_path,
 struct GenerateOpts {
     int max_new_tokens = 32;
     float temperature = 0.f;
+    /// top-k sampling (0 = disabled). Applied after temperature softmax candidates.
+    int top_k = 0;
+    /// nucleus / top-p in (0,1]; 0 or >=1 = disabled.
+    float top_p = 0.f;
     TokenizerKind tokenizer = TokenizerKind::Bpe;
     std::string bpe_path;
     int eos_id = -1;  // -1 => auto
@@ -602,26 +606,57 @@ inline std::string generate_text(GPT& model,
                 }
             }
         } else {
-            std::vector<float> row(V);
+            // Softmax over temperature-scaled logits, optional top-k / top-p (nucleus)
+            std::vector<std::pair<float, int>> cands;
+            cands.reserve(V);
             for (std::size_t j = 0; j < V; ++j) {
-                row[j] = logits.data[last * V + j] / std::max(o.temperature, 1e-3f);
+                if (n < min_new_before_eos && static_cast<int>(j) == eos) continue;
+                float logit = logits.data[last * V + j] / std::max(o.temperature, 1e-3f);
+                cands.emplace_back(logit, static_cast<int>(j));
             }
-            float m = *std::max_element(row.begin(), row.end());
-            float sum = 0.f;
-            for (auto& v : row) {
-                v = std::exp(v - m);
-                sum += v;
-            }
-            for (auto& v : row) v /= sum;
-            std::uniform_real_distribution<float> u(0.f, 1.f);
-            float rr = u(rng);
-            float cum = 0.f;
-            pick = eos;
-            for (std::size_t j = 0; j < V; ++j) {
-                cum += row[j];
-                if (rr <= cum) {
-                    pick = static_cast<int>(j);
-                    break;
+            if (cands.empty()) {
+                pick = eos;
+            } else {
+                std::sort(cands.begin(), cands.end(),
+                          [](const auto& a, const auto& b) { return a.first > b.first; });
+                if (o.top_k > 0 && static_cast<int>(cands.size()) > o.top_k) {
+                    cands.resize(static_cast<std::size_t>(o.top_k));
+                }
+                // Softmax on remaining logits
+                float m = cands.front().first;
+                float sum = 0.f;
+                for (auto& c : cands) {
+                    c.first = std::exp(c.first - m);
+                    sum += c.first;
+                }
+                for (auto& c : cands) c.first /= std::max(sum, 1e-20f);
+                // Nucleus top-p: keep smallest prefix with cumulative mass >= top_p
+                if (o.top_p > 0.f && o.top_p < 1.f && cands.size() > 1) {
+                    float cum_p = 0.f;
+                    std::size_t keep = 0;
+                    for (; keep < cands.size(); ++keep) {
+                        cum_p += cands[keep].first;
+                        if (cum_p >= o.top_p) {
+                            ++keep;
+                            break;
+                        }
+                    }
+                    if (keep < cands.size()) cands.resize(keep);
+                    // Renormalize
+                    sum = 0.f;
+                    for (auto& c : cands) sum += c.first;
+                    for (auto& c : cands) c.first /= std::max(sum, 1e-20f);
+                }
+                std::uniform_real_distribution<float> u(0.f, 1.f);
+                float rr = u(rng);
+                float cum = 0.f;
+                pick = cands.back().second;
+                for (const auto& c : cands) {
+                    cum += c.first;
+                    if (rr <= cum) {
+                        pick = c.second;
+                        break;
+                    }
                 }
             }
         }

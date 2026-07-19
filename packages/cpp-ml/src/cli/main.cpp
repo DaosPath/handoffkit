@@ -53,7 +53,8 @@ void print_help() {
         << "      --gguf BASE.gguf | --base-ckpt model.hkckpt   (load external base)\n"
         << "      --device cpu|cuda|cuda-resident\n"
         << "         cuda = GPU GEMM; cuda-resident = full-weight GPU (not LoRA/QLoRA)\n"
-        << "  handoffkit-ml generate --ckpt PATH --prompt TEXT [--max-new N] [--bpe PATH]\n"
+        << "  handoffkit-ml generate --ckpt PATH --prompt TEXT [--max-new N] [--temperature F]\n"
+        << "      [--top-k N] [--top-p F] [--bpe PATH]\n"
         << "  handoffkit-ml eval --ckpt PATH --dataset PATH [--block-size N] [--tokenizer byte|bpe]\n"
         << "  handoffkit-ml dataset stats --dataset PATH\n"
         << "  handoffkit-ml dataset split --dataset PATH --out DIR [--val-ratio 0.2] [--seed N]\n"
@@ -202,17 +203,25 @@ int cmd_generate(const std::vector<std::string>& args) {
         handoffkit::ml::GenerateOpts go;
         go.max_new_tokens = max_new;
         go.temperature = temp;
+        if (auto k = flag_val(args, "--top-k"); !k.empty()) go.top_k = std::stoi(k);
+        if (auto pp = flag_val(args, "--top-p"); !pp.empty()) go.top_p = std::stof(pp);
         if (auto b = flag_val(args, "--bpe"); !b.empty()) {
             go.bpe_path = b;
             go.tokenizer = handoffkit::ml::TokenizerKind::Bpe;
         } else if (model.cfg.vocab_size <= 300) {
             go.tokenizer = handoffkit::ml::TokenizerKind::Byte;
         }
+        std::mt19937 rng(42);
+        if (auto s = flag_val(args, "--seed"); !s.empty())
+            rng.seed(static_cast<unsigned>(std::stoul(s)));
         std::string cont;
         std::string text =
-            handoffkit::ml::generate_text(model, p, max_new, temp, nullptr, &cont, &go);
+            handoffkit::ml::generate_text(model, p, max_new, temp, &rng, &cont, &go);
         std::cout << "generate ok\n"
                   << "prompt=" << p << "\n"
+                  << "temperature=" << go.temperature << "\n"
+                  << "top_k=" << go.top_k << "\n"
+                  << "top_p=" << go.top_p << "\n"
                   << "continuation=" << cont << "\n"
                   << "text=" << text << "\n"
                   << "success=true\n";
