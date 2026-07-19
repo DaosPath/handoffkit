@@ -113,6 +113,7 @@ if(HANDOFFKIT_ML_BUILD_TESTS)
   hk_ml_test(test_ml_resident_embed tests/test_ml_resident_embed.cpp)
   hk_ml_test(test_ml_resident_linear tests/test_ml_resident_linear.cpp)
   hk_ml_test(test_ml_resident_mlp tests/test_ml_resident_mlp.cpp)
+  hk_ml_test(test_ml_resident_block tests/test_ml_resident_block.cpp)
 endif()
 
 install(TARGETS handoffkit_ml
