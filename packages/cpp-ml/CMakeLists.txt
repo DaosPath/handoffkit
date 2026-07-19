@@ -111,6 +111,7 @@ if(HANDOFFKIT_ML_BUILD_TESTS)
   hk_ml_test(test_ml_cuda_adamw tests/test_ml_cuda_adamw.cpp)
   # Device-resident (DR) — tests added per phase
   hk_ml_test(test_ml_resident_embed tests/test_ml_resident_embed.cpp)
+  hk_ml_test(test_ml_resident_linear tests/test_ml_resident_linear.cpp)
 endif()
 
 install(TARGETS handoffkit_ml
