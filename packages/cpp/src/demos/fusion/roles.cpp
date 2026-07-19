@@ -537,7 +537,11 @@ std::string format_role_pack_text(const RolePack& pack) {
 
 std::string explain_fusion_plan(const FusionConfig& config) {
     FusionConfig cfg = config;
+    // Tier fills branch_count / policy / labels, but mode on the input config is
+    // authoritative (CLI applies tier then may override with --mode).
+    const FusionMode mode = cfg.mode;
     apply_fusion_tier(cfg, cfg.tier);
+    cfg.mode = mode;
     const RolePack pack = make_role_pack(cfg.profile);
     const int planned = planned_llm_calls_for_config(cfg);
     std::ostringstream ss;

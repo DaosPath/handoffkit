@@ -107,21 +107,14 @@ Result<FusionRunResult> FusionEngine::run(const FusionConfig& config) {
     if (!cache_ && config.cache.enabled) {
         cache_ = std::make_shared<FusionCache>(config.cache);
     }
-    if (config.mode == FusionMode::Panel) {
-        auto result = run_panel(config);
-        if (!result) return result;
-        if (config.write_files) {
-            auto arts = write_fusion_run(result.value());
-            if (arts) result.value().artifact_paths = arts.value();
-        }
+    auto enrich_report_observability = [&](FusionRunResult& run) {
         if (cache_) {
-            result.value().metrics.cache = cache_->stats();
-            result.value().report["cache_stats"] = cache_->stats().to_json();
-            result.value().report["cache_hit_rate"] = cache_->stats().hit_rate();
+            run.metrics.cache = cache_->stats();
+            run.report["cache_stats"] = cache_->stats().to_json();
+            run.report["cache_hit_rate"] = cache_->stats().hit_rate();
         }
-        // Summarize call roles for observability
         nlohmann::json steps = nlohmann::json::array();
-        for (const auto& c : result.value().metrics.calls) {
+        for (const auto& c : run.metrics.calls) {
             steps.push_back({
                 {"step_id", c.step_id},
                 {"role_id", c.role_id},
@@ -130,7 +123,18 @@ Result<FusionRunResult> FusionEngine::run(const FusionConfig& config) {
                 {"latency_ms", c.latency_ms},
             });
         }
-        result.value().report["call_steps"] = std::move(steps);
+        run.report["call_steps"] = std::move(steps);
+    };
+
+    if (config.mode == FusionMode::Panel) {
+        auto result = run_panel(config);
+        if (!result) return result;
+        // Enrich before write so disk report.json matches in-memory observability.
+        enrich_report_observability(result.value());
+        if (config.write_files) {
+            auto arts = write_fusion_run(result.value());
+            if (arts) result.value().artifact_paths = arts.value();
+        }
         return result;
     }
     auto provider = make_fusion_provider(config, cache_);
@@ -138,28 +142,14 @@ Result<FusionRunResult> FusionEngine::run(const FusionConfig& config) {
     auto result = run_with_provider(config, std::move(provider.value()));
     if (!result) return result;
 
+    // Enrich before write so persisted report includes call_steps/cache_stats.
+    enrich_report_observability(result.value());
     if (config.write_files) {
         auto arts = write_fusion_run(result.value());
         if (arts) {
             result.value().artifact_paths = arts.value();
         }
     }
-    if (cache_) {
-        result.value().metrics.cache = cache_->stats();
-        result.value().report["cache_stats"] = cache_->stats().to_json();
-        result.value().report["cache_hit_rate"] = cache_->stats().hit_rate();
-    }
-    nlohmann::json steps = nlohmann::json::array();
-    for (const auto& c : result.value().metrics.calls) {
-        steps.push_back({
-            {"step_id", c.step_id},
-            {"role_id", c.role_id},
-            {"agent_name", c.agent_name},
-            {"cache_hit", c.cache_hit},
-            {"latency_ms", c.latency_ms},
-        });
-    }
-    result.value().report["call_steps"] = std::move(steps);
     return result;
 }
 

@@ -68,17 +68,39 @@ int main() {
 
     FusionConfig cfg;
     cfg.tier = FusionTier::Medium;
-    cfg.mode = FusionMode::Lean;
     cfg.profile = FusionProfileId::Neutral;
-    apply_fusion_tier(cfg, cfg.tier);
+    apply_fusion_tier(cfg, cfg.tier);  // Medium → mode=Lean
     auto plan = explain_fusion_plan(cfg);
     if (plan.find("planned_llm_calls=") == std::string::npos ||
-        plan.find("call_plan:") == std::string::npos) {
-        std::cerr << "explain_fusion_plan weak\n" << plan << "\n";
+        plan.find("call_plan:") == std::string::npos ||
+        plan.find("mode=lean") == std::string::npos) {
+        std::cerr << "explain_fusion_plan lean weak\n" << plan << "\n";
         return 1;
     }
     std::cout << "explain sample lines:\n"
               << plan.substr(0, 200) << "\n";
+
+    // Explicit --mode override must survive explain (tier re-apply must not clobber).
+    // Mirrors CLI: apply_fusion_tier(medium) then cfg.mode = Ultra.
+    FusionConfig ultra_cfg;
+    ultra_cfg.tier = FusionTier::Medium;
+    ultra_cfg.profile = FusionProfileId::Neutral;
+    apply_fusion_tier(ultra_cfg, ultra_cfg.tier);
+    ultra_cfg.mode = FusionMode::Ultra;
+    auto ultra_plan = explain_fusion_plan(ultra_cfg);
+    if (ultra_plan.find("mode=ultra") == std::string::npos) {
+        std::cerr << "explain must keep mode=ultra after medium tier\n" << ultra_plan << "\n";
+        return 1;
+    }
+    if (ultra_plan.find("skeptic") == std::string::npos) {
+        std::cerr << "ultra call_plan must list skeptic steps\n" << ultra_plan << "\n";
+        return 1;
+    }
+    if (ultra_plan.find("planned_llm_calls=5") == std::string::npos) {
+        std::cerr << "ultra planned_llm_calls expected 5\n" << ultra_plan << "\n";
+        return 1;
+    }
+    std::cout << "explain ultra override ok (mode=ultra + skeptic lines)\n";
     std::cout << "test_fusion_roles ok\n";
     return 0;
 }

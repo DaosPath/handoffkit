@@ -2,7 +2,11 @@
 #include <handoffkit/demos/fusion/prompt.hpp>
 #include <handoffkit/demos/fusion/roles.hpp>
 
+#include <nlohmann/json.hpp>
+
 #include <cassert>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <set>
 #include <string>
@@ -331,6 +335,58 @@ void test_handoff_in_engine_prompts_lean_and_pro() {
     std::cout << "test_handoff_in_engine_prompts_lean_and_pro ok\n";
 }
 
+void test_disk_report_has_call_steps_and_cache_stats() {
+    namespace fs = std::filesystem;
+    const auto out = fs::current_path() / "test_artifacts_fusion_report_obs";
+    std::error_code ec;
+    fs::remove_all(out, ec);
+    fs::create_directories(out, ec);
+
+    FusionConfig cfg;
+    cfg.task = "Persist observability keys on disk report.";
+    cfg.mode = FusionMode::Lean;
+    cfg.profile = FusionProfileId::Neutral;
+    cfg.provider = "echo";
+    cfg.write_files = true;
+    cfg.output_dir = out.string();
+    cfg.cache.enabled = true;
+    cfg.cache.use_disk = false;
+
+    auto run = run_fusion(cfg);
+    assert(run);
+    assert(run.value().success);
+    assert(run.value().report.contains("call_steps"));
+    assert(run.value().report.contains("cache_stats"));
+
+    std::string report_path;
+    for (const auto& p : run.value().artifact_paths) {
+        if (p.find("report.json") != std::string::npos) {
+            report_path = p;
+            break;
+        }
+    }
+    assert(!report_path.empty());
+    std::ifstream in(report_path);
+    assert(in);
+    nlohmann::json disk;
+    in >> disk;
+    assert(disk.contains("report"));
+    assert(disk["report"].contains("call_steps"));
+    assert(disk["report"]["call_steps"].is_array());
+    assert(disk["report"]["call_steps"].size() >= 3);
+    assert(disk["report"].contains("cache_stats"));
+    // role identity present on disk
+    bool saw_role = false;
+    for (const auto& step : disk["report"]["call_steps"]) {
+        if (step.contains("role_id") && !step["role_id"].get<std::string>().empty()) {
+            saw_role = true;
+            break;
+        }
+    }
+    assert(saw_role);
+    std::cout << "test_disk_report_has_call_steps_and_cache_stats ok path=" << report_path << "\n";
+}
+
 int main() {
     test_profiles_exist();
     test_shipping_pack_flags();
@@ -340,6 +396,7 @@ int main() {
     test_ultra_echo();
     test_fusion_tiers_echo();
     test_handoff_in_engine_prompts_lean_and_pro();
+    test_disk_report_has_call_steps_and_cache_stats();
     std::cout << "All fusion engine tests passed\n";
     return 0;
 }
