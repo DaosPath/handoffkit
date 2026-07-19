@@ -259,6 +259,7 @@ if(HANDOFFKIT_BUILD_TESTS)
     handoffkit_add_test(test_fusion_web_research tests/test_fusion_web_research.cpp)
     handoffkit_add_test(test_fusion_war_room tests/test_fusion_war_room.cpp)
     handoffkit_add_test(test_fusion_panel tests/test_fusion_panel.cpp)
+    handoffkit_add_test(test_fusion_roles tests/test_fusion_roles.cpp)
   endif()
 endif()
 

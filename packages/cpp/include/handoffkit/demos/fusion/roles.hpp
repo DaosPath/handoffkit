@@ -1,7 +1,9 @@
 #pragma once
 
 #include <handoffkit/demos/fusion/types.hpp>
+#include <handoffkit/error.hpp>
 
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -45,6 +47,21 @@ struct RolePack {
 [[nodiscard]] RolePack make_diagnostic_pack();
 [[nodiscard]] RolePack make_coding_pack();
 [[nodiscard]] RolePack make_research_pack();
+[[nodiscard]] RolePack make_incident_pack();
+[[nodiscard]] RolePack make_product_pack();
+
+/// Validate pack has >=2 branches with non-empty architect roles + non-empty merger.
+[[nodiscard]] Result<void> validate_role_pack(const RolePack& pack);
+
+/// Build RolePack from JSON (file-loadable definitions).
+[[nodiscard]] Result<RolePack> role_pack_from_json(const nlohmann::json& j);
+[[nodiscard]] Result<RolePack> load_role_pack_file(const std::filesystem::path& path);
+
+/// Human-readable dump for CLI `fusion roles`.
+[[nodiscard]] std::string format_role_pack_text(const RolePack& pack);
+
+/// High-level LLM call plan for CLI `fusion explain` (offline, no provider).
+[[nodiscard]] std::string explain_fusion_plan(const FusionConfig& config);
 
 }  // namespace fusion
 }  // namespace demos

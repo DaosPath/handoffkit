@@ -1,5 +1,8 @@
 #include <handoffkit/demos/fusion/roles.hpp>
 
+#include <fstream>
+#include <sstream>
+
 namespace handoffkit {
 namespace demos {
 namespace fusion {
@@ -43,6 +46,8 @@ RolePack make_role_pack(FusionProfileId profile) {
         case FusionProfileId::Diagnostic: return make_diagnostic_pack();
         case FusionProfileId::Coding: return make_coding_pack();
         case FusionProfileId::Research: return make_research_pack();
+        // Incident/product packs are file-first; map via string load if profile enum grows later.
+        default: break;
     }
     return make_neutral_pack();
 }
@@ -331,6 +336,245 @@ RolePack make_research_pack() {
     return p;
 }
 
+RolePack make_incident_pack() {
+    RolePack p;
+    p.profile = FusionProfileId::Neutral;
+    p.description = "Incident response: mitigate vs communicate dual panel";
+    p.task_faithful_merge = true;
+    BranchRolePair a;
+    a.branch_id = "a";
+    a.label = "mitigate";
+    a.architect = {
+        "inc_mit", "OncallLead",
+        "You are on-call. Answer the incident task with containment, blast radius, and rollback steps.",
+        "Mitigation-first; concrete commands/checks; stay on the incident.",
+        false, false
+    };
+    a.skeptic = {
+        "inc_mit_sk", "SRESkeptic",
+        "Critique mitigation for missing detection, incomplete rollback, or silent data loss.",
+        "mitigation gaps",
+        true, false
+    };
+    BranchRolePair b;
+    b.branch_id = "b";
+    b.label = "comms";
+    b.architect = {
+        "inc_com", "CommsLead",
+        "Answer the same incident with stakeholder comms, status pages, and escalation paths.",
+        "Clear audiences, cadences, and what not to promise.",
+        false, false
+    };
+    b.skeptic = {
+        "inc_com_sk", "CommsSkeptic",
+        "Critique for PR fluff, missing legal/security constraints, and unclear owners.",
+        "comms risks",
+        true, false
+    };
+    p.branches = {std::move(a), std::move(b)};
+    p.merger = {
+        "inc_m", "IncidentCommander",
+        "Merge mitigation and comms into one incident action plan for the original task.",
+        "",
+        false, true
+    };
+    return p;
+}
+
+RolePack make_product_pack() {
+    RolePack p;
+    p.profile = FusionProfileId::Neutral;
+    p.description = "Product dual view: user value vs feasibility";
+    p.task_faithful_merge = true;
+    BranchRolePair a;
+    a.branch_id = "a";
+    a.label = "user-value";
+    a.architect = {
+        "prd_uv", "PM_UserValue",
+        "Answer the product task emphasizing user jobs-to-be-done, success metrics, and scope.",
+        "Concrete outcomes; avoid vague vision essays.",
+        false, false
+    };
+    a.skeptic = {
+        "prd_uv_sk", "PMSkeptic",
+        "Critique vanity metrics, underspecified users, and scope creep.",
+        "product definition gaps",
+        true, false
+    };
+    BranchRolePair b;
+    b.branch_id = "b";
+    b.label = "feasibility";
+    b.architect = {
+        "prd_fe", "TechPM_Feasibility",
+        "Answer the same task emphasizing delivery feasibility, dependencies, and sequencing.",
+        "Milestones, risks, and cut lines.",
+        false, false
+    };
+    b.skeptic = {
+        "prd_fe_sk", "FeasibilitySkeptic",
+        "Critique hidden tech debt, staffing assumptions, and false precision.",
+        "delivery risks",
+        true, false
+    };
+    p.branches = {std::move(a), std::move(b)};
+    p.merger = {
+        "prd_m", "ProductMerger",
+        "Merge user-value and feasibility into one prioritized product answer to the original task.",
+        "",
+        false, true
+    };
+    return p;
+}
+
+Result<void> validate_role_pack(const RolePack& pack) {
+    if (pack.branches.size() < 2) {
+        return Result<void>::failure(Error::invalid_argument("role pack needs >= 2 branches"));
+    }
+    if (pack.merger.system_role.empty() || pack.merger.agent_name.empty()) {
+        return Result<void>::failure(
+            Error::invalid_argument("role pack merger system_role/agent_name required")
+        );
+    }
+    for (const auto& b : pack.branches) {
+        if (b.architect.system_role.empty() || b.architect.agent_name.empty()) {
+            return Result<void>::failure(Error::invalid_argument(
+                "branch " + b.branch_id + " architect system_role/agent_name required"
+            ));
+        }
+        if (b.architect.role_id.empty()) {
+            return Result<void>::failure(
+                Error::invalid_argument("branch " + b.branch_id + " architect role_id required")
+            );
+        }
+    }
+    if (pack.merger.role_id.empty()) {
+        return Result<void>::failure(Error::invalid_argument("merger role_id required"));
+    }
+    return Result<void>::success();
+}
+
+namespace {
+
+RoleSpec role_from_json(const nlohmann::json& j) {
+    RoleSpec r;
+    r.role_id = j.value("role_id", "");
+    r.agent_name = j.value("agent_name", "");
+    r.system_role = j.value("system_role", "");
+    r.focus = j.value("focus", "");
+    r.is_skeptic = j.value("is_skeptic", false);
+    r.is_merger = j.value("is_merger", false);
+    return r;
+}
+
+}  // namespace
+
+Result<RolePack> role_pack_from_json(const nlohmann::json& j) {
+    try {
+        RolePack p;
+        if (j.contains("profile")) {
+            auto pr = fusion_profile_from_string(j.at("profile").get<std::string>());
+            if (pr) p.profile = pr.value();
+        }
+        p.description = j.value("description", "");
+        p.task_faithful_merge = j.value("task_faithful_merge", true);
+        p.shipping_merge_sections = j.value("shipping_merge_sections", false);
+        if (!j.contains("branches") || !j.at("branches").is_array()) {
+            return Error::invalid_argument("role pack JSON needs branches array");
+        }
+        for (const auto& bj : j.at("branches")) {
+            BranchRolePair br;
+            br.branch_id = bj.value("branch_id", "");
+            br.label = bj.value("label", br.branch_id);
+            if (bj.contains("architect")) br.architect = role_from_json(bj.at("architect"));
+            if (bj.contains("skeptic")) br.skeptic = role_from_json(bj.at("skeptic"));
+            p.branches.push_back(std::move(br));
+        }
+        if (j.contains("merger")) p.merger = role_from_json(j.at("merger"));
+        p.merger.is_merger = true;
+        auto v = validate_role_pack(p);
+        if (!v) return v.error();
+        return p;
+    } catch (const std::exception& ex) {
+        return Error::invalid_argument(std::string("role pack JSON: ") + ex.what());
+    }
+}
+
+Result<RolePack> load_role_pack_file(const std::filesystem::path& path) {
+    std::ifstream in(path);
+    if (!in) {
+        return Error::invalid_argument("cannot open role pack: " + path.string(), "path");
+    }
+    try {
+        nlohmann::json j;
+        in >> j;
+        return role_pack_from_json(j);
+    } catch (const std::exception& ex) {
+        return Error::parse_error(std::string("role pack parse: ") + ex.what());
+    }
+}
+
+std::string format_role_pack_text(const RolePack& pack) {
+    std::ostringstream ss;
+    ss << "profile=" << fusion_profile_to_string(pack.profile) << "\n"
+       << "description=" << pack.description << "\n"
+       << "task_faithful_merge=" << (pack.task_faithful_merge ? "true" : "false") << "\n"
+       << "branches=" << pack.branches.size() << "\n";
+    for (const auto& b : pack.branches) {
+        ss << "branch id=" << b.branch_id << " label=" << b.label << "\n"
+           << "  architect role_id=" << b.architect.role_id
+           << " agent=" << b.architect.agent_name << "\n"
+           << "  architect system_role=" << b.architect.system_role.substr(0, 120)
+           << (b.architect.system_role.size() > 120 ? "..." : "") << "\n"
+           << "  skeptic role_id=" << b.skeptic.role_id
+           << " agent=" << b.skeptic.agent_name << "\n";
+    }
+    ss << "merger role_id=" << pack.merger.role_id << " agent=" << pack.merger.agent_name << "\n"
+       << "merger system_role=" << pack.merger.system_role.substr(0, 160)
+       << (pack.merger.system_role.size() > 160 ? "..." : "") << "\n"
+       << "json=\n" << pack.to_json().dump(2) << "\n";
+    return ss.str();
+}
+
+std::string explain_fusion_plan(const FusionConfig& config) {
+    FusionConfig cfg = config;
+    apply_fusion_tier(cfg, cfg.tier);
+    const RolePack pack = make_role_pack(cfg.profile);
+    const int planned = planned_llm_calls_for_config(cfg);
+    std::ostringstream ss;
+    ss << "fusion explain\n"
+       << "tier=" << fusion_tier_to_string(cfg.tier) << "\n"
+       << "mode=" << fusion_mode_to_string(cfg.mode) << "\n"
+       << "profile=" << fusion_profile_to_string(cfg.profile) << "\n"
+       << "branches=" << pack.branches.size() << "\n"
+       << "branch_count_config=" << cfg.branch_count << "\n"
+       << "planned_llm_calls=" << planned << "\n"
+       << "attach_panel_judge=" << (cfg.attach_panel_judge ? "true" : "false") << "\n"
+       << "cache_enabled=" << (cfg.cache.enabled ? "true" : "false") << "\n"
+       << "call_plan:\n";
+    if (cfg.mode == FusionMode::Panel) {
+        ss << "  - panel: one LLM call per panel model/role (+ optional meta judge)\n";
+    } else if (cfg.mode == FusionMode::Dag) {
+        ss << "  - dag: architect per branch (parallel DAG), then merger\n";
+        for (const auto& b : pack.branches) {
+            ss << "  - branch " << b.branch_id << " architect (" << b.architect.role_id << ")\n";
+        }
+        ss << "  - merge (" << pack.merger.role_id << ")\n";
+    } else {
+        // lean / ultra
+        for (const auto& b : pack.branches) {
+            ss << "  - branch " << b.branch_id << " architect (" << b.architect.role_id << ")\n";
+            if (cfg.mode == FusionMode::Ultra) {
+                ss << "  - branch " << b.branch_id << " skeptic (" << b.skeptic.role_id
+                   << ") [ultra; may skip on high overlap]\n";
+            }
+        }
+        ss << "  - merge (" << pack.merger.role_id << ")\n";
+    }
+    ss << "roles_summary:\n" << format_role_pack_text(pack);
+    return ss.str();
+}
+
 }  // namespace fusion
 }  // namespace demos
 }  // namespace handoffkit
+
