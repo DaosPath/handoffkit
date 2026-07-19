@@ -62,3 +62,7 @@ packages/*/target/
 # Local agent terminal logs
 terminals/
 
+
+# CUDA MSVC build tree
+packages/cpp-ml/build-cuda/
+
