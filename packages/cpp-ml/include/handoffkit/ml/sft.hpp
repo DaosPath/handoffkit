@@ -4,6 +4,7 @@
 #include <handoffkit/ml/ckpt.hpp>
 #include <handoffkit/ml/data.hpp>
 #include <handoffkit/ml/dist.hpp>
+#include <handoffkit/ml/gguf.hpp>
 #include <handoffkit/ml/model_profile.hpp>
 #include <handoffkit/ml/nn.hpp>
 #include <handoffkit/ml/optim.hpp>
@@ -45,6 +46,9 @@ struct SftConfig {
     int world_size = 1;         // Phase F
     int rank = 0;
     std::string arch{"gpt2"};
+    /// Load pretrained base before SFT (external GGUF or .hkckpt). Empty = random init.
+    std::string base_gguf;
+    std::string base_ckpt;
 };
 
 struct SftResult {
@@ -75,9 +79,26 @@ inline SftResult sft_train(const std::string& dataset_path,
 
         ByteTokenizer byte_tok;
         BpeTokenizer bpe_tok;
-        auto encode = [&](const std::string& s, bool special) -> std::vector<int> {
-            if (cfg.tokenizer == TokenizerKind::Bpe) return bpe_tok.encode(s, special);
-            return byte_tok.encode(s, special);
+        // Prefix-safe: BPE uses encode_sft (prompt|completion cut); byte is naturally prefix-stable.
+        auto encode_pair = [&](const std::string& prompt, const std::string& completion,
+                               bool special) -> std::vector<int> {
+            if (cfg.tokenizer == TokenizerKind::Bpe) {
+                return bpe_tok.encode_sft(prompt, completion, special);
+            }
+            return byte_tok.encode(prompt + completion, special);
+        };
+        auto encode_prompt = [&](const std::string& prompt, bool special) -> std::vector<int> {
+            if (cfg.tokenizer == TokenizerKind::Bpe) {
+                // BOS + raw prompt (no EOS) — matches encode_sft prompt prefix
+                std::vector<int> ids;
+                if (special && bpe_tok.bos_id >= 0) ids.push_back(bpe_tok.bos_id);
+                auto raw = bpe_tok.encode_raw(prompt);
+                ids.insert(ids.end(), raw.begin(), raw.end());
+                return ids;
+            }
+            auto ids = byte_tok.encode(prompt, special);
+            if (special && !ids.empty() && ids.back() == ByteTokenizer::EOS) ids.pop_back();
+            return ids;
         };
 
         if (cfg.tokenizer == TokenizerKind::Bpe) {
@@ -106,7 +127,36 @@ inline SftResult sft_train(const std::string& dataset_path,
         gcfg.block_size = cfg.block_size;
         gcfg.seed = cfg.seed;
         gcfg.arch = cfg.arch;
+
+        // Optional external base (GGUF or hkckpt) — AC2
         GPT model(gcfg);
+        if (!cfg.base_gguf.empty()) {
+            model = import_gpt_gguf(cfg.base_gguf);
+            // Keep train hyperparams; require compatible shapes
+            if (model.cfg.n_embd != gcfg.n_embd || model.cfg.n_layer != gcfg.n_layer ||
+                model.cfg.n_head != gcfg.n_head) {
+                throw std::runtime_error(
+                    "base_gguf config mismatch vs SFT n_embd/n_layer/n_head; "
+                    "pass matching --n-embd/--n-layer/--n-head"
+                );
+            }
+            if (cfg.tokenizer == TokenizerKind::Bpe &&
+                model.cfg.vocab_size != bpe_tok.vocab_size()) {
+                // Allow continue if vocab covers; else fail clearly
+                if (model.cfg.vocab_size < bpe_tok.vocab_size()) {
+                    throw std::runtime_error("base_gguf vocab_size smaller than BPE vocab");
+                }
+            }
+            gcfg.arch = model.cfg.arch;
+            gcfg.vocab_size = model.cfg.vocab_size;
+        } else if (!cfg.base_ckpt.empty()) {
+            model = load_gpt(cfg.base_ckpt);
+            if (model.cfg.n_embd != gcfg.n_embd || model.cfg.n_layer != gcfg.n_layer) {
+                throw std::runtime_error("base_ckpt config mismatch vs SFT dims");
+            }
+            gcfg.arch = model.cfg.arch;
+            gcfg.vocab_size = model.cfg.vocab_size;
+        }
 
         // LoRA: adapters on lm_head; base W frozen, grads projected onto A/B each step.
         LoraLinear lora_head;
@@ -135,13 +185,12 @@ inline SftResult sft_train(const std::string& dataset_path,
                 std::string full;
                 std::vector<float> mask;
                 std::vector<int> ids;
+                std::string completion = ex.completion;
                 if (cfg.preference && !ex.chosen.empty() && !ex.rejected.empty()) {
-                    full = ex.prompt + ex.chosen;
-                    ids = encode(full, true);
-                } else {
-                    full = ex.prompt + ex.completion;
-                    ids = encode(full, true);
+                    completion = ex.chosen;
                 }
+                full = ex.prompt + completion;
+                ids = encode_pair(ex.prompt, completion, true);
                 if (static_cast<int>(ids.size()) < 3) continue;
                 if (static_cast<int>(ids.size()) > cfg.block_size) {
                     ids.resize(static_cast<std::size_t>(cfg.block_size));
@@ -149,10 +198,12 @@ inline SftResult sft_train(const std::string& dataset_path,
                 const std::size_t T = ids.size() - 1;
                 std::vector<int> input(ids.begin(), ids.end() - 1);
                 std::vector<int> target(ids.begin() + 1, ids.end());
-                auto pids = encode(ex.prompt, true);
-                std::size_t prompt_tok = pids.empty() ? 1 : pids.size() - 1;
+                auto pids = encode_prompt(ex.prompt, true);
+                // prompt tokens are exact prefix of ids (encode_sft / byte concat)
+                std::size_t prompt_tok = pids.size();
+                if (prompt_tok > T) prompt_tok = T;
                 mask.assign(T, 1.f);
-                for (std::size_t i = 0; i < T && i + 1 < prompt_tok; ++i) mask[i] = 0.25f;
+                for (std::size_t i = 0; i < T && i + 1 < prompt_tok; ++i) mask[i] = 0.15f;
 
                 if (cfg.use_lora || cfg.use_qlora) {
                     // W_eff = W_frozen + scale*B@A (QLoRA freezes quant base via same projection)
@@ -173,7 +224,7 @@ inline SftResult sft_train(const std::string& dataset_path,
                 }
 
                 if (cfg.preference && !ex.rejected.empty()) {
-                    auto ids_r = encode(ex.prompt + ex.rejected, true);
+                    auto ids_r = encode_pair(ex.prompt, ex.rejected, true);
                     if (static_cast<int>(ids_r.size()) > cfg.block_size)
                         ids_r.resize(static_cast<std::size_t>(cfg.block_size));
                     if (ids_r.size() >= 3) {
@@ -303,9 +354,6 @@ inline std::string generate_text(GPT& model,
         if (!o.bpe_path.empty()) bpe_tok = BpeTokenizer::load(o.bpe_path);
         else bpe_tok.train(prompt + " MARK42 hello world supervised fine tuning", 128);
     }
-    auto encode = [&](const std::string& s, bool sp) {
-        return o.tokenizer == TokenizerKind::Bpe ? bpe_tok.encode(s, sp) : byte_tok.encode(s, sp);
-    };
     auto decode = [&](const std::vector<int>& ids) {
         return o.tokenizer == TokenizerKind::Bpe ? bpe_tok.decode(ids) : byte_tok.decode(ids);
     };
@@ -314,13 +362,23 @@ inline std::string generate_text(GPT& model,
         eos = (o.tokenizer == TokenizerKind::Bpe) ? bpe_tok.eos_id : ByteTokenizer::EOS;
     }
 
-    auto ids = encode(prompt, true);
-    if (!ids.empty() && ids.back() == eos) ids.pop_back();
+    // Match SFT encode_prompt: BOS + raw prompt tokens, no EOS
+    std::vector<int> ids;
+    if (o.tokenizer == TokenizerKind::Bpe) {
+        if (bpe_tok.bos_id >= 0) ids.push_back(bpe_tok.bos_id);
+        auto raw = bpe_tok.encode_raw(prompt);
+        ids.insert(ids.end(), raw.begin(), raw.end());
+    } else {
+        ids = byte_tok.encode(prompt, true);
+        if (!ids.empty() && ids.back() == ByteTokenizer::EOS) ids.pop_back();
+    }
     const std::size_t prompt_len = ids.size();
     std::mt19937 local(0);
     std::mt19937& rng = rng_ptr ? *rng_ptr : local;
     const int Tmax = model.cfg.block_size;
     const bool greedy = o.temperature <= 0.f;
+    // Suppress EOS for the first few new tokens so overfit SFT can emit content
+    const int min_new_before_eos = std::min(4, o.max_new_tokens);
     for (int n = 0; n < o.max_new_tokens; ++n) {
         std::vector<int> ctx = ids;
         if (static_cast<int>(ctx.size()) > Tmax) {
@@ -332,8 +390,10 @@ inline std::string generate_text(GPT& model,
         const std::size_t last = T - 1;
         int pick = 0;
         if (greedy) {
-            float best = logits.data[last * V];
-            for (std::size_t j = 1; j < V; ++j) {
+            float best = -1e30f;
+            pick = 0;
+            for (std::size_t j = 0; j < V; ++j) {
+                if (n < min_new_before_eos && static_cast<int>(j) == eos) continue;
                 float v = logits.data[last * V + j];
                 if (v > best) {
                     best = v;

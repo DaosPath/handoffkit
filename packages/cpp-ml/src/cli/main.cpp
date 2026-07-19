@@ -45,6 +45,7 @@ void print_help() {
         << "      --epochs N --lr F --n-embd N --n-layer N --n-head N --block-size N\n"
         << "      --arch gpt2|llama-like|gpt-mini --tokenizer bpe|byte\n"
         << "      --lora | --qlora | --preference --world-size N --allow-tiny\n"
+        << "      --gguf BASE.gguf | --base-ckpt model.hkckpt   (load external base)\n"
         << "  handoffkit-ml generate --ckpt PATH --prompt TEXT [--max-new N] [--bpe PATH]\n"
         << "  handoffkit-ml gguf-export --ckpt PATH --out model.gguf\n"
         << "  handoffkit-ml gguf-import --gguf PATH --out DIR\n"
@@ -101,6 +102,9 @@ int cmd_sft(const std::vector<std::string>& args) {
     }
     if (auto w = flag_val(args, "--world-size"); !w.empty()) cfg.world_size = std::stoi(w);
     if (auto b = flag_val(args, "--bpe"); !b.empty()) cfg.bpe_path = b;
+    if (auto g = flag_val(args, "--gguf"); !g.empty()) cfg.base_gguf = g;
+    if (auto c = flag_val(args, "--base-ckpt"); !c.empty()) cfg.base_ckpt = c;
+    if (auto c = flag_val(args, "--ckpt"); !c.empty() && cfg.base_ckpt.empty()) cfg.base_ckpt = c;
     cfg.use_lora = has_flag(args, "--lora");
     cfg.use_qlora = has_flag(args, "--qlora");
     cfg.preference = has_flag(args, "--preference");

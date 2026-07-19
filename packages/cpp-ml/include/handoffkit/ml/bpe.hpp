@@ -122,18 +122,17 @@ struct BpeTokenizer {
         }
     }
 
-    [[nodiscard]] std::vector<int> encode(const std::string& text, bool add_special = true) const {
-        std::vector<int> ids;
-        if (add_special && bos_id >= 0) ids.push_back(bos_id);
-        // start as bytes
+    /// Encode raw bytes with merges (no BOS/EOS). Stable building block for prefix-safe SFT.
+    [[nodiscard]] std::vector<int> encode_raw(const std::string& text) const {
         std::vector<std::string> toks;
+        toks.reserve(text.size());
         for (unsigned char c : text) toks.emplace_back(1, static_cast<char>(c));
-        // apply merges in order
         for (const auto& pr : merges) {
             const std::string& a = pr.first;
             const std::string& b = pr.second;
             const std::string merged = a + b;
             std::vector<std::string> nt;
+            nt.reserve(toks.size());
             for (std::size_t i = 0; i < toks.size();) {
                 if (i + 1 < toks.size() && toks[i] == a && toks[i + 1] == b) {
                     nt.push_back(merged);
@@ -145,13 +144,45 @@ struct BpeTokenizer {
             }
             toks.swap(nt);
         }
+        std::vector<int> ids;
+        ids.reserve(toks.size());
         for (const auto& t : toks) {
             auto it = piece_to_id.find(t);
             if (it == piece_to_id.end()) ids.push_back(unk_id >= 0 ? unk_id : 0);
             else ids.push_back(it->second);
         }
+        return ids;
+    }
+
+    [[nodiscard]] std::vector<int> encode(const std::string& text, bool add_special = true) const {
+        std::vector<int> ids;
+        if (add_special && bos_id >= 0) ids.push_back(bos_id);
+        auto raw = encode_raw(text);
+        ids.insert(ids.end(), raw.begin(), raw.end());
         if (add_special && eos_id >= 0) ids.push_back(eos_id);
         return ids;
+    }
+
+    /// Prefix-safe SFT encoding: encode(prompt) then encode(completion) separately and
+    /// concatenate so prompt tokens are always a prefix of full sequence (BPE merge boundaries
+    /// never cross the prompt|completion cut).
+    [[nodiscard]] std::vector<int> encode_sft(const std::string& prompt,
+                                              const std::string& completion,
+                                              bool add_special = true) const {
+        std::vector<int> ids;
+        if (add_special && bos_id >= 0) ids.push_back(bos_id);
+        auto p = encode_raw(prompt);
+        auto c = encode_raw(completion);
+        ids.insert(ids.end(), p.begin(), p.end());
+        ids.insert(ids.end(), c.begin(), c.end());
+        if (add_special && eos_id >= 0) ids.push_back(eos_id);
+        return ids;
+    }
+
+    [[nodiscard]] std::size_t prompt_token_len(const std::string& prompt, bool with_bos = true) const {
+        std::size_t n = encode_raw(prompt).size();
+        if (with_bos && bos_id >= 0) ++n;
+        return n;
     }
 
     [[nodiscard]] std::string decode(const std::vector<int>& ids) const {

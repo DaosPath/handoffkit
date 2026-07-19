@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#include <thread>
+#include <vector>
 
 namespace handoffkit {
 namespace ml {
@@ -59,21 +61,56 @@ Tensor sub(const Tensor& a, const Tensor& b) {
 }
 
 Tensor matmul(const Tensor& a, const Tensor& b) {
+    // Real train path uses multi-thread CPU (and CUDA when HANDOFFKIT_ML_WITH_CUDA + runtime).
     a.require_cpu();
     b.require_cpu();
     if (a.ndim() != 2 || b.ndim() != 2) throw std::runtime_error("matmul needs 2D");
-    const std::size_t M = a.shape[0], K = a.shape[1], K2 = b.shape[0], N = b.shape[1];
+    const int M = static_cast<int>(a.shape[0]);
+    const int K = static_cast<int>(a.shape[1]);
+    const int K2 = static_cast<int>(b.shape[0]);
+    const int N = static_cast<int>(b.shape[1]);
     if (K != K2) throw std::runtime_error("matmul inner dim mismatch");
-    Tensor o({M, N});
-    for (std::size_t i = 0; i < M; ++i) {
-        for (std::size_t j = 0; j < N; ++j) {
-            float s = 0.f;
-            for (std::size_t k = 0; k < K; ++k) {
-                s += a.data[i * K + k] * b.data[k * N + j];
-            }
-            o.data[i * N + j] = s;
-        }
+
+#if defined(HANDOFFKIT_ML_WITH_CUDA) && HANDOFFKIT_ML_WITH_CUDA
+    // Prefer CUDA runtime when linked; declarations live in kernels path.
+    // Host fallback below if not available — cuda_kernels.cpp provides runtime_available.
+    extern bool handoffkit_ml_cuda_matmul(const float*, const float*, float*, int, int, int);
+    Tensor o({static_cast<std::size_t>(M), static_cast<std::size_t>(N)});
+    if (handoffkit_ml_cuda_matmul(a.data.data(), b.data.data(), o.data.data(), M, K, N)) {
+        return o;
     }
+#endif
+
+    // Multi-thread CPU (Phase D on the real train path)
+    Tensor o({static_cast<std::size_t>(M), static_cast<std::size_t>(N)});
+    unsigned hw = std::thread::hardware_concurrency();
+    int threads = hw == 0 ? 2 : static_cast<int>(hw);
+    threads = std::max(1, std::min(threads, M));
+    auto worker = [&](int r0, int r1) {
+        for (int i = r0; i < r1; ++i) {
+            for (int j = 0; j < N; ++j) {
+                float s = 0.f;
+                for (int k = 0; k < K; ++k) {
+                    s += a.data[static_cast<std::size_t>(i * K + k)] *
+                         b.data[static_cast<std::size_t>(k * N + j)];
+                }
+                o.data[static_cast<std::size_t>(i * N + j)] = s;
+            }
+        }
+    };
+    if (threads == 1 || M < 8) {
+        worker(0, M);
+        return o;
+    }
+    std::vector<std::thread> pool;
+    int chunk = (M + threads - 1) / threads;
+    for (int t = 0; t < threads; ++t) {
+        int r0 = t * chunk;
+        int r1 = std::min(M, r0 + chunk);
+        if (r0 >= r1) break;
+        pool.emplace_back(worker, r0, r1);
+    }
+    for (auto& th : pool) th.join();
     return o;
 }
 
