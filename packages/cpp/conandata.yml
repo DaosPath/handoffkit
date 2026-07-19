@@ -1,10 +1,9 @@
-﻿# Populated when a GitHub Release publishes handoffkit-cpp-*.tar.gz.
-# Until then, Conan builds from exports_sources in the monorepo recipe.
+# Populated from GitHub Release assets (SHA256SUMS).
 sources:
   "1.14.1":
     url: "https://github.com/DaosPath/handoffkit/releases/download/v1.14.1/handoffkit-cpp-1.14.1.tar.gz"
-    # Replace with the real SHA256 from the release SHA256SUMS after asset publish.
-    sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+    sha256: "d5b2872c05b3538a576122524da6e2a452d357d0299c903586280882adce9269"
   "1.14.0":
     url: "https://github.com/DaosPath/handoffkit/releases/download/v1.14.0/handoffkit-cpp-1.14.0.tar.gz"
+    # No C++ tarball was attached to v1.14.0; use 1.14.1 for consumers.
     sha256: "0000000000000000000000000000000000000000000000000000000000000000"
