@@ -95,14 +95,37 @@ handoffkit-cli train run --dataset data.jsonl --backend process --out DIR \
 
 Point `ProcessTrainBackend` at an external **C++** trainer binary after distill (or any non-Python exe); HandoffKit core owns job manifests, handoffs, and reports — **not** weight math.
 
+### End-to-end: distill → native student SFT → generate
+
+```powershell
+# 1) Teacher (offline Echo) → student JSONL
+handoffkit-cli train distill --out runs/e2e/student.jsonl --prompt "P: MARK42"
+
+# 2a) Direct student train (cpp-ml; CUDA optional)
+handoffkit-ml sft --dataset runs/e2e/student.jsonl --out runs/e2e/student `
+  --allow-tiny --device cuda-resident --epochs 20 `
+  --n-embd 64 --n-layer 2 --n-head 4 --block-size 64 --tokenizer byte
+
+# 2b) Same via core process backend (placeholders substituted)
+handoffkit-cli train run --dataset runs/e2e/student.jsonl --backend process `
+  --out runs/e2e/bridge --epochs 10 -- `
+  path\to\handoffkit-ml.exe sft --dataset {dataset} --out {output_dir} `
+  --allow-tiny --device cuda-resident --epochs {epochs} `
+  --n-embd 64 --n-layer 2 --n-head 4 --block-size 64 --tokenizer byte
+
+# 3) Loadable model.hkckpt
+handoffkit-ml generate --ckpt runs/e2e/student/model.hkckpt --prompt "P:" --max-new 16
+```
+
+JSONL wire is shared: `{"prompt":"...","completion":"..."}` (extra `format`/`meta` fields ignored by the ML loader).
+
 ### Optional: native weight training (`handoffkit-ml`)
 
 **Core does not ship a neural trainer** (no autograd/CUDA in `handoffkit_core`).  
-For experimental **C++-only** SFT/LoRA later, see the sibling complement:
+For **C++-only** SFT/LoRA/QLoRA/device-resident train, see the sibling complement:
 
-- [`packages/cpp-ml/`](../cpp-ml/) — `handoffkit-ml` `0.2+` (opt-in; **not** linked from core)
-- Product split: `handoffkit-cli train …` = jobs/distill; `handoffkit-ml sft|generate …` = native CPU weights (GPT-mini / LoRA / preference)
-
+- [`packages/cpp-ml/`](../cpp-ml/) — `handoffkit-ml` `0.4+` (opt-in; **not** linked from core)
+- Product split: `handoffkit-cli train …` = jobs/distill; `handoffkit-ml sft|generate …` = native weights (CPU / CUDA / cuda-resident)
 
 Default Conan/tarball/core CI remain light. See `packages/cpp-ml/NONGOALS.md`.
 
