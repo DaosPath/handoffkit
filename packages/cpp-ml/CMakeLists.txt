@@ -1,6 +1,6 @@
 # HandoffKit ML — optional complement (NOT part of handoffkit_core).
 cmake_minimum_required(VERSION 3.16)
-project(handoffkit_ml VERSION 0.2.0 LANGUAGES CXX)
+project(handoffkit_ml VERSION 0.3.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -67,6 +67,7 @@ if(HANDOFFKIT_ML_BUILD_TESTS)
   hk_ml_test(test_ml_lora tests/test_ml_lora.cpp)
   hk_ml_test(test_ml_preference tests/test_ml_preference.cpp)
   hk_ml_test(test_ml_quant tests/test_ml_quant.cpp)
+  hk_ml_test(test_ml_attn_parity tests/test_ml_attn_parity.cpp)
 endif()
 
 install(TARGETS handoffkit_ml

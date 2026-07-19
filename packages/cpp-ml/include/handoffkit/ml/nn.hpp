@@ -135,6 +135,7 @@ struct CausalSelfAttention {
     // Cache for backward
     struct Cache {
         Tensor x;      // (B*T, D)
+        Tensor qkv_o;  // (B*T, 3D) cached for correct backward
         Tensor att;    // (B*H, T, T) stored flat B*H*T*T
         Tensor y_pre;  // after att @ v before proj, (B*T, D)
         std::size_t B = 0, T = 0;
@@ -147,6 +148,7 @@ struct CausalSelfAttention {
         const std::size_t H = n_head;
         const std::size_t hs = D / H;
         Tensor qkv_o = qkv.forward(x_bt_d);  // (B*T, 3D)
+        cache.qkv_o = qkv_o.clone();
         // Split into q,k,v each (B, H, T, hs) conceptually
         Tensor y({B * T, D});
         y.zero();
@@ -221,7 +223,7 @@ struct CausalSelfAttention {
             return (b * T + t) * (3 * D) + c;
         };
         // dV via att^T @ dY; dScores via outer; then dQ,dK
-        Tensor qkv_o = qkv.forward(cache.x);
+        const Tensor& qkv_o = cache.qkv_o;
         for (std::size_t b = 0; b < B; ++b) {
             for (std::size_t h = 0; h < H; ++h) {
                 for (std::size_t t = 0; t < T; ++t) {
@@ -367,12 +369,14 @@ struct Block {
 };
 
 struct GPTConfig {
-    int vocab_size = 128;  // byte-ish + specials
-    int n_embd = 32;
+    // Non-tiny Standard defaults (Phase A floors). Use DebugTiny for unit tests.
+    int vocab_size = 1024;
+    int n_embd = 128;
     int n_head = 4;
-    int n_layer = 2;
-    int block_size = 64;
+    int n_layer = 4;
+    int block_size = 128;
     int seed = 42;
+    std::string arch{"gpt2"};  // gpt-mini | gpt2 | llama-like
 };
 
 struct GPT {

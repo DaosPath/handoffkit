@@ -2,10 +2,10 @@
 
 // Independent experimental versioning — not the core handoffkit 1.x line.
 #define HANDOFFKIT_ML_VERSION_MAJOR 0
-#define HANDOFFKIT_ML_VERSION_MINOR 2
+#define HANDOFFKIT_ML_VERSION_MINOR 3
 #define HANDOFFKIT_ML_VERSION_PATCH 0
-#define HANDOFFKIT_ML_VERSION_STRING "0.2.0"
-#define HANDOFFKIT_ML_PHASE "F1-F6-native"
+#define HANDOFFKIT_ML_VERSION_STRING "0.3.0"
+#define HANDOFFKIT_ML_PHASE "roadmap-A-attn-parity"
 
 namespace handoffkit {
 namespace ml {
