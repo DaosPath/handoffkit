@@ -100,8 +100,9 @@ Point `ProcessTrainBackend` at an external **C++** trainer binary after distill 
 **Core does not ship a neural trainer** (no autograd/CUDA in `handoffkit_core`).  
 For experimental **C++-only** SFT/LoRA later, see the sibling complement:
 
-- [`packages/cpp-ml/`](../cpp-ml/) — `handoffkit-ml` (version `0.x`, opt-in; **not** linked from core)
-- Product split: `handoffkit-cli train …` = jobs/distill; `handoffkit-ml sft …` = weights (Fase 2+)
+- [`packages/cpp-ml/`](../cpp-ml/) — `handoffkit-ml` `0.2+` (opt-in; **not** linked from core)
+- Product split: `handoffkit-cli train …` = jobs/distill; `handoffkit-ml sft|generate …` = native CPU weights (GPT-mini / LoRA / preference)
+
 
 Default Conan/tarball/core CI remain light. See `packages/cpp-ml/NONGOALS.md`.
 

@@ -13,8 +13,10 @@ struct Capabilities {
     bool tensor_cpu = false;       // Fase 1
     bool mini_transformer = false; // Fase 2
     bool lora = false;             // Fase 3
-    bool cuda = false;             // Fase 4
+    bool cuda = false;             // Fase 4 compile path
     bool preference = false;       // Fase 5
+    bool quant_stub = false;       // Fase 6
+    bool dist_stub = false;        // Fase 6
 };
 
 [[nodiscard]] Capabilities capabilities() noexcept;
