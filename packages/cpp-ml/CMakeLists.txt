@@ -106,6 +106,7 @@ if(HANDOFFKIT_ML_BUILD_TESTS)
   hk_ml_test(test_ml_cuda_parity tests/test_ml_cuda_parity.cpp)
   hk_ml_test(test_ml_cuda_linear tests/test_ml_cuda_linear.cpp)
   hk_ml_test(test_ml_cuda_attn tests/test_ml_cuda_attn.cpp)
+  hk_ml_test(test_ml_cuda_sft tests/test_ml_cuda_sft.cpp)
 endif()
 
 install(TARGETS handoffkit_ml

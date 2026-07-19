@@ -2,11 +2,13 @@
 
 #include <handoffkit/ml/bpe.hpp>
 #include <handoffkit/ml/ckpt.hpp>
+#include <handoffkit/ml/cuda/runtime.hpp>
 #include <handoffkit/ml/data.hpp>
 #include <handoffkit/ml/dist.hpp>
 #include <handoffkit/ml/gguf.hpp>
 #include <handoffkit/ml/model_profile.hpp>
 #include <handoffkit/ml/nn.hpp>
+#include <handoffkit/ml/ops.hpp>
 #include <handoffkit/ml/optim.hpp>
 #include <handoffkit/ml/peft.hpp>
 #include <handoffkit/ml/qlora.hpp>
@@ -49,6 +51,8 @@ struct SftConfig {
     /// Load pretrained base before SFT (external GGUF or .hkckpt). Empty = random init.
     std::string base_gguf;
     std::string base_ckpt;
+    /// "cpu" | "cuda" — cuda uses own GPU GEMM for matmul when available.
+    std::string device{"cpu"};
 };
 
 struct SftResult {
@@ -74,6 +78,22 @@ inline SftResult sft_train(const std::string& dataset_path,
         enforce_non_tiny(cfg.n_embd, cfg.n_layer, cfg.n_head, cfg.block_size, cfg.allow_tiny);
         if (!is_allowed_arch(cfg.arch)) {
             throw std::runtime_error("unsupported arch: " + cfg.arch);
+        }
+        const bool want_cuda = (cfg.device == "cuda" || cfg.device == "gpu");
+        if (want_cuda) {
+#if defined(HANDOFFKIT_ML_WITH_CUDA) && HANDOFFKIT_ML_WITH_CUDA
+            if (!cuda_rt::available()) {
+                throw std::runtime_error("SFT --device cuda requested but no CUDA device: " +
+                                         cuda_rt::status_note());
+            }
+            handoffkit_ml_set_prefer_cuda_matmul(true);
+#else
+            throw std::runtime_error(
+                "SFT --device cuda requires build with -DHANDOFFKIT_ML_CUDA=ON"
+            );
+#endif
+        } else {
+            handoffkit_ml_set_prefer_cuda_matmul(false);
         }
         auto examples = load_sft_jsonl(dataset_path);
 
@@ -311,6 +331,7 @@ inline SftResult sft_train(const std::string& dataset_path,
                 << (cfg.tokenizer == TokenizerKind::Bpe ? "bpe" : "byte") << "\",\n"
                 << "  \"vocab_size\": " << gcfg.vocab_size << ",\n"
                 << "  \"arch\": \"" << cfg.arch << "\",\n"
+                << "  \"device\": \"" << cfg.device << "\",\n"
                 << "  \"world_size\": " << cfg.world_size << "\n"
                 << "}\n";
         }
