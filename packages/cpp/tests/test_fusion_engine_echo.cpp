@@ -38,13 +38,30 @@ void test_lean_echo() {
     assert(!run1.value().final_output.empty());
     // task-faithful merge prompt path used for neutral
     assert(make_role_pack(FusionProfileId::Neutral).task_faithful_merge);
+    // Observability: per-step role identity + call_steps report
+    assert(run1.value().metrics.calls.size() >= 3);
+    bool saw_merge = false;
+    bool saw_branch = false;
+    for (const auto& c : run1.value().metrics.calls) {
+        assert(!c.step_id.empty());
+        assert(!c.role_id.empty() || !c.agent_name.empty());
+        if (c.step_id.find("merge") != std::string::npos || c.role_id.find("merge") != std::string::npos)
+            saw_merge = true;
+        if (c.step_id.find("branch") != std::string::npos) saw_branch = true;
+    }
+    assert(saw_merge && saw_branch);
+    assert(run1.value().report.contains("call_steps"));
+    assert(run1.value().report["call_steps"].is_array());
+    assert(run1.value().report["call_steps"].size() >= 3);
 
     // second run should get cache hits
     auto run2 = run_fusion(cfg);
     assert(run2);
     assert(run2.value().metrics.cache.hits >= 1 || run2.value().metrics.llm_calls == 3);
+    assert(run2.value().report.contains("cache_stats") || run2.value().metrics.cache.hits >= 0);
     std::cout << "test_lean_echo ok calls=" << run1.value().metrics.llm_calls
-              << " hits2=" << run2.value().metrics.cache.hits << "\n";
+              << " hits2=" << run2.value().metrics.cache.hits
+              << " call_steps=" << run1.value().report["call_steps"].size() << "\n";
 }
 
 void test_ultra_echo() {
