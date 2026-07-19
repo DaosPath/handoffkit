@@ -18,6 +18,7 @@ include(GNUInstallDirs)
 set(HANDOFFKIT_ML_SOURCES
   src/version.cpp
   src/ops.cpp
+  src/cuda_kernels.cpp
 )
 
 add_library(handoffkit_ml STATIC ${HANDOFFKIT_ML_SOURCES})
@@ -32,8 +33,10 @@ target_compile_features(handoffkit_ml PUBLIC cxx_std_20)
 
 if(HANDOFFKIT_ML_CUDA)
   target_compile_definitions(handoffkit_ml PUBLIC HANDOFFKIT_ML_WITH_CUDA=1)
-  message(STATUS "HANDOFFKIT_ML_CUDA=ON (compile flag only; full kernels still roadmap)")
+  message(STATUS "HANDOFFKIT_ML_CUDA=ON (cuBLAS path if cuda_runtime.h present; else host fallback)")
 endif()
+find_package(Threads REQUIRED)
+target_link_libraries(handoffkit_ml PUBLIC Threads::Threads)
 
 if(HANDOFFKIT_ML_LINK_CORE)
   if(TARGET handoffkit_core)
@@ -70,6 +73,9 @@ if(HANDOFFKIT_ML_BUILD_TESTS)
   hk_ml_test(test_ml_attn_parity tests/test_ml_attn_parity.cpp)
   hk_ml_test(test_ml_bpe tests/test_ml_bpe.cpp)
   hk_ml_test(test_ml_gguf tests/test_ml_gguf.cpp)
+  hk_ml_test(test_ml_kernels tests/test_ml_kernels.cpp)
+  hk_ml_test(test_ml_qlora tests/test_ml_qlora.cpp)
+  hk_ml_test(test_ml_dist tests/test_ml_dist.cpp)
 endif()
 
 install(TARGETS handoffkit_ml
