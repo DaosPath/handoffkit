@@ -155,16 +155,15 @@ inline SftResult sft_train(const std::string& dataset_path,
             }
             r.final_loss = last;
             r.steps = steps;
-            r.success = steps > 0;
-            // Save a host-side report; weights remain conceptual resident during train
-            r.ckpt_path = (fs::path(out_dir) / "resident_marker.json").string();
-            {
-                std::ofstream rep(r.ckpt_path);
-                rep << "{\n  \"resident\": true,\n  \"final_loss\": " << r.final_loss
-                    << ",\n  \"steps\": " << r.steps
-                    << ",\n  \"weights_on_cuda\": true,\n  \"n_embd\": " << cfg.n_embd
-                    << ",\n  \"n_layer\": " << cfg.n_layer << "\n}\n";
-            }
+            r.success = steps > 0 && r.final_loss < r.initial_loss;
+            // End-of-train only: download weights once → loadable model.hkckpt
+            if (!gpt.weights_on_cuda())
+                throw std::runtime_error("weights left CUDA before ckpt export");
+            GPT host = gpt.to_host_gpt();
+            host.cfg.arch = cfg.arch;
+            host.cfg.seed = cfg.seed;
+            r.ckpt_path = (fs::path(out_dir) / "model.hkckpt").string();
+            save_gpt(r.ckpt_path, host);
             r.report_path = (fs::path(out_dir) / "train_report.json").string();
             {
                 std::ofstream rep(r.report_path);
@@ -172,8 +171,10 @@ inline SftResult sft_train(const std::string& dataset_path,
                     << "  \"initial_loss\": " << r.initial_loss << ",\n"
                     << "  \"final_loss\": " << r.final_loss << ",\n"
                     << "  \"steps\": " << r.steps << ",\n"
+                    << "  \"ckpt_path\": \"" << r.ckpt_path << "\",\n"
                     << "  \"device\": \"cuda-resident\",\n"
-                    << "  \"resident\": true\n}\n";
+                    << "  \"resident\": true,\n"
+                    << "  \"weights_on_cuda_during_train\": true\n}\n";
             }
             return r;
         }

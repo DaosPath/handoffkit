@@ -6,6 +6,7 @@
 #include <handoffkit/ml/cuda/kernels.hpp>
 #include <handoffkit/ml/cuda/linear_cuda.hpp>
 #include <handoffkit/ml/cuda/runtime.hpp>
+#include <handoffkit/ml/nn.hpp>
 #include <handoffkit/ml/ops.hpp>
 #include <handoffkit/ml/tensor.hpp>
 
@@ -13,6 +14,7 @@
 #include <memory>
 #include <random>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -396,6 +398,14 @@ struct ResidentBlock {
     }
 };
 
+/// Snapshot for residency audits (mid-step, before any end-of-train download).
+struct ResidencySnapshot {
+    bool weights_on_cuda = false;
+    bool activation_on_cuda = false;
+    bool activation_device_storage = false;
+    std::string note;
+};
+
 /// Device-resident GPT: all weights on CUDA; activations on CUDA during step.
 struct DeviceGPT {
     int vocab = 259, n_embd = 64, n_head = 4, n_layer = 2, block_size = 48;
@@ -408,6 +418,7 @@ struct DeviceGPT {
     Tensor x0_cache;
     int* d_idx = nullptr;
     std::size_t idx_cap = 0;
+    ResidencySnapshot last_residency;
 
     static DeviceGPT make(int vocab, int embd, int heads, int layers, int blk, int seed = 42) {
         require_gpu();
@@ -493,6 +504,64 @@ struct DeviceGPT {
         return wte.device == Device::Cuda && lm_head.on_cuda() && wte.device_data != nullptr;
     }
 
+    /// Download weights once (end of train / ckpt export only). Not used mid-step.
+    GPT to_host_gpt() const {
+        if (!weights_on_cuda()) throw std::runtime_error("to_host_gpt: weights not on CUDA");
+        GPTConfig c;
+        c.vocab_size = vocab;
+        c.n_embd = n_embd;
+        c.n_head = n_head;
+        c.n_layer = n_layer;
+        c.block_size = block_size;
+        c.seed = 0;
+        c.arch = "gpt-mini";
+        GPT m(c);
+        m.wte = wte.to(Device::Cpu);
+        m.gwte = m.wte.zeros_like();
+        m.wpe = wpe.to(Device::Cpu);
+        m.gwpe = m.wpe.zeros_like();
+        if (static_cast<int>(m.blocks.size()) != n_layer)
+            throw std::runtime_error("to_host_gpt: layer count mismatch");
+        for (int i = 0; i < n_layer; ++i) {
+            const auto& rb = blocks[static_cast<std::size_t>(i)];
+            auto& hb = m.blocks[static_cast<std::size_t>(i)];
+            hb.ln1.weight = rb.ln1.weight.to(Device::Cpu);
+            hb.ln1.gweight = hb.ln1.weight.zeros_like();
+            hb.attn.qkv.W = rb.attn.qkv.W.to(Device::Cpu);
+            hb.attn.qkv.gW = hb.attn.qkv.W.zeros_like();
+            hb.attn.qkv.use_bias = rb.attn.qkv.use_bias;
+            if (rb.attn.qkv.use_bias) {
+                hb.attn.qkv.b = rb.attn.qkv.b.to(Device::Cpu);
+                hb.attn.qkv.gb = hb.attn.qkv.b.zeros_like();
+            }
+            hb.attn.proj.W = rb.attn.proj.W.to(Device::Cpu);
+            hb.attn.proj.gW = hb.attn.proj.W.zeros_like();
+            hb.attn.proj.use_bias = true;
+            hb.attn.proj.b = rb.attn.proj.b.to(Device::Cpu);
+            hb.attn.proj.gb = hb.attn.proj.b.zeros_like();
+            hb.ln2.weight = rb.ln2.weight.to(Device::Cpu);
+            hb.ln2.gweight = hb.ln2.weight.zeros_like();
+            hb.mlp.fc1.W = rb.mlp.fc1.W.to(Device::Cpu);
+            hb.mlp.fc1.gW = hb.mlp.fc1.W.zeros_like();
+            hb.mlp.fc1.b = rb.mlp.fc1.b.to(Device::Cpu);
+            hb.mlp.fc1.gb = hb.mlp.fc1.b.zeros_like();
+            hb.mlp.fc2.W = rb.mlp.fc2.W.to(Device::Cpu);
+            hb.mlp.fc2.gW = hb.mlp.fc2.W.zeros_like();
+            hb.mlp.fc2.b = rb.mlp.fc2.b.to(Device::Cpu);
+            hb.mlp.fc2.gb = hb.mlp.fc2.b.zeros_like();
+        }
+        m.ln_f.weight = ln_f.weight.to(Device::Cpu);
+        m.ln_f.gweight = m.ln_f.weight.zeros_like();
+        m.lm_head.W = lm_head.W.to(Device::Cpu);
+        m.lm_head.gW = m.lm_head.W.zeros_like();
+        m.lm_head.use_bias = lm_head.use_bias;
+        if (lm_head.use_bias) {
+            m.lm_head.b = lm_head.b.to(Device::Cpu);
+            m.lm_head.gb = m.lm_head.b.zeros_like();
+        }
+        return m;
+    }
+
     Tensor embed(const std::vector<int>& idx) {
         // B=1 sequence length T
         const int T = static_cast<int>(idx.size());
@@ -528,22 +597,39 @@ struct DeviceGPT {
         const int T = static_cast<int>(input.size());
         zero_grad();
 
-        // Forward with caches
+        // Forward with caches — activations stay on CUDA for the whole step
         Tensor x = embed(input);
+        if (x.device != Device::Cuda || !x.device_data)
+            throw std::runtime_error("embed activation left CUDA");
         std::vector<Tensor> bin;
         bin.reserve(blocks.size());
         for (auto& bl : blocks) {
             bin.push_back(tcuda(x.shape));
             cuda_rt::copy_d2d(bin.back().device_ptr(), x.device_ptr(), x.numel() * sizeof(float));
             x = bl.forward(x);
+            if (x.device != Device::Cuda || !x.device_data)
+                throw std::runtime_error("block activation left CUDA");
         }
+        // Residency audit before any scalar loss download / ckpt export
+        last_residency.weights_on_cuda = weights_on_cuda();
+        last_residency.activation_on_cuda = (x.device == Device::Cuda);
+        last_residency.activation_device_storage = (x.device_data != nullptr);
+        last_residency.note = "mid_step_pre_loss weights+multi_layer_act on CUDA";
+        if (!last_residency.weights_on_cuda || !last_residency.activation_on_cuda ||
+            !last_residency.activation_device_storage) {
+            throw std::runtime_error("residency assert failed mid train_step");
+        }
+
         Tensor x_ln_in = tcuda(x.shape);
         cuda_rt::copy_d2d(x_ln_in.device_ptr(), x.device_ptr(), x.numel() * sizeof(float));
         x = ln_f.forward(x);
         Tensor logits = lm_head.forward(x);
+        if (logits.device != Device::Cuda || !logits.device_data)
+            throw std::runtime_error("logits left CUDA");
 
         int* dt = static_cast<int*>(cuda_rt::device_alloc(sizeof(int) * static_cast<std::size_t>(T)));
         cuda_rt::copy_h2d(dt, target.data(), sizeof(int) * static_cast<std::size_t>(T));
+        // intentional host scalar: loss for logging only
         float loss = cuda_kern::ce_mean_f32(logits.device_ptr(), dt, T, vocab);
 
         Tensor dlog = tcuda(logits.shape);
