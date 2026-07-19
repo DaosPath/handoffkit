@@ -17,7 +17,7 @@ Stack: own `.cu` kernels + **cudart only** (no cuBLAS / cuDNN / CUTLASS).
 ## Hard guarantees
 
 1. Mid-loop `weights_on_cuda()` asserts (throws if weights leave GPU).
-2. MHA does **not** pack heads on head host; Q/K/V/att/y stay device-side.
+2. MHA does **not** pack heads on host; Q/K/V/att/y stay device-side.
 3. RMSNorm parameter update is device axpy (no host download for optim).
 4. Loss/CE mean: device logits + device targets; only a single float returns for logging.
 5. **Checkpoint:** after train only, `DeviceGPT::to_host_gpt()` downloads weights once and
