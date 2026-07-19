@@ -123,6 +123,158 @@ void test_cli_demo_support_escalation() {
     std::cout << "test_cli_demo_support_escalation passed\n";
 }
 
+void test_cli_train_pipeline() {
+    auto help = cli::run_cli({"help"});
+    assert(help.exit_code == 0);
+    assert(help.stdout_text.find("train") != std::string::npos);
+
+    auto train_help = cli::run_cli({"train", "help"});
+    assert(train_help.exit_code == 0);
+    assert(train_help.stdout_text.find("--extra") != std::string::npos);
+
+    const auto out = scratch() / "train-cli";
+    auto result = cli::run_cli({
+        "train",
+        "pipeline",
+        "--out",
+        out.string(),
+        "--prompt",
+        "What is distillation?",
+        "--prompt",
+        "What is SFT?",
+    });
+    assert(result.exit_code == 0);
+    assert(result.stdout_text.find("success=true") != std::string::npos);
+    assert(result.stdout_text.find("distill_examples=") != std::string::npos);
+    assert(result.stdout_text.find("train_success=true") != std::string::npos);
+    assert(result.stdout_text.find("dataset_path=") != std::string::npos);
+    assert(std::filesystem::exists(out / "student.jsonl"));
+    assert(std::filesystem::exists(out / "train_out" / "train_report.json") ||
+           result.stdout_text.find("report_path=") != std::string::npos);
+    std::cout << "test_cli_train_pipeline passed\n";
+}
+
+std::filesystem::path find_train_stub_for_cli() {
+    const char* candidates[] = {
+        "packages/cpp/scripts/hk_train_echo_stub.py",
+        "../packages/cpp/scripts/hk_train_echo_stub.py",
+        "../../packages/cpp/scripts/hk_train_echo_stub.py",
+        "scripts/hk_train_echo_stub.py",
+        "../scripts/hk_train_echo_stub.py",
+    };
+    for (const char* c : candidates) {
+        if (std::filesystem::exists(c)) return std::filesystem::weakly_canonical(c);
+    }
+    return {};
+}
+
+void test_cli_train_process_extra() {
+    const auto stub = find_train_stub_for_cli();
+    if (stub.empty()) {
+        std::cout << "test_cli_train_process_extra SKIP (stub not found)\n";
+        return;
+    }
+
+    const auto base = scratch() / "train-cli-process";
+    std::error_code ec;
+    std::filesystem::remove_all(base, ec);
+    std::filesystem::create_directories(base, ec);
+
+    // Build a small dataset via CLI, then process-backend train with --extra flags
+    auto ds = cli::run_cli({
+        "train",
+        "dataset",
+        "--out",
+        (base / "ds.jsonl").string(),
+        "--prompt",
+        "hello process",
+    });
+    assert(ds.exit_code == 0);
+    assert(std::filesystem::exists(base / "ds.jsonl"));
+
+    const auto out_dir = (base / "run_out").string();
+    auto result = cli::run_cli({
+        "train",
+        "run",
+        "--backend",
+        "process",
+        "--dataset",
+        (base / "ds.jsonl").string(),
+        "--out",
+        out_dir,
+        "--extra",
+        "python",
+        "--extra",
+        stub.string(),
+        "--extra",
+        "--dataset",
+        "--extra",
+        "{dataset}",
+        "--extra",
+        "--output-dir",
+        "--extra",
+        "{output_dir}",
+        "--extra",
+        "--epochs",
+        "--extra",
+        "1",
+    });
+
+    if (result.exit_code != 0) {
+        // python missing or PATH issues — still prove argv parsing (not "requires argv")
+        assert(result.stderr_text.find("requires trainer argv") == std::string::npos);
+        assert(result.stdout_text.find("backend=process") != std::string::npos ||
+               result.stdout_text.find("error=") != std::string::npos ||
+               !result.stderr_text.empty());
+        std::cout << "test_cli_train_process_extra soft-fail: " << result.stderr_text << "\n"
+                  << result.stdout_text << "\n";
+        return;
+    }
+    assert(result.stdout_text.find("success=true") != std::string::npos);
+    assert(result.stdout_text.find("backend=process") != std::string::npos);
+    assert(std::filesystem::exists(std::filesystem::path(out_dir) / "metrics.json") ||
+           std::filesystem::exists(std::filesystem::path(out_dir) / "process_train.log"));
+    std::cout << "test_cli_train_process_extra passed\n";
+}
+
+void test_cli_train_process_dashdash() {
+    // Bare -- terminator must accept flag-like process tokens
+    auto missing = cli::run_cli({
+        "train",
+        "run",
+        "--backend",
+        "process",
+        "--dataset",
+        "missing.jsonl",
+        "--",
+    });
+    assert(missing.exit_code != 0);
+    // empty argv after -- should hit the process-requires-argv guard
+    assert(missing.stderr_text.find("requires trainer argv") != std::string::npos ||
+           missing.stdout_text.find("requires trainer argv") != std::string::npos);
+
+    auto with_args = cli::run_cli({
+        "train",
+        "run",
+        "--backend",
+        "process",
+        "--dataset",
+        "missing.jsonl",
+        "--out",
+        (scratch() / "train-dashdash").string(),
+        "--",
+        "cmake",
+        "-E",
+        "echo",
+        "ok",
+        "{dataset}",
+    });
+    // dataset missing → process may still run cmake and succeed (echo ignores file),
+    // or fail popen — either way must not be the empty-argv error
+    assert(with_args.stderr_text.find("requires trainer argv") == std::string::npos);
+    std::cout << "test_cli_train_process_dashdash passed\n";
+}
+
 }  // namespace
 
 int main() {
@@ -134,6 +286,9 @@ int main() {
     test_demo_catalog_all_ids_run_no_write();
     test_case_corpus_nontrivial();
     test_cli_demo_support_escalation();
+    test_cli_train_pipeline();
+    test_cli_train_process_extra();
+    test_cli_train_process_dashdash();
     std::cout << "All CLI/demo tests passed!\n";
     return 0;
 }

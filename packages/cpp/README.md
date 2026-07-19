@@ -75,6 +75,24 @@ auto pipe = distill_then_train(
 
 JSONL example line: `{"format":"prompt_completion","prompt":"...","completion":"...","meta":{...}}`.
 
+CLI (offline echo by default; demos/CLI build):
+
+```text
+handoffkit-cli train pipeline --out DIR
+handoffkit-cli train distill --out DIR/student.jsonl --prompt "..."
+handoffkit-cli train dataset --out data.jsonl --prompt "..."
+handoffkit-cli train run --dataset data.jsonl --backend echo --out DIR
+# process: repeated --extra TOKEN, or bare -- then argv
+# placeholders: {dataset} {output_dir} {epochs} {job_id}
+handoffkit-cli train run --dataset data.jsonl --backend process --out DIR \
+  --extra python --extra scripts/hk_train_echo_stub.py \
+  --extra --dataset --extra {dataset} \
+  --extra --output-dir --extra {output_dir}
+# equivalent:
+handoffkit-cli train run --dataset data.jsonl --backend process --out DIR \
+  -- python scripts/hk_train_echo_stub.py --dataset {dataset} --output-dir {output_dir}
+```
+
 Point `ProcessTrainBackend` at your HF/Unsloth/llama.cpp script after distill; HandoffKit owns job manifests, handoffs, and reports.
 
 ## Quick start (in-tree)

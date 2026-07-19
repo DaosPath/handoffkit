@@ -26,6 +26,10 @@
 #include <handoffkit/explore/tools.hpp>
 #include <handoffkit/version.hpp>
 #include <handoffkit/workflows/templates.hpp>
+#include <handoffkit/train/dataset.hpp>
+#include <handoffkit/train/distill.hpp>
+#include <handoffkit/train/runner.hpp>
+#include <handoffkit/runtime/protocol.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -74,6 +78,41 @@ bool has_flag(const std::vector<std::string>& args, const std::string& flag) {
         if (a == flag) return true;
     }
     return false;
+}
+
+/// Process-backend argv from CLI:
+/// 1) tokens after a bare `--` terminator (preferred when args look like flags)
+/// 2) else each `--extra TOKEN` (repeatable; TOKEN may start with `-`)
+std::vector<std::string> collect_train_extra_args(const std::vector<std::string>& args) {
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        if (args[i] == "--") {
+            std::vector<std::string> rest;
+            for (std::size_t j = i + 1; j < args.size(); ++j) rest.push_back(args[j]);
+            return rest;
+        }
+    }
+    std::vector<std::string> out;
+    for (std::size_t i = 0; i + 1 < args.size(); ++i) {
+        if (args[i] == "--extra") {
+            out.push_back(args[i + 1]);
+            ++i;
+        }
+    }
+    return out;
+}
+
+/// CLI flags for `train run`, skipping `--extra TOKEN` pairs and everything after bare `--`
+/// so process argv like `--extra --epochs --extra 1` does not shadow `--epochs N`.
+std::string train_run_flag(const std::vector<std::string>& args, const std::string& flag) {
+    for (std::size_t i = 0; i + 1 < args.size(); ++i) {
+        if (args[i] == "--") break;
+        if (args[i] == "--extra") {
+            ++i;
+            continue;
+        }
+        if (args[i] == flag) return args[i + 1];
+    }
+    return {};
 }
 
 CliResult cmd_help() {
@@ -1079,6 +1118,150 @@ CliResult cmd_explore(const std::vector<std::string>& args) {
     return ok(ss.str());
 }
 
+CliResult cmd_train(const std::vector<std::string>& args) {
+    using namespace train;
+    // train | train distill | train run | train pipeline | train help
+    std::string sub = (args.size() >= 2) ? args[1] : "pipeline";
+    if (sub == "help" || sub == "-h" || sub == "--help") {
+        return ok(
+            "train — distill / SFT job helpers (offline-first)\n\n"
+            "  train pipeline [--out DIR] [--prompt P]...   distill+echo train (default)\n"
+            "  train distill  [--out DIR] [--prompt P]...\n"
+            "  train run --dataset PATH [--out DIR] [--backend echo|process]\n"
+            "             [--epochs N] [--extra ARG]... | -- <argv...>\n"
+            "  train dataset --prompt P [--prompt P2] --out file.jsonl\n\n"
+            "Process backend argv (placeholders: {dataset} {output_dir} {epochs} {job_id}):\n"
+            "  --extra ARG   repeatable; each ARG is one argv token (may be a flag)\n"
+            "  -- ...        everything after bare -- is the trainer argv\n"
+            "Defaults: provider/teacher=echo, backend=echo. No GPU/network required.\n"
+        );
+    }
+
+    const auto out_root = default_out_dir(args) / "train";
+    std::vector<std::string> prompts;
+    for (std::size_t i = 0; i + 1 < args.size(); ++i) {
+        if (args[i] == "--prompt") prompts.push_back(args[i + 1]);
+    }
+    if (prompts.empty()) {
+        prompts = {
+            "Explain structured multi-agent handoffs in one sentence.",
+            "What is supervised fine-tuning (SFT)?",
+        };
+    }
+
+    if (sub == "dataset") {
+        const std::string out_flag = optional_flag_value(args, "--out");
+        const auto path = out_flag.empty() ? (out_root / "dataset.jsonl")
+                                           : std::filesystem::path(out_flag);
+        auto examples = examples_from_prompts(prompts);
+        auto ds = save_jsonl(path, examples, "cli_dataset");
+        if (!ds) return fail(1, ds.error().message);
+        std::ostringstream ss;
+        ss << "train dataset ok\n"
+           << "path=" << ds.value().path.string() << "\n"
+           << "count=" << ds.value().count << "\n"
+           << "content_hash=" << ds.value().content_hash << "\n"
+           << "success=true\n";
+        return ok(ss.str());
+    }
+
+    if (sub == "distill") {
+        const std::string out_flag = optional_flag_value(args, "--out");
+        DistillConfig dcfg;
+        dcfg.output_jsonl =
+            out_flag.empty() ? (out_root / "student.jsonl") : std::filesystem::path(out_flag);
+        auto teacher = EchoProvider("cli-teacher").as_any();
+        auto d = distill_generate(teacher, prompts, dcfg);
+        if (!d) return fail(1, d.error().message);
+        std::ostringstream ss;
+        ss << "train distill ok\n"
+           << "teacher_calls=" << d.value().teacher_calls << "\n"
+           << "example_count=" << d.value().examples.size() << "\n"
+           << "dataset_path=" << d.value().dataset.path.string() << "\n"
+           << "content_hash=" << d.value().dataset.content_hash << "\n"
+           << "success=true\n";
+        return ok(ss.str());
+    }
+
+    if (sub == "run") {
+        const std::string dataset_path = train_run_flag(args, "--dataset");
+        if (dataset_path.empty()) {
+            return fail(2, "train run requires --dataset PATH");
+        }
+        const std::string out_flag = train_run_flag(args, "--out");
+        const std::string backend_id = train_run_flag(args, "--backend");
+        const std::string epochs_s = train_run_flag(args, "--epochs");
+        TrainJobSpec job;
+        job.job_id = train_run_flag(args, "--job-id");
+        if (job.job_id.empty()) job.job_id = "cli-train-run";
+        job.kind = TrainJobKind::Sft;
+        job.dataset.path = dataset_path;
+        job.dataset.id = std::filesystem::path(dataset_path).stem().string();
+        job.config.output_dir =
+            out_flag.empty() ? (out_root / "run_out") : std::filesystem::path(out_flag);
+        job.config.backend_id = backend_id.empty() ? "echo" : backend_id;
+        if (!epochs_s.empty()) {
+            try {
+                job.config.epochs = std::stoi(epochs_s);
+            } catch (...) {
+                return fail(2, "train run --epochs must be an integer");
+            }
+        }
+        job.config.extra_args = collect_train_extra_args(args);
+        if (job.config.backend_id == "process" && job.config.extra_args.empty()) {
+            return fail(
+                2,
+                "train run --backend process requires trainer argv via "
+                "repeated --extra ARG or: -- <cmd> [args...]"
+            );
+        }
+        auto backend = make_train_backend(job.config.backend_id);
+        auto run = run_train_job(job, *backend);
+        if (!run) return fail(1, run.error().message);
+        std::ostringstream ss;
+        ss << "train run ok\n"
+           << "backend=" << run.value().report.backend_id << "\n"
+           << "success=" << (run.value().report.success ? "true" : "false") << "\n"
+           << "final_loss=" << run.value().report.metrics.final_loss << "\n"
+           << "steps=" << run.value().report.metrics.steps << "\n"
+           << "report_path=" << run.value().report_path.string() << "\n";
+        if (!run.value().report.success) {
+            ss << "error=" << run.value().report.error << "\n";
+            return CliResult{1, ss.str(), run.value().report.error};
+        }
+        return ok(ss.str());
+    }
+
+    // default: pipeline
+    if (sub != "pipeline" && sub != "train" && args.size() >= 2 && args[1].rfind("--", 0) != 0) {
+        // unknown sub if not a flag after train
+        if (args[1] != "pipeline" && args[1] != "distill" && args[1] != "run" &&
+            args[1] != "dataset" && args[1] != "help") {
+            // treat first non-flag as pipeline still if it's not known - already handled
+        }
+    }
+    DistillThenTrainConfig cfg;
+    const std::string out_flag = optional_flag_value(args, "--out");
+    const auto base = out_flag.empty() ? out_root : std::filesystem::path(out_flag);
+    cfg.distill.output_jsonl = base / "student.jsonl";
+    cfg.train.output_dir = base / "train_out";
+    cfg.train.epochs = 1;
+    cfg.job_id_prefix = "cli_pipe";
+    auto teacher = EchoProvider("cli-teacher").as_any();
+    EchoTrainBackend student;
+    auto pipe = distill_then_train(teacher, prompts, student, cfg);
+    if (!pipe) return fail(1, pipe.error().message);
+    std::ostringstream ss;
+    ss << "train pipeline ok\n"
+       << "distill_examples=" << pipe.value().distill.examples.size() << "\n"
+       << "dataset_path=" << pipe.value().distill.dataset.path.string() << "\n"
+       << "train_success=" << (pipe.value().train.report.success ? "true" : "false") << "\n"
+       << "final_loss=" << pipe.value().train.report.metrics.final_loss << "\n"
+       << "report_path=" << pipe.value().train.report_path.string() << "\n"
+       << "success=true\n";
+    return ok(ss.str());
+}
+
 }  // namespace
 
 std::string help_text() {
@@ -1109,6 +1292,8 @@ std::string help_text() {
        << "  providers [list|show <name>|resolve <name>]\n"
        << "  generate --provider <name> --prompt \"...\" [--model M]\n"
        << "      Live LLM call (needs HANDOFFKIT_WITH_HTTP=ON + API key). Keep under rate limits.\n"
+       << "  train [pipeline|distill|run|dataset|help]   Distill/SFT jobs (core train/, offline echo)\n"
+       << "         [--out DIR] [--prompt P] [--dataset PATH] [--backend echo|process]\n"
        << "  fusion [--provider echo|nvidia|...] [--profile neutral|shipping|diagnostic|...]\n"
        << "         [--tier lite|medium|pro|ultra|genius] [--mode lean|ultra|dag|panel]\n"
        << "         [--models m1,m2,m3,m4] [--model-a A] [--model-b B] [--model-merge M]\n"
@@ -1134,7 +1319,8 @@ std::vector<std::string> command_names() {
     return {
         "help", "version", "doctor", "demos", "demo", "explore", "team", "tools",
         "validate", "quality", "report", "cases",
-        "templates", "evaluate", "replay", "parse-structured", "providers", "generate", "fusion",
+        "templates", "evaluate", "replay", "parse-structured", "providers", "generate",
+        "train", "fusion",
     };
 }
 
@@ -1161,6 +1347,7 @@ CliResult run_cli(const std::vector<std::string>& args) {
     if (args[0] == "parse-structured") return cmd_parse_structured(args);
     if (args[0] == "providers") return cmd_providers(args);
     if (args[0] == "generate") return cmd_generate(args);
+    if (args[0] == "train") return cmd_train(args);
     if (args[0] == "fusion") return cmd_fusion(args);
     return fail(2, "Unknown command: " + args[0] + "\n\n" + help_text());
 }

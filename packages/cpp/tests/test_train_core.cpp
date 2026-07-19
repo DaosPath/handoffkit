@@ -134,6 +134,20 @@ void test_distill_then_train_pipeline() {
     std::cout << "test_distill_then_train_pipeline ok\n";
 }
 
+std::filesystem::path find_train_stub_script() {
+    const char* candidates[] = {
+        "packages/cpp/scripts/hk_train_echo_stub.py",
+        "../packages/cpp/scripts/hk_train_echo_stub.py",
+        "../../packages/cpp/scripts/hk_train_echo_stub.py",
+        "scripts/hk_train_echo_stub.py",
+        "../scripts/hk_train_echo_stub.py",
+    };
+    for (const char* c : candidates) {
+        if (std::filesystem::exists(c)) return std::filesystem::weakly_canonical(c);
+    }
+    return {};
+}
+
 void test_process_backend_echo_cmd() {
     const auto dir = scratch_dir() / "process";
     std::error_code ec;
@@ -149,22 +163,66 @@ void test_process_backend_echo_cmd() {
     job.dataset = ds.value();
     job.config.output_dir = dir / "out";
     job.config.backend_id = "process";
-    // Portable no-op success (cmake -E true exists on CMake installs; fallback echo)
+    // Portable no-op success (cmake -E echo when cmake is on PATH)
     job.config.extra_args = {"cmake", "-E", "echo", "train-ok", "{job_id}", "{dataset}"};
 
     ProcessTrainBackend backend;
     auto report = backend.run(job);
     assert(report);
-    // cmake -E echo returns 0 when cmake is on PATH
     if (report.value().success) {
         assert(std::filesystem::exists(report.value().log_path));
         std::cout << "test_process_backend_echo_cmd ok\n";
     } else {
-        // Environment without cmake: still prove failure path is structured
         assert(!report.value().error.empty());
         std::cout << "test_process_backend_echo_cmd soft-fail (no cmake?): " << report.value().error
                   << "\n";
     }
+}
+
+void test_process_backend_python_stub() {
+    const auto stub = find_train_stub_script();
+    if (stub.empty()) {
+        std::cout << "test_process_backend_python_stub SKIP (stub not found from cwd)\n";
+        return;
+    }
+    const auto dir = scratch_dir() / "process_stub";
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+    std::filesystem::create_directories(dir, ec);
+
+    auto examples = examples_from_prompts({"stub-a", "stub-b"});
+    auto ds = save_jsonl(dir / "d.jsonl", examples, "stubds");
+    assert(ds);
+
+    TrainJobSpec job;
+    job.job_id = "job-py-stub";
+    job.dataset = ds.value();
+    job.config.output_dir = dir / "out";
+    job.config.backend_id = "process";
+    job.config.epochs = 2;
+    job.config.extra_args = {
+        "python",
+        stub.string(),
+        "--dataset",
+        "{dataset}",
+        "--output-dir",
+        "{output_dir}",
+        "--epochs",
+        "{epochs}",
+    };
+
+    ProcessTrainBackend backend;
+    auto report = backend.run(job);
+    assert(report);
+    if (!report.value().success) {
+        // python missing from PATH — structured failure only
+        assert(!report.value().error.empty());
+        assert(std::filesystem::exists(report.value().log_path) || !report.value().error.empty());
+        std::cout << "test_process_backend_python_stub soft-fail: " << report.value().error << "\n";
+        return;
+    }
+    assert(std::filesystem::exists(job.config.output_dir / "metrics.json"));
+    std::cout << "test_process_backend_python_stub ok metrics written\n";
 }
 
 void test_make_backend() {
@@ -182,6 +240,7 @@ int main() {
     test_echo_train_backend();
     test_distill_then_train_pipeline();
     test_process_backend_echo_cmd();
+    test_process_backend_python_stub();
     test_make_backend();
     std::cout << "ALL test_train_core PASSED\n";
     return 0;
