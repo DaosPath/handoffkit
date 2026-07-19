@@ -102,12 +102,27 @@ handoffkit-ml generate --ckpt runs/ml/model.hkckpt --prompt "P:" --max-new 16
 
 In-repo: `test_ml_distill_wire`, `test_ml_qlora_sft` (freeze + loss drop + generate).
 
+### v0.5 extras
+
+```powershell
+# Resume second stage from prior sft_config.json (+ sibling model.hkckpt)
+handoffkit-ml sft --dataset d.jsonl --out runs/s2 --resume-config runs/s1/sft_config.json --epochs 15
+
+# Sampling generate
+handoffkit-ml generate --ckpt runs/s2/model.hkckpt --prompt "P:" --temperature 0.9 --top-k 40 --top-p 0.9
+
+# Eval report (eval_report.json under --out or ckpt/eval)
+handoffkit-ml eval --ckpt runs/s2/model.hkckpt --dataset val.jsonl --out runs/s2/eval
+
+# Preference
+handoffkit-ml sft --dataset pref.jsonl --out runs/pref --profile comfort --preference
+```
+
 ### Honest scope (not Unsloth/HF tops)
 
-This package optimizes for **native C++ comfort** (one CLI, real NF4 freeze, multi-module adapters, loadable ckpt). It does **not** claim Unsloth / Hugging Face / Axolotl **speed or 1B+ scale** parity — see [NONGOALS.md](./NONGOALS.md).
+Native stack = **small student** training suite. It does **not** claim Unsloth / Hugging Face **1B–4B+** parity or load those bases — see [NONGOALS.md](./NONGOALS.md) and [NATIVE_TRAIN.md](./NATIVE_TRAIN.md).
 
-Non-tiny defaults: `n_embd=128`, `n_layer=4`, `block_size=128`, tokenizer `bpe`.  
-Pass `--allow-tiny` only for fast experiments below floors.
+Non-tiny defaults without `--profile`: `n_embd=128`, `n_layer=4`, `block_size=128`.
 
 ## License
 

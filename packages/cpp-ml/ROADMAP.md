@@ -35,6 +35,16 @@ See [DEVICE_RESIDENT.md](./DEVICE_RESIDENT.md).
 | Multi-stage `recipe` runner | **done** |
 | Guide [NATIVE_TRAIN.md](./NATIVE_TRAIN.md) | **done** |
 
+## v0.5 checklist
+
+| Phase | Item | Status |
+|-------|------|--------|
+| 1 | Generate top-k / top-p sampling | **done** |
+| 2 | Resume `--resume-config` + clear dim mismatch | **done** |
+| 3 | Durable `eval_report.json` | **done** |
+| 4 | Preference CLI tool-grade path | **done** |
+| 5 | Docs / doctor scale honesty | **done** |
+
 ## Still optional future (not required for this roadmap)
 
 - Full cuBLAS/FlashAttention production kernels on multi-GPU NCCL clusters

@@ -97,8 +97,17 @@ int cmd_doctor() {
               << "cuda.policy=own_kernels_cudart_only\n"
               << "cuda.no_cublas=true\n"
               << "cuda.resident=weights+activations (sft --device cuda-resident)\n"
+              << "profile.list=comfort,qlora,standard,large,tiny\n"
               << "profile.standard.n_embd=" << stdp.n_embd << "\n"
               << "profile.standard.n_layer=" << stdp.n_layer << "\n"
+              << "profile.comfort.n_embd=64\n"
+              << "profile.qlora.n_embd=64\n"
+              << "scale.native=small_student_only\n"
+              << "scale.not=4B_or_Unsloth_HF_SOTA\n"
+              << "features.top_k_top_p=true\n"
+              << "features.resume_config=true\n"
+              << "features.eval_report=true\n"
+              << "features.preference=true\n"
               << "arch.allowlist=gpt-mini,gpt2,llama-like\n"
               << "device.cpu=true\n"
               << "device.cuda_compiled=" << (dev.cuda_compiled ? "true" : "false") << "\n"
@@ -163,6 +172,12 @@ int cmd_sft(const std::vector<std::string>& args) {
     if (has_flag(args, "--allow-tiny")) cfg.allow_tiny = true;
     if (auto rk = flag_val(args, "--lora-rank"); !rk.empty()) cfg.lora_rank = std::stoi(rk);
     if (cfg.use_qlora && cfg.lora_rank <= 0) cfg.lora_rank = 8;
+    // Warm-start often plateaus; do not fail the CLI solely on loss drop
+    if ((!cfg.base_ckpt.empty() || !cfg.base_gguf.empty()) &&
+        !has_flag(args, "--require-loss-drop")) {
+        cfg.require_loss_drop = false;
+    }
+    if (has_flag(args, "--require-loss-drop")) cfg.require_loss_drop = true;
 
     std::cout << "sft start profile=" << cfg.profile
               << " qlora=" << (cfg.use_qlora ? "true" : "false")

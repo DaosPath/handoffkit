@@ -3,67 +3,70 @@
 Goal: the **best training experience that stays inside pure C++** — same monorepo,
 no Python, no cuBLAS product dependency, core stays light.
 
-This is **not** Unsloth/HF scale. It **is** a coherent native pipeline you can
-own end-to-end.
+This is **not** Unsloth/HF scale and **not** a 4B foundation finetuner.  
+It **is** a coherent native pipeline for a small GPT student you own end-to-end.
 
-## Tool map
+## Tool map (v0.5)
 
 | Command | Role |
 |---------|------|
 | `sft --profile comfort\|qlora` | Train student (full or QLoRA) |
-| `dataset stats` | Inspect JSONL |
-| `dataset split` | Train/val split |
-| `eval` | CE mean + perplexity on held-out JSONL |
-| `recipe` | Multi-stage train (warm → QLoRA → …) |
-| `generate` | Greedy/sample continuation from `model.hkckpt` |
+| `sft --resume-config sft_config.json` | Warm-start dims + sibling `model.hkckpt` |
+| `dataset stats` / `dataset split` | Inspect + train/val split |
+| `eval` | CE + perplexity; writes `eval_report.json` |
+| `recipe` | Multi-stage train (warm → QLoRA) |
+| `generate --top-k --top-p --temperature` | Sampling / greedy continuation |
+| `sft --preference` | Chosen/rejected preference path |
 | `gguf-export` / `gguf-import` | Interop |
 | Core `train distill` | Teacher → student JSONL |
 
-## Recommended workflow
+## Canonical workflow (10 lines)
 
 ```powershell
-# 0) Distill (core) or hand-write JSONL
 handoffkit-cli train distill --out data/all.jsonl --prompt "P: MARK42"
-
-# 1) Hygiene
-handoffkit-ml dataset stats --dataset data/all.jsonl
 handoffkit-ml dataset split --dataset data/all.jsonl --out data/ --val-ratio 0.2
-
-# 2) One-shot QLoRA
-handoffkit-ml sft --dataset data/train.jsonl --out runs/qlora --profile qlora
-
-# 3) Evaluate
-handoffkit-ml eval --ckpt runs/qlora/model.hkckpt --dataset data/val.jsonl --tokenizer byte
-
-# 4) Generate
-handoffkit-ml generate --ckpt runs/qlora/model.hkckpt --prompt "P:" --max-new 16
+handoffkit-ml sft --dataset data/train.jsonl --out runs/s1 --profile comfort
+handoffkit-ml sft --dataset data/train.jsonl --out runs/s2 `
+  --resume-config runs/s1/sft_config.json --profile qlora --epochs 20
+handoffkit-ml eval --ckpt runs/s2/model.hkckpt --dataset data/val.jsonl --tokenizer byte
+handoffkit-ml generate --ckpt runs/s2/model.hkckpt --prompt "P:" --max-new 16 `
+  --temperature 0.9 --top-k 40 --top-p 0.9
 ```
 
-## Multi-stage recipe file (`*.jsonl`)
+## Preference JSONL
 
-```text
-{"dataset":"data/train.jsonl","out_dir":"runs/recipe","val_dataset":"data/val.jsonl"}
-{"stage":"warm","profile":"comfort","epochs":20}
-{"stage":"adapt","profile":"qlora","epochs":30}
+```json
+{"prompt":"Prefer: ","chosen":"yes","rejected":"no"}
 ```
 
 ```powershell
-handoffkit-ml recipe --file my.recipe.jsonl
+handoffkit-ml dataset stats --dataset pref.jsonl   # preference_pairs=N
+handoffkit-ml sft --dataset pref.jsonl --out runs/pref --profile comfort --preference --dpo-beta 0.2
 ```
 
-Stage N loads stage N−1 `model.hkckpt` as `--base-ckpt` automatically.
+## Sampling
+
+| Flag | Meaning |
+|------|---------|
+| `--temperature 0` | Greedy (default) |
+| `--temperature 0.9 --top-k 40` | Top-k sample |
+| `--temperature 0.8 --top-p 0.9` | Nucleus sample |
+
+## Anti-patterns
+
+- Expecting to load/finetune **Llama-4B** or HF safetensors here — no.  
+- Mixing `--profile standard` dims with a comfort `model.hkckpt` — dim mismatch (clear error).  
+- Using `cuda-resident` with `--qlora` — adapters use host GPT path (`cpu`/`cuda`).  
 
 ## Design principles
 
-1. **Ship real entry points** — CLI and headers under `include/handoffkit/ml/`.
-2. **Wire format** — SFT JSONL `prompt`/`completion` (core distill compatible).
-3. **Comfort profiles** — one flag for local quality loops.
-4. **Honesty** — large-model SOTA is out of scope (NONGOALS.md); native depth is in scope.
+1. Ship real entry points under `include/handoffkit/ml/` + CLI.  
+2. JSONL wire compatible with core distill.  
+3. Comfort profiles for local loops; honest scale in `doctor`.  
+4. One commit-sized feature at a time.
 
-## Next native candidates (later)
+## Later (not v0.5)
 
-- Top-k / nucleus sampling in generate  
-- Preference / DPO polish CLI  
-- Micro-bench matmul/attention  
-- Resume from `sft_config.json`  
-- Packed sequences / longer context kernels  
+- Micro-bench kernels  
+- Packed sequences / longer context  
+- External 4B trainer glue via core `process` (orchestration only)  
