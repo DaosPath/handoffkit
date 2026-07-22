@@ -1,7 +1,7 @@
 # HandoffKit API Stability
 
 HandoffKit 1.0.0 is the first stable API release. Public exports listed in
-`docs/PUBLIC_API.md` are covered by compatibility tests and should not receive
+`docs/python/PUBLIC_API.md` are covered by compatibility tests and should not receive
 breaking changes in later 1.x releases.
 
 ## Stable 1.0 APIs
@@ -37,7 +37,7 @@ breaking changes in later 1.x releases.
   file writes.
 - Normal tests and examples stay offline unless explicitly marked as API tests.
 - New runtime dependencies are avoided in the core package.
-- Public constructors and methods listed in `docs/PUBLIC_API.md` are covered by
+- Public constructors and methods listed in `docs/python/PUBLIC_API.md` are covered by
   compatibility tests.
 
 ## Experimental Areas

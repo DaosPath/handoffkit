@@ -6,7 +6,7 @@ from 0.9.x.
 ## What Changed
 
 - Package maturity is now `Development Status :: 5 - Production/Stable`.
-- The public API listed in `docs/PUBLIC_API.md` is stable for the 1.x series.
+- The public API listed in `docs/python/PUBLIC_API.md` is stable for the 1.x series.
 - Workflow evaluation reports are available through `WorkflowEvaluator`.
 - Async helpers are available on `Agent`, `Team`, and `RecipeRunner`.
 - Built-in project templates are available through `TemplateScaffolder` and

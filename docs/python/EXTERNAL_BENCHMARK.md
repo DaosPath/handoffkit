@@ -113,8 +113,8 @@ task shape elsewhere:
 | Framework | Structured handoff | Built-in validation | Offline demos | Notes |
 |-----------|--------------------|---------------------|---------------|-------|
 | **HandoffKit** | Yes (`HandoffState`) | Yes | Yes | This suite |
-| **LangGraph** | Graph state (custom) | App-defined | Yes | `docs/integrations/LANGGRAPH.md` |
-| **OpenAI Agents SDK** | SDK-specific | App-defined | Partial | `docs/integrations/OPENAI_AGENTS.md` |
+| **LangGraph** | Graph state (custom) | App-defined | Yes | `docs/python/integrations/LANGGRAPH.md` |
+| **OpenAI Agents SDK** | SDK-specific | App-defined | Partial | `docs/python/integrations/OPENAI_AGENTS.md` |
 | **AutoGen** | Chat/messages | App-defined | Partial | Map to HandoffState at edges |
 | **CrewAI** | Task/context | App-defined | Partial | Prefer HandoffState between crews |
 
@@ -143,5 +143,5 @@ cross-product superiority without peer review.
 
 - Educational / engineering protocol only.
 - Medical doctor demos stay separate and labeled non-clinical.
-- Threat model: `docs/THREAT_MODEL.md`.
+- Threat model: `docs/python/THREAT_MODEL.md`.
 - Contributions: root `CONTRIBUTING.md`.

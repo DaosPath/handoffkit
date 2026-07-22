@@ -187,7 +187,7 @@ Built by default (`HANDOFFKIT_BUILD_CLI=ON`). Offline Echo-based demos — no AP
 .\packages\cpp\build\handoffkit-cli.exe cases --domain support
 ```
 
-Subcommands: `help`, `version`, `doctor`, `demos`, `demo`, `explore`, `team`, `tools`, `validate`, `quality`, `report`, `cases`.
+Subcommands: `help`, `version`, `doctor`, `demos`, `demo`, `explore`, `team`, `tools`, `validate`, `quality`, `report`, `cases`, `templates`, `evaluate`, `replay`, `parse-structured`, `providers`, `generate`, `train`, and `fusion`.
 
 ### Native web explorer (fork-controllable)
 
@@ -221,21 +221,21 @@ register_web_explorer_tools(reg, map);  // tools: web_fetch, web_explore
 
 There are **40+ demos** (team, tools, protocol matrix, validation/quality, support escalation, coding review, research, doctor panel, fusion, recipe, memory, tool stress, multi-case batch, replay, quality gates, incident response, product handoff, ...) plus a **40 unique offline corpus cases** for batch/showcase runs.
 
-### Fusion (offline introspection)
+### Fusion
+
+Fusion is the optional native C++ multi-agent synthesis engine. Its product tiers
+use planned call graphs of Lite 3, Medium 3, Pro 5, Ultra 5, and Genius 8 calls,
+with structured handoffs and progressively stronger quality contracts.
 
 ```bash
-# Role packs (built-in profiles, incident/product helpers, or JSON file)
-handoffkit-cli fusion roles --profile neutral
-handoffkit-cli fusion roles --pack incident
-# Shipped example pack (correctness vs operability dual-branch)
-handoffkit-cli fusion roles --file packages/cpp/examples/fusion/role_packs/custom_review.json
-# Call plan without LLM (tier/mode → planned_llm_calls + call_plan)
-handoffkit-cli fusion explain --tier medium --mode ultra
-# Echo run: report includes call_steps + cache_stats when cache is on
-handoffkit-cli fusion --provider echo --profile neutral --prompt "..."
+handoffkit-cli fusion tiers
+handoffkit-cli fusion explain --tier genius --profile research
+handoffkit-cli fusion --provider echo --tier medium --prompt "Compare A and B."
 ```
 
-Engine layout: `engine_run` (dispatch/`call_llm`), `engine_lean_ultra`, `engine_dag_run`, `engine_panel_run`. Loadable role packs: `load_role_pack_file` + `validate_role_pack`. Example JSON: `examples/fusion/role_packs/`.
+- [Current architecture, configuration, CLI, limitations, and complete audit](../../docs/cpp/fusion/README.md)
+- [Fusion-specific changelog](../../docs/cpp/fusion/CHANGELOG.md)
+- [Configuration examples](../../docs/cpp/fusion/CONFIGURATION.md)
 
 ## Consume
 

@@ -3,7 +3,7 @@
 Workspace packages live here.
 
 **Parity:** public Python â†” JavaScript runtime surface ships **1:1** (same
-release, snake_case wire JSON). See `python/docs/API_STABILITY.md`.
+release, snake_case wire JSON). See `docs/python/API_STABILITY.md`.
 
 - `python/`: published Python package (`handoffkit` on PyPI).
 - `localize/`: public game i18n app (`handoffkit-localize` / `hk-localize`) — multi-engine, Textual TUI, PG sample demo.

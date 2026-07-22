@@ -29,7 +29,7 @@ Status legend: **Done** · **In progress** · **Planned** · **Later**
 | Split JS `core/index.js` | **Done** | Modular sibling modules + `index.js` facade; tests green |
 | Medical datasets out of `.py` | **Done** | JSON under `handoffkit/benchmarks/data/`; loaders stay thin |
 | Freeze smaller public API | **Done** | `PUBLIC_API.md` tiers: Stable / Extended / Experimental |
-| Deprecation policy | **Done** | `packages/python/docs/DEPRECATION.md` + release cadence |
+| Deprecation policy | **Done** | `docs/python/DEPRECATION.md` + release cadence |
 | Studio: DB, auth, workspaces | **Done (v1)** | Wired into MAI panel run save/list APIs; file-backed, DB-ready |
 | Fix Rust / C++ docs | **Done** | Clear “under construction” READMEs (UTF-8) |
 | Fewer releases, consolidated changelogs | **Done** | Documented in DEPRECATION.md |
@@ -44,7 +44,7 @@ Status legend: **Done** · **In progress** · **Planned** · **Later**
 | Cost / latency / context-loss / recovery metrics | **Done** | `handoffkit.benchmarks.metrics` |
 | Open contributions + issues hygiene | **Done** | Root `CONTRIBUTING.md` |
 | Second maintainer | **Policy** | Stated goal in CONTRIBUTING (onboarding pending people) |
-| Published threat model | **Done** | `docs/THREAT_MODEL.md` |
+| Published threat model | **Done** | `docs/python/THREAT_MODEL.md` |
 
 ---
 

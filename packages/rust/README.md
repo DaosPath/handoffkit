@@ -21,7 +21,7 @@ JavaScript.
 
 Python and JavaScript are the production runtimes. Rust will grow as a
 first-class runtime **after** the Stable public API (see
-`packages/python/docs/PUBLIC_API.md`) is frozen and deprecation policy is in
+`docs/python/PUBLIC_API.md`) is frozen and deprecation policy is in
 force.
 
 ## Develop

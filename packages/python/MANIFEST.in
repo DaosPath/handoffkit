@@ -1,7 +1,7 @@
 include README.md
 include LICENSE
 include LAYOUT.md
-graft docs
+# Long-form docs are centralized under ../../docs/python and are repository-only.
 graft examples
 graft scripts
 graft tests

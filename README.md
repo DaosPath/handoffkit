@@ -21,6 +21,8 @@ cargo add handoffkit            # Rust
 # C++ — CMake FetchContent (see below)
 ```
 
+**Project docs:** [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md)
+
 <table>
   <tr>
     <td><strong>Contract-first</strong><br>Agents pass JSON-friendly state instead of vague summaries.</td>
@@ -174,8 +176,21 @@ handoffkit/
   apps/
     web/             # Next.js showcase and developer documentation
   docs/
-    assets/          # SVG diagrams and visual assets
+    README.md        # Central documentation hub
+    cpp/
+      demos/         # C++ demo documentation index
+      fusion/        # Complete native Fusion documentation
+    python/
+      demos/         # Python demo documentation index
+    js/
+      demos/         # JavaScript demo documentation index
+    rust/
+      demos/         # Rust demo documentation index
+    assets/          # Shared SVG diagrams and visual assets
+    img/             # Shared raster images
 ```
+
+Documentation hub: [`docs/README.md`](docs/README.md).
 
 ---
 

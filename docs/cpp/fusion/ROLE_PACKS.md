@@ -1,12 +1,13 @@
 # Fusion role pack examples
 
 JSON role packs load with the shipped CLI and `load_role_pack_file`.
+Example JSON files remain under `packages/cpp/examples/fusion/role_packs/`.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `custom_review.json` | Dual-branch **correctness vs operability** review pack (not a built-in profile dump). Distinct `role_id`s for smoke/CI. |
+| [`custom_review.json`](../../../packages/cpp/examples/fusion/role_packs/custom_review.json) | Dual-branch **correctness vs operability** review pack (not a built-in profile dump). Distinct `role_id`s for smoke/CI. |
 
 ## CLI (offline)
 

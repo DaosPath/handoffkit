@@ -6,8 +6,8 @@ problem it solves.
 
 Canonical asset:
 
-- Post: [`docs/CONTEXT_SOUP_VS_CONTRACT_HANDOFFS.md`](../CONTEXT_SOUP_VS_CONTRACT_HANDOFFS.md)
-- Gallery: [`docs/SHOWCASE_GALLERY.md`](../SHOWCASE_GALLERY.md)
+- Post: [`docs/python/CONTEXT_SOUP_VS_CONTRACT_HANDOFFS.md`](../CONTEXT_SOUP_VS_CONTRACT_HANDOFFS.md)
+- Gallery: [`docs/python/SHOWCASE_GALLERY.md`](../SHOWCASE_GALLERY.md)
 - Demo command:
 
 ```bash
@@ -226,7 +226,7 @@ Post:
 > ```
 >
 > Integration guide:
-> `docs/integrations/LANGGRAPH.md`
+> `docs/python/integrations/LANGGRAPH.md`
 
 ## Anti-spam Checklist
 

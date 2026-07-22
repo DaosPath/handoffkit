@@ -7,7 +7,6 @@ packages/python/
   handoffkit/                 # installable library (import handoffkit)
   tests/                      # unit/integration tests (pytest)
   tests_api/                  # optional live-API tests
-  docs/                       # developer docs
   examples/
     demos/                    # product showcase scripts
     integrations/             # third-party stack examples
@@ -23,6 +22,9 @@ packages/python/
   LICENSE
   MANIFEST.in
 ```
+
+Long-form Python documentation lives at [`docs/python/`](../../docs/python/).
+The runnable demo index lives at [`docs/python/demos/`](../../docs/python/demos/).
 
 ## Rules
 

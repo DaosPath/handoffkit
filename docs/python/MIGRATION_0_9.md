@@ -5,8 +5,8 @@
 ## What Changed
 
 - Package metadata now marks HandoffKit as beta.
-- Public API candidates are documented in `docs/PUBLIC_API.md`.
-- Compatibility policy is documented in `docs/COMPATIBILITY.md`.
+- Public API candidates are documented in `docs/python/PUBLIC_API.md`.
+- Compatibility policy is documented in `docs/python/COMPATIBILITY.md`.
 - Provider tool-call parsing reports clearer errors for malformed payloads.
 - Public API imports and signatures are covered by compatibility tests.
 

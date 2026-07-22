@@ -233,7 +233,7 @@ def methodology_manifest() -> dict[str, Any]:
             }
             for t in PROTOCOL_TASKS_V1
         ],
-        "docs": "packages/python/docs/EXTERNAL_BENCHMARK.md",
+        "docs": "docs/python/EXTERNAL_BENCHMARK.md",
     }
 
 

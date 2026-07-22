@@ -12,7 +12,10 @@ REPO_ROOT = PACKAGE_ROOT.parents[1]
 def read(path: str) -> str:
     import pytest
 
-    root = REPO_ROOT if path.startswith(".github/") or path == "SECURITY.md" else PACKAGE_ROOT
+    if path.startswith(".github/") or path == "SECURITY.md" or path.startswith("docs/"):
+        root = REPO_ROOT
+    else:
+        root = PACKAGE_ROOT
     target = root / path
     if not target.is_file():
         pytest.skip(f"missing {path} outside monorepo (sdist-safe)")
@@ -40,7 +43,7 @@ def test_publish_workflow_uses_trusted_publishing_without_tokens() -> None:
 
 
 def test_release_process_docs_cover_trusted_publishing() -> None:
-    text = read("docs/RELEASE_PROCESS.md")
+    text = read("docs/python/RELEASE_PROCESS.md")
 
     assert "Trusted Publishing" in text
     assert "publish.yml" in text
@@ -66,5 +69,5 @@ def test_readme_documents_package_trust() -> None:
 
     assert "## Publishing" in text
     assert "Trusted Publishing" in text
-    assert "docs/RELEASE_PROCESS.md" in text
+    assert "docs/python/RELEASE_PROCESS.md" in text
     assert "package tokens" in text

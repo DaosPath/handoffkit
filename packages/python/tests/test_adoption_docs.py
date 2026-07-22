@@ -7,30 +7,29 @@ from pathlib import Path
 import pytest
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = PACKAGE_ROOT.parents[1]
+PYTHON_DOCS = REPO_ROOT / "docs" / "python"
 
 
-def _docs_root() -> Path:
-    # Prefer package-local docs (shipped in sdist); fall back to CWD monorepo layout.
-    if (PACKAGE_ROOT / "README.md").is_file():
-        return PACKAGE_ROOT
-    if Path("README.md").is_file():
-        return Path(".")
-    pytest.skip("package docs not present (sdist-safe)")
+def _python_docs_root() -> Path:
+    if PYTHON_DOCS.is_dir():
+        return PYTHON_DOCS
+    pytest.skip("central Python docs not present outside monorepo (sdist-safe)")
 
 
 def test_readme_links_showcases_post_and_integrations() -> None:
-    text = (_docs_root() / "README.md").read_text(encoding="utf-8")
+    text = (PACKAGE_ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert "docs/assets/handoffkit-showcases.svg" in text
-    assert "docs/assets/coding-review-terminal.svg" in text
-    assert "docs/assets/handoffkit-report-gallery.svg" in text
-    assert "docs/SHOWCASE_GALLERY.md" in text
+    assert "docs/python/assets/handoffkit-showcases.svg" in text
+    assert "docs/python/assets/coding-review-terminal.svg" in text
+    assert "docs/python/assets/handoffkit-report-gallery.svg" in text
+    assert "docs/python/SHOWCASE_GALLERY.md" in text
     assert "examples/fixtures/reports/coding_review.md" in text
     assert "Context Soup vs Contract Handoffs" in text
-    assert "docs/launch/CONTEXT_SOUP_LAUNCH_KIT.md" in text
-    assert "docs/integrations/LANGGRAPH.md" in text
-    assert "docs/integrations/OPENAI_AGENTS.md" in text
-    assert "docs/integrations/PYDANTIC_AI.md" in text
+    assert "docs/python/launch/CONTEXT_SOUP_LAUNCH_KIT.md" in text
+    assert "docs/python/integrations/LANGGRAPH.md" in text
+    assert "docs/python/integrations/OPENAI_AGENTS.md" in text
+    assert "docs/python/integrations/PYDANTIC_AI.md" in text
     assert "examples/integrations/langgraph_integration.py" in text
     assert "examples/integrations/openai_agents_sdk_integration.py" in text
     assert "examples/integrations/pydantic_ai_integration.py" in text
@@ -39,7 +38,7 @@ def test_readme_links_showcases_post_and_integrations() -> None:
 
 
 def test_context_soup_post_exists() -> None:
-    text = (_docs_root() / "docs/CONTEXT_SOUP_VS_CONTRACT_HANDOFFS.md").read_text(encoding="utf-8")
+    text = (_python_docs_root() / "CONTEXT_SOUP_VS_CONTRACT_HANDOFFS.md").read_text(encoding="utf-8")
 
     assert "Context Soup" in text
     assert "HandoffState" in text
@@ -63,15 +62,15 @@ def test_integration_docs_are_explicit_and_offline() -> None:
             "Copy/Paste Adapter",
         ],
     }
-    root = _docs_root()
+    root = _python_docs_root() / "integrations"
     for filename, terms in docs.items():
-        text = (root / "docs" / "integrations" / filename).read_text(encoding="utf-8")
+        text = (root / filename).read_text(encoding="utf-8")
         for term in terms:
             assert term in text
 
 
 def test_launch_kit_has_channel_specific_copy() -> None:
-    text = (_docs_root() / "docs/launch/CONTEXT_SOUP_LAUNCH_KIT.md").read_text(encoding="utf-8")
+    text = (_python_docs_root() / "launch" / "CONTEXT_SOUP_LAUNCH_KIT.md").read_text(encoding="utf-8")
 
     for term in ["Hacker News", "r/Python", "r/LocalLLaMA", "X / Twitter", "LinkedIn"]:
         assert term in text
@@ -81,7 +80,7 @@ def test_launch_kit_has_channel_specific_copy() -> None:
 
 
 def test_showcase_gallery_doc_exists() -> None:
-    text = Path("docs/SHOWCASE_GALLERY.md").read_text(encoding="utf-8")
+    text = (_python_docs_root() / "SHOWCASE_GALLERY.md").read_text(encoding="utf-8")
 
     assert "handoffkit demos" in text
     assert "handoffkit showcase coding-review" in text
@@ -91,7 +90,7 @@ def test_showcase_gallery_doc_exists() -> None:
 
 
 def test_showcase_svg_asset_exists() -> None:
-    text = Path("docs/assets/handoffkit-showcases.svg").read_text(encoding="utf-8")
+    text = (_python_docs_root() / "assets" / "handoffkit-showcases.svg").read_text(encoding="utf-8")
 
     assert "<svg" in text
     assert "Coding agents" in text
@@ -100,7 +99,7 @@ def test_showcase_svg_asset_exists() -> None:
 
 
 def test_coding_review_terminal_asset_exists() -> None:
-    text = Path("docs/assets/coding-review-terminal.svg").read_text(encoding="utf-8")
+    text = (_python_docs_root() / "assets" / "coding-review-terminal.svg").read_text(encoding="utf-8")
 
     assert "<svg" in text
     assert "pip install handoffkit" in text
@@ -109,7 +108,7 @@ def test_coding_review_terminal_asset_exists() -> None:
 
 
 def test_report_gallery_svg_asset_exists() -> None:
-    text = Path("docs/assets/handoffkit-report-gallery.svg").read_text(encoding="utf-8")
+    text = (_python_docs_root() / "assets" / "handoffkit-report-gallery.svg").read_text(encoding="utf-8")
 
     assert "<svg" in text
     assert "Report Gallery" in text or "REPORT GALLERY" in text

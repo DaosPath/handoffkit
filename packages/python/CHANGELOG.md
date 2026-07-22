@@ -1,5 +1,8 @@
 # Changelog
 
+> This file preserves published Python package history. New monorepo-wide and
+> unreleased changes are recorded in the root [`CHANGELOG.md`](../../CHANGELOG.md).
+
 ## 1.14.1
 
 ### Patch — native C++ core packaging + cross-runtime safety demos
@@ -38,7 +41,7 @@
 ### P2 — credibility foundations
 
 - `handoffkit.benchmarks.metrics` (latency, cost, context-loss, recovery).
-- `docs/THREAT_MODEL.md`, root `CONTRIBUTING.md`, `docs/EXTERNAL_BENCHMARK.md`.
+- `docs/python/THREAT_MODEL.md`, root `CONTRIBUTING.md`, `docs/python/EXTERNAL_BENCHMARK.md`.
 - Studio MAI runs stamp `workspaceId`/`userId` via `saveStoredRunWithStudio`.
 - **Independent protocol benchmark published:** `handoffkit-protocol-v1`
   (`build_independent_benchmark` / `run_independent_benchmark` /

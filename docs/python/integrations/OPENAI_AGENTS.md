@@ -55,7 +55,7 @@ def build_agents_sdk_handoff_payload(
 
 ## Runnable Example
 
-See [`examples/integrations/openai_agents_sdk_integration.py`](../../examples/integrations/openai_agents_sdk_integration.py).
+See [`examples/integrations/openai_agents_sdk_integration.py`](../../../packages/python/examples/integrations/openai_agents_sdk_integration.py).
 
 The example does not call the OpenAI API. It shows the boundary to keep stable:
 the Agents SDK can run agents and tools, while HandoffKit validates the handoff

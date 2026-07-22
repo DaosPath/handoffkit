@@ -53,7 +53,7 @@ def pydantic_ai_result_to_handoff(result) -> HandoffState:
 
 ## Runnable Example
 
-See [`examples/integrations/pydantic_ai_integration.py`](../../examples/integrations/pydantic_ai_integration.py).
+See [`examples/integrations/pydantic_ai_integration.py`](../../../packages/python/examples/integrations/pydantic_ai_integration.py).
 
 The example runs offline with a dataclass stand-in for a typed Pydantic AI
 result, so normal tests do not need provider keys or extra dependencies.
