@@ -38,7 +38,8 @@ def test_readme_links_showcases_post_and_integrations() -> None:
 
 
 def test_context_soup_post_exists() -> None:
-    text = (_python_docs_root() / "CONTEXT_SOUP_VS_CONTRACT_HANDOFFS.md").read_text(encoding="utf-8")
+    path = _python_docs_root() / "CONTEXT_SOUP_VS_CONTRACT_HANDOFFS.md"
+    text = path.read_text(encoding="utf-8")
 
     assert "Context Soup" in text
     assert "HandoffState" in text
@@ -70,7 +71,8 @@ def test_integration_docs_are_explicit_and_offline() -> None:
 
 
 def test_launch_kit_has_channel_specific_copy() -> None:
-    text = (_python_docs_root() / "launch" / "CONTEXT_SOUP_LAUNCH_KIT.md").read_text(encoding="utf-8")
+    path = _python_docs_root() / "launch" / "CONTEXT_SOUP_LAUNCH_KIT.md"
+    text = path.read_text(encoding="utf-8")
 
     for term in ["Hacker News", "r/Python", "r/LocalLLaMA", "X / Twitter", "LinkedIn"]:
         assert term in text
@@ -99,7 +101,8 @@ def test_showcase_svg_asset_exists() -> None:
 
 
 def test_coding_review_terminal_asset_exists() -> None:
-    text = (_python_docs_root() / "assets" / "coding-review-terminal.svg").read_text(encoding="utf-8")
+    path = _python_docs_root() / "assets" / "coding-review-terminal.svg"
+    text = path.read_text(encoding="utf-8")
 
     assert "<svg" in text
     assert "pip install handoffkit" in text
@@ -108,7 +111,8 @@ def test_coding_review_terminal_asset_exists() -> None:
 
 
 def test_report_gallery_svg_asset_exists() -> None:
-    text = (_python_docs_root() / "assets" / "handoffkit-report-gallery.svg").read_text(encoding="utf-8")
+    path = _python_docs_root() / "assets" / "handoffkit-report-gallery.svg"
+    text = path.read_text(encoding="utf-8")
 
     assert "<svg" in text
     assert "Report Gallery" in text or "REPORT GALLERY" in text
