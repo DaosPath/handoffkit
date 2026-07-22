@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-hero.svg" alt="HandoffKit — contract-first multi-agent workflows across Python, JavaScript, C++, and Rust contracts" width="100%">
+<img src="docs/assets/handoffkit-hero.svg" alt="HandoffKit — contract-first multi-agent workflows across Python, JavaScript, C++, and Rust contracts" width="100%">
 
 # HandoffKit
 
@@ -43,7 +43,7 @@ HandoffKit gives every transition an explicit contract:
 }
 ```
 
-<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-state-flow.svg" alt="Context soup compared with a structured HandoffState contract" width="100%">
+<img src="docs/assets/handoffkit-state-flow.svg" alt="Context soup compared with a structured HandoffState contract" width="100%">
 
 | Principle | What it means |
 |---|---|
@@ -107,7 +107,7 @@ Team team(std::move(agents), HandoffProtocol(ProtocolMode::HybridState));
 auto result = team.run("Prepare a release checklist");
 ```
 
-<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/coding-review-terminal.svg" alt="Five-minute HandoffKit coding review demo" width="100%">
+<img src="docs/assets/coding-review-terminal.svg" alt="Five-minute HandoffKit coding review demo" width="100%">
 
 ---
 
@@ -151,7 +151,7 @@ CI failure instead of a production surprise.
 
 ## Demos that produce evidence
 
-<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-showcases.svg" alt="Coding, support, and research workflows using the same HandoffKit contract" width="100%">
+<img src="docs/assets/handoffkit-showcases.svg" alt="Coding, support, and research workflows using the same HandoffKit contract" width="100%">
 
 | Workflow | What remains attached | Run |
 |---|---|---|
@@ -175,7 +175,7 @@ benchmarks, and Fusion-style panels.
 A completed run can become durable evidence without repeating provider calls or
 tool side effects.
 
-<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-trace-replay.svg" alt="RunTrace, storage, replay, timeline, and report pipeline" width="100%">
+<img src="docs/assets/handoffkit-trace-replay.svg" alt="RunTrace, storage, replay, timeline, and report pipeline" width="100%">
 
 ```python
 from handoffkit import FileTraceStore, ReplayRunner, RunTrace
@@ -188,7 +188,7 @@ print(summary.to_markdown())
 print(trace.to_timeline())
 ```
 
-<img src="https://raw.githubusercontent.com/DaosPath/handoffkit/main/docs/assets/handoffkit-report-gallery.svg" alt="Inspectable HandoffKit JSON and Markdown reports" width="100%">
+<img src="docs/assets/handoffkit-report-gallery.svg" alt="Inspectable HandoffKit JSON and Markdown reports" width="100%">
 
 Golden reports used by demos and tests live under
 [`packages/python/examples/fixtures/reports`](packages/python/examples/fixtures/reports/README.md).
