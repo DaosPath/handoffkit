@@ -1,115 +1,98 @@
-<svg width="1280" height="480" viewBox="0 0 1280 480" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">HandoffKit state flow — cross-runtime</title>
-  <desc id="desc">Before and after diagram: vague free-text context vs structured HandoffState shared across Python, JavaScript, Rust, and C++.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" role="img" aria-labelledby="title desc">
+  <title id="title">Context soup becomes a structured HandoffState</title>
+  <desc id="desc">A before and after comparison showing vague context on the left and a validated structured handoff contract on the right.</desc>
   <defs>
-    <linearGradient id="pageBg" x1="0" y1="0" x2="1280" y2="480" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#f0f4ff"/>
-      <stop offset="1" stop-color="#f0fdf4"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#060913"/>
+      <stop offset="0.55" stop-color="#0a1120"/>
+      <stop offset="1" stop-color="#09170f"/>
     </linearGradient>
-    <linearGradient id="afterBg" x1="660" y1="130" x2="1210" y2="390" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ecfeff"/>
-      <stop offset="1" stop-color="#f0fdf4"/>
-    </linearGradient>
-    <linearGradient id="rtBar" x1="0" y1="0" x2="1" y2="0">
+    <linearGradient id="accent" x1="664" y1="0" x2="1212" y2="0" gradientUnits="userSpaceOnUse">
       <stop stop-color="#38bdf8"/>
-      <stop offset="0.33" stop-color="#4ade80"/>
-      <stop offset="0.66" stop-color="#fb923c"/>
+      <stop offset="0.5" stop-color="#4ade80"/>
       <stop offset="1" stop-color="#a78bfa"/>
     </linearGradient>
-    <linearGradient id="rtBarH" x1="660" y1="0" x2="1210" y2="0" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#38bdf8"/>
-      <stop offset="0.33" stop-color="#4ade80"/>
-      <stop offset="0.66" stop-color="#fb923c"/>
-      <stop offset="1" stop-color="#a78bfa"/>
-    </linearGradient>
-    <filter id="cardShadow" x="-4%" y="-6%" width="108%" height="118%">
-      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#0f172a" flood-opacity="0.10"/>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M36 0H0V36" fill="none" stroke="#21304a" stroke-opacity="0.28"/>
+    </pattern>
+    <filter id="shadow" x="-10%" y="-12%" width="120%" height="132%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000" flood-opacity="0.4"/>
     </filter>
     <style>
-      .f { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-      .m { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+      .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
     </style>
   </defs>
 
-  <!-- Background -->
-  <rect width="1280" height="480" rx="28" fill="url(#pageBg)"/>
-  <rect x="1.5" y="1.5" width="1277" height="477" rx="26.5" fill="none" stroke="#cbd5e1" stroke-width="3"/>
+  <rect width="1280" height="480" rx="28" fill="url(#bg)"/>
+  <rect width="1280" height="480" rx="28" fill="url(#grid)"/>
+  <rect x="1.5" y="1.5" width="1277" height="477" rx="26.5" fill="none" stroke="#22304a" stroke-width="3"/>
 
-  <!-- Header -->
-  <text x="68" y="62" class="f" font-size="32" font-weight="800" fill="#0f172a">Structured handoffs beat context soup</text>
-  <text x="68" y="90" class="f" font-size="16" font-weight="500" fill="#475569">HandoffKit keeps task state explicit as agents move across Python, JavaScript, Rust, and C++.</text>
+  <text x="68" y="58" class="sans" font-size="31" font-weight="850" fill="#f8fafc">From context soup to a verifiable contract</text>
+  <text x="68" y="86" class="sans" font-size="15" fill="#8fa4c0">The next agent receives explicit state, not an interpretation of the previous conversation.</text>
 
-  <!-- Divider -->
-  <line x1="68" y1="108" x2="1212" y2="108" stroke="#e2e8f0" stroke-width="1.5"/>
+  <g transform="translate(68 116)" filter="url(#shadow)">
+    <rect width="470" height="304" rx="22" fill="#171018" stroke="#6b2639" stroke-width="1.5"/>
+    <rect width="470" height="6" rx="3" fill="#fb7185"/>
+    <rect x="24" y="24" width="100" height="28" rx="14" fill="#3a1420" stroke="#7f1d3f"/>
+    <text x="42" y="43" class="mono" font-size="10" font-weight="800" fill="#fda4af">CONTEXT SOUP</text>
 
-  <!-- ─── BEFORE card ─── -->
-  <rect x="68" y="124" width="468" height="308" rx="20" fill="#fff1f2" stroke="#fda4af" stroke-width="2" filter="url(#cardShadow)"/>
-  <!-- Red top bar -->
-  <rect x="68" y="124" width="468" height="6" rx="3" fill="#fb7185"/>
+    <text x="24" y="90" class="sans" font-size="22" font-weight="800" fill="#fecdd3">Vague summary</text>
+    <rect x="24" y="108" width="422" height="94" rx="15" fill="#100b11" stroke="#4b1c2a"/>
+    <text x="44" y="142" class="sans" font-size="15" fill="#e2e8f0">“Basically done. Reviewer found something.</text>
+    <text x="44" y="168" class="sans" font-size="15" fill="#e2e8f0">Tester should probably run it.”</text>
 
-  <!-- BEFORE badge -->
-  <rect x="96" y="148" width="72" height="26" rx="13" fill="#ffe4e6"/>
-  <text x="112" y="166" class="f" font-size="11" font-weight="800" fill="#be123c">BEFORE</text>
+    <text x="24" y="232" class="sans" font-size="13" fill="#a98b96">The next agent must guess what changed and why.</text>
 
-  <text x="96" y="210" class="f" font-size="22" font-weight="800" fill="#be123c">Before: vague summary</text>
-  <text x="96" y="246" class="m" font-size="14" font-weight="700" fill="#991b1b">"Basically done. Reviewer found</text>
-  <text x="96" y="268" class="m" font-size="14" font-weight="700" fill="#991b1b"> an issue. Tester should run it."</text>
-
-  <line x1="96" y1="284" x2="488" y2="284" stroke="#fda4af" stroke-width="1" stroke-dasharray="4 3"/>
-
-  <text x="96" y="312" class="f" font-size="14" font-weight="500" fill="#64748b">No files attached. No decisions recorded.</text>
-  <text x="96" y="334" class="f" font-size="14" font-weight="500" fill="#64748b">No errors. No next steps. Context soup.</text>
-
-  <!-- Lost pill -->
-  <rect x="96" y="354" width="334" height="30" rx="15" fill="#ffe4e6" stroke="#fda4af" stroke-width="1.5"/>
-  <text x="116" y="374" class="m" font-size="11" font-weight="700" fill="#be123c">lost: files · decisions · errors · next_steps</text>
-
-  <!-- ─── Arrow ─── -->
-  <circle cx="614" cy="278" r="42" fill="#0f172a" filter="url(#cardShadow)"/>
-  <!-- Arrow right -->
-  <path d="M594 278 L630 278" stroke="white" stroke-width="4" stroke-linecap="round"/>
-  <path d="M618 264 L634 278 L618 292" stroke="white" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="602" y="342" class="f" font-size="11" font-weight="700" fill="#94a3b8">becomes</text>
-
-  <!-- ─── AFTER card ─── -->
-  <rect x="660" y="124" width="552" height="308" rx="20" fill="url(#afterBg)" stroke="#6ee7b7" stroke-width="2" filter="url(#cardShadow)"/>
-  <!-- Multi-runtime gradient top bar -->
-  <rect x="660" y="124" width="552" height="6" rx="3" fill="url(#rtBarH)"/>
-
-  <!-- AFTER badge -->
-  <rect x="688" y="148" width="66" height="26" rx="13" fill="#d1fae5"/>
-  <text x="704" y="166" class="f" font-size="11" font-weight="800" fill="#065f46">AFTER</text>
-
-  <text x="688" y="210" class="f" font-size="22" font-weight="800" fill="#065f46">After: HandoffState</text>
-  <text x="688" y="238" class="f" font-size="13" font-weight="500" fill="#475569">Structured state travels as data, not a fragile paragraph.</text>
-
-  <text x="688" y="270" class="m" font-size="13" font-weight="700" fill="#047857">task:       "Build calculator CLI"</text>
-  <text x="688" y="292" class="m" font-size="13" font-weight="700" fill="#047857">decisions:  ["Use argparse", "Pure fns"]</text>
-  <text x="688" y="314" class="m" font-size="13" font-weight="700" fill="#047857">files:      ["calculator.py", "tests.py"]</text>
-  <text x="688" y="336" class="m" font-size="13" font-weight="700" fill="#047857">next_steps: ["Run pytest", "Check cov"]</text>
-
-  <!-- Runtime language badges row -->
-  <g transform="translate(688 358)">
-    <rect width="60" height="24" rx="12" fill="#dbeafe"/>
-    <text x="12" y="16" class="m" font-size="10" font-weight="800" fill="#1d4ed8">Python</text>
-
-    <rect x="68" width="80" height="24" rx="12" fill="#fef9c3"/>
-    <text x="78" y="16" class="m" font-size="10" font-weight="800" fill="#92400e">JavaScript</text>
-
-    <rect x="156" width="48" height="24" rx="12" fill="#ffedd5"/>
-    <text x="167" y="16" class="m" font-size="10" font-weight="800" fill="#9a3412">Rust</text>
-
-    <rect x="212" width="42" height="24" rx="12" fill="#f5f3ff"/>
-    <text x="222" y="16" class="m" font-size="10" font-weight="800" fill="#4c1d95">C++</text>
-
-    <rect x="262" width="96" height="24" rx="12" fill="#d1fae5"/>
-    <text x="272" y="16" class="m" font-size="10" font-weight="800" fill="#065f46">validated ✓</text>
-
-    <rect x="366" width="86" height="24" rx="12" fill="#e0e7ff"/>
-    <text x="376" y="16" class="m" font-size="10" font-weight="800" fill="#3730a3">quality A</text>
+    <g transform="translate(24 252)">
+      <rect width="92" height="30" rx="15" fill="#32111b"/>
+      <text x="18" y="20" class="mono" font-size="10" font-weight="700" fill="#fda4af">no files</text>
+      <rect x="102" width="112" height="30" rx="15" fill="#32111b"/>
+      <text x="120" y="20" class="mono" font-size="10" font-weight="700" fill="#fda4af">no decisions</text>
+      <rect x="224" width="94" height="30" rx="15" fill="#32111b"/>
+      <text x="242" y="20" class="mono" font-size="10" font-weight="700" fill="#fda4af">no errors</text>
+      <rect x="328" width="94" height="30" rx="15" fill="#32111b"/>
+      <text x="344" y="20" class="mono" font-size="10" font-weight="700" fill="#fda4af">no trace</text>
+    </g>
   </g>
 
-  <!-- Bottom gradient rule -->
-  <line x1="68" y1="456" x2="1212" y2="456" stroke="#e2e8f0" stroke-width="1.5"/>
-  <rect x="660" y="452" width="552" height="5" rx="2.5" fill="url(#rtBarH)"/>
+  <g transform="translate(570 232)">
+    <circle cx="38" cy="38" r="38" fill="#111827" stroke="#334155" stroke-width="1.5"/>
+    <path d="M21 38H51" stroke="#f8fafc" stroke-width="3" stroke-linecap="round"/>
+    <path d="M43 28L54 38L43 48" fill="none" stroke="#f8fafc" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="6" y="96" class="mono" font-size="10" font-weight="700" fill="#64748b">TRANSFER</text>
+  </g>
+
+  <g transform="translate(664 116)" filter="url(#shadow)">
+    <rect width="548" height="304" rx="22" fill="#0b1714" stroke="#1f6a4b" stroke-width="1.5"/>
+    <rect width="548" height="6" rx="3" fill="url(#accent)"/>
+    <rect x="24" y="24" width="118" height="28" rx="14" fill="#0b2b1c" stroke="#166534"/>
+    <text x="42" y="43" class="mono" font-size="10" font-weight="800" fill="#86efac">HANDOFFSTATE</text>
+
+    <text x="24" y="90" class="sans" font-size="22" font-weight="800" fill="#dcfce7">Structured handoff</text>
+    <text x="24" y="114" class="sans" font-size="13" fill="#8fa4c0">Serializable, validated, replayable, and runtime-neutral.</text>
+
+    <g transform="translate(24 134)">
+      <rect width="500" height="104" rx="15" fill="#07100e" stroke="#1b3d30"/>
+      <text x="18" y="28" class="mono" font-size="12" font-weight="700" fill="#7dd3fc">task:</text>
+      <text x="104" y="28" class="mono" font-size="12" fill="#e2e8f0">"Build calculator CLI"</text>
+      <text x="18" y="50" class="mono" font-size="12" font-weight="700" fill="#93c5fd">decisions:</text>
+      <text x="104" y="50" class="mono" font-size="12" fill="#e2e8f0">["argparse", "pure functions"]</text>
+      <text x="18" y="72" class="mono" font-size="12" font-weight="700" fill="#86efac">files:</text>
+      <text x="104" y="72" class="mono" font-size="12" fill="#e2e8f0">["calculator.py", "test_calculator.py"]</text>
+      <text x="18" y="94" class="mono" font-size="12" font-weight="700" fill="#fdba74">next_steps:</text>
+      <text x="104" y="94" class="mono" font-size="12" fill="#e2e8f0">["pytest -q", "check coverage"]</text>
+    </g>
+
+    <g transform="translate(24 254)">
+      <rect width="114" height="30" rx="15" fill="#0b2b1c" stroke="#166534"/>
+      <text x="18" y="20" class="mono" font-size="10" font-weight="800" fill="#86efac">✓ validated</text>
+      <rect x="124" width="104" height="30" rx="15" fill="#0d2234" stroke="#155e75"/>
+      <text x="142" y="20" class="mono" font-size="10" font-weight="800" fill="#7dd3fc">quality A</text>
+      <rect x="238" width="112" height="30" rx="15" fill="#27150b" stroke="#c2410c"/>
+      <text x="256" y="20" class="mono" font-size="10" font-weight="800" fill="#fdba74">replayable</text>
+      <rect x="360" width="140" height="30" rx="15" fill="#22143d" stroke="#7c3aed"/>
+      <text x="378" y="20" class="mono" font-size="10" font-weight="800" fill="#c4b5fd">snake_case JSON</text>
+    </g>
+  </g>
 </svg>

@@ -1,150 +1,103 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
-  <title id="title">HandoffKit report gallery</title>
-  <desc id="desc">Report gallery: three HandoffKit reports for coding agents, support escalation, and research workflow — across Python, JavaScript, Rust, and C++.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="600" viewBox="0 0 1280 600" role="img" aria-labelledby="title desc">
+  <title id="title">HandoffKit Report Gallery</title>
+  <desc id="desc">Three inspectable HandoffKit reports for coding review, support escalation, and research workflow.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="720" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#f8fbff"/>
-      <stop offset="0.55" stop-color="#eef7ff"/>
-      <stop offset="1" stop-color="#f0fdf4"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#060913"/>
+      <stop offset="0.55" stop-color="#0a1120"/>
+      <stop offset="1" stop-color="#09170f"/>
     </linearGradient>
-    <linearGradient id="barH" x1="68" y1="0" x2="1212" y2="0" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2563eb"/>
-      <stop offset="0.33" stop-color="#059669"/>
-      <stop offset="0.66" stop-color="#ea580c"/>
-      <stop offset="1" stop-color="#7c3aed"/>
+    <linearGradient id="accent" x1="68" y1="0" x2="1212" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38bdf8"/>
+      <stop offset="0.34" stop-color="#4ade80"/>
+      <stop offset="0.68" stop-color="#fb923c"/>
+      <stop offset="1" stop-color="#a78bfa"/>
     </linearGradient>
-    <filter id="card" x="-5%" y="-5%" width="110%" height="116%">
-      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.11"/>
-    </filter>
-    <filter id="term" x="-4%" y="-6%" width="108%" height="118%">
-      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#0f172a" flood-opacity="0.18"/>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M36 0H0V36" fill="none" stroke="#21304a" stroke-opacity="0.28"/>
+    </pattern>
+    <filter id="shadow" x="-10%" y="-12%" width="120%" height="134%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000" flood-opacity="0.42"/>
     </filter>
     <style>
-      .f  { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-      .m  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .sans { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
     </style>
   </defs>
 
-  <rect width="1280" height="720" rx="32" fill="url(#bg)"/>
-  <rect x="1.5" y="1.5" width="1277" height="717" rx="30.5" fill="none" stroke="#dbe4ef" stroke-width="3"/>
+  <rect width="1280" height="600" rx="30" fill="url(#bg)"/>
+  <rect width="1280" height="600" rx="30" fill="url(#grid)"/>
+  <rect x="1.5" y="1.5" width="1277" height="597" rx="28.5" fill="none" stroke="#22304a" stroke-width="3"/>
 
-  <!-- Decorative blobs -->
-  <circle cx="1160" cy="100" r="100" fill="#bbf7d0" fill-opacity="0.40"/>
-  <circle cx="1048" cy="78" r="62" fill="#bfdbfe" fill-opacity="0.44"/>
+  <rect x="68" y="44" width="142" height="30" rx="15" fill="#22143d" stroke="#7c3aed"/>
+  <text x="88" y="64" class="mono" font-size="10" font-weight="800" fill="#c4b5fd">REPORT GALLERY</text>
+  <text x="68" y="112" class="sans" font-size="40" font-weight="850" fill="#f8fafc">Evidence people can inspect</text>
+  <text x="68" y="142" class="sans" font-size="15" fill="#8fa4c0">Every workflow can export its contract, validation, quality, trace, and replay summary.</text>
+  <rect x="68" y="164" width="1144" height="4" rx="2" fill="url(#accent)"/>
 
-  <!-- Header -->
-  <rect x="68" y="52" width="172" height="30" rx="15" fill="#dbeafe" stroke="#bfdbfe" stroke-width="1"/>
-  <text x="86" y="72" class="m" font-size="11" font-weight="800" fill="#1d4ed8">REPORT GALLERY · 4 RUNTIMES</text>
-  <text x="68" y="134" class="f" font-size="42" font-weight="840" fill="#0f172a">Reports people can inspect</text>
-  <text x="68" y="166" class="f" font-size="17" font-weight="500" fill="#42526b">Every workflow writes Markdown, JSON, trace, validation, quality, and replay evidence.</text>
+  <g transform="translate(68 198)" filter="url(#shadow)">
+    <rect width="354" height="300" rx="22" fill="#0b1424" stroke="#24506d" stroke-width="1.5"/>
+    <rect width="354" height="6" rx="3" fill="#38bdf8"/>
+    <rect x="24" y="24" width="74" height="26" rx="13" fill="#0d2234"/>
+    <text x="42" y="42" class="mono" font-size="10" font-weight="800" fill="#7dd3fc">CODING</text>
+    <text x="24" y="88" class="mono" font-size="17" font-weight="800" fill="#f8fafc">coding_review.md</text>
+    <text x="24" y="112" class="sans" font-size="12" fill="#8fa4c0">Architect → Coder → Reviewer → Tester</text>
 
-  <!-- Gradient rule: x=68, w=580 → right=648. OK -->
-  <rect x="68" y="184" width="580" height="5" rx="2.5" fill="url(#barH)"/>
+    <rect x="24" y="132" width="306" height="76" rx="14" fill="#070c15" stroke="#22304a"/>
+    <text x="42" y="158" class="mono" font-size="10" fill="#7dd3fc">files: 4 · decisions: 6 · errors: 0</text>
+    <text x="42" y="180" class="mono" font-size="10" fill="#7dd3fc">steps: 4 · handoffs: 3 · replay: ready</text>
 
-  <!-- ── Card 1: Coding (x=68, w=356 → right=424) ── -->
-  <g transform="translate(68 212)" filter="url(#card)">
-    <rect width="356" height="334" rx="24" fill="#ffffff" stroke="#dbe4ef" stroke-width="1.2"/>
-    <rect width="356" height="6" rx="3" fill="#2563eb"/>
-
-    <rect x="24" y="22" width="82" height="26" rx="13" fill="#dbeafe"/>
-    <text x="36" y="39" class="m" font-size="11" font-weight="800" fill="#1d4ed8">CODING</text>
-
-    <text x="24" y="84" class="f" font-size="20" font-weight="820" fill="#0f172a">coding_review.md</text>
-    <text x="24" y="110" class="f" font-size="13" fill="#475569">Architect → Coder → Reviewer → Tester</text>
-
-    <rect x="24" y="126" width="308" height="78" rx="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
-    <text x="42" y="156" class="f" font-size="14" fill="#475569">Preserves files, decisions, errors,</text>
-    <text x="42" y="178" class="f" font-size="14" fill="#475569">review fixes, and test commands.</text>
-
-    <!-- Runtime badges -->
-    <g transform="translate(24 222)">
-      <rect width="56" height="22" rx="11" fill="#dbeafe"/>
-      <text x="10" y="15" class="m" font-size="10" font-weight="800" fill="#1d4ed8">Python</text>
-      <rect x="64" width="74" height="22" rx="11" fill="#fef9c3"/>
-      <text x="72" y="15" class="m" font-size="10" font-weight="800" fill="#92400e">JavaScript</text>
-      <rect x="146" width="48" height="22" rx="11" fill="#ffedd5"/>
-      <text x="155" y="15" class="m" font-size="10" font-weight="800" fill="#9a3412">Rust</text>
-      <rect x="202" width="44" height="22" rx="11" fill="#f5f3ff"/>
-      <text x="210" y="15" class="m" font-size="10" font-weight="800" fill="#4c1d95">C++</text>
-    </g>
-
-    <!-- Metric -->
-    <line x1="24" y1="264" x2="332" y2="264" stroke="#e2e8f0" stroke-width="1.2"/>
-    <text x="24" y="302" class="f" font-size="30" font-weight="860" fill="#0f172a">A</text>
-    <text x="58" y="302" class="m" font-size="12" font-weight="780" fill="#14532d">quality / 3 handoffs / replay</text>
+    <text x="24" y="248" class="sans" font-size="30" font-weight="900" fill="#86efac">A</text>
+    <text x="58" y="244" class="mono" font-size="10" font-weight="700" fill="#8fa4c0">quality score</text>
+    <rect x="210" y="226" width="120" height="30" rx="15" fill="#0b2b1c" stroke="#166534"/>
+    <text x="228" y="246" class="mono" font-size="10" font-weight="800" fill="#86efac">validated ✓</text>
+    <text x="24" y="282" class="mono" font-size="10" fill="#64748b">JSON twin: coding_review.json</text>
   </g>
 
-  <!-- ── Card 2: Support (x=444, w=356 → right=800) ── -->
-  <g transform="translate(444 212)" filter="url(#card)">
-    <rect width="356" height="334" rx="24" fill="#ffffff" stroke="#dbe4ef" stroke-width="1.2"/>
-    <rect width="356" height="6" rx="3" fill="#0f766e"/>
+  <g transform="translate(463 198)" filter="url(#shadow)">
+    <rect width="354" height="300" rx="22" fill="#0b1424" stroke="#286442" stroke-width="1.5"/>
+    <rect width="354" height="6" rx="3" fill="#4ade80"/>
+    <rect x="24" y="24" width="76" height="26" rx="13" fill="#0b2b1c"/>
+    <text x="42" y="42" class="mono" font-size="10" font-weight="800" fill="#86efac">SUPPORT</text>
+    <text x="24" y="88" class="mono" font-size="17" font-weight="800" fill="#f8fafc">support_escalation.md</text>
+    <text x="24" y="112" class="sans" font-size="12" fill="#8fa4c0">Triage → Billing → Refund → Supervisor</text>
 
-    <rect x="24" y="22" width="84" height="26" rx="13" fill="#ccfbf1"/>
-    <text x="36" y="39" class="m" font-size="11" font-weight="800" fill="#0f766e">SUPPORT</text>
+    <rect x="24" y="132" width="306" height="76" rx="14" fill="#070c15" stroke="#22304a"/>
+    <text x="42" y="158" class="mono" font-size="10" fill="#86efac">policy checks · charge IDs · approvals</text>
+    <text x="42" y="180" class="mono" font-size="10" fill="#86efac">audit trail · escalation context · outcome</text>
 
-    <text x="24" y="84" class="f" font-size="20" font-weight="820" fill="#0f172a">support_escalation.md</text>
-    <text x="24" y="110" class="f" font-size="13" fill="#475569">Triage → Billing → Refund → Supervisor</text>
-
-    <rect x="24" y="126" width="308" height="78" rx="16" fill="#ecfdf5" stroke="#bbf7d0" stroke-width="1"/>
-    <text x="42" y="156" class="f" font-size="14" fill="#475569">Keeps charge IDs, policy checks,</text>
-    <text x="42" y="178" class="f" font-size="14" fill="#475569">correction notes, and approvals.</text>
-
-    <g transform="translate(24 222)">
-      <rect width="56" height="22" rx="11" fill="#dbeafe"/>
-      <text x="10" y="15" class="m" font-size="10" font-weight="800" fill="#1d4ed8">Python</text>
-      <rect x="64" width="74" height="22" rx="11" fill="#fef9c3"/>
-      <text x="72" y="15" class="m" font-size="10" font-weight="800" fill="#92400e">JavaScript</text>
-      <rect x="146" width="48" height="22" rx="11" fill="#ffedd5"/>
-      <text x="155" y="15" class="m" font-size="10" font-weight="800" fill="#9a3412">Rust</text>
-      <rect x="202" width="44" height="22" rx="11" fill="#f5f3ff"/>
-      <text x="210" y="15" class="m" font-size="10" font-weight="800" fill="#4c1d95">C++</text>
-    </g>
-
-    <line x1="24" y1="264" x2="332" y2="264" stroke="#e2e8f0" stroke-width="1.2"/>
-    <text x="24" y="302" class="f" font-size="30" font-weight="860" fill="#0f172a">0.925</text>
-    <text x="112" y="302" class="m" font-size="12" font-weight="780" fill="#14532d">quality / audit trail</text>
+    <text x="24" y="248" class="sans" font-size="30" font-weight="900" fill="#86efac">0.925</text>
+    <text x="112" y="244" class="mono" font-size="10" font-weight="700" fill="#8fa4c0">quality</text>
+    <rect x="210" y="226" width="120" height="30" rx="15" fill="#0b2b1c" stroke="#166534"/>
+    <text x="228" y="246" class="mono" font-size="10" font-weight="800" fill="#86efac">audit ready</text>
+    <text x="24" y="282" class="mono" font-size="10" fill="#64748b">JSON twin: support_escalation.json</text>
   </g>
 
-  <!-- ── Card 3: Research (x=820, w=356 → right=1176) margin=104px ✓ ── -->
-  <g transform="translate(820 212)" filter="url(#card)">
-    <rect width="356" height="334" rx="24" fill="#ffffff" stroke="#dbe4ef" stroke-width="1.2"/>
-    <rect width="356" height="6" rx="3" fill="#7c3aed"/>
+  <g transform="translate(858 198)" filter="url(#shadow)">
+    <rect width="354" height="300" rx="22" fill="#0b1424" stroke="#554178" stroke-width="1.5"/>
+    <rect width="354" height="6" rx="3" fill="#a78bfa"/>
+    <rect x="24" y="24" width="82" height="26" rx="13" fill="#22143d"/>
+    <text x="42" y="42" class="mono" font-size="10" font-weight="800" fill="#c4b5fd">RESEARCH</text>
+    <text x="24" y="88" class="mono" font-size="17" font-weight="800" fill="#f8fafc">research_workflow.md</text>
+    <text x="24" y="112" class="sans" font-size="12" fill="#8fa4c0">Researcher → Extractor → Checker → Writer</text>
 
-    <rect x="24" y="22" width="92" height="26" rx="13" fill="#ede9fe"/>
-    <text x="36" y="39" class="m" font-size="11" font-weight="800" fill="#6d28d9">RESEARCH</text>
+    <rect x="24" y="132" width="306" height="76" rx="14" fill="#070c15" stroke="#22304a"/>
+    <text x="42" y="158" class="mono" font-size="10" fill="#c4b5fd">sources · claims · confidence · citations</text>
+    <text x="42" y="180" class="mono" font-size="10" fill="#c4b5fd">corrections · constraints · final synthesis</text>
 
-    <text x="24" y="84" class="f" font-size="20" font-weight="820" fill="#0f172a">research_workflow.md</text>
-    <text x="24" y="110" class="f" font-size="13" fill="#475569">Researcher → Extractor → Fact-checker</text>
-
-    <rect x="24" y="126" width="308" height="78" rx="16" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
-    <text x="42" y="156" class="f" font-size="14" fill="#475569">Tracks sources, claims, confidence,</text>
-    <text x="42" y="178" class="f" font-size="14" fill="#475569">corrections, and writer constraints.</text>
-
-    <g transform="translate(24 222)">
-      <rect width="56" height="22" rx="11" fill="#dbeafe"/>
-      <text x="10" y="15" class="m" font-size="10" font-weight="800" fill="#1d4ed8">Python</text>
-      <rect x="64" width="74" height="22" rx="11" fill="#fef9c3"/>
-      <text x="72" y="15" class="m" font-size="10" font-weight="800" fill="#92400e">JavaScript</text>
-      <rect x="146" width="48" height="22" rx="11" fill="#ffedd5"/>
-      <text x="155" y="15" class="m" font-size="10" font-weight="800" fill="#9a3412">Rust</text>
-      <rect x="202" width="44" height="22" rx="11" fill="#f5f3ff"/>
-      <text x="210" y="15" class="m" font-size="10" font-weight="800" fill="#4c1d95">C++</text>
-    </g>
-
-    <line x1="24" y1="264" x2="332" y2="264" stroke="#e2e8f0" stroke-width="1.2"/>
-    <text x="24" y="302" class="f" font-size="30" font-weight="860" fill="#0f172a">0.912</text>
-    <text x="112" y="302" class="m" font-size="12" font-weight="780" fill="#14532d">quality / sources</text>
+    <text x="24" y="248" class="sans" font-size="30" font-weight="900" fill="#c4b5fd">0.912</text>
+    <text x="112" y="244" class="mono" font-size="10" font-weight="700" fill="#8fa4c0">quality</text>
+    <rect x="210" y="226" width="120" height="30" rx="15" fill="#22143d" stroke="#7c3aed"/>
+    <text x="228" y="246" class="mono" font-size="10" font-weight="800" fill="#c4b5fd">traceable</text>
+    <text x="24" y="282" class="mono" font-size="10" fill="#64748b">JSON twin: research_workflow.json</text>
   </g>
 
-  <!-- Bottom terminal bar: x=68, w=1144 → right=1212. margin=68px ✓ -->
-  <g transform="translate(68 590)" filter="url(#term)">
-    <rect width="1144" height="62" rx="18" fill="#0f1220"/>
-    <circle cx="26" cy="31" r="5" fill="#fb7185"/>
-    <circle cx="44" cy="31" r="5" fill="#facc15"/>
-    <circle cx="62" cy="31" r="5" fill="#4ade80"/>
-    <text x="88" y="26" class="m" font-size="13" font-weight="700" fill="#dbeafe">$ handoffkit demos</text>
-    <text x="300" y="26" class="m" font-size="13" font-weight="700" fill="#dbeafe">$ handoffkit showcase coding-review</text>
-    <text x="656" y="26" class="m" font-size="13" font-weight="700" fill="#dbeafe">$ handoffkit report runs/latest</text>
-    <text x="88" y="48" class="m" font-size="11" fill="#334155">Python · JavaScript · Rust · C++ · Shared JSON wire format · validated · replayable</text>
+  <g transform="translate(68 526)">
+    <rect width="1144" height="46" rx="16" fill="#050a13" stroke="#22304a"/>
+    <circle cx="22" cy="23" r="4" fill="#fb7185"/>
+    <circle cx="38" cy="23" r="4" fill="#facc15"/>
+    <circle cx="54" cy="23" r="4" fill="#4ade80"/>
+    <text x="78" y="28" class="mono" font-size="11" font-weight="700" fill="#38bdf8">$ handoffkit report runs/latest</text>
+    <text x="344" y="28" class="mono" font-size="11" fill="#8fa4c0">Markdown for people · JSON for systems · replay without side effects</text>
   </g>
 </svg>

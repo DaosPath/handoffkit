@@ -21,6 +21,13 @@ release summary.
 
 ### Changed
 
+- Redesigned the monorepo README around the current 1.14.1 runtime status,
+  contract model, evidence-producing demos, trace/replay workflow, and native
+  C++ Fusion. The shared README SVG suite now uses one consistent visual system
+  with larger type, reduced density, and improved dark-theme readability.
+- Corrected the root runtime matrix so Rust is described as an unpublished
+  contract layer rather than an installable crates.io package, and C++ is
+  described as a native C++20 runtime.
 - Centralized long-form runtime documentation under `docs/cpp`, `docs/python`,
   `docs/js`, and `docs/rust`, with a demo index for every runtime.
 - Fusion Genius now uses six architect branches, merge, and final meta-judge
