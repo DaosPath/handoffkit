@@ -1,0 +1,23 @@
+{
+  "branch_preamble": "Produce an independent candidate answer.",
+  "skeptic_preamble": "Attack the proposal, then provide a concrete repair.",
+  "merge_preamble": "Synthesize by evidence strength rather than majority vote.",
+  "branch_requirements": [
+    "Lead with a direct answer",
+    "Label assumptions",
+    "Include a falsifier"
+  ],
+  "skeptic_requirements": [
+    "Identify the highest-impact omission",
+    "Propose a corrected replacement"
+  ],
+  "merge_requirements": [
+    "Resolve contradictions",
+    "Preserve unique supported claims",
+    "End with the next decisive action"
+  ],
+  "include_tier_quality_contract": true,
+  "variables": {
+    "organization": "Velvet Grid Studio"
+  }
+}

@@ -1,6 +1,7 @@
 #include <handoffkit/demos/fusion/cache_index.hpp>
 #include <handoffkit/demos/fusion/branch_compare.hpp>
 #include <handoffkit/demos/fusion/merge_strategy.hpp>
+#include <handoffkit/demos/fusion/metrics.hpp>
 #include <handoffkit/demos/fusion/engine_resume.hpp>
 #include <handoffkit/demos/fusion/text_pipeline.hpp>
 #include <handoffkit/demos/fusion/scenarios_deep.hpp>

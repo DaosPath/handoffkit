@@ -31,7 +31,7 @@ enum class FusionTier {
     Medium,  // lean dual + merge (3) with roomier budget / neutral quality defaults
     Pro,     // ultra: dual + skeptics + merge (5)
     Ultra,   // multi-architect DAG (4 branches + merge = 5)
-    Genius,  // wide DAG (6 branches + merge = 7) — max exploration
+    Genius,  // wide DAG (6 branches + merge + meta-judge = 8 calls)
 };
 
 /// Prompt / evidence depth scales with product tier (not only call count).
@@ -60,6 +60,10 @@ struct FusionCapabilityPack {
     FusionPromptDepth depth = FusionPromptDepth::Standard;
     std::vector<std::string> skills;
     std::vector<std::string> tool_slots;
+    /// Deterministic/semantic checks expected from this tier. Higher tiers are cumulative.
+    std::vector<std::string> quality_gates;
+    /// Required shape of the final answer for this tier.
+    std::vector<std::string> output_contract;
     int evidence_min_points = 2;
     int max_branch_bullets = 10;
     int max_skeptic_bullets = 6;
@@ -94,6 +98,41 @@ struct FusionTierSpec {
 [[nodiscard]] std::vector<std::string> fusion_tier_names();
 [[nodiscard]] FusionTierSpec fusion_tier_spec(FusionTier tier);
 [[nodiscard]] FusionCapabilityPack fusion_capability_pack(FusionTier tier);
+
+/// User-editable prompt pack. Empty templates keep the built-in prompts.
+/// Supported placeholders include {{task}}, {{branch_label}}, {{focus}}, {{proposal}},
+/// {{branches}}, {{handoffs}}, {{quality_contract}}, {{skills}}, and {{tool_slots}}.
+struct FusionPromptConfig {
+    std::string branch_template;
+    std::string skeptic_template;
+    std::string merge_template;
+    std::string merge_multi_template;
+    std::string branch_preamble;
+    std::string skeptic_preamble;
+    std::string merge_preamble;
+    std::vector<std::string> branch_requirements;
+    std::vector<std::string> skeptic_requirements;
+    std::vector<std::string> merge_requirements;
+    nlohmann::json variables = nlohmann::json::object();
+    bool include_tier_quality_contract = true;
+
+    nlohmann::json to_json() const;
+    static Result<FusionPromptConfig> from_json(const nlohmann::json& j);
+};
+
+struct FusionGenerationConfig {
+    int branch_max_tokens = 900;
+    int skeptic_max_tokens = 700;
+    int merge_max_tokens = 1200;
+    int meta_judge_max_tokens = 1400;
+    double temperature = -1.0;
+    double top_p = -1.0;
+    nlohmann::json extra_body = nlohmann::json::object();
+
+    nlohmann::json to_json() const;
+    static Result<FusionGenerationConfig> from_json(const nlohmann::json& j);
+    [[nodiscard]] int max_tokens_for_step(std::string_view step_id) const;
+};
 
 struct FusionPolicyConfig {
     int max_llm_calls = 32;
@@ -144,12 +183,22 @@ struct FusionConfig {
     double overlap_skip_skeptic_threshold = 0.90;
     /// If merge drops a concrete branch lead, re-prefix it.
     bool anti_dilution = true;
+    /// Optional custom role pack JSON. Empty uses the selected built-in profile.
+    std::filesystem::path role_pack_file;
+    /// Prompt templates, requirements, variables, and preambles.
+    FusionPromptConfig prompts;
+    /// Per-phase token budgets and sampling controls.
+    FusionGenerationConfig generation;
     FusionCacheConfig cache;
     FusionPolicyConfig policy;
     std::filesystem::path output_dir{"runs/fusion-runs"};
     bool write_files = true;
     bool ascii_sanitize = true;
     int branch_count = 2;  // for multi/dag
+    /// Run independent DAG architect branches concurrently when cache is disabled.
+    bool parallel_branches = true;
+    /// Bounded concurrency for DAG branches. Values are clamped to 1..8.
+    int max_parallel_branches = 4;
     nlohmann::json extra = nlohmann::json::object();
 
     /// When true, run native web explorer tools before LLM steps and inject Markdown.

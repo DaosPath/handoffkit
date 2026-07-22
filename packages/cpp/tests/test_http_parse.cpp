@@ -37,6 +37,26 @@ void test_parse_openai_chat_completion_text_fallback() {
     std::cout << "test_parse_openai_chat_completion_text_fallback passed!" << std::endl;
 }
 
+void test_parse_openai_rejects_reasoning_without_final_content() {
+    nlohmann::json response = {
+        {"choices", nlohmann::json::array({
+            nlohmann::json{
+                {"message", {
+                    {"role", "assistant"},
+                    {"content", ""},
+                    {"reasoning_content", "still reasoning"},
+                }},
+                {"finish_reason", "length"},
+            },
+        })},
+    };
+    auto result = parse_openai_chat_completion(response);
+    assert(!result);
+    assert(result.error().code == ErrorCode::ParseError);
+    assert(result.error().message.find("increase max_tokens") != std::string::npos);
+    std::cout << "test_parse_openai_rejects_reasoning_without_final_content passed!" << std::endl;
+}
+
 void test_parse_openai_rejects_empty_choices() {
     auto bad = parse_openai_chat_completion(nlohmann::json{{"choices", nlohmann::json::array()}});
     assert(!bad);
@@ -48,6 +68,10 @@ void test_build_openai_chat_request_shape() {
     GenerateOptions opts;
     opts.agent_name = "Coder";
     opts.context = "prior context";
+    opts.max_tokens = 2048;
+    opts.temperature = 0.2;
+    opts.top_p = 0.9;
+    opts.extra_body = {{"thinking", {{"type", "disabled"}}}, {"custom_flag", true}};
     auto body = build_openai_chat_request("gpt-test", "do work", opts);
     assert(body.at("model") == "gpt-test");
     assert(body.at("messages").is_array());
@@ -57,6 +81,11 @@ void test_build_openai_chat_request_shape() {
     assert(content.find("prior context") != std::string::npos);
     assert(content.find("do work") != std::string::npos);
     assert(body.at("user") == "Coder");
+    assert(body.at("max_tokens") == 2048);
+    assert(body.at("temperature") == 0.2);
+    assert(body.at("top_p") == 0.9);
+    assert(body.at("thinking").at("type") == "disabled");
+    assert(body.at("custom_flag") == true);
     std::cout << "test_build_openai_chat_request_shape passed!" << std::endl;
 }
 
@@ -65,6 +94,7 @@ void test_build_openai_chat_request_shape() {
 int main() {
     test_parse_openai_chat_completion_message();
     test_parse_openai_chat_completion_text_fallback();
+    test_parse_openai_rejects_reasoning_without_final_content();
     test_parse_openai_rejects_empty_choices();
     test_build_openai_chat_request_shape();
     std::cout << "All HTTP parse (offline) tests passed!" << std::endl;

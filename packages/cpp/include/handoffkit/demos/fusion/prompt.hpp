@@ -63,6 +63,9 @@ struct FrameOptions {
     int evidence_min_points = 2;
     std::vector<std::string> skills;
     std::vector<std::string> tool_slots;
+    std::vector<std::string> quality_gates;
+    std::vector<std::string> output_contract;
+    FusionPromptConfig prompt_config;
     /// Pre-formatted structured handoff block (markdown section body); empty = none.
     std::string prior_handoff_section;
     /// Live web research markdown (from native explorer tools); empty = none.

@@ -76,6 +76,8 @@ void test_ultra_echo() {
     cfg.provider = "echo";
     cfg.write_files = false;
     cfg.cache.enabled = false;
+    // The test asserts the full five-call graph, so disable overlap early-stop.
+    cfg.early_stop_on_overlap = false;
 
     auto run = run_fusion(cfg);
     assert(run);
@@ -124,6 +126,8 @@ void test_capability_pack_differentiation() {
     assert(jl["capability"]["pack_id"] == "capability_lite");
     assert(jg["capability"]["pack_id"] == "capability_genius");
     assert(jl["capability"]["skills"] != jg["capability"]["skills"]);
+    assert(jl["capability"]["quality_gates"].size() < jg["capability"]["quality_gates"].size());
+    assert(jl["capability"]["output_contract"] != jg["capability"]["output_contract"]);
     std::cout << "test_capability_pack_differentiation ok\n";
 }
 
@@ -225,7 +229,7 @@ void test_fusion_tiers_echo() {
         {FusionTier::Medium, 3, 2},
         {FusionTier::Pro, 5, 2},
         {FusionTier::Ultra, 5, 4},
-        {FusionTier::Genius, 7, 6},
+        {FusionTier::Genius, 8, 6},
     };
     for (const auto& c : cases) {
         FusionConfig cfg;
@@ -329,10 +333,56 @@ void test_handoff_in_engine_prompts_lean_and_pro() {
     apply_fusion_tier(gen, FusionTier::Genius);
     auto r_gen = run_fusion(gen);
     assert(r_gen && r_gen.value().success);
-    assert(r_gen.value().metrics.llm_calls == 7);
+    assert(r_gen.value().metrics.llm_calls == 8);
     assert(static_cast<int>(r_gen.value().handoffs.size()) == 6);  // one per architect branch
     assert(r_gen.value().report["capability"]["pack_id"] == "capability_genius");
     std::cout << "test_handoff_in_engine_prompts_lean_and_pro ok\n";
+}
+
+void test_prompt_config_templates() {
+    FusionPromptConfig pc;
+    pc.branch_template = "CUSTOM {{branch_label}} :: {{task}} :: {{quality_contract}}";
+    pc.merge_requirements = {"Preserve the strongest unique claim", "Return a decision"};
+    pc.variables = {{"team", "fusion-lab"}};
+    auto j = pc.to_json();
+    auto parsed = FusionPromptConfig::from_json(j);
+    assert(parsed);
+    FusionGenerationConfig generation;
+    generation.branch_max_tokens = 777;
+    generation.meta_judge_max_tokens = 1888;
+    auto gj = generation.to_json();
+    auto gp = FusionGenerationConfig::from_json(gj);
+    assert(gp);
+    assert(gp.value().max_tokens_for_step("dag_branch_a") == 777);
+    assert(gp.value().max_tokens_for_step("dag_meta_judge") == 1888);
+    FrameOptions opts;
+    opts.prompt_config = parsed.value();
+    opts.quality_gates = {"scope_match", "evidence_checked"};
+    opts.output_contract = {"direct_answer_first"};
+    const auto prompt = frame_branch_task("Choose A or B", "decision", "compare", opts);
+    assert(prompt.find("CUSTOM decision") != std::string::npos);
+    assert(prompt.find("scope_match") != std::string::npos);
+    std::cout << "test_prompt_config_templates ok\n";
+}
+
+void test_dag_parallel_execution_report() {
+    FusionConfig cfg;
+    cfg.task = "Compare three deployment strategies with constraints.";
+    cfg.provider = "echo";
+    cfg.profile = FusionProfileId::Research;
+    cfg.cache.enabled = false;
+    cfg.write_files = false;
+    apply_fusion_tier(cfg, FusionTier::Ultra);
+    cfg.parallel_branches = true;
+    cfg.max_parallel_branches = 2;
+    auto run = run_fusion(cfg);
+    assert(run);
+    assert(run.value().success);
+    assert(run.value().metrics.llm_calls == 5);
+    assert(run.value().report.at("parallel_branches_requested") == true);
+    assert(run.value().report.at("parallel_branches_used") == true);
+    assert(run.value().report.at("max_parallel_branches") == 2);
+    std::cout << "test_dag_parallel_execution_report ok\n";
 }
 
 void test_disk_report_has_call_steps_and_cache_stats() {
@@ -396,6 +446,8 @@ int main() {
     test_ultra_echo();
     test_fusion_tiers_echo();
     test_handoff_in_engine_prompts_lean_and_pro();
+    test_prompt_config_templates();
+    test_dag_parallel_execution_report();
     test_disk_report_has_call_steps_and_cache_stats();
     std::cout << "All fusion engine tests passed\n";
     return 0;

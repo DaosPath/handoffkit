@@ -116,6 +116,8 @@ nlohmann::json FusionCapabilityPack::to_json() const {
         {"depth", fusion_prompt_depth_to_string(depth)},
         {"skills", skills},
         {"tool_slots", tool_slots},
+        {"quality_gates", quality_gates},
+        {"output_contract", output_contract},
         {"evidence_min_points", evidence_min_points},
         {"max_branch_bullets", max_branch_bullets},
         {"max_skeptic_bullets", max_skeptic_bullets},
@@ -132,6 +134,8 @@ FusionCapabilityPack fusion_capability_pack(FusionTier tier) {
             p.depth = FusionPromptDepth::Compact;
             p.skills = {"answer_first", "outline", "concise_merge"};
             p.tool_slots = {"structured_handoff", "direct_answer"};
+            p.quality_gates = {"scope_match", "direct_answer_present"};
+            p.output_contract = {"direct_answer_first", "concise_support"};
             p.evidence_min_points = 2;
             p.max_branch_bullets = 10;
             p.max_skeptic_bullets = 4;
@@ -146,6 +150,13 @@ FusionCapabilityPack fusion_capability_pack(FusionTier tier) {
             };
             p.tool_slots = {
                 "structured_handoff", "context_refs", "direct_answer", "assumption_log"
+            };
+            p.quality_gates = {
+                "scope_match", "direct_answer_present", "task_decomposition",
+                "assumptions_explicit", "tradeoffs_covered"
+            };
+            p.output_contract = {
+                "direct_answer_first", "structured_support", "assumption_ledger", "tradeoff_summary"
             };
             p.evidence_min_points = 3;
             p.max_branch_bullets = 12;
@@ -164,6 +175,17 @@ FusionCapabilityPack fusion_capability_pack(FusionTier tier) {
                 "structured_handoff", "context_refs", "direct_answer",
                 "critique_pass", "decision_log", "confidence_scale"
             };
+            p.quality_gates = {
+                "scope_match", "direct_answer_present", "task_decomposition",
+                "assumptions_explicit", "tradeoffs_covered", "evidence_checked",
+                "skeptic_repair", "confidence_calibrated", "counterargument_addressed",
+                "falsifier_present", "rollback_or_reversal_trigger", "residual_risk_audit"
+            };
+            p.output_contract = {
+                "direct_answer_first", "structured_support", "assumption_ledger", "tradeoff_summary",
+                "evidence_ledger", "resolved_criticisms", "counterargument_and_falsifier",
+                "rollback_trigger", "residual_risks", "calibrated_confidence"
+            };
             p.evidence_min_points = 4;
             p.max_branch_bullets = 14;
             p.max_skeptic_bullets = 8;
@@ -180,6 +202,18 @@ FusionCapabilityPack fusion_capability_pack(FusionTier tier) {
             p.tool_slots = {
                 "structured_handoff", "context_refs", "direct_answer",
                 "multi_branch_merge", "research_outline", "citation_slots", "confidence_scale"
+            };
+            p.quality_gates = {
+                "scope_match", "direct_answer_present", "task_decomposition",
+                "assumptions_explicit", "tradeoffs_covered", "evidence_checked",
+                "branch_diversity", "counter_evidence", "source_hygiene",
+                "uncertainty_synthesized", "constraint_ledger_complete",
+                "rollback_or_reversal_trigger", "falsifier_present"
+            };
+            p.output_contract = {
+                "direct_answer_first", "multi_angle_synthesis", "assumption_ledger", "tradeoff_summary",
+                "evidence_ledger", "counter_evidence", "constraint_ledger", "rollback_trigger",
+                "falsifier", "residual_risks", "uncertainty_and_gaps"
             };
             p.evidence_min_points = 5;
             p.max_branch_bullets = 16;
@@ -200,6 +234,20 @@ FusionCapabilityPack fusion_capability_pack(FusionTier tier) {
                 "multi_branch_merge", "research_outline", "citation_slots",
                 "risk_register", "decision_log", "confidence_scale"
             };
+            p.quality_gates = {
+                "scope_match", "direct_answer_present", "task_decomposition",
+                "assumptions_explicit", "tradeoffs_covered", "evidence_checked",
+                "branch_diversity", "counter_evidence", "source_hygiene",
+                "adversarial_coverage", "residual_risk_audit", "meta_judge_refinement",
+                "constraint_ledger_complete", "numeric_constraints_preserved",
+                "counterargument_addressed", "falsifier_present", "rollback_or_reversal_trigger",
+                "actionable_next_step"
+            };
+            p.output_contract = {
+                "direct_answer_first", "exhaustive_synthesis", "assumption_ledger", "tradeoff_summary",
+                "evidence_ledger", "constraint_ledger", "adversarial_findings", "counterargument_and_falsifier",
+                "risk_register", "rollback_trigger", "decision_audit", "actionable_next"
+            };
             p.evidence_min_points = 6;
             p.max_branch_bullets = 18;
             p.max_skeptic_bullets = 10;
@@ -207,6 +255,86 @@ FusionCapabilityPack fusion_capability_pack(FusionTier tier) {
             break;
     }
     return p;
+}
+
+nlohmann::json FusionPromptConfig::to_json() const {
+    return nlohmann::json{
+        {"branch_template", branch_template},
+        {"skeptic_template", skeptic_template},
+        {"merge_template", merge_template},
+        {"merge_multi_template", merge_multi_template},
+        {"branch_preamble", branch_preamble},
+        {"skeptic_preamble", skeptic_preamble},
+        {"merge_preamble", merge_preamble},
+        {"branch_requirements", branch_requirements},
+        {"skeptic_requirements", skeptic_requirements},
+        {"merge_requirements", merge_requirements},
+        {"variables", variables.is_object() ? variables : nlohmann::json::object()},
+        {"include_tier_quality_contract", include_tier_quality_contract},
+    };
+}
+
+Result<FusionPromptConfig> FusionPromptConfig::from_json(const nlohmann::json& j) {
+    if (!j.is_object()) return Error::parse_error("prompts must be object", "prompts");
+    FusionPromptConfig p;
+    auto read_string = [&](const char* key, std::string& out) {
+        if (j.contains(key) && j.at(key).is_string()) out = j.at(key).get<std::string>();
+    };
+    auto read_list = [&](const char* key, std::vector<std::string>& out) {
+        if (!j.contains(key)) return;
+        if (!j.at(key).is_array()) return;
+        for (const auto& v : j.at(key)) if (v.is_string()) out.push_back(v.get<std::string>());
+    };
+    read_string("branch_template", p.branch_template);
+    read_string("skeptic_template", p.skeptic_template);
+    read_string("merge_template", p.merge_template);
+    read_string("merge_multi_template", p.merge_multi_template);
+    read_string("branch_preamble", p.branch_preamble);
+    read_string("skeptic_preamble", p.skeptic_preamble);
+    read_string("merge_preamble", p.merge_preamble);
+    read_list("branch_requirements", p.branch_requirements);
+    read_list("skeptic_requirements", p.skeptic_requirements);
+    read_list("merge_requirements", p.merge_requirements);
+    if (j.contains("variables") && j.at("variables").is_object()) p.variables = j.at("variables");
+    if (j.contains("include_tier_quality_contract")) {
+        p.include_tier_quality_contract = j.at("include_tier_quality_contract").get<bool>();
+    }
+    return p;
+}
+
+nlohmann::json FusionGenerationConfig::to_json() const {
+    return nlohmann::json{
+        {"branch_max_tokens", branch_max_tokens},
+        {"skeptic_max_tokens", skeptic_max_tokens},
+        {"merge_max_tokens", merge_max_tokens},
+        {"meta_judge_max_tokens", meta_judge_max_tokens},
+        {"temperature", temperature},
+        {"top_p", top_p},
+        {"extra_body", extra_body.is_object() ? extra_body : nlohmann::json::object()},
+    };
+}
+
+Result<FusionGenerationConfig> FusionGenerationConfig::from_json(const nlohmann::json& j) {
+    if (!j.is_object()) return Error::parse_error("generation must be object", "generation");
+    FusionGenerationConfig g;
+    if (j.contains("branch_max_tokens")) g.branch_max_tokens = j.at("branch_max_tokens").get<int>();
+    if (j.contains("skeptic_max_tokens")) g.skeptic_max_tokens = j.at("skeptic_max_tokens").get<int>();
+    if (j.contains("merge_max_tokens")) g.merge_max_tokens = j.at("merge_max_tokens").get<int>();
+    if (j.contains("meta_judge_max_tokens")) g.meta_judge_max_tokens = j.at("meta_judge_max_tokens").get<int>();
+    if (j.contains("temperature")) g.temperature = j.at("temperature").get<double>();
+    if (j.contains("top_p")) g.top_p = j.at("top_p").get<double>();
+    if (j.contains("extra_body") && j.at("extra_body").is_object()) g.extra_body = j.at("extra_body");
+    for (const auto value : {g.branch_max_tokens, g.skeptic_max_tokens, g.merge_max_tokens, g.meta_judge_max_tokens}) {
+        if (value < 64) return Error::invalid_argument("generation token budgets must be >= 64", "generation");
+    }
+    return g;
+}
+
+int FusionGenerationConfig::max_tokens_for_step(std::string_view step_id) const {
+    if (step_id.find("meta_judge") != std::string_view::npos) return meta_judge_max_tokens;
+    if (step_id.find("skeptic") != std::string_view::npos) return skeptic_max_tokens;
+    if (step_id.find("merge") != std::string_view::npos) return merge_max_tokens;
+    return branch_max_tokens;
 }
 
 nlohmann::json FusionTierSpec::to_json() const {
@@ -262,10 +390,10 @@ FusionTierSpec fusion_tier_spec(FusionTier tier) {
             break;
         case FusionTier::Genius:
             s.display_name = "Fusion Genius";
-            s.description = "Wide multi-architect DAG: 6 approaches + merge (7 LLM calls). Max exploration.";
+            s.description = "Wide adversarial DAG: 6 approaches + merge + meta-judge refinement (8 calls).";
             s.mode = FusionMode::Dag;
             s.branch_count = 6;
-            s.planned_llm_calls = 7;  // 6 architects + merge
+            s.planned_llm_calls = 8;  // 6 architects + merge + meta-judge
             s.max_llm_calls = 8;
             break;
     }
@@ -278,6 +406,28 @@ void apply_fusion_tier(FusionConfig& config, FusionTier tier) {
     config.mode = spec.mode;
     config.branch_count = spec.branch_count;
     config.policy.max_llm_calls = spec.max_llm_calls;
+    switch (tier) {
+        case FusionTier::Lite:
+            config.generation = {768, 512, 1024, 1200, -1.0, -1.0, nlohmann::json::object()};
+            break;
+        case FusionTier::Medium:
+            config.generation = {1000, 600, 1400, 1600, -1.0, -1.0, nlohmann::json::object()};
+            break;
+        case FusionTier::Pro:
+            config.generation = {1300, 800, 2400, 2600, -1.0, -1.0, nlohmann::json::object()};
+            break;
+        case FusionTier::Ultra:
+            config.generation = {1400, 800, 2800, 3000, -1.0, -1.0, nlohmann::json::object()};
+            break;
+        case FusionTier::Genius:
+            config.generation = {1600, 900, 3000, 3400, -1.0, -1.0, nlohmann::json::object()};
+            break;
+    }
+    // Tiers now select distinct quality behavior, not merely larger call graphs.
+    config.attach_panel_judge = tier != FusionTier::Lite;
+    config.enable_meta_judge = tier == FusionTier::Genius;
+    config.early_stop_on_overlap = tier == FusionTier::Pro;
+    config.anti_dilution = tier != FusionTier::Lite;
     config.extra["tier"] = spec.id;
     config.extra["tier_display"] = spec.display_name;
     config.extra["planned_llm_calls"] = spec.planned_llm_calls;
@@ -285,19 +435,22 @@ void apply_fusion_tier(FusionConfig& config, FusionTier tier) {
 }
 
 int planned_llm_calls_for_config(const FusionConfig& config) {
+    int base = 3;
     switch (config.mode) {
         case FusionMode::Lean:
-            return 3;
+            base = 3;
+            break;
         case FusionMode::Ultra:
-            return 5;
+            base = 5;
+            break;
         case FusionMode::Dag: {
             const int n = std::max(2, std::min(config.branch_count, 8));
-            return n + 1;  // N architects + merge
+            base = n + 1;  // N architects + merge
+            break;
         }
         case FusionMode::Panel: {
             int n = static_cast<int>(config.panel_models.size());
             if (n < 1) {
-                // same resolve as panel.cpp without including it here
                 n = 0;
                 if (!config.model_a.empty()) ++n;
                 if (!config.model_b.empty()) ++n;
@@ -305,10 +458,11 @@ int planned_llm_calls_for_config(const FusionConfig& config) {
                 if (!config.model_merge.empty()) ++n;
                 if (n < 1) n = 4;
             }
-            return std::max(2, std::min(n, 16));
+            base = std::max(2, std::min(n, 16));
+            break;
         }
     }
-    return 3;
+    return base + (config.enable_meta_judge ? 1 : 0);
 }
 
 nlohmann::json FusionPolicyConfig::to_json() const {
@@ -381,12 +535,17 @@ nlohmann::json FusionConfig::to_json() const {
         {"early_stop_on_overlap", early_stop_on_overlap},
         {"overlap_skip_skeptic_threshold", overlap_skip_skeptic_threshold},
         {"anti_dilution", anti_dilution},
+        {"role_pack_file", role_pack_file.string()},
+        {"prompts", prompts.to_json()},
+        {"generation", generation.to_json()},
         {"cache", cache.to_json()},
         {"policy", policy.to_json()},
         {"output_dir", output_dir.string()},
         {"write_files", write_files},
         {"ascii_sanitize", ascii_sanitize},
         {"branch_count", branch_count},
+        {"parallel_branches", parallel_branches},
+        {"max_parallel_branches", max_parallel_branches},
         {"enable_web_tools", enable_web_tools},
         {"web_transport", web_transport},
         {"seed_urls", seed_urls},
@@ -443,6 +602,19 @@ Result<FusionConfig> FusionConfig::from_json(const nlohmann::json& j) {
         c.overlap_skip_skeptic_threshold = j.at("overlap_skip_skeptic_threshold").get<double>();
     }
     if (j.contains("anti_dilution")) c.anti_dilution = j.at("anti_dilution").get<bool>();
+    if (j.contains("role_pack_file") && j.at("role_pack_file").is_string()) {
+        c.role_pack_file = j.at("role_pack_file").get<std::string>();
+    }
+    if (j.contains("prompts")) {
+        auto pp = FusionPromptConfig::from_json(j.at("prompts"));
+        if (!pp) return pp.error();
+        c.prompts = std::move(pp.value());
+    }
+    if (j.contains("generation")) {
+        auto gg = FusionGenerationConfig::from_json(j.at("generation"));
+        if (!gg) return gg.error();
+        c.generation = std::move(gg.value());
+    }
     if (j.contains("cache")) {
         auto cc = FusionCacheConfig::from_json(j.at("cache"));
         if (!cc) return cc.error();
@@ -457,6 +629,10 @@ Result<FusionConfig> FusionConfig::from_json(const nlohmann::json& j) {
     if (j.contains("write_files")) c.write_files = j.at("write_files").get<bool>();
     if (j.contains("ascii_sanitize")) c.ascii_sanitize = j.at("ascii_sanitize").get<bool>();
     if (j.contains("branch_count")) c.branch_count = j.at("branch_count").get<int>();
+    if (j.contains("parallel_branches")) c.parallel_branches = j.at("parallel_branches").get<bool>();
+    if (j.contains("max_parallel_branches")) {
+        c.max_parallel_branches = j.at("max_parallel_branches").get<int>();
+    }
     if (j.contains("enable_web_tools")) c.enable_web_tools = j.at("enable_web_tools").get<bool>();
     if (j.contains("web_transport")) c.web_transport = j.at("web_transport").get<std::string>();
     if (j.contains("seed_urls") && j.at("seed_urls").is_array()) {
@@ -475,6 +651,7 @@ Result<FusionConfig> FusionConfig::from_json(const nlohmann::json& j) {
     if (c.task.empty()) return Error::invalid_argument("task is required", "task");
     if (c.branch_count < 2) c.branch_count = 2;
     if (c.branch_count > 8) c.branch_count = 8;
+    c.max_parallel_branches = std::max(1, std::min(c.max_parallel_branches, 8));
     return c;
 }
 

@@ -21,7 +21,9 @@ Result<FusionRunResult> FusionEngine::run_lean_ultra(const FusionConfig& config,
     run.config = config;
     const auto wall0 = fusion_now_unix_ms();
 
-    const RolePack pack = make_role_pack(config.profile);
+    auto pack_result = detail::resolve_role_pack(config);
+    if (!pack_result) return pack_result.error();
+    const RolePack pack = std::move(pack_result.value());
     const FusionCapabilityPack cap = fusion_capability_pack(config.tier);
     if (pack.branches.size() < 2) {
         return Error::invalid_argument("role pack needs >= 2 branches");
@@ -235,8 +237,10 @@ Result<FusionRunResult> FusionEngine::run_lean_ultra(const FusionConfig& config,
         // Optional meta-judge LLM refine
         if (config.enable_meta_judge) {
             std::string meta_prompt =
-                "Refine this fusion analysis. Return concise consensus, contradictions, "
-                "and a final answer.\n\n" +
+                "Refine this fusion analysis and return only the improved final answer. "
+                "Audit every explicit deliverable and numeric constraint from the ORIGINAL TASK, including "
+                "assumptions, tradeoffs, mitigations, staged plan, numeric validation, rollback, strongest "
+                "counterargument, falsifier, confidence, and residual risk.\n\n" +
                 pj.merge_prompt_section() + "\n\nMerged draft:\n" + run.merge_output;
             auto meta = call_llm(
                 run, prov_merge, config, "meta_judge", "meta_judge", "MetaJudge",
@@ -244,6 +248,9 @@ Result<FusionRunResult> FusionEngine::run_lean_ultra(const FusionConfig& config,
             );
             if (meta) {
                 pj.final_answer = meta.value();
+                run.final_output = config.anti_dilution
+                    ? apply_anti_dilution(meta.value(), labeled)
+                    : meta.value();
                 pj.meta_judge_used = true;
                 pj.consensus.push_back("Meta-judge LLM refined the deterministic analysis.");
             }

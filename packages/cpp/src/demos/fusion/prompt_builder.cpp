@@ -16,6 +16,45 @@ std::string join_csv(const std::vector<std::string>& items) {
     return ss.str();
 }
 
+std::string bullet_lines(const std::vector<std::string>& items) {
+    std::ostringstream ss;
+    for (const auto& item : items) ss << "- " << item << "\n";
+    return ss.str();
+}
+
+std::string quality_contract_block(const FrameOptions& opts) {
+    if (!opts.prompt_config.include_tier_quality_contract) return {};
+    if (opts.quality_gates.empty() && opts.output_contract.empty()) return {};
+    std::ostringstream ss;
+    ss << "## Tier quality contract\n";
+    if (!opts.quality_gates.empty()) {
+        ss << "Quality gates:\n" << bullet_lines(opts.quality_gates);
+    }
+    if (!opts.output_contract.empty()) {
+        ss << "Output contract:\n" << bullet_lines(opts.output_contract);
+    }
+    return ss.str();
+}
+
+std::unordered_map<std::string, std::string> template_vars(const FrameOptions& opts) {
+    std::unordered_map<std::string, std::string> vars;
+    if (opts.prompt_config.variables.is_object()) {
+        for (auto it = opts.prompt_config.variables.begin(); it != opts.prompt_config.variables.end(); ++it) {
+            vars[it.key()] = it.value().is_string() ? it.value().get<std::string>() : it.value().dump();
+        }
+    }
+    vars["skills"] = join_csv(opts.skills);
+    vars["tool_slots"] = join_csv(opts.tool_slots);
+    vars["quality_contract"] = quality_contract_block(opts);
+    vars["prior_handoff"] = opts.prior_handoff_section;
+    vars["web_research"] = opts.web_research_section;
+    vars["panel_analysis"] = opts.panel_analysis_section;
+    vars["branch_requirements"] = bullet_lines(opts.prompt_config.branch_requirements);
+    vars["skeptic_requirements"] = bullet_lines(opts.prompt_config.skeptic_requirements);
+    vars["merge_requirements"] = bullet_lines(opts.prompt_config.merge_requirements);
+    return vars;
+}
+
 void append_skill_tool_block(std::ostringstream& ss, const FrameOptions& opts) {
     if (!opts.skills.empty()) {
         ss << "Skills to apply: " << join_csv(opts.skills) << ".\n";
@@ -59,13 +98,13 @@ const char* depth_merge_guidance(FusionPromptDepth depth) {
         case FusionPromptDepth::Compact:
             return "Lead with ONE direct final answer, then a short structured support block.";
         case FusionPromptDepth::Standard:
-            return "Lead with the best direct answer; deduplicate; keep strongest points; note uncertainty briefly.";
+            return "Lead with the best direct answer; deduplicate; keep strongest points; explicitly satisfy every requested deliverable and numeric constraint; note uncertainty briefly.";
         case FusionPromptDepth::Deep:
-            return "Lead with the best direct answer; resolve contradictions; keep strongest evidence; residual risks last.";
+            return "Lead with the best direct answer; resolve contradictions; keep strongest evidence; audit every original deliverable and numeric constraint; include counterargument, falsifier, rollback/reversal trigger, and residual risks when applicable.";
         case FusionPromptDepth::Research:
-            return "Lead with the best calibrated answer + confidence; then consensus, disagreements, gaps, next checks.";
+            return "Lead with the best calibrated answer + confidence; then consensus, disagreements, gaps, next checks; include an explicit constraint audit so no requested number, threshold, rollback, or falsifier is lost.";
         case FusionPromptDepth::Exhaustive:
-            return "Lead with the best answer; preserve unique strong claims from every branch; then risks and open questions.";
+            return "Lead with the best answer; preserve unique strong claims from every branch; perform a line-by-line audit of all original deliverables and numeric constraints; then adversarial findings, rollback trigger, falsifier, residual risks, and open questions.";
     }
     return "Merge into one coherent answer; lead with the direct conclusion.";
 }
@@ -221,10 +260,21 @@ std::string frame_branch_task(
     std::string_view focus,
     const FrameOptions& opts
 ) {
+    auto vars = template_vars(opts);
+    vars["task"] = std::string(task);
+    vars["branch_label"] = std::string(branch_label);
+    vars["focus"] = std::string(focus);
+    vars["depth_guidance"] = depth_branch_guidance(opts.depth);
+    if (!opts.prompt_config.branch_template.empty()) {
+        auto out = render_template(opts.prompt_config.branch_template, vars, false);
+        if (opts.ascii) out = sanitize_prompt_text(out, true);
+        return out;
+    }
     std::ostringstream ss;
     ss << "ORIGINAL TASK:\n" << task << "\n\n"
-       << "[BRANCH - " << branch_label << "]\n"
-       << "Focus: " << focus << "\n"
+       << "[BRANCH - " << branch_label << "]\n";
+    if (!opts.prompt_config.branch_preamble.empty()) ss << opts.prompt_config.branch_preamble << "\n";
+    ss << "Focus: " << focus << "\n"
        << depth_branch_guidance(opts.depth) << "\n";
     append_skill_tool_block(ss, opts);
     ss << "Requirements:\n"
@@ -235,6 +285,10 @@ std::string frame_branch_task(
        << "- Include at least " << opts.evidence_min_points
        << " concrete claims, assumptions, or evidence-like points when the task allows.\n"
        << "- Prefer specific claims over generic process talk; do not refuse to answer if a best guess exists.\n";
+    if (!opts.prompt_config.branch_requirements.empty()) {
+        ss << "Custom branch requirements:\n" << bullet_lines(opts.prompt_config.branch_requirements);
+    }
+    ss << "\n" << quality_contract_block(opts);
     if (!opts.prior_handoff_section.empty()) {
         ss << "\n## Prior structured handoff\n" << opts.prior_handoff_section << "\n";
     }
@@ -260,13 +314,27 @@ std::string frame_skeptic_task(
     std::string_view angle,
     const FrameOptions& opts
 ) {
+    auto vars = template_vars(opts);
+    vars["task"] = std::string(task);
+    vars["proposal"] = std::string(proposal);
+    vars["angle"] = std::string(angle);
+    if (!opts.prompt_config.skeptic_template.empty()) {
+        auto out = render_template(opts.prompt_config.skeptic_template, vars, false);
+        if (opts.ascii) out = sanitize_prompt_text(out, true);
+        return out;
+    }
     std::ostringstream ss;
-    ss << "ORIGINAL TASK:\n" << task << "\n\n"
-       << "You are the skeptic (" << angle << ").\n"
+    ss << "ORIGINAL TASK:\n" << task << "\n\n";
+    if (!opts.prompt_config.skeptic_preamble.empty()) ss << opts.prompt_config.skeptic_preamble << "\n";
+    ss << "You are the skeptic (" << angle << ").\n"
        << "Critique the proposal for gaps, weak evidence, hidden assumptions, and domain drift.\n"
        << "Do not abandon the original task domain.\n"
        << "Max " << opts.max_skeptic_bullets << " bullets of risks/gaps/misses.\n";
     append_skill_tool_block(ss, opts);
+    if (!opts.prompt_config.skeptic_requirements.empty()) {
+        ss << "Custom skeptic requirements:\n" << bullet_lines(opts.prompt_config.skeptic_requirements);
+    }
+    ss << "\n" << quality_contract_block(opts);
     if (!opts.prior_handoff_section.empty()) {
         ss << "\n## Prior structured handoff (use this; do not ignore structured fields)\n"
            << opts.prior_handoff_section << "\n";
@@ -306,8 +374,23 @@ std::string frame_merge_task(
     std::string_view handoff_a,
     std::string_view handoff_b
 ) {
+    auto vars = template_vars(opts);
+    vars["task"] = std::string(task);
+    vars["branch_a_label"] = std::string(branch_a_label);
+    vars["branch_a"] = std::string(branch_a_body);
+    vars["branch_b_label"] = std::string(branch_b_label);
+    vars["branch_b"] = std::string(branch_b_body);
+    vars["handoff_a"] = std::string(handoff_a);
+    vars["handoff_b"] = std::string(handoff_b);
+    vars["depth_guidance"] = depth_merge_guidance(opts.depth);
+    if (!opts.prompt_config.merge_template.empty()) {
+        auto out = render_template(opts.prompt_config.merge_template, vars, false);
+        if (opts.ascii) out = sanitize_prompt_text(out, true);
+        return out;
+    }
     std::ostringstream ss;
     ss << "ORIGINAL TASK:\n" << task << "\n\n";
+    if (!opts.prompt_config.merge_preamble.empty()) ss << opts.prompt_config.merge_preamble << "\n";
     append_skill_tool_block(ss, opts);
     if (!handoff_a.empty()) {
         ss << "## Structured handoff — branch A (" << branch_a_label << ")\n"
@@ -320,6 +403,10 @@ std::string frame_merge_task(
     ss << "=== BRANCH A (" << branch_a_label << ") ===\n" << branch_a_body << "\n\n"
        << "=== BRANCH B (" << branch_b_label << ") ===\n" << branch_b_body << "\n\n";
     ss << depth_merge_guidance(opts.depth) << "\n";
+    if (!opts.prompt_config.merge_requirements.empty()) {
+        ss << "Custom merge requirements:\n" << bullet_lines(opts.prompt_config.merge_requirements);
+    }
+    ss << "\n" << quality_contract_block(opts);
     if (opts.task_faithful) {
         ss << "Merge into a single best answer to the ORIGINAL TASK above.\n"
            << "Rules:\n"
@@ -359,8 +446,29 @@ std::string frame_merge_multi(
     const FrameOptions& opts,
     const std::vector<std::string>& handoff_sections
 ) {
+    std::ostringstream branches_text;
+    for (std::size_t i = 0; i < labeled_bodies.size(); ++i) {
+        branches_text << "=== BRANCH " << (i + 1) << " (" << labeled_bodies[i].first << ") ===\n"
+                      << labeled_bodies[i].second << "\n\n";
+    }
+    std::ostringstream handoffs_text;
+    for (std::size_t i = 0; i < handoff_sections.size(); ++i) {
+        handoffs_text << "## Structured handoff - branch " << (i + 1) << "\n"
+                      << handoff_sections[i] << "\n";
+    }
+    auto vars = template_vars(opts);
+    vars["task"] = std::string(task);
+    vars["branches"] = branches_text.str();
+    vars["handoffs"] = handoffs_text.str();
+    vars["depth_guidance"] = depth_merge_guidance(opts.depth);
+    if (!opts.prompt_config.merge_multi_template.empty()) {
+        auto out = render_template(opts.prompt_config.merge_multi_template, vars, false);
+        if (opts.ascii) out = sanitize_prompt_text(out, true);
+        return out;
+    }
     std::ostringstream ss;
     ss << "ORIGINAL TASK:\n" << task << "\n\n";
+    if (!opts.prompt_config.merge_preamble.empty()) ss << opts.prompt_config.merge_preamble << "\n";
     append_skill_tool_block(ss, opts);
     for (std::size_t i = 0; i < handoff_sections.size(); ++i) {
         ss << "## Structured handoff — branch " << (i + 1) << "\n"
@@ -371,6 +479,10 @@ std::string frame_merge_multi(
            << labeled_bodies[i].second << "\n\n";
     }
     ss << depth_merge_guidance(opts.depth) << "\n";
+    if (!opts.prompt_config.merge_requirements.empty()) {
+        ss << "Custom merge requirements:\n" << bullet_lines(opts.prompt_config.merge_requirements);
+    }
+    ss << "\n" << quality_contract_block(opts);
     if (opts.task_faithful) {
         ss << "Synthesize all branches into one answer to the ORIGINAL TASK.\n"
            << "Lead with the direct answer, then merge unique strong points from every branch.\n"

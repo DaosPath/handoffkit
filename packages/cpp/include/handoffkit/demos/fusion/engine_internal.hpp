@@ -40,6 +40,9 @@ inline FrameOptions make_frame_opts(
     o.evidence_min_points = cap.evidence_min_points;
     o.skills = cap.skills;
     o.tool_slots = cap.tool_slots;
+    o.quality_gates = cap.quality_gates;
+    o.output_contract = cap.output_contract;
+    o.prompt_config = config.prompts;
     if (config.enable_web_tools) {
         for (const char* t : {
                  "web_search", "web_fetch_markdown", "web_explore", "html_to_markdown"}) {
@@ -53,6 +56,11 @@ inline FrameOptions make_frame_opts(
     o.panel_analysis_section = std::move(panel_analysis);
     o.tools_are_live = tools_live;
     return o;
+}
+
+inline Result<RolePack> resolve_role_pack(const FusionConfig& config) {
+    if (!config.role_pack_file.empty()) return load_role_pack_file(config.role_pack_file);
+    return Result<RolePack>::success(make_role_pack(config.profile));
 }
 
 inline Result<AnyProvider> provider_for_model(

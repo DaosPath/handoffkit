@@ -74,8 +74,7 @@ Result<DagAnalysis> analyze_dag(const DagGraph& g) {
       wave.push_back(g.nodes[u].id);
       out.topo_order.push_back(g.nodes[u].id);
       for (int v: adj[u]) {
-        int cand = dist[u] + g.nodes[v].cost_ms;
-        // longest path for critical
+        // Longest path: dist[v] stores cost accumulated before v.
         int base = dist[u] + g.nodes[u].cost_ms;
         if (base > dist[v]) { dist[v]=base; parent[v]=u; }
         if (--indeg[v]==0) q.push(v);

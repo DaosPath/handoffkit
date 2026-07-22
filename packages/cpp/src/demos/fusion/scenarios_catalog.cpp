@@ -47,6 +47,7 @@ Result<ScenarioResult> scen_ultra_diagnostic() {
     cfg.provider = "echo";
     cfg.write_files = false;
     cfg.cache.enabled = false;
+    cfg.early_stop_on_overlap = false;  // scenario validates the full five-call graph
     auto r = run_fusion(cfg);
     if (!r) return r.error();
     if (r.value().metrics.llm_calls != 5) {

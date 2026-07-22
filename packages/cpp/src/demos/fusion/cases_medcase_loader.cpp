@@ -57,7 +57,12 @@ Result<std::vector<BenchCase>> load_bench_cases_json(const std::filesystem::path
             if (!c.source.empty() && c.source.rfind("PMC", 0) == 0) {
                 c.source = "MedCaseReasoning/" + c.source;
             }
-            c.prompt = item.value("case_prompt", item.value("prompt", ""));
+            const std::string raw_prompt =
+                item.value("case_prompt", item.value("prompt", ""));
+            c.prompt =
+                "Research only; not clinical advice.\nVignette:\n" + raw_prompt +
+                "\nRequired output: primary diagnosis, differentials, key findings, next tests, "
+                "and confidence.";
             c.gold_label = item.value("final_diagnosis", item.value("gold_label", ""));
             c.notes = item.value("title", item.value("notes", ""));
             if (c.case_id.empty() || c.prompt.empty()) continue;

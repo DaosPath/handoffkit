@@ -16,6 +16,14 @@ struct GenerateOptions {
     std::string agent_name;
     std::string task;
     std::string context;
+    /// 0 lets the provider choose. Thinking models should receive enough room for reasoning + final content.
+    int max_tokens = 0;
+    /// Negative means provider default.
+    double temperature = -1.0;
+    /// Negative means provider default.
+    double top_p = -1.0;
+    /// Provider-specific OpenAI-compatible request fields.
+    nlohmann::json extra_body = nlohmann::json::object();
 };
 
 /// Call-level usage metrics (snake_case JSON for reports / Studio).

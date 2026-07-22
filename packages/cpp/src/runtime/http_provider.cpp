@@ -20,7 +20,17 @@ Result<std::string> parse_openai_chat_completion(const nlohmann::json& response)
     if (choice0.contains("message") && choice0["message"].is_object()) {
         const auto& message = choice0["message"];
         if (message.contains("content") && message["content"].is_string()) {
-            return Result<std::string>::success(message["content"].get<std::string>());
+            const auto content = message["content"].get<std::string>();
+            if (!content.empty()) return Result<std::string>::success(content);
+        }
+        if (message.contains("reasoning_content") && message["reasoning_content"].is_string() &&
+            !message["reasoning_content"].get<std::string>().empty()) {
+            const std::string finish = choice0.value("finish_reason", std::string("unknown"));
+            return Error::parse_error(
+                "completion produced reasoning_content but no final content (finish_reason=" + finish +
+                "); increase max_tokens or adjust the thinking model settings",
+                "choices[0].message.content"
+            );
         }
     }
     if (choice0.contains("text") && choice0["text"].is_string()) {
@@ -46,6 +56,14 @@ nlohmann::json build_openai_chat_request(
     };
     if (!options.agent_name.empty()) {
         body["user"] = options.agent_name;
+    }
+    if (options.max_tokens > 0) body["max_tokens"] = options.max_tokens;
+    if (options.temperature >= 0.0) body["temperature"] = options.temperature;
+    if (options.top_p >= 0.0) body["top_p"] = options.top_p;
+    if (options.extra_body.is_object()) {
+        for (auto it = options.extra_body.begin(); it != options.extra_body.end(); ++it) {
+            body[it.key()] = it.value();
+        }
     }
     return body;
 }
@@ -118,7 +136,11 @@ Result<std::string> OpenAiCompatibleProvider::generate(
     client.set_connection_timeout(10, 0);
     client.set_read_timeout(120, 0);
 
-    httplib::Headers headers = {{"Content-Type", "application/json"}};
+    httplib::Headers headers = {
+        {"Content-Type", "application/json"},
+        {"Accept", "application/json"},
+        {"User-Agent", "HandoffKit/1.14.0"},
+    };
     if (!api_key_.empty()) {
         headers.emplace("Authorization", "Bearer " + api_key_);
     }

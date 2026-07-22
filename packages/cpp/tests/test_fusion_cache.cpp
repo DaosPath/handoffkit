@@ -1,4 +1,5 @@
 #include <handoffkit/demos/fusion/cache.hpp>
+#include <handoffkit/demos/fusion/provider_wrap.hpp>
 #include <handoffkit/demos/fusion/hash.hpp>
 #include <handoffkit/demos/fusion/prompt.hpp>
 
@@ -62,6 +63,43 @@ void test_memory_disk_cache() {
     std::cout << "test_memory_disk_cache ok\n";
 }
 
+void test_extra_body_participates_in_cache_key() {
+    auto calls = std::make_shared<int>(0);
+    handoffkit::AnyProvider inner(
+        "cache-key-model",
+        [calls](std::string_view, const handoffkit::GenerateOptions&) -> handoffkit::Result<std::string> {
+            ++(*calls);
+            return std::string("response-") + std::to_string(*calls);
+        }
+    );
+
+    FusionCacheConfig cfg;
+    cfg.use_memory = true;
+    cfg.use_disk = false;
+    auto cache = std::make_shared<FusionCache>(cfg);
+    CachingProvider provider(inner, cache, "test-provider", "neutral", "lean");
+
+    handoffkit::GenerateOptions options;
+    options.task = "same-task";
+    options.max_tokens = 256;
+    options.temperature = 0.2;
+    options.top_p = 0.9;
+    options.extra_body = {{"thinking", {{"type", "enabled"}}}};
+
+    auto first = provider.generate("same-prompt", options);
+    auto cached = provider.generate("same-prompt", options);
+    assert(first && cached);
+    assert(first.value() == "response-1");
+    assert(cached.value() == "response-1");
+    assert(*calls == 1);
+
+    options.extra_body = {{"thinking", {{"type", "disabled"}}}};
+    auto changed = provider.generate("same-prompt", options);
+    assert(changed && changed.value() == "response-2");
+    assert(*calls == 2);
+    std::cout << "test_extra_body_participates_in_cache_key ok\n";
+}
+
 void test_lru_eviction() {
     FusionCacheConfig cfg;
     cfg.use_disk = false;
@@ -81,6 +119,7 @@ int main() {
     test_hash_stable();
     test_sanitize();
     test_memory_disk_cache();
+    test_extra_body_participates_in_cache_key();
     test_lru_eviction();
     std::cout << "All fusion cache tests passed\n";
     return 0;

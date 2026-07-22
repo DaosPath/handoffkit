@@ -1,0 +1,53 @@
+{
+  "task": "Replace this task or pass --prompt",
+  "tier": "genius",
+  "profile": "research",
+  "provider": "opencode-go",
+  "model": "deepseek-v4-flash",
+  "attach_panel_judge": true,
+  "enable_meta_judge": true,
+  "early_stop_on_overlap": false,
+  "anti_dilution": true,
+  "branch_count": 6,
+  "policy": {
+    "max_llm_calls": 8,
+    "max_wall_ms": 600000,
+    "max_prompt_chars": 120000,
+    "hard_fail_on_budget": true
+  },
+  "prompts": {
+    "branch_preamble": "Work independently. Do not imitate likely peer branches.",
+    "merge_preamble": "Treat the branch set as competing evidence, not a vote.",
+    "branch_requirements": [
+      "State the best answer before analysis",
+      "Separate observations, assumptions, and inferences",
+      "Include at least one falsifier"
+    ],
+    "merge_requirements": [
+      "Resolve contradictions explicitly",
+      "Preserve unique supported claims",
+      "Name residual risks and the next decisive check"
+    ],
+    "variables": {
+      "project": "handoffkit"
+    }
+  },
+  "cache": {
+    "enabled": false,
+    "use_disk": false,
+    "use_memory": false
+  },
+  "write_files": true,
+  "output_dir": "runs/fusion-runs",
+  "generation": {
+    "branch_max_tokens": 1600,
+    "skeptic_max_tokens": 900,
+    "merge_max_tokens": 3000,
+    "meta_judge_max_tokens": 3400,
+    "temperature": -1.0,
+    "top_p": -1.0,
+    "extra_body": {}
+  },
+  "parallel_branches": true,
+  "max_parallel_branches": 4
+}

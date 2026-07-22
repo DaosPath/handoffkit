@@ -3,40 +3,67 @@
 #include <handoffkit/runtime/trace.hpp>
 #include <handoffkit/runtime/team.hpp>
 
+#include <fstream>
+
 namespace handoffkit {
 namespace demos {
 namespace {
 
-fusion::FusionConfig config_from_demo_options(const DemoOptions& options) {
+Result<fusion::FusionConfig> config_from_demo_options(const DemoOptions& options) {
     fusion::FusionConfig cfg;
-    cfg.task = options.extra.value("prompt", std::string(
+    const std::string default_task =
         "Design how to ship HandoffKit C++ to production: packaging, CLI, and multi-agent handoffs. "
-        "Give concrete steps and risks in under 12 bullets."
-    ));
+        "Give concrete steps and risks in under 12 bullets.";
+    cfg.task = default_task;
+    if (options.extra.contains("config_file") && options.extra["config_file"].is_string()) {
+        const auto path = options.extra["config_file"].get<std::string>();
+        std::ifstream in(path);
+        if (!in) return Error::parse_error("cannot open fusion config: " + path, path);
+        nlohmann::json j;
+        try {
+            in >> j;
+        } catch (const std::exception& e) {
+            return Error::parse_error(std::string("invalid fusion config JSON: ") + e.what(), path);
+        }
+        if (!j.contains("task") || !j["task"].is_string() || j["task"].get<std::string>().empty()) {
+            j["task"] = default_task;
+        }
+        auto parsed = fusion::FusionConfig::from_json(j);
+        if (!parsed) return parsed.error();
+        cfg = std::move(parsed.value());
+    }
+    if (options.extra.contains("prompt") && options.extra["prompt"].is_string() &&
+        !options.extra["prompt"].get<std::string>().empty()) {
+        cfg.task = options.extra["prompt"].get<std::string>();
+    }
     const bool ultra = options.extra.value("ultra", false);
-    std::string mode = options.extra.value("mode", std::string(ultra ? "ultra" : "lean"));
-    if (auto m = fusion::fusion_mode_from_string(mode)) {
-        cfg.mode = m.value();
-    } else {
-        cfg.mode = ultra ? fusion::FusionMode::Ultra : fusion::FusionMode::Lean;
+    if (options.extra.contains("mode") && options.extra["mode"].is_string()) {
+        const auto mode = options.extra["mode"].get<std::string>();
+        if (auto m = fusion::fusion_mode_from_string(mode)) cfg.mode = m.value();
+    } else if (!options.extra.contains("config_file") && ultra) {
+        cfg.mode = fusion::FusionMode::Ultra;
     }
 
-    std::string profile = options.extra.value("profile", std::string("shipping"));
-    if (auto p = fusion::fusion_profile_from_string(profile)) {
-        cfg.profile = p.value();
-    } else {
-        cfg.profile = fusion::FusionProfileId::Shipping;
+    if (options.extra.contains("profile") && options.extra["profile"].is_string()) {
+        const auto profile = options.extra["profile"].get<std::string>();
+        if (auto p = fusion::fusion_profile_from_string(profile)) cfg.profile = p.value();
     }
 
-    cfg.provider = options.extra.value("provider", std::string("echo"));
+    if (options.extra.contains("provider") && options.extra["provider"].is_string() &&
+        !options.extra["provider"].get<std::string>().empty()) {
+        cfg.provider = options.extra["provider"].get<std::string>();
+    }
     if (options.extra.contains("model") && options.extra["model"].is_string()) {
         cfg.model = options.extra["model"].get<std::string>();
     }
-    cfg.output_dir = options.output_dir;
-    cfg.write_files = options.write_files;
+    const bool loaded_config = options.extra.contains("config_file");
+    const bool output_dir_explicit = options.extra.value("output_dir_explicit", false);
+    const bool no_write_explicit = options.extra.value("no_write_explicit", false);
+    if (!loaded_config || output_dir_explicit) cfg.output_dir = options.output_dir;
+    if (!loaded_config || no_write_explicit) cfg.write_files = options.write_files;
     if (options.extra.contains("cache_dir") && options.extra["cache_dir"].is_string()) {
         cfg.cache.cache_dir = options.extra["cache_dir"].get<std::string>();
-    } else {
+    } else if (!loaded_config || output_dir_explicit) {
         cfg.cache.cache_dir = options.output_dir / "fusion-cache";
     }
     if (options.extra.contains("no_cache") && options.extra["no_cache"].get<bool>()) {
@@ -137,15 +164,69 @@ fusion::FusionConfig config_from_demo_options(const DemoOptions& options) {
     if (options.extra.contains("no_anti_dilution") && options.extra["no_anti_dilution"].get<bool>()) {
         cfg.anti_dilution = false;
     }
-    // Explicit mode=panel wins over tier rewrite if set after tier
-    if (options.extra.contains("mode") && options.extra["mode"].is_string()) {
-        const std::string m = options.extra["mode"].get<std::string>();
-        if (m == "panel") {
-            cfg.mode = fusion::FusionMode::Panel;
+    if (options.extra.contains("no_meta_judge") && options.extra["no_meta_judge"].get<bool>()) {
+        cfg.enable_meta_judge = false;
+    }
+    if (options.extra.contains("parallel_branches") && options.extra["parallel_branches"].is_boolean()) {
+        cfg.parallel_branches = options.extra["parallel_branches"].get<bool>();
+    }
+    if (options.extra.contains("max_parallel_branches") && options.extra["max_parallel_branches"].is_number_integer()) {
+        cfg.max_parallel_branches = std::max(1, std::min(options.extra["max_parallel_branches"].get<int>(), 8));
+    }
+    if (options.extra.contains("overlap_threshold") && options.extra["overlap_threshold"].is_number()) {
+        cfg.overlap_skip_skeptic_threshold = options.extra["overlap_threshold"].get<double>();
+    }
+    if (options.extra.contains("max_llm_calls") && options.extra["max_llm_calls"].is_number_integer()) {
+        cfg.policy.max_llm_calls = options.extra["max_llm_calls"].get<int>();
+    }
+    auto generation_int = [&](const char* key, int& target) {
+        if (options.extra.contains(key) && options.extra[key].is_number_integer()) {
+            target = options.extra[key].get<int>();
+        }
+    };
+    generation_int("branch_max_tokens", cfg.generation.branch_max_tokens);
+    generation_int("skeptic_max_tokens", cfg.generation.skeptic_max_tokens);
+    generation_int("merge_max_tokens", cfg.generation.merge_max_tokens);
+    generation_int("meta_judge_max_tokens", cfg.generation.meta_judge_max_tokens);
+    if (options.extra.contains("generation_temperature") && options.extra["generation_temperature"].is_number()) {
+        cfg.generation.temperature = options.extra["generation_temperature"].get<double>();
+    }
+    if (options.extra.contains("generation_top_p") && options.extra["generation_top_p"].is_number()) {
+        cfg.generation.top_p = options.extra["generation_top_p"].get<double>();
+    }
+    if (options.extra.contains("thinking") && options.extra["thinking"].is_string()) {
+        const auto value = options.extra["thinking"].get<std::string>();
+        if (value == "enabled" || value == "disabled") {
+            cfg.generation.extra_body["thinking"] = {{"type", value}};
         }
     }
+    if (options.extra.contains("reasoning_effort") && options.extra["reasoning_effort"].is_string()) {
+        cfg.generation.extra_body["reasoning_effort"] = options.extra["reasoning_effort"];
+    }
+    if (options.extra.contains("role_pack_file") && options.extra["role_pack_file"].is_string()) {
+        cfg.role_pack_file = options.extra["role_pack_file"].get<std::string>();
+    }
+    if (options.extra.contains("prompt_config_file") && options.extra["prompt_config_file"].is_string()) {
+        const auto path = options.extra["prompt_config_file"].get<std::string>();
+        std::ifstream in(path);
+        if (!in) return Error::parse_error("cannot open fusion prompt config: " + path, path);
+        nlohmann::json j;
+        try {
+            in >> j;
+        } catch (const std::exception& e) {
+            return Error::parse_error(std::string("invalid prompt config JSON: ") + e.what(), path);
+        }
+        auto parsed = fusion::FusionPromptConfig::from_json(j);
+        if (!parsed) return parsed.error();
+        cfg.prompts = std::move(parsed.value());
+    }
+    // Any explicitly supplied CLI mode wins over the tier-derived mode.
+    if (options.extra.contains("mode") && options.extra["mode"].is_string()) {
+        const std::string m = options.extra["mode"].get<std::string>();
+        if (auto parsed = fusion::fusion_mode_from_string(m)) cfg.mode = parsed.value();
+    }
     cfg.extra = options.extra;
-    return cfg;
+    return Result<fusion::FusionConfig>::success(std::move(cfg));
 }
 
 }  // namespace
@@ -162,6 +243,7 @@ DemoResult demo_result_from_fusion(const fusion::FusionRunResult& run, std::stri
     result.report = run.report;
     result.report["final_output"] = run.final_output;
     result.report["task"] = run.config.task;
+    result.report["error"] = run.error;
     result.summary_markdown =
         std::string("Fusion ") + fusion::fusion_mode_to_string(run.config.mode) +
         " profile=" + fusion::fusion_profile_to_string(run.config.profile) +
@@ -185,7 +267,9 @@ DemoResult demo_result_from_fusion(const fusion::FusionRunResult& run, std::stri
 }
 
 Result<DemoResult> run_fusion_style_router_demo(const DemoOptions& options) {
-    auto cfg = config_from_demo_options(options);
+    auto cfg_result = config_from_demo_options(options);
+    if (!cfg_result) return cfg_result.error();
+    auto cfg = std::move(cfg_result.value());
     auto run = fusion::run_fusion(cfg);
     if (!run) return run.error();
 
@@ -213,6 +297,7 @@ Result<DemoResult> run_fusion_style_router_demo(const DemoOptions& options) {
     result.report["llm_calls"] = run.value().metrics.llm_calls;
     result.report["planned_llm_calls"] = fusion::planned_llm_calls_for_config(cfg);
     result.report["provider"] = cfg.provider;
+    result.report["model"] = cfg.model;
     result.report["ultra"] = ultra;
     result.report["style"] = ultra ? "fusion_ultra_dual_branch_skeptic_merge" : "fusion_dual_branch_merge";
     result.report["profile"] = fusion::fusion_profile_to_string(cfg.profile);

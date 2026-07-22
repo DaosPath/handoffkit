@@ -500,6 +500,10 @@ CliResult cmd_replay(const std::vector<std::string>& args) {
 
 CliResult cmd_fusion(const std::vector<std::string>& args) {
     // fusion [--provider P] [--profile neutral|shipping|...] [--mode lean|ultra|dag]
+    //        [--config FILE] [--prompt-config FILE] [--role-file FILE]
+    //        [--branch-tokens N] [--skeptic-tokens N] [--merge-tokens N] [--meta-tokens N]
+    //        [--thinking enabled|disabled] [--reasoning-effort high|max]
+    //        [--parallel-branches|--no-parallel-branches] [--max-parallel N]
     //        [--tier lite|medium|pro|ultra|genius] [--model M] [--prompt "..."]
     //        [--out DIR] [--ultra] [--no-cache] [--cache-dir D]
     // fusion profiles | modes | tiers | roles | explain | cache ...
@@ -707,12 +711,17 @@ CliResult cmd_fusion(const std::vector<std::string>& args) {
     demos::DemoOptions opt;
     opt.output_dir = default_out_dir(args);
     opt.write_files = !has_flag(args, "--no-write");
+    if (has_flag(args, "--out")) opt.extra["output_dir_explicit"] = true;
+    if (has_flag(args, "--no-write")) opt.extra["no_write_explicit"] = true;
     const bool ultra_flag = has_flag(args, "--ultra");
+    const std::string config_file = optional_flag_value(args, "--config");
+    const std::string prompt_config_file = optional_flag_value(args, "--prompt-config");
+    const std::string role_pack_file = optional_flag_value(args, "--role-file");
     std::string tier = optional_flag_value(args, "--tier");
     std::string mode = optional_flag_value(args, "--mode");
     // Product tier selects call graph; --ultra remains a shortcut to Pro-like ultra mode.
     if (tier.empty() && ultra_flag) tier = "pro";
-    if (mode.empty() && tier.empty()) mode = "lean";
+    if (mode.empty() && tier.empty() && config_file.empty()) mode = "lean";
     if (mode.empty() && !tier.empty()) {
         // mode filled by tier application in router; keep placeholder for logging
         mode = "(from-tier)";
@@ -720,35 +729,37 @@ CliResult cmd_fusion(const std::vector<std::string>& args) {
     const bool ultra = (mode == "ultra" || ultra_flag || tier == "pro");
 
     std::string provider = optional_flag_value(args, "--provider");
-    if (provider.empty()) {
-        // echo is safe offline default for the new suite; live providers remain opt-in
+    if (provider.empty() && config_file.empty()) {
+        // echo is safe offline default when no external config supplies a provider.
         provider = "echo";
     }
     std::string model = optional_flag_value(args, "--model");
     std::string prompt = optional_prompt(args);
     std::string profile = optional_flag_value(args, "--profile");
-    if (profile.empty()) {
-        // CLI compat: pro/ultra tiers without profile keep shipping; otherwise neutral
+    if (profile.empty() && config_file.empty()) {
+        // CLI compat: pro/ultra tiers without profile keep shipping; otherwise neutral.
         profile = (ultra || tier == "pro" || tier == "ultra" || tier == "genius") ? "shipping" : "neutral";
     }
-    if (prompt.empty()) {
+    if (prompt.empty() && config_file.empty()) {
         prompt =
             "Ship HandoffKit C++ for real multi-agent use: packaging, providers, CLI demos, "
             "and handoff quality. Propose a practical plan.";
     }
-    opt.extra = {
-        {"provider", provider},
-        {"prompt", prompt},
-        {"ultra", ultra},
-        {"profile", profile},
-    };
+    // Preserve explicit markers already stored above (--out / --no-write).
+    opt.extra["ultra"] = ultra;
+    if (!provider.empty()) opt.extra["provider"] = provider;
+    if (!prompt.empty()) opt.extra["prompt"] = prompt;
+    if (!profile.empty()) opt.extra["profile"] = profile;
     if (!tier.empty()) {
         opt.extra["tier"] = tier;
     }
+    if (!config_file.empty()) opt.extra["config_file"] = config_file;
+    if (!prompt_config_file.empty()) opt.extra["prompt_config_file"] = prompt_config_file;
+    if (!role_pack_file.empty()) opt.extra["role_pack_file"] = role_pack_file;
     if (mode != "(from-tier)" && !mode.empty()) {
         opt.extra["mode"] = mode;
         if (mode == "dag") opt.extra["ultra"] = false;
-    } else if (tier.empty()) {
+    } else if (tier.empty() && config_file.empty()) {
         opt.extra["mode"] = mode.empty() ? "lean" : mode;
     }
     if (!model.empty()) {
@@ -773,8 +784,37 @@ CliResult cmd_fusion(const std::vector<std::string>& args) {
     if (!model_merge.empty()) opt.extra["model_merge"] = model_merge;
     if (has_flag(args, "--no-panel-judge")) opt.extra["no_panel_judge"] = true;
     if (has_flag(args, "--meta-judge")) opt.extra["meta_judge"] = true;
+    if (has_flag(args, "--no-meta-judge")) opt.extra["no_meta_judge"] = true;
+    if (has_flag(args, "--no-parallel-branches")) opt.extra["parallel_branches"] = false;
+    if (has_flag(args, "--parallel-branches")) opt.extra["parallel_branches"] = true;
+    const std::string max_parallel = optional_flag_value(args, "--max-parallel");
+    if (!max_parallel.empty()) { try { opt.extra["max_parallel_branches"] = std::stoi(max_parallel); } catch (...) {} }
     if (has_flag(args, "--no-early-stop")) opt.extra["no_early_stop"] = true;
     if (has_flag(args, "--no-anti-dilution")) opt.extra["no_anti_dilution"] = true;
+    const std::string branches = optional_flag_value(args, "--branches");
+    if (!branches.empty()) { try { opt.extra["branch_count"] = std::stoi(branches); } catch (...) {} }
+    const std::string max_calls = optional_flag_value(args, "--max-calls");
+    if (!max_calls.empty()) { try { opt.extra["max_llm_calls"] = std::stoi(max_calls); } catch (...) {} }
+    const std::string overlap = optional_flag_value(args, "--overlap-threshold");
+    if (!overlap.empty()) { try { opt.extra["overlap_threshold"] = std::stod(overlap); } catch (...) {} }
+    auto generation_int_flag = [&](const char* flag, const char* key) {
+        const auto value = optional_flag_value(args, flag);
+        if (!value.empty()) { try { opt.extra[key] = std::stoi(value); } catch (...) {} }
+    };
+    auto generation_double_flag = [&](const char* flag, const char* key) {
+        const auto value = optional_flag_value(args, flag);
+        if (!value.empty()) { try { opt.extra[key] = std::stod(value); } catch (...) {} }
+    };
+    generation_int_flag("--branch-tokens", "branch_max_tokens");
+    generation_int_flag("--skeptic-tokens", "skeptic_max_tokens");
+    generation_int_flag("--merge-tokens", "merge_max_tokens");
+    generation_int_flag("--meta-tokens", "meta_judge_max_tokens");
+    generation_double_flag("--temperature", "generation_temperature");
+    generation_double_flag("--top-p", "generation_top_p");
+    const auto thinking = optional_flag_value(args, "--thinking");
+    if (!thinking.empty()) opt.extra["thinking"] = thinking;
+    const auto reasoning_effort = optional_flag_value(args, "--reasoning-effort");
+    if (!reasoning_effort.empty()) opt.extra["reasoning_effort"] = reasoning_effort;
     if (mode == "panel") {
         opt.extra["mode"] = "panel";
         // Panel is not tier-driven; avoid shipping profile default for research panel
@@ -825,15 +865,22 @@ CliResult cmd_fusion(const std::vector<std::string>& args) {
     const std::string tier_disp = result.value().report.value("tier_display", std::string("Fusion"));
     const std::string mode_out = result.value().report.value("mode", mode);
     const std::string tier_out = result.value().report.value("tier", tier.empty() ? std::string("medium") : tier);
+    const std::string provider_out = result.value().report.value("provider", provider);
+    const std::string profile_out = result.value().report.value("profile", profile);
+    const std::string model_out = result.value().report.value("model", model);
     std::ostringstream ss;
     ss << "# " << tier_disp << " router run\n\n"
-       << "provider=" << provider << "\n"
-       << "profile=" << profile << "\n"
-       << "model=" << (model.empty() ? "(provider default/env)" : model) << "\n"
+       << "provider=" << provider_out << "\n"
+       << "profile=" << profile_out << "\n"
+       << "model=" << (model_out.empty() ? "(provider default/env)" : model_out) << "\n"
        << "tier=" << tier_out << "\n"
        << "mode=" << mode_out << "\n"
        << "llm_calls=" << calls << "\n"
        << "success=" << (result.value().success ? "true" : "false") << "\n";
+    if (result.value().report.contains("error") && result.value().report["error"].is_string() &&
+        !result.value().report["error"].get<std::string>().empty()) {
+        ss << "error=" << result.value().report["error"].get<std::string>() << "\n";
+    }
     if (result.value().report.contains("capability") && result.value().report["capability"].is_object()) {
         const auto& cap = result.value().report["capability"];
         ss << "capability_pack=" << cap.value("pack_id", std::string("")) << "\n"
@@ -1357,7 +1404,12 @@ std::string help_text() {
        << "  train [pipeline|distill|run|dataset|help]   Distill/SFT jobs (core train/, offline echo)\n"
        << "         [--out DIR] [--prompt P] [--dataset PATH] [--backend echo|process]\n"
        << "  fusion [--provider echo|nvidia|...] [--profile neutral|shipping|diagnostic|...]\n"
+       << "         [--config FILE] [--prompt-config FILE] [--role-file FILE]\n"
        << "         [--tier lite|medium|pro|ultra|genius] [--mode lean|ultra|dag|panel]\n"
+       << "         [--branches N] [--parallel-branches|--no-parallel-branches] [--max-parallel N]\n"
+       << "         [--branch-tokens N] [--skeptic-tokens N] [--merge-tokens N] [--meta-tokens N]\n"
+       << "         [--thinking enabled|disabled] [--reasoning-effort high|max]\n"
+       << "         [--temperature X] [--top-p X] [--max-calls N] [--overlap-threshold X]\n"
        << "         [--models m1,m2,m3,m4] [--model-a A] [--model-b B] [--model-merge M]\n"
        << "         [--no-panel-judge] [--meta-judge] [--no-early-stop] [--no-anti-dilution]\n"
        << "         [--web] [--web-transport http|map] [--seed-url URL] [--web-query Q]\n"
@@ -1366,7 +1418,7 @@ std::string help_text() {
        << "                  [--profile research] [--json]   # multi-tier native compare (fast echo)\n"
        << "         [--model M] [--prompt \"...\"] [--out DIR]\n"
        << "         [--ultra] [--cache-dir D] [--no-cache]\n"
-       << "      Tiers: Lite/Medium=lean(3), Pro=ultra(5), Ultra=DAG4(5), Genius=DAG6(7).\n"
+       << "      Tiers: Lite/Medium=lean(3), Pro=ultra(5), Ultra=DAG4(5), Genius=DAG6+meta(8).\n"
        << "  fusion profiles | fusion modes | fusion tiers\n"
        << "  fusion roles [--profile neutral] [--pack incident|product] [--file pack.json]\n"
        << "  fusion explain [--tier medium] [--mode lean|ultra|dag] [--profile neutral]\n\n"

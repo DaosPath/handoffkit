@@ -1,4 +1,5 @@
 #include <handoffkit/demos/fusion/engine_resume.hpp>
+#include <handoffkit/demos/fusion/engine_internal.hpp>
 #include <handoffkit/demos/fusion/hash.hpp>
 #include <handoffkit/demos/fusion/merge_strategy.hpp>
 #include <handoffkit/demos/fusion/prompt.hpp>
@@ -135,7 +136,9 @@ Result<FusionRunResult> resume_merge_only(
 
     FusionConfig cfg = cp.config;
     cfg.write_files = false;
-    auto pack = make_role_pack(cfg.profile);
+    auto pack_result = detail::resolve_role_pack(cfg);
+    if (!pack_result) return pack_result.error();
+    auto pack = std::move(pack_result.value());
     auto plan = merge_plan_for_pack(pack);
     std::vector<std::pair<std::string, std::string>> labeled = {
         {pack.branches[0].label, a->output},
@@ -156,6 +159,10 @@ Result<FusionRunResult> resume_merge_only(
     GenerateOptions opt;
     opt.agent_name = pack.merger.agent_name;
     opt.task = cfg.task;
+    opt.max_tokens = cfg.generation.merge_max_tokens;
+    opt.temperature = cfg.generation.temperature;
+    opt.top_p = cfg.generation.top_p;
+    opt.extra_body = cfg.generation.extra_body;
     const std::string full = "Role: " + pack.merger.system_role + "\nTask: " + merge_user + "\n";
     const auto t0 = fusion_now_unix_ms();
     auto out = provider.value().generate(full, opt);

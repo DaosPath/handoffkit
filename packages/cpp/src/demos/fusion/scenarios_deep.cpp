@@ -169,6 +169,7 @@ Result<ScenarioResult> deep_ultra_diagnostic_not_shipping() {
     cfg.provider = "echo";
     cfg.write_files = false;
     cfg.cache.enabled = false;
+    cfg.early_stop_on_overlap = false;  // scenario validates the full five-call graph
     auto run = run_fusion(cfg);
     if (!run) return run.error();
     if (run.value().metrics.llm_calls != 5) {

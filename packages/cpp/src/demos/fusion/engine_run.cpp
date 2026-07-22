@@ -53,6 +53,10 @@ Result<std::string> FusionEngine::call_llm(
     GenerateOptions opt;
     opt.agent_name = agent_name;
     opt.task = config.task;
+    opt.max_tokens = config.generation.max_tokens_for_step(step_id);
+    opt.temperature = config.generation.temperature;
+    opt.top_p = config.generation.top_p;
+    opt.extra_body = config.generation.extra_body;
     const std::string full_prompt = "Role: " + system_role + "\nTask: " + user_prompt + "\n";
     const std::string phash = fusion_content_hash(full_prompt);
 

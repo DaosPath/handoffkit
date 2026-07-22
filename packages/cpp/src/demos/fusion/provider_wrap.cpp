@@ -29,11 +29,13 @@ Result<std::string> CachingProvider::generate(std::string_view prompt, const Gen
         provider_name_,
         model_,
         options.agent_name.empty() ? "default" : options.agent_name,
-        options.task,
+        options.task + "|max_tokens=" + std::to_string(options.max_tokens) +
+            "|top_p=" + std::to_string(options.top_p) +
+            "|extra_body=" + options.extra_body.dump(),
         prompt,
         profile_,
         mode_,
-        0.0
+        options.temperature
     );
 
     if (cache_) {
