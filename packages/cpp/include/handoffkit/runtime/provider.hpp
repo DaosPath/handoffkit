@@ -6,6 +6,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -62,12 +63,15 @@ class AnyProvider {
 public:
     using GenerateFn = std::function<Result<std::string>(std::string_view prompt, const GenerateOptions& options)>;
 
-    AnyProvider() : usage_(std::make_shared<ProviderUsage>()) {}
+    AnyProvider()
+        : usage_(std::make_shared<ProviderUsage>()),
+          usage_mutex_(std::make_shared<std::mutex>()) {}
 
     AnyProvider(std::string model, GenerateFn generate)
         : model_(std::move(model)),
           generate_(std::move(generate)),
-          usage_(std::make_shared<ProviderUsage>()) {}
+          usage_(std::make_shared<ProviderUsage>()),
+          usage_mutex_(std::make_shared<std::mutex>()) {}
 
     template <typename Provider>
     static AnyProvider from(Provider provider) {
@@ -84,57 +88,58 @@ public:
 
     [[nodiscard]] std::string_view model() const noexcept { return model_; }
 
+    /// Calls the backend and atomically publishes the completed usage snapshot.
+    /// The metrics are safe across copied AnyProvider handles. The backend callable itself
+    /// must still support concurrent calls when generate() is invoked concurrently.
     Result<std::string> generate(std::string_view prompt, const GenerateOptions& options = {}) const {
+        ProviderUsage usage;
+        usage.prompt_chars = prompt.size();
+        usage.prompt_tokens_est = ProviderUsage::estimate_tokens(prompt.size());
+        usage.model = model_;
+
         if (!generate_) {
-            if (usage_) {
-                usage_->prompt_chars = prompt.size();
-                usage_->completion_chars = 0;
-                usage_->prompt_tokens_est = ProviderUsage::estimate_tokens(prompt.size());
-                usage_->completion_tokens_est = 0;
-                usage_->model = model_;
-                usage_->selected_model.clear();
-                usage_->success = false;
-                usage_->error = "Provider is not configured.";
-            }
+            usage.success = false;
+            usage.error = "Provider is not configured.";
+            publish_usage(std::move(usage));
             return Error::provider_failed("Provider is not configured.");
         }
+
         auto out = generate_(prompt, options);
-        if (usage_) {
-            usage_->prompt_chars = prompt.size();
-            usage_->prompt_tokens_est = ProviderUsage::estimate_tokens(prompt.size());
-            usage_->model = model_;
-            if (!usage_->selected_model.empty() && usage_->selected_model != model_) {
-                // keep selected_model if fallback set it before/during call
-            } else {
-                usage_->selected_model = model_;
-            }
-            if (out) {
-                usage_->completion_chars = out.value().size();
-                usage_->completion_tokens_est = ProviderUsage::estimate_tokens(out.value().size());
-                usage_->success = true;
-                usage_->error.clear();
-            } else {
-                usage_->completion_chars = 0;
-                usage_->completion_tokens_est = 0;
-                usage_->success = false;
-                usage_->error = out.error().message;
-            }
+        usage.selected_model = model_;
+        if (out) {
+            usage.completion_chars = out.value().size();
+            usage.completion_tokens_est = ProviderUsage::estimate_tokens(out.value().size());
+            usage.success = true;
+        } else {
+            usage.success = false;
+            usage.error = out.error().message;
         }
+        publish_usage(std::move(usage));
         return out;
     }
 
-    /// Last generate() usage (shared across copies of this AnyProvider).
+    /// Last completed generate() usage (shared across copies of this AnyProvider).
     [[nodiscard]] ProviderUsage last_usage() const {
-        return usage_ ? *usage_ : ProviderUsage{};
+        if (!usage_ || !usage_mutex_) return ProviderUsage{};
+        std::lock_guard<std::mutex> lock(*usage_mutex_);
+        return *usage_;
     }
 
-    /// Shared usage slot (for FallbackProvider to write selected_model etc.).
+    /// Legacy direct access to the shared slot. Prefer last_usage(); callers that mutate
+    /// this pointer are responsible for their own synchronization.
     [[nodiscard]] std::shared_ptr<ProviderUsage> usage_slot() const { return usage_; }
 
 private:
+    void publish_usage(ProviderUsage usage) const {
+        if (!usage_ || !usage_mutex_) return;
+        std::lock_guard<std::mutex> lock(*usage_mutex_);
+        *usage_ = std::move(usage);
+    }
+
     std::string model_;
     GenerateFn generate_;
     std::shared_ptr<ProviderUsage> usage_;
+    std::shared_ptr<std::mutex> usage_mutex_;
 };
 
 }  // namespace handoffkit

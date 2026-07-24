@@ -64,6 +64,32 @@ void test_parse_openai_rejects_empty_choices() {
     std::cout << "test_parse_openai_rejects_empty_choices passed!" << std::endl;
 }
 
+void test_http_error_is_bounded_and_single_line() {
+    const std::string body = "secret\nline\t" + std::string(20, 'x');
+    const std::string message = format_http_provider_error(429, body, 12);
+    assert(message.find("HTTP status 429") == 0);
+    assert(message.find('\n') == std::string::npos);
+    assert(message.find('\t') == std::string::npos);
+    assert(message.find("truncated") != std::string::npos);
+
+    assert(format_http_provider_error(500, "ignored", 0) == "HTTP status 500");
+    std::cout << "test_http_error_is_bounded_and_single_line passed!" << std::endl;
+}
+
+void test_http_provider_options_are_exposed() {
+    HttpProviderOptions options;
+    options.connection_timeout_ms = 1234;
+    options.read_timeout_ms = 5678;
+    options.max_error_body_chars = 99;
+    OpenAiCompatibleProvider provider(
+        "http://localhost:1/v1", "", "test", "/chat/completions", {}, options
+    );
+    assert(provider.options().connection_timeout_ms == 1234);
+    assert(provider.options().read_timeout_ms == 5678);
+    assert(provider.options().max_error_body_chars == 99);
+    std::cout << "test_http_provider_options_are_exposed passed!" << std::endl;
+}
+
 void test_build_openai_chat_request_shape() {
     GenerateOptions opts;
     opts.agent_name = "Coder";
@@ -96,6 +122,8 @@ int main() {
     test_parse_openai_chat_completion_text_fallback();
     test_parse_openai_rejects_reasoning_without_final_content();
     test_parse_openai_rejects_empty_choices();
+    test_http_error_is_bounded_and_single_line();
+    test_http_provider_options_are_exposed();
     test_build_openai_chat_request_shape();
     std::cout << "All HTTP parse (offline) tests passed!" << std::endl;
     return 0;

@@ -1,5 +1,7 @@
 #include <handoffkit/runtime/http_provider.hpp>
+#include <handoffkit/version.hpp>
 
+#include <algorithm>
 #include <sstream>
 #include <vector>
 
@@ -8,6 +10,111 @@
 #endif
 
 namespace handoffkit {
+namespace {
+
+#if defined(HANDOFFKIT_WITH_HTTP)
+struct HttpEndpoint {
+    std::string origin;
+    std::string base_path;
+};
+
+Result<HttpEndpoint> split_endpoint(std::string base_url) {
+    if (base_url.empty()) return Error::provider_failed("OpenAI-compatible base_url is empty");
+    std::string host = std::move(base_url);
+    std::string scheme = "http";
+    if (host.rfind("https://", 0) == 0) {
+        scheme = "https";
+        host = host.substr(8);
+    } else if (host.rfind("http://", 0) == 0) {
+        host = host.substr(7);
+    }
+    std::string base_path;
+    const auto slash = host.find('/');
+    if (slash != std::string::npos) {
+        base_path = host.substr(slash);
+        host = host.substr(0, slash);
+        while (!base_path.empty() && base_path.back() == '/') base_path.pop_back();
+    }
+    while (!host.empty() && host.back() == '/') host.pop_back();
+    if (host.empty()) return Error::provider_failed("OpenAI-compatible base_url has no host");
+    return HttpEndpoint{scheme + "://" + host, std::move(base_path)};
+}
+
+std::string join_endpoint_path(const HttpEndpoint& endpoint, std::string path) {
+    if (path.empty() || path.front() != '/') path = "/" + path;
+    if (!endpoint.base_path.empty() && path.rfind(endpoint.base_path, 0) != 0) {
+        path = endpoint.base_path + path;
+    }
+    return path;
+}
+
+httplib::Headers make_headers(
+    const std::string& api_key,
+    const std::unordered_map<std::string, std::string>& extra_headers
+) {
+    httplib::Headers headers = {
+        {"Content-Type", "application/json"},
+        {"Accept", "application/json"},
+        {"User-Agent", std::string("HandoffKit/") + std::string(version())},
+    };
+    if (!api_key.empty()) headers.emplace("Authorization", "Bearer " + api_key);
+    for (const auto& [key, value] : extra_headers) {
+        if (!value.empty()) headers.emplace(key, value);
+    }
+    return headers;
+}
+
+std::pair<time_t, time_t> timeout_parts(int timeout_ms) {
+    const int bounded = std::max(0, timeout_ms);
+    return {
+        static_cast<time_t>(bounded / 1000),
+        static_cast<time_t>((bounded % 1000) * 1000),
+    };
+}
+
+void configure_client(
+    httplib::Client& client,
+    const HttpProviderOptions& options,
+    int read_timeout_ms
+) {
+    const auto [connect_s, connect_us] = timeout_parts(options.connection_timeout_ms);
+    const auto [read_s, read_us] = timeout_parts(read_timeout_ms);
+    const auto [write_s, write_us] = timeout_parts(options.write_timeout_ms);
+    client.set_connection_timeout(connect_s, connect_us);
+    client.set_read_timeout(read_s, read_us);
+    client.set_write_timeout(write_s, write_us);
+}
+#endif
+
+}  // namespace
+
+std::string format_http_provider_error(
+    int status,
+    std::string_view body,
+    std::size_t max_body_chars
+) {
+    std::string message = "HTTP status " + std::to_string(status);
+    if (body.empty() || max_body_chars == 0) return message;
+
+    const std::size_t keep = std::min(body.size(), max_body_chars);
+    std::string safe;
+    safe.reserve(keep);
+    for (std::size_t i = 0; i < keep; ++i) {
+        const unsigned char ch = static_cast<unsigned char>(body[i]);
+        if (ch == '\r' || ch == '\n' || ch == '\t') {
+            safe.push_back(' ');
+        } else if (ch < 0x20 || ch == 0x7f) {
+            safe.push_back('?');
+        } else {
+            safe.push_back(static_cast<char>(ch));
+        }
+    }
+    message += ": " + safe;
+    if (keep < body.size()) {
+        message += "... [truncated " + std::to_string(body.size() - keep) + " chars]";
+    }
+    return message;
+}
 
 Result<std::string> parse_openai_chat_completion(const nlohmann::json& response) {
     if (!response.is_object()) {
@@ -45,18 +152,14 @@ nlohmann::json build_openai_chat_request(
     const GenerateOptions& options
 ) {
     std::string content(prompt);
-    if (!options.context.empty()) {
-        content = std::string(options.context) + "\n\n" + content;
-    }
+    if (!options.context.empty()) content = options.context + "\n\n" + content;
     nlohmann::json body = {
         {"model", std::string(model)},
         {"messages", nlohmann::json::array({
             nlohmann::json{{"role", "user"}, {"content", content}},
         })},
     };
-    if (!options.agent_name.empty()) {
-        body["user"] = options.agent_name;
-    }
+    if (!options.agent_name.empty()) body["user"] = options.agent_name;
     if (options.max_tokens > 0) body["max_tokens"] = options.max_tokens;
     if (options.temperature >= 0.0) body["temperature"] = options.temperature;
     if (options.top_p >= 0.0) body["top_p"] = options.top_p;
@@ -88,13 +191,15 @@ OpenAiCompatibleProvider::OpenAiCompatibleProvider(
     std::string api_key,
     std::string model,
     std::string api_path,
-    std::unordered_map<std::string, std::string> extra_headers
+    std::unordered_map<std::string, std::string> extra_headers,
+    HttpProviderOptions options
 )
     : base_url_(std::move(base_url)),
       api_key_(std::move(api_key)),
       model_(std::move(model)),
       api_path_(std::move(api_path)),
-      extra_headers_(std::move(extra_headers)) {}
+      extra_headers_(std::move(extra_headers)),
+      options_(std::move(options)) {}
 
 Result<std::string> OpenAiCompatibleProvider::generate(
     std::string_view prompt,
@@ -107,73 +212,57 @@ Result<std::string> OpenAiCompatibleProvider::generate(
         "OpenAiCompatibleProvider requires HANDOFFKIT_WITH_HTTP=ON at build time"
     );
 #else
-    if (base_url_.empty()) {
-        return Error::provider_failed("OpenAI-compatible base_url is empty");
-    }
-    if (model_.empty()) {
-        return Error::provider_failed("OpenAI-compatible model is empty");
-    }
+    if (model_.empty()) return Error::provider_failed("OpenAI-compatible model is empty");
+    auto endpoint = split_endpoint(base_url_);
+    if (!endpoint) return endpoint.error();
+    const std::string path = join_endpoint_path(endpoint.value(), api_path_);
 
-    std::string host = base_url_;
-    std::string scheme = "http";
-    std::string base_path;
-    if (host.rfind("https://", 0) == 0) {
-        scheme = "https";
-        host = host.substr(8);
-    } else if (host.rfind("http://", 0) == 0) {
-        host = host.substr(7);
-    }
-    // split path from host if base_url includes /v1
-    auto slash = host.find('/');
-    if (slash != std::string::npos) {
-        base_path = host.substr(slash);
-        host = host.substr(0, slash);
-        while (!base_path.empty() && base_path.back() == '/') base_path.pop_back();
-    }
-    while (!host.empty() && host.back() == '/') host.pop_back();
-
-    httplib::Client client(scheme + "://" + host);
-    client.set_connection_timeout(10, 0);
-    client.set_read_timeout(120, 0);
-
-    httplib::Headers headers = {
-        {"Content-Type", "application/json"},
-        {"Accept", "application/json"},
-        {"User-Agent", "HandoffKit/1.14.0"},
-    };
-    if (!api_key_.empty()) {
-        headers.emplace("Authorization", "Bearer " + api_key_);
-    }
-    for (const auto& [k, v] : extra_headers_) {
-        if (!v.empty()) headers.emplace(k, v);
-    }
-
-    std::string path = api_path_;
-    if (!path.empty() && path[0] != '/') path = "/" + path;
-    // If base_url already ends with /v1 and api_path is /chat/completions, join them.
-    if (!base_path.empty()) {
-        if (path.rfind(base_path, 0) == 0) {
-            // already prefixed
-        } else {
-            path = base_path + path;
-        }
-    }
-
+    httplib::Client client(endpoint.value().origin);
+    configure_client(client, options_, options_.read_timeout_ms);
+    const auto headers = make_headers(api_key_, extra_headers_);
     const auto body = build_openai_chat_request(model_, prompt, options);
-    auto res = client.Post(path, headers, body.dump(), "application/json");
-    if (!res) {
-        return Error::provider_failed("HTTP request failed to " + base_url_ + path);
-    }
-    if (res->status < 200 || res->status >= 300) {
-        return Error::provider_failed(
-            "HTTP status " + std::to_string(res->status) + ": " + res->body
-        );
+    auto response = client.Post(path, headers, body.dump(), "application/json");
+    if (!response) return Error::provider_failed("HTTP request failed to " + base_url_ + path);
+    if (response->status < 200 || response->status >= 300) {
+        return Error::provider_failed(format_http_provider_error(
+            response->status,
+            response->body,
+            options_.max_error_body_chars
+        ));
     }
     try {
-        const auto json = nlohmann::json::parse(res->body);
-        return parse_openai_chat_completion(json);
+        return parse_openai_chat_completion(nlohmann::json::parse(response->body));
     } catch (const std::exception& ex) {
         return Error::parse_error(std::string("Invalid provider JSON: ") + ex.what());
+    }
+#endif
+}
+
+Result<std::vector<std::string>> OpenAiCompatibleProvider::list_models() const {
+#if !defined(HANDOFFKIT_WITH_HTTP)
+    return Error::provider_failed(
+        "OpenAiCompatibleProvider::list_models requires HANDOFFKIT_WITH_HTTP=ON at build time"
+    );
+#else
+    auto endpoint = split_endpoint(base_url_);
+    if (!endpoint) return endpoint.error();
+    const std::string path = join_endpoint_path(endpoint.value(), "/models");
+    httplib::Client client(endpoint.value().origin);
+    configure_client(client, options_, options_.models_read_timeout_ms);
+    const auto headers = make_headers(api_key_, extra_headers_);
+    auto response = client.Get(path, headers);
+    if (!response) return Error::provider_failed("HTTP request failed to " + base_url_ + path);
+    if (response->status < 200 || response->status >= 300) {
+        return Error::provider_failed(format_http_provider_error(
+            response->status,
+            response->body,
+            options_.max_error_body_chars
+        ));
+    }
+    try {
+        return parse_openai_models_list(nlohmann::json::parse(response->body));
+    } catch (const std::exception& ex) {
+        return Error::parse_error(std::string("Invalid models JSON: ") + ex.what());
     }
 #endif
 }

@@ -1,15 +1,19 @@
 #include <handoffkit/handoffkit_core.hpp>
+#include <handoffkit/runtime/fallback_provider.hpp>
 
+#include <atomic>
 #include <cassert>
 #include <iostream>
 #include <string>
+#include <thread>
+#include <vector>
 
 using namespace handoffkit;
 
 namespace {
 
 void test_version_string() {
-    assert(std::string(version()) == "1.14.1");
+    assert(std::string(version()) == "1.14.2");
     std::cout << "test_version_string passed!" << std::endl;
 }
 
@@ -148,6 +152,71 @@ void test_team_sequential_handoff() {
     std::cout << "test_team_sequential_handoff passed!" << std::endl;
 }
 
+void test_any_provider_concurrent_usage_snapshot() {
+    AnyProvider provider(
+        "parallel-test",
+        [](std::string_view prompt, const GenerateOptions&) -> Result<std::string> {
+            std::this_thread::yield();
+            return Result<std::string>::success(std::string(prompt));
+        }
+    );
+
+    std::atomic<int> failures{0};
+    std::vector<std::thread> workers;
+    for (int worker = 0; worker < 8; ++worker) {
+        workers.emplace_back([&, worker] {
+            for (int call = 0; call < 100; ++call) {
+                const std::string prompt = "worker-" + std::to_string(worker) + "-" + std::to_string(call);
+                auto result = provider.generate(prompt);
+                if (!result || result.value() != prompt) ++failures;
+            }
+        });
+    }
+    for (auto& worker : workers) worker.join();
+
+    assert(failures.load() == 0);
+    const auto usage = provider.last_usage();
+    assert(usage.success);
+    assert(usage.model == "parallel-test");
+    assert(usage.selected_model == "parallel-test");
+    assert(usage.prompt_chars > 0);
+    assert(usage.completion_chars == usage.prompt_chars);
+    std::cout << "test_any_provider_concurrent_usage_snapshot passed!" << std::endl;
+}
+
+void test_fallback_provider_concurrent_snapshots() {
+    AnyProvider success(
+        "success-model",
+        [](std::string_view prompt, const GenerateOptions&) -> Result<std::string> {
+            return Result<std::string>::success(std::string(prompt));
+        }
+    );
+    FallbackProvider fallback(
+        {FailingProvider("primary", "offline").as_any(), success},
+        "resilient"
+    );
+
+    std::atomic<int> failures{0};
+    std::vector<std::thread> workers;
+    for (int i = 0; i < 12; ++i) {
+        workers.emplace_back([&, i] {
+            auto result = fallback.generate("task-" + std::to_string(i));
+            if (!result) ++failures;
+        });
+    }
+    for (auto& worker : workers) worker.join();
+
+    const auto usage = fallback.last_usage();
+    const auto errors = fallback.last_errors();
+    assert(failures.load() == 0);
+    assert(usage.success);
+    assert(usage.model == "resilient");
+    assert(usage.selected_model == "success-model");
+    assert(errors.size() == 1);
+    assert(errors.front().find("primary") != std::string::npos);
+    std::cout << "test_fallback_provider_concurrent_snapshots passed!" << std::endl;
+}
+
 void test_agent_requires_provider() {
     Agent bare("X", "role");
     auto out = bare.run("task");
@@ -165,6 +234,8 @@ int main() {
     test_tool_registry();
     test_protocol_modes();
     test_team_sequential_handoff();
+    test_any_provider_concurrent_usage_snapshot();
+    test_fallback_provider_concurrent_snapshots();
     test_agent_requires_provider();
     std::cout << "All C++ runtime tests passed successfully!" << std::endl;
     return 0;

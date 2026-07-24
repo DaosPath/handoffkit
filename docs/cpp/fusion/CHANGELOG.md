@@ -12,6 +12,9 @@ Current architecture and usage belong in the [Fusion architecture guide](README.
 
 ### Added
 
+- Added the native C++ DRACO adapter: direct baseline generation, all five
+  Fusion tiers, per-task checkpoints, batched criterion judging, weighted
+  scoring, and JSON/Markdown batch reports without a Python harness.
 - Added differentiated Fusion tiers with cumulative quality contracts:
   Lite, Medium, Pro, Ultra, and Genius.
 - Added complete JSON configuration for task, tier, mode, profile, provider,
@@ -66,6 +69,9 @@ Current architecture and usage belong in the [Fusion architecture guide](README.
 
 ### Fixed
 
+- DRACO criterion judging now sends `thinking.type=disabled` when supported so
+  reasoning models emit the required compact JSON verdicts instead of using the
+  entire token budget on hidden reasoning content.
 - Fixed stale documentation and help text that described Genius as seven calls
   instead of eight.
 - Fixed JSON/CLI precedence where defaults could turn a configured Genius DAG
@@ -93,6 +99,16 @@ Current architecture and usage belong in the [Fusion architecture guide](README.
 
 ### Validation
 
+- A local DRACO-compatible baseline over tasks 0–19 generated with
+  `opencode-go/qwen3.7-plus` and judged with
+  `opencode-go/deepseek-v4-pro` using disabled thinking completed 20/20 tasks,
+  783/783 criteria, and zero missing verdicts. Mean normalized score was
+  37.194%, median 34.5248%, and the observed task range was 3.95%–81.63%.
+  This is a local reproducible engineering run, not an official leaderboard
+  submission.
+- The DRACO loader validates the local 100-task dataset with 3,934 criteria
+  across 10 domains; deterministic scoring, baseline, and resume guards pass
+  in both HTTP and offline C++ builds.
 - All 11 dedicated Fusion/HTTP Debug test executables pass with assertions
   enabled.
 - All 15 base scenarios and 12 deep scenarios pass: 27/27 combined.

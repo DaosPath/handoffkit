@@ -4,6 +4,8 @@
 
 #include <handoffkit/runtime/provider.hpp>
 
+#include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -16,7 +18,9 @@ namespace handoffkit {
 class FallbackProvider {
 public:
     explicit FallbackProvider(std::vector<AnyProvider> chain, std::string label = "fallback")
-        : chain_(std::move(chain)), label_(std::move(label)) {
+        : chain_(std::move(chain)),
+          label_(std::move(label)),
+          state_(std::make_shared<SharedState>()) {
         if (label_.empty()) label_ = "fallback";
     }
 
@@ -25,53 +29,57 @@ public:
     [[nodiscard]] std::size_t chain_size() const noexcept { return chain_.size(); }
 
     Result<std::string> generate(std::string_view prompt, const GenerateOptions& options = {}) const {
-        last_errors_.clear();
+        std::vector<std::string> errors;
+        ProviderUsage usage;
+        usage.model = label_;
+        usage.prompt_chars = prompt.size();
+        usage.prompt_tokens_est = ProviderUsage::estimate_tokens(prompt.size());
+
         if (chain_.empty()) {
-            last_usage_ = ProviderUsage{};
-            last_usage_.model = label_;
-            last_usage_.success = false;
-            last_usage_.error = "FallbackProvider chain is empty";
-            last_usage_.prompt_chars = prompt.size();
-            last_usage_.prompt_tokens_est = ProviderUsage::estimate_tokens(prompt.size());
+            usage.success = false;
+            usage.error = "FallbackProvider chain is empty";
+            publish(std::move(usage), std::move(errors));
             return Error::provider_failed("FallbackProvider chain is empty");
         }
+
         for (std::size_t i = 0; i < chain_.size(); ++i) {
-            auto& p = chain_[i];
-            if (!p.valid()) {
-                last_errors_.push_back("slot_" + std::to_string(i) + ": not configured");
+            const auto& provider = chain_[i];
+            if (!provider.valid()) {
+                errors.push_back("slot_" + std::to_string(i) + ": not configured");
                 continue;
             }
-            auto out = p.generate(prompt, options);
+            auto out = provider.generate(prompt, options);
             if (out) {
-                last_usage_ = p.last_usage();
-                last_usage_.model = label_;
-                last_usage_.selected_model = std::string(p.model());
-                last_usage_.success = true;
-                last_usage_.error.clear();
+                usage.completion_chars = out.value().size();
+                usage.completion_tokens_est = ProviderUsage::estimate_tokens(out.value().size());
+                usage.selected_model = std::string(provider.model());
+                usage.success = true;
+                usage.error.clear();
+                publish(std::move(usage), std::move(errors));
                 return out;
             }
-            last_errors_.push_back(
-                std::string(p.model()) + ": " + out.error().message
-            );
+            errors.push_back(std::string(provider.model()) + ": " + out.error().message);
         }
-        last_usage_ = ProviderUsage{};
-        last_usage_.model = label_;
-        last_usage_.prompt_chars = prompt.size();
-        last_usage_.prompt_tokens_est = ProviderUsage::estimate_tokens(prompt.size());
-        last_usage_.success = false;
-        last_usage_.error = "All providers failed";
-        for (const auto& e : last_errors_) {
-            last_usage_.error += "; " + e;
-        }
-        return Error::provider_failed(last_usage_.error);
+
+        usage.success = false;
+        usage.error = "All providers failed";
+        for (const auto& error : errors) usage.error += "; " + error;
+        const std::string message = usage.error;
+        publish(std::move(usage), std::move(errors));
+        return Error::provider_failed(message);
     }
 
-    [[nodiscard]] ProviderUsage last_usage() const { return last_usage_; }
+    [[nodiscard]] ProviderUsage last_usage() const {
+        std::lock_guard<std::mutex> lock(state_->mutex);
+        return state_->usage;
+    }
 
-    [[nodiscard]] const std::vector<std::string>& last_errors() const { return last_errors_; }
+    [[nodiscard]] std::vector<std::string> last_errors() const {
+        std::lock_guard<std::mutex> lock(state_->mutex);
+        return state_->errors;
+    }
 
     [[nodiscard]] AnyProvider as_any() const {
-        // Capture chain by value so AnyProvider owns the fallback behavior.
         FallbackProvider copy = *this;
         return AnyProvider(
             label_,
@@ -82,10 +90,21 @@ public:
     }
 
 private:
-    mutable std::vector<AnyProvider> chain_;
+    struct SharedState {
+        mutable std::mutex mutex;
+        ProviderUsage usage{};
+        std::vector<std::string> errors{};
+    };
+
+    void publish(ProviderUsage usage, std::vector<std::string> errors) const {
+        std::lock_guard<std::mutex> lock(state_->mutex);
+        state_->usage = std::move(usage);
+        state_->errors = std::move(errors);
+    }
+
+    std::vector<AnyProvider> chain_;
     std::string label_;
-    mutable ProviderUsage last_usage_{};
-    mutable std::vector<std::string> last_errors_{};
+    std::shared_ptr<SharedState> state_;
 };
 
 /// Deterministic always-fail provider for offline fallback tests.

@@ -70,6 +70,12 @@ struct ResolvedProviderSettings {
     const ProviderResolveOptions& options = {}
 );
 
+/// Query a provider's OpenAI-compatible GET /models endpoint.
+[[nodiscard]] Result<std::vector<std::string>> list_provider_models(
+    std::string_view name,
+    const ProviderResolveOptions& options = {}
+);
+
 /// Build a live AnyProvider.
 /// - "echo" always works offline
 /// - others require HANDOFFKIT_WITH_HTTP at build time and (usually) an API key

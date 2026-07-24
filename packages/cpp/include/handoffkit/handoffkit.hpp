@@ -6,4 +6,5 @@
 #include <handoffkit/cli/cli_app.hpp>
 #include <handoffkit/demos/cases.hpp>
 #include <handoffkit/demos/demo_types.hpp>
+#include <handoffkit/demos/fusion/draco.hpp>
 

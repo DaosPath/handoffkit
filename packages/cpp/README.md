@@ -23,6 +23,7 @@ Native **C++20** multi-agent runtime with structured handoffs.
 | Provider catalog (NVIDIA/Groq/Grok/OpenRouter/Ollama/OpenCode/…) | Done |
 | Live HTTP via `OpenAiCompatibleProvider` (`HANDOFFKIT_WITH_HTTP`) | Done (default OFF) |
 | Native web explorer (`explore::WebExplorer`, injectable `WebTransport`) | Done (offline fixture + optional live HTTP) |
+| Native DRACO JSONL benchmark (baseline/Fusion, resume, judge, weighted reports) | Done |
 | CMake: `handoffkit_core` vs optional `handoffkit_demos` (fusion) | Done |
 | CMake install + `handoffkit::core` / `handoffkit::handoffkit` | Done |
 | Conan recipe + `test_package` | Done |
@@ -187,7 +188,7 @@ Built by default (`HANDOFFKIT_BUILD_CLI=ON`). Offline Echo-based demos — no AP
 .\packages\cpp\build\handoffkit-cli.exe cases --domain support
 ```
 
-Subcommands: `help`, `version`, `doctor`, `demos`, `demo`, `explore`, `team`, `tools`, `validate`, `quality`, `report`, `cases`, `templates`, `evaluate`, `replay`, `parse-structured`, `providers`, `generate`, `train`, and `fusion`.
+Subcommands: `help`, `version`, `doctor`, `demos`, `demo`, `explore`, `team`, `tools`, `validate`, `quality`, `report`, `cases`, `templates`, `evaluate`, `replay`, `parse-structured`, `providers`, `generate`, `benchmark`, `train`, and `fusion`.
 
 ### Native web explorer (fork-controllable)
 
@@ -236,6 +237,69 @@ handoffkit-cli fusion --provider echo --tier medium --prompt "Compare A and B."
 - [Current architecture, configuration, CLI, limitations, and complete audit](../../docs/cpp/fusion/README.md)
 - [Fusion-specific changelog](../../docs/cpp/fusion/CHANGELOG.md)
 - [Configuration examples](../../docs/cpp/fusion/CONFIGURATION.md)
+
+### Native DRACO benchmark
+
+`handoffkit-cli benchmark draco` runs the original DRACO JSONL task/rubric shape
+without a Python harness. Baseline answers use the selected native C++ provider
+directly; Lite through Genius use `FusionEngine`. Generation, criterion judging,
+weighted scoring, checkpoints, and JSON/Markdown reports all remain in C++.
+
+Build the HTTP-enabled CLI before using a remote provider:
+
+```powershell
+cmake -S packages/cpp -B packages/cpp/build-http -G Ninja `
+  -DHANDOFFKIT_WITH_HTTP=ON -DHANDOFFKIT_BUILD_TESTS=ON
+cmake --build packages/cpp/build-http --target handoffkit-cli
+```
+
+Validate the dataset and discover the provider's current model IDs:
+
+```powershell
+.\packages\cpp\build-http\handoffkit-cli.exe benchmark draco validate `
+  --dataset .local-tests/draco/hf/test.jsonl
+
+.\packages\cpp\build-http\handoffkit-cli.exe providers models opencode-go
+```
+
+Run the first 20-case baseline batch. Declare the judge configuration even when
+generating first so the frozen resume manifest stays identical:
+
+```powershell
+$common = @(
+  "benchmark", "draco", "run",
+  "--dataset", ".local-tests/draco/hf/test.jsonl",
+  "--provider", "opencode-go",
+  "--model", "MODEL_ID",
+  "--judge-provider", "opencode-go",
+  "--judge-model", "JUDGE_MODEL_ID",
+  "--tier", "baseline",
+  "--offset", "0",
+  "--limit", "20",
+  "--out", ".local-tests/draco-v1/baseline/batch-01"
+)
+
+# Generate and inspect answers first.
+.\packages\cpp\build-http\handoffkit-cli.exe @common --generate-only
+
+# Judge the saved answers later, without regenerating them.
+.\packages\cpp\build-http\handoffkit-cli.exe @common --judge-only --resume
+```
+
+Omit `--generate-only`/`--judge-only` to generate and judge in one pass. Repeat
+with offsets `20`, `40`, `60`, and `80`; then use the same ranges for `lite`,
+`medium`, `pro`, `ultra`, and `genius`.
+
+Each batch writes `manifest.json`, `config.json`, rolling/final summaries, and a
+folder per task containing the problem, answer, generation metadata, judge
+verdicts, and status. Resume refuses changed datasets or frozen model/tier/judge
+settings; use a new `--out` directory or `--no-resume` for a deliberately new run.
+
+Scoring follows DRACO's weighted MET/UNMET aggregation: positive weights form
+the denominator, triggered negative criteria subtract from the raw score, and
+the normalized result is clamped to 0–100. A local run is protocol-compatible,
+not automatically leaderboard-identical: exact generation models, judge models,
+and evaluation repetition must also match the reference protocol.
 
 ## Consume
 
@@ -337,6 +401,7 @@ RELEASE.md
 .\packages\cpp\build\handoffkit-cli.exe providers list
 .\packages\cpp\build\handoffkit-cli.exe providers show nvidia
 .\packages\cpp\build\handoffkit-cli.exe providers resolve groq --allow-missing-key
+.\packages\cpp\build-http\handoffkit-cli.exe providers models opencode-go
 ```
 
 ```cpp
@@ -358,7 +423,7 @@ Offline OpenAI response parsing is always available via `parse_openai_chat_compl
 
 ## Version
 
-`1.14.1` — keep `CMakeLists.txt`, `version.hpp`, and `conanfile.py` in sync.
+`1.14.2` — keep `CMakeLists.txt`, `version.hpp`, and `conanfile.py` in sync.
 
 ## Publishing / Trusted path
 

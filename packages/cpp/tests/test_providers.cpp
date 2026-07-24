@@ -85,6 +85,19 @@ void test_parse_models_list() {
     std::cout << "test_parse_models_list passed\n";
 }
 
+void test_offline_model_listing() {
+    auto models = list_provider_models("echo");
+    assert(models);
+    assert(models.value().size() == 1);
+    assert(models.value()[0] == "echo");
+
+    auto cli_models = cli::run_cli({"providers", "models", "echo"});
+    assert(cli_models.exit_code == 0);
+    assert(cli_models.stdout_text.find("models=1") != std::string::npos);
+    assert(cli_models.stdout_text.find("echo") != std::string::npos);
+    std::cout << "test_offline_model_listing passed\n";
+}
+
 void test_cli_providers() {
     auto list = cli::run_cli({"providers", "list"});
     assert(list.exit_code == 0);
@@ -126,6 +139,7 @@ int main() {
     test_resolve_requires_key_by_default();
     test_unknown_provider();
     test_parse_models_list();
+    test_offline_model_listing();
     test_cli_providers();
     test_openrouter_headers_defaults();
     std::cout << "All provider tests passed\n";

@@ -262,6 +262,33 @@ Result<ResolvedProviderSettings> resolve_provider_settings(
     return Result<ResolvedProviderSettings>::success(std::move(s));
 }
 
+Result<std::vector<std::string>> list_provider_models(
+    std::string_view name,
+    const ProviderResolveOptions& options
+) {
+    auto cfg_result = get_provider_config(name);
+    if (!cfg_result) return cfg_result.error();
+    const auto& config = cfg_result.value();
+    if (!config.supports_models_endpoint) {
+        return Error::provider_failed(
+            "Provider '" + std::string(name) + "' does not declare a models endpoint"
+        );
+    }
+    if (config.name == "echo") {
+        return Result<std::vector<std::string>>::success(config.suggested_models);
+    }
+    auto settings = resolve_provider_settings(name, options);
+    if (!settings) return settings.error();
+    OpenAiCompatibleProvider provider(
+        settings.value().base_url,
+        settings.value().api_key,
+        settings.value().model,
+        settings.value().api_path,
+        settings.value().headers
+    );
+    return provider.list_models();
+}
+
 Result<AnyProvider> make_openai_compatible_provider(const ResolvedProviderSettings& settings) {
     OpenAiCompatibleProvider p(
         settings.base_url,

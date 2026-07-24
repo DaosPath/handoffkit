@@ -4,6 +4,7 @@
 #include <handoffkit/demos/fusion/audit_loc.hpp>
 #include <handoffkit/demos/fusion/cache.hpp>
 #include <handoffkit/demos/fusion/bench.hpp>
+#include <handoffkit/demos/fusion/draco.hpp>
 #include <handoffkit/demos/fusion/engine.hpp>
 #include <handoffkit/demos/fusion/roles.hpp>
 #include <handoffkit/demos/fusion/scenarios_deep.hpp>
@@ -32,7 +33,11 @@
 #include <handoffkit/train/runner.hpp>
 #include <handoffkit/runtime/protocol.hpp>
 
+#include <algorithm>
 #include <filesystem>
+#include <iomanip>
+#include <limits>
+#include <stdexcept>
 #include <fstream>
 #include <iterator>
 #include <sstream>
@@ -353,6 +358,19 @@ CliResult cmd_providers(const std::vector<std::string>& args) {
         auto resolved = resolve_provider_settings(args[2], opt);
         if (!resolved) return fail(1, resolved.error().message + "\n");
         return ok(resolved.value().to_json().dump(2) + "\n");
+    }
+    if (args[1] == "models") {
+        if (args.size() < 3) return fail(2, "usage: providers models <name> [--model M]\n");
+        ProviderResolveOptions opt;
+        const auto model_flag = optional_flag_value(args, "--model");
+        if (!model_flag.empty()) opt.model = model_flag;
+        auto models = list_provider_models(args[2], opt);
+        if (!models) return fail(1, models.error().message + "\n");
+        std::ostringstream ss;
+        ss << "provider=" << args[2] << "\n"
+           << "models=" << models.value().size() << "\n";
+        for (const auto& id : models.value()) ss << id << "\n";
+        return ok(ss.str());
     }
     // providers <name> as shortcut for show
     auto cfg = get_provider_config(args[1]);
@@ -1227,6 +1245,139 @@ CliResult cmd_explore(const std::vector<std::string>& args) {
     return ok(ss.str());
 }
 
+CliResult cmd_benchmark(const std::vector<std::string>& args) {
+    using demos::fusion::DracoRunConfig;
+    using demos::fusion::load_draco_tasks;
+    using demos::fusion::run_draco_batch;
+
+    const auto usage = [] {
+        return std::string(
+            "benchmark draco validate --dataset PATH\n"
+            "benchmark draco run --dataset PATH [--provider P] [--model M]\n"
+            "  [--judge-provider P] [--judge-model M] [--tier baseline|lite|medium|pro|ultra|genius]\n"
+            "  [--offset N] [--limit N] [--out DIR] [--resume|--no-resume]\n"
+            "  [--generate-only|--judge-only|--no-judge] [--web] [--no-parallel]\n"
+            "  [--answer-tokens N] [--judge-tokens N] [--judge-batch N]\n"
+            "  [--generation-attempts N] [--judge-attempts N] [--json]\n"
+        );
+    };
+    if (args.size() < 2 || args[1] == "help" || args[1] == "-h" || args[1] == "--help") {
+        return ok(usage());
+    }
+    if (args[1] != "draco") {
+        return fail(2, "unknown benchmark: " + args[1] + "\n" + usage());
+    }
+    const std::string sub = args.size() >= 3 && args[2].rfind("-", 0) != 0 ? args[2] : "run";
+    const std::string dataset = optional_flag_value(args, "--dataset");
+    if (dataset.empty()) return fail(2, "benchmark draco requires --dataset PATH\n" + usage());
+
+    if (sub == "validate") {
+        auto tasks = load_draco_tasks(dataset);
+        if (!tasks) return fail(1, tasks.error().message + "\n");
+        std::size_t criteria = 0;
+        std::vector<std::string> domains;
+        for (const auto& task : tasks.value()) {
+            criteria += task.criteria.size();
+            if (std::find(domains.begin(), domains.end(), task.domain) == domains.end()) {
+                domains.push_back(task.domain);
+            }
+        }
+        std::ostringstream ss;
+        ss << "benchmark=draco\n"
+           << "dataset=" << dataset << "\n"
+           << "tasks=" << tasks.value().size() << "\n"
+           << "criteria=" << criteria << "\n"
+           << "domains=" << domains.size() << "\n";
+        if (!tasks.value().empty()) {
+            ss << "first_id=" << tasks.value().front().id << "\n"
+               << "last_id=" << tasks.value().back().id << "\n";
+        }
+        for (const auto& domain : domains) ss << "domain=" << domain << "\n";
+        return ok(ss.str());
+    }
+    if (sub != "run") return fail(2, "unknown DRACO subcommand: " + sub + "\n" + usage());
+
+    DracoRunConfig config;
+    config.dataset_path = dataset;
+    config.provider = optional_flag_value(args, "--provider");
+    if (config.provider.empty()) config.provider = "opencode-go";
+    config.model = optional_flag_value(args, "--model");
+    config.judge_provider = optional_flag_value(args, "--judge-provider");
+    config.judge_model = optional_flag_value(args, "--judge-model");
+    config.tier = optional_flag_value(args, "--tier");
+    if (config.tier.empty()) config.tier = "baseline";
+    config.resume = !has_flag(args, "--no-resume");
+    if (has_flag(args, "--resume")) config.resume = true;
+    config.generate_answers = !has_flag(args, "--judge-only");
+    config.judge_answers = !has_flag(args, "--no-judge") && !has_flag(args, "--generate-only");
+    config.enable_web_tools = has_flag(args, "--web");
+    config.parallel_branches = !has_flag(args, "--no-parallel");
+    config.write_markdown = !has_flag(args, "--no-markdown");
+
+    std::string parse_error;
+    auto parse_size = [&](const char* flag, std::size_t& target) {
+        const std::string value = optional_flag_value(args, flag);
+        if (value.empty()) return true;
+        try {
+            std::size_t used = 0;
+            const auto parsed = std::stoull(value, &used);
+            if (used != value.size()) throw std::invalid_argument("trailing");
+            target = static_cast<std::size_t>(parsed);
+            return true;
+        } catch (...) {
+            parse_error = std::string(flag) + " must be a non-negative integer";
+            return false;
+        }
+    };
+    auto parse_int = [&](const char* flag, int& target) {
+        const std::string value = optional_flag_value(args, flag);
+        if (value.empty()) return true;
+        try {
+            std::size_t used = 0;
+            const auto parsed = std::stol(value, &used);
+            if (used != value.size() || parsed < 0 || parsed > std::numeric_limits<int>::max()) {
+                throw std::out_of_range("range");
+            }
+            target = static_cast<int>(parsed);
+            return true;
+        } catch (...) {
+            parse_error = std::string(flag) + " must be a non-negative integer";
+            return false;
+        }
+    };
+    if (!parse_size("--offset", config.offset) ||
+        !parse_size("--limit", config.limit) ||
+        !parse_int("--answer-tokens", config.answer_max_tokens) ||
+        !parse_int("--judge-tokens", config.judge_max_tokens) ||
+        !parse_int("--judge-batch", config.judge_batch_size) ||
+        !parse_int("--generation-attempts", config.generation_attempts) ||
+        !parse_int("--judge-attempts", config.judge_attempts) ||
+        !parse_int("--max-parallel", config.max_parallel_branches)) {
+        return fail(2, parse_error + "\n");
+    }
+
+    const std::string out = optional_flag_value(args, "--out");
+    if (!out.empty()) {
+        config.output_dir = out;
+    } else {
+        std::ostringstream batch_name;
+        batch_name << "batch-" << std::setw(3) << std::setfill('0') << config.offset
+                   << "-" << std::setw(3) << std::setfill('0') << (config.offset + config.limit);
+        config.output_dir = std::filesystem::path("runs") / "draco" / config.tier / batch_name.str();
+    }
+
+    auto result = run_draco_batch(config);
+    if (!result) return fail(1, result.error().message + "\n");
+    std::ostringstream ss;
+    ss << result.value().to_markdown()
+       << "\nsummary_json=" << (config.output_dir / "summary.json").string() << "\n"
+       << "summary_markdown=" << (config.output_dir / "summary.md").string() << "\n"
+       << "manifest=" << (config.output_dir / "manifest.json").string() << "\n";
+    if (has_flag(args, "--json")) ss << "\n" << result.value().to_json().dump(2) << "\n";
+    return result.value().failed_tasks == 0 ? ok(ss.str())
+                                            : CliResult{1, ss.str(), "DRACO batch has failed or partial tasks\n"};
+}
+
 CliResult cmd_train(const std::vector<std::string>& args) {
     using namespace train;
     // train | train distill | train run | train pipeline | train help
@@ -1398,9 +1549,11 @@ std::string help_text() {
        << "  evaluate [out.json]  Evaluate a team run offline\n"
        << "  replay <file> [--reexecute]\n"
        << "  parse-structured <file>\n"
-       << "  providers [list|show <name>|resolve <name>]\n"
+       << "  providers [list|show <name>|resolve <name>|models <name>]\n"
        << "  generate --provider <name> --prompt \"...\" [--model M]\n"
        << "      Live LLM call (needs HANDOFFKIT_WITH_HTTP=ON + API key). Keep under rate limits.\n"
+       << "  benchmark draco validate|run   Native DRACO JSONL benchmark, resume, judge, reports\n"
+       << "      run --dataset PATH --tier baseline|lite|medium|pro|ultra|genius --offset N --limit N\n"
        << "  train [pipeline|distill|run|dataset|help]   Distill/SFT jobs (core train/, offline echo)\n"
        << "         [--out DIR] [--prompt P] [--dataset PATH] [--backend echo|process]\n"
        << "  fusion [--provider echo|nvidia|...] [--profile neutral|shipping|diagnostic|...]\n"
@@ -1436,7 +1589,7 @@ std::vector<std::string> command_names() {
         "help", "version", "doctor", "demos", "demo", "explore", "team", "tools",
         "validate", "quality", "report", "cases",
         "templates", "evaluate", "replay", "parse-structured", "providers", "generate",
-        "train", "fusion",
+        "benchmark", "train", "fusion",
     };
 }
 
@@ -1463,6 +1616,7 @@ CliResult run_cli(const std::vector<std::string>& args) {
     if (args[0] == "parse-structured") return cmd_parse_structured(args);
     if (args[0] == "providers") return cmd_providers(args);
     if (args[0] == "generate") return cmd_generate(args);
+    if (args[0] == "benchmark") return cmd_benchmark(args);
     if (args[0] == "train") return cmd_train(args);
     if (args[0] == "fusion") return cmd_fusion(args);
     return fail(2, "Unknown command: " + args[0] + "\n\n" + help_text());
