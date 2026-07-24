@@ -9,6 +9,15 @@ release summary.
 
 ## [Unreleased]
 
+### Fixed
+
+- Made npm Trusted Publishing idempotent and independently retryable per package;
+  existing versions are skipped and a manual npm-only retry accepts an explicit
+  release version.
+- Documented that every `@handoffkit/*` package requires its own npm Trusted
+  Publisher configuration even though all packages share the same scope and
+  workflow.
+
 ## [1.14.2] - 2026-07-23
 
 ### Added

@@ -22,6 +22,22 @@ The npm job first creates the package archives with `pnpm pack`, preserving the
 workspace dependency rewrites, and then publishes those `.tgz` files with
 `npm publish` so npm Trusted Publishing performs the OIDC exchange.
 
+npm Trusted Publishing is configured **per package**, not once for the entire
+`@handoffkit` scope. Configure these six package settings independently on
+npmjs.com:
+
+- `@handoffkit/core`
+- `@handoffkit/providers`
+- `@handoffkit/templates`
+- `@handoffkit/recipes`
+- `@handoffkit/node`
+- `@handoffkit/cli`
+
+For every package use GitHub Actions with organization/user `DaosPath`,
+repository `handoffkit`, workflow filename `publish.yml`, no environment name,
+and allow `npm publish`. These values are case-sensitive. A working Trusted
+Publisher for `@handoffkit/core` does not authorize the other five packages.
+
 ## Patch Release Checklist
 
 1. Update aligned version metadata for Python, JavaScript, and C++.
@@ -61,6 +77,10 @@ git push origin vX.Y.Z
      OIDC provenance attestation.
 8. Verify the published Python and npm versions and inspect the C++ release
    assets and checksums.
+9. For a partial npm release, correct the affected package's Trusted Publisher,
+   then run `Publish` manually with target `npm` and the existing
+   `release_version`. The workflow skips package versions that are already
+   public and retries every package independently.
 
 ## Notes
 

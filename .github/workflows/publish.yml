@@ -2,6 +2,19 @@ name: Publish
 
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: Publication target
+        required: true
+        default: testpypi
+        type: choice
+        options:
+          - testpypi
+          - npm
+      release_version:
+        description: Version to retry for npm, for example 1.14.2
+        required: false
+        type: string
   push:
     tags:
       - "v*"
@@ -91,7 +104,7 @@ jobs:
     name: Publish to TestPyPI
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
     environment:
       name: handoffkit
       url: https://test.pypi.org/project/handoffkit/
@@ -156,10 +169,32 @@ jobs:
         run: pnpm ci:js
 
   publish-npm:
-    name: Publish to npm
+    name: Publish npm / ${{ matrix.package }}
     needs: [quality-gate, quality-gate-js, quality-gate-cpp]
     runs-on: ubuntu-latest
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.target == 'npm')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: "@handoffkit/core"
+            directory: packages/js/core
+            archive: handoffkit-core
+          - package: "@handoffkit/providers"
+            directory: packages/js/providers
+            archive: handoffkit-providers
+          - package: "@handoffkit/templates"
+            directory: packages/js/templates
+            archive: handoffkit-templates
+          - package: "@handoffkit/recipes"
+            directory: packages/js/recipes
+            archive: handoffkit-recipes
+          - package: "@handoffkit/node"
+            directory: packages/js/node
+            archive: handoffkit-node
+          - package: "@handoffkit/cli"
+            directory: packages/js/cli
+            archive: handoffkit-cli
     permissions:
       contents: read
       id-token: write
@@ -182,25 +217,49 @@ jobs:
       - name: Install OIDC-capable npm CLI
         run: npm install --global "npm@^11.5.1"
 
-      - name: Pack npm workspaces with pnpm
+      - name: Resolve and validate release version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${{ inputs.release_version }}"
+          fi
+          if [[ -z "$VERSION" ]]; then
+            echo "release_version is required for an npm workflow_dispatch retry" >&2
+            exit 1
+          fi
+          PACKAGE_VERSION=$(node -p "require('./${{ matrix.directory }}/package.json').version")
+          if [[ "$PACKAGE_VERSION" != "$VERSION" ]]; then
+            echo "${{ matrix.package }} is $PACKAGE_VERSION, expected $VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether the version already exists
+        id: exists
+        shell: bash
+        run: |
+          if npm view "${{ matrix.package }}@${{ steps.version.outputs.version }}" version --json >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "${{ matrix.package }}@${{ steps.version.outputs.version }} already exists; skipping"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pack workspace with pnpm
+        if: steps.exists.outputs.exists != 'true'
         run: |
           mkdir -p dist/npm
-          pnpm --dir packages/js/core pack --pack-destination "$GITHUB_WORKSPACE/dist/npm"
-          pnpm --dir packages/js/providers pack --pack-destination "$GITHUB_WORKSPACE/dist/npm"
-          pnpm --dir packages/js/templates pack --pack-destination "$GITHUB_WORKSPACE/dist/npm"
-          pnpm --dir packages/js/recipes pack --pack-destination "$GITHUB_WORKSPACE/dist/npm"
-          pnpm --dir packages/js/node pack --pack-destination "$GITHUB_WORKSPACE/dist/npm"
-          pnpm --dir packages/js/cli pack --pack-destination "$GITHUB_WORKSPACE/dist/npm"
+          pnpm --dir "${{ matrix.directory }}" pack --pack-destination "$GITHUB_WORKSPACE/dist/npm"
 
-      - name: Publish npm packages with Trusted Publishing
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          npm publish "dist/npm/handoffkit-core-${VERSION}.tgz" --access public
-          npm publish "dist/npm/handoffkit-providers-${VERSION}.tgz" --access public
-          npm publish "dist/npm/handoffkit-templates-${VERSION}.tgz" --access public
-          npm publish "dist/npm/handoffkit-recipes-${VERSION}.tgz" --access public
-          npm publish "dist/npm/handoffkit-node-${VERSION}.tgz" --access public
-          npm publish "dist/npm/handoffkit-cli-${VERSION}.tgz" --access public
+      - name: Publish with Trusted Publishing
+        if: steps.exists.outputs.exists != 'true'
+        run: >-
+          npm publish
+          "dist/npm/${{ matrix.archive }}-${{ steps.version.outputs.version }}.tgz"
+          --access public
 
   quality-gate-cpp:
     name: C++ cmake + ctest (release gate)
