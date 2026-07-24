@@ -2,8 +2,9 @@ name: Publish
 
 on:
   workflow_dispatch:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: read
@@ -112,9 +113,9 @@ jobs:
 
   publish-pypi:
     name: Publish to PyPI
-    needs: build
+    needs: [build, quality-gate-js, quality-gate-cpp]
     runs-on: ubuntu-latest
-    if: github.event_name == 'release'
+    if: github.ref_type == 'tag'
     environment:
       name: pypi
       url: https://pypi.org/project/handoffkit/
@@ -133,11 +134,32 @@ jobs:
         with:
           skip-existing: true
 
+  quality-gate-js:
+    name: pnpm workspace + tests + tarballs (release gate)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify workspace, tests, types, web, and tarballs
+        run: pnpm ci:js
+
   publish-npm:
     name: Publish to npm
-    needs: quality-gate
+    needs: [quality-gate, quality-gate-js, quality-gate-cpp]
     runs-on: ubuntu-latest
-    if: github.event_name == 'release'
+    if: github.ref_type == 'tag'
     permissions:
       contents: read
       id-token: write
@@ -151,57 +173,34 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "pnpm"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify packages
-        run: pnpm js:check
+      - name: Install OIDC-capable npm CLI
+        run: npm install --global "npm@^11.5.1"
 
-      - name: Publish core to npm
-        continue-on-error: true
-        run: pnpm --dir packages/js/core publish --no-git-checks --access public --provenance
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Pack npm workspaces with pnpm
+        run: |
+          mkdir -p dist/npm
+          pnpm --dir packages/js/core pack --pack-destination "$GITHUB_WORKSPACE/dist/npm"
+          pnpm --dir packages/js/providers pack --pack-destination "$GITHUB_WORKSPACE/dist/npm"
+          pnpm --dir packages/js/templates pack --pack-destination "$GITHUB_WORKSPACE/dist/npm"
+          pnpm --dir packages/js/recipes pack --pack-destination "$GITHUB_WORKSPACE/dist/npm"
+          pnpm --dir packages/js/node pack --pack-destination "$GITHUB_WORKSPACE/dist/npm"
+          pnpm --dir packages/js/cli pack --pack-destination "$GITHUB_WORKSPACE/dist/npm"
 
-      - name: Publish providers to npm
-        continue-on-error: true
-        run: pnpm --dir packages/js/providers publish --no-git-checks --access public --provenance
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish templates to npm
-        continue-on-error: true
-        run: pnpm --dir packages/js/templates publish --no-git-checks --access public --provenance
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish recipes to npm
-        continue-on-error: true
-        run: pnpm --dir packages/js/recipes publish --no-git-checks --access public --provenance
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish node to npm
-        continue-on-error: true
-        run: pnpm --dir packages/js/node publish --no-git-checks --access public --provenance
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish cli to npm
-        continue-on-error: true
-        run: pnpm --dir packages/js/cli publish --no-git-checks --access public --provenance
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish npm packages with Trusted Publishing
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm publish "dist/npm/handoffkit-core-${VERSION}.tgz" --access public
+          npm publish "dist/npm/handoffkit-providers-${VERSION}.tgz" --access public
+          npm publish "dist/npm/handoffkit-templates-${VERSION}.tgz" --access public
+          npm publish "dist/npm/handoffkit-recipes-${VERSION}.tgz" --access public
+          npm publish "dist/npm/handoffkit-node-${VERSION}.tgz" --access public
+          npm publish "dist/npm/handoffkit-cli-${VERSION}.tgz" --access public
 
   quality-gate-cpp:
     name: C++ cmake + ctest (release gate)
@@ -221,7 +220,7 @@ jobs:
 
   build-cpp-release-asset:
     name: Build C++ source tarball
-    needs: [quality-gate, quality-gate-cpp]
+    needs: [quality-gate, quality-gate-js, quality-gate-cpp]
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -256,7 +255,7 @@ jobs:
     name: Attach C++ assets + OIDC attestation
     needs: build-cpp-release-asset
     runs-on: ubuntu-latest
-    if: github.event_name == 'release'
+    if: github.ref_type == 'tag'
     environment:
       name: cpp-release
     permissions:
@@ -273,6 +272,8 @@ jobs:
       - name: Upload assets to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          generate_release_notes: true
+          tag_name: ${{ github.ref_name }}
           files: |
             cpp-assets/handoffkit-cpp-*.tar.gz
             cpp-assets/SHA256SUMS

@@ -3,6 +3,17 @@
 > This file preserves published Python package history. New monorepo-wide and
 > unreleased changes are recorded in the root [`CHANGELOG.md`](../../CHANGELOG.md).
 
+## 1.14.2
+
+### Patch — aligned trusted release and cross-runtime hardening
+
+- Published Python metadata and CLI version as 1.14.2 with no breaking API
+  changes.
+- Revalidated Ruff, the complete Python test suite, wheel/sdist construction,
+  and Twine metadata before Trusted Publishing.
+- Aligned the Python distribution with the 1.14.2 C++ provider/runtime
+  hardening, native DRACO runner, and pnpm package safety/release gates.
+
 ## 1.14.1
 
 ### Patch — native C++ core packaging + cross-runtime safety demos

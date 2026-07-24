@@ -10,7 +10,7 @@ Move tasks, decisions, files, errors, evidence, and next steps between agents as
 validated data instead of fragile chat summaries.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/DaosPath/handoffkit/ci.yml?branch=main&label=CI&logo=github&logoColor=white&style=flat-square)](https://github.com/DaosPath/handoffkit/actions)
-[![Version](https://img.shields.io/badge/monorepo-1.14.1-38bdf8?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/monorepo-1.14.2-38bdf8?style=flat-square)](CHANGELOG.md)
 [![PyPI](https://img.shields.io/pypi/v/handoffkit.svg?logo=python&logoColor=white&style=flat-square)](https://pypi.org/project/handoffkit/)
 [![npm](https://img.shields.io/npm/v/@handoffkit/core.svg?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/@handoffkit/core)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-7c3aed?logo=cplusplus&logoColor=white&style=flat-square)](packages/cpp/README.md)
@@ -131,7 +131,7 @@ Runtime documentation:
 
 ---
 
-## What ships in 1.14.1
+## What ships in 1.14.2
 
 | Area | Included |
 |---|---|

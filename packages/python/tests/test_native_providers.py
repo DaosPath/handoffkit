@@ -55,6 +55,7 @@ def test_provider_selector_lists_native_providers() -> None:
 
 def test_native_provider_uses_provider_specific_env(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setenv("NVIDIA_API_KEY", "test-nvidia-key")
+    monkeypatch.delenv("NVIDIA_MODEL", raising=False)
     captured: dict[str, object] = {}
 
     def fake_urlopen(request: urllib.request.Request, timeout: float) -> FakeResponse:

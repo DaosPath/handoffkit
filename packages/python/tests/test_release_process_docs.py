@@ -32,13 +32,18 @@ def test_publish_workflow_uses_trusted_publishing_without_tokens() -> None:
     assert "id-token: write" in text
     assert "pypa/gh-action-pypi-publish@release/v1" in text
     assert "workflow_dispatch" in text
-    assert "release:" in text
+    assert "push:" in text
+    assert "tags:" in text
+    assert '"v*"' in text
+    assert "npm publish" in text
     assert "TestPyPI" in text
     assert "pypi" in text
     assert "TWINE_PASSWORD" not in text
     assert "TWINE_USERNAME" not in text
     assert "PYPI_TOKEN" not in text
     assert "TEST_PYPI_TOKEN" not in text
+    assert "NPM_TOKEN" not in text
+    assert "NODE_AUTH_TOKEN" not in text
     assert not has_pypi_token(text)
 
 
@@ -49,9 +54,11 @@ def test_release_process_docs_cover_trusted_publishing() -> None:
     assert "publish.yml" in text
     assert "TestPyPI" in text
     assert "pypi" in text
+    assert "npm" in text
     assert "DaosPath" in text
     assert "handoffkit" in text
     assert "TWINE_PASSWORD" not in text
+    assert "NPM_TOKEN" not in text
     assert not has_pypi_token(text)
 
 

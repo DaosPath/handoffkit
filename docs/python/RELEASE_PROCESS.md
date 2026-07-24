@@ -1,56 +1,73 @@
 # Release Process
 
-HandoffKit releases use GitHub Actions CI for validation and PyPI Trusted
-Publishing for uploads.
+HandoffKit releases use GitHub Actions CI and Trusted Publishing for both PyPI
+and the public npm packages. Production publishing is triggered by pushing a
+version tag such as `v1.14.2`.
 
 ## Trusted Publisher Setup
 
-Configure both package indexes before publishing with the workflow:
+Configure the package indexes before publishing with the workflow:
 
-| Index | Owner | Repository | Workflow | Environment |
+| Registry | Owner | Repository | Workflow | Environment |
 |---|---|---|---|---|
 | TestPyPI | `DaosPath` | `handoffkit` | `publish.yml` | `handoffkit` |
 | PyPI | `DaosPath` | `handoffkit` | `publish.yml` | `pypi` |
+| npm `@handoffkit/*` | `DaosPath` | `handoffkit` | `publish.yml` | none |
 
-Do not store PyPI package tokens in files or GitHub Secrets. The publish
-workflow uses GitHub OIDC through `pypa/gh-action-pypi-publish`.
+Do not store PyPI or npm publish tokens in files or GitHub Secrets. The workflow
+uses GitHub OIDC through `pypa/gh-action-pypi-publish` for Python and an
+OIDC-capable npm CLI for the six public JavaScript packages.
+
+The npm job first creates the package archives with `pnpm pack`, preserving the
+workspace dependency rewrites, and then publishes those `.tgz` files with
+`npm publish` so npm Trusted Publishing performs the OIDC exchange.
 
 ## Patch Release Checklist
 
-1. Update version metadata in `pyproject.toml` and `handoffkit/__init__.py`.
-2. Update `CHANGELOG.md` and README release notes.
+1. Update aligned version metadata for Python, JavaScript, and C++.
+2. Move the root `Unreleased` notes under the new version and update the Python
+   package changelog and README release summary.
 3. Run local validation:
 
 ```powershell
+pnpm ci:js
+
 cd packages/python
 ruff check --no-cache .
 pytest -q
 python -m build
 python -m twine check dist/*
+
+cd ../cpp
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DHANDOFFKIT_WITH_HTTP=OFF
+cmake --build build-release --config Release
+ctest --test-dir build-release -C Release --output-on-failure
 ```
 
-4. Create a release branch:
+4. Commit only the intended release files and push `main`.
+5. Optionally run the `Publish` workflow manually to publish the Python build to
+   TestPyPI, then verify installation in a clean environment.
+6. Create and push the annotated version tag:
 
 ```powershell
-git checkout -b release/X.Y.Z
-git add .github .gitignore README.md package.json pnpm-lock.yaml pnpm-workspace.yaml apps packages
-git commit -m "Prepare HandoffKit X.Y.Z"
-git push -u origin release/X.Y.Z
+git tag -a vX.Y.Z -m "HandoffKit X.Y.Z"
+git push origin vX.Y.Z
 ```
 
-5. Wait for CI to pass on the release branch.
-6. Merge the release branch into `main`.
-7. Push `main`.
-8. Create and push the version tag (e.g. `vX.Y.Z`).
-9. Run the `Publish` workflow manually to publish the Python package to TestPyPI.
-10. Verify installation from TestPyPI in a clean environment.
-11. Publish the GitHub Release. This automatically triggers:
-    - PyPI Trusted Publishing for `handoffkit` (Python).
-    - NPM publishing with OIDC provenance for `@handoffkit/*` (JS/TS), using the repository secret `NPM_TOKEN`.
-    - C++ source tarball attach + OIDC artifact attestations (`publish-cpp-release-assets`; see `packages/cpp/RELEASE.md`).
-12. Verify installation from both PyPI and npm in clean environments; optionally verify C++ assets with `gh attestation verify`.
+7. The tag push automatically triggers:
+   - PyPI Trusted Publishing for `handoffkit`.
+   - npm Trusted Publishing for all six `@handoffkit/*` packages.
+   - C++ source tarball construction, GitHub Release creation, asset upload, and
+     OIDC provenance attestation.
+8. Verify the published Python and npm versions and inspect the C++ release
+   assets and checksums.
 
 ## Notes
 
-- HandoffKit 1.0.0 was uploaded manually with `twine`. HandoffKit 1.0.1 and later are prepared for Trusted Publishing.
-- The npm packages use GitHub OIDC provenance linked to the publish workflow, but still require the `NPM_TOKEN` secret to be set up under repository Secrets in GitHub.
+- HandoffKit 1.0.0 was uploaded manually with `twine`. Later releases use
+  Trusted Publishing.
+- Trusted Publishing authenticates only during the CI publish operation, so a
+  local `npm whoami` result is not relevant to the release job.
+- The workflow installs an npm CLI version with OIDC support and grants only
+  `id-token: write` plus the minimum repository permissions required by each
+  job.
