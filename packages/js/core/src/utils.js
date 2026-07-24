@@ -51,7 +51,7 @@ export function cryptoRandomId() {
 }
 
 
-export const HANDOFFKIT_CORE_VERSION = "1.14.0";
+export const HANDOFFKIT_CORE_VERSION = "1.14.2";
 export function toJSONValue(value) {
   if (value == null) return value;
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;

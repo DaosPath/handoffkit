@@ -3,9 +3,15 @@
   "private": true,
   "packageManager": "pnpm@11.1.1",
   "scripts": {
-    "contracts:test": "pnpm js:test && pnpm python:test && pnpm rust:test && pnpm cpp:test",
+    "check": "pnpm workspace:validate && pnpm js:check && pnpm js:typecheck && pnpm web:check",
+    "test": "pnpm js:test && pnpm web:test:studio",
+    "ci:js": "pnpm check && pnpm test && pnpm js:pack:check",
+    "workspace:validate": "node scripts/js/validate-workspace.mjs",
     "js:check": "pnpm --filter \"./packages/js/**\" run check",
+    "js:typecheck": "tsc -p scripts/js/tsconfig.json",
     "js:test": "pnpm --filter \"./packages/js/**\" run test",
+    "js:pack:check": "node scripts/js/validate-packages.mjs",
+    "contracts:test": "pnpm js:test && pnpm python:test && pnpm rust:test && pnpm cpp:test",
     "python:install": "cd packages/python && python -m pip install -e \".[dev]\"",
     "python:lint": "cd packages/python && python -m ruff check --no-cache .",
     "python:test": "cd packages/python && python -m pytest -q",
@@ -14,6 +20,7 @@
     "rust:test": "cargo test --manifest-path packages/rust/Cargo.toml",
     "cpp:test": "cmake -S packages/cpp -B packages/cpp/build && cmake --build packages/cpp/build --config Release && ctest --test-dir packages/cpp/build -C Release --output-on-failure",
     "web:dev": "pnpm --dir apps/web exec next dev -p 3000",
+    "web:check": "pnpm --dir apps/web run check",
     "web:lint": "pnpm --dir apps/web run lint",
     "web:build": "pnpm --dir apps/web run build",
     "web:test:studio": "pnpm --dir apps/web run test:studio",
@@ -21,6 +28,12 @@
   },
   "devDependencies": {
     "@handoffkit/core": "workspace:*",
-    "@handoffkit/node": "workspace:*"
+    "@handoffkit/node": "workspace:*",
+    "@types/node": "^26.1.1",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=20.9.0",
+    "pnpm": ">=11.1.1"
   }
 }

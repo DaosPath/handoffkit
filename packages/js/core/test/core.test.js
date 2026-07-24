@@ -692,3 +692,56 @@ test("Extension and ExtensionRegistry validate, register, and retrieve bundles",
 
 
 
+
+
+test("core provider timeout remains active with an external signal", async () => {
+  const external = new AbortController();
+  const provider = new OpenAIProvider({
+    apiKey: "test-key",
+    model: "test",
+    timeout: 10,
+    fetchImpl: async (_url, init) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => {
+        const error = new Error("aborted");
+        error.name = "AbortError";
+        reject(error);
+      }, { once: true });
+    }),
+  });
+  await assert.rejects(
+    () => provider.agenerate("hello", { signal: external.signal }),
+    (error) => error.name === "TimeoutError" && error.retryable === true,
+  );
+});
+
+test("core providers keep transport options out of request payloads and bound errors", async () => {
+  let payload;
+  const ollama = new OllamaProvider({
+    model: "test",
+    maxErrorBodyChars: 24,
+    fetchImpl: async (_url, init) => {
+      payload = JSON.parse(init.body);
+      return { ok: true, status: 200, async text() { return JSON.stringify({ response: "ok" }); } };
+    },
+  });
+  assert.equal(await ollama.agenerate("hello", { context: "private", timeout: 50 }), "ok");
+  assert.equal("context" in payload, false);
+  assert.equal("timeout" in payload, false);
+
+  const openai = new OpenAIProvider({
+    apiKey: "private-key",
+    model: "test",
+    maxErrorBodyChars: 24,
+    fetchImpl: async () => ({
+      ok: false,
+      status: 500,
+      async text() { return `private-key\n${"x".repeat(80)}`; },
+    }),
+  });
+  await assert.rejects(() => openai.agenerate("hello"), (error) => {
+    assert.doesNotMatch(error.message, /private-key/);
+    assert.doesNotMatch(error.message, /\n/);
+    assert.match(error.message, /truncated/);
+    return true;
+  });
+});

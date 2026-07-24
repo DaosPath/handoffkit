@@ -46,6 +46,7 @@ export class RecipeRunResult {
 export class RecipeRunner {
   constructor(recipe: Recipe, options?: { protocol?: HandoffProtocol });
   run(initialTask?: string): RecipeRunResult;
+  arun(initialTask?: string): Promise<RecipeRunResult>;
 }
 
 export class WorkflowTemplate {
@@ -103,8 +104,22 @@ export class FusionReport {
 export function splitModels(value: string | null | undefined): string[];
 export function offlineFusionPanel(task?: string): PanelResponse[];
 export function judgeFusionPanel(task: string, panel: PanelResponse[], options?: { mode?: string }): FusionReport;
-export function runModelFusionPanel(options?: { task?: string; provider?: string; models?: string; real?: boolean; timeout?: number }): Promise<FusionReport>;
-export function realFusionPanel(provider: string, models: string[], task?: string, options?: { timeout?: number }): Promise<PanelResponse[]>;
+export function runModelFusionPanel(options?: {
+  task?: string;
+  provider?: string;
+  models?: string;
+  real?: boolean;
+  timeout?: number;
+  fetchImpl?: typeof fetch;
+  signal?: AbortSignal;
+  maxParallel?: number;
+}): Promise<FusionReport>;
+export function realFusionPanel(
+  provider: string,
+  models: string[],
+  task?: string,
+  options?: { timeout?: number; fetchImpl?: typeof fetch; signal?: AbortSignal; maxParallel?: number },
+): Promise<PanelResponse[]>;
 
 export class MediaAsset {
   path: string;

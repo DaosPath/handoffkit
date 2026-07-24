@@ -2,13 +2,16 @@
   "name": "@handoffkit/web",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@11.1.1",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:studio": "node --experimental-strip-types src/lib/studio/parse-rankings.test.mjs"
+    "typecheck": "tsc --noEmit",
+    "test:studio": "node --experimental-strip-types src/lib/studio/parse-rankings.test.mjs",
+    "check": "pnpm run lint && pnpm run typecheck && pnpm run test:studio"
   },
   "dependencies": {
     "@handoffkit/core": "workspace:*",
@@ -27,5 +30,8 @@
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
     "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=20.9.0"
   }
 }

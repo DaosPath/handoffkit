@@ -1,4 +1,7 @@
+export const HANDOFFKIT_PROVIDERS_VERSION = "1.14.2";
+
 const DEFAULT_TIMEOUT_MS = 60000;
+const DEFAULT_MAX_ERROR_BODY_CHARS = 8192;
 const DEFAULT_RETRY_STATUS_CODES = [408, 409, 425, 429, 500, 502, 503, 504];
 const REDACTED = "[redacted]";
 
@@ -99,7 +102,18 @@ export class ProviderConfigurationError extends Error {
 }
 
 export class ProviderAPIError extends Error {
-  constructor(message, { provider = "", status = 0, body = "", retryable = false, cause = undefined } = {}) {
+  constructor(
+    message,
+    {
+      provider = "",
+      status = 0,
+      body = "",
+      retryable = false,
+      aborted = false,
+      timedOut = false,
+      cause = undefined,
+    } = {},
+  ) {
     super(message, { cause });
     this.name = "ProviderAPIError";
     this.provider = provider;
@@ -107,6 +121,8 @@ export class ProviderAPIError extends Error {
     this.statusCode = status;
     this.body = body;
     this.retryable = retryable;
+    this.aborted = aborted;
+    this.timedOut = timedOut;
   }
 }
 
@@ -145,17 +161,18 @@ export class EchoProvider extends BaseProvider {
 export class FallbackProvider extends BaseProvider {
   constructor({ providers = [], name = "Fallback", id = "fallback", metadata = {} } = {}) {
     const list = (Array.isArray(providers) ? providers : []).filter(Boolean);
-    const firstModel = list[0]?.model ?? "";
-    super({ id, name, model: firstModel, metadata });
+    super({ id, name, model: list[0]?.model ?? "", metadata });
     this.providers = list;
+    this.lastErrors = [];
+    this.selectedProvider = "";
   }
 
   isConfigured() {
-    return this.providers.length > 0 && this.providers.some((p) => p.isConfigured());
+    return this.providers.length > 0 && this.providers.some((provider) => provider.isConfigured?.() !== false);
   }
 
   async agenerate(prompt, options = {}) {
-    const configured = this.providers.filter((p) => p.isConfigured());
+    const configured = this.providers.filter((provider) => provider.isConfigured?.() !== false);
     if (configured.length === 0) {
       throw new ProviderConfigurationError("FallbackProvider has no configured underlying providers.", {
         provider: this.id,
@@ -165,17 +182,24 @@ export class FallbackProvider extends BaseProvider {
     const errors = [];
     for (const provider of configured) {
       try {
-        return await provider.agenerate(prompt, options);
+        const output = await provider.agenerate(prompt, options);
+        this.lastErrors = errors.map(formatProviderError);
+        this.selectedProvider = provider.id || provider.name || provider.constructor?.name || "unknown";
+        return output;
       } catch (error) {
         errors.push(error);
       }
     }
 
-    const messages = errors.map((e) => `[${e.provider || "unknown"}]: ${e.message}`).join("; ");
-    throw new ProviderAPIError(`All fallback providers failed: ${messages}`, {
+    const messages = errors.map(formatProviderError);
+    this.lastErrors = [...messages];
+    this.selectedProvider = "";
+    const detail = messages.join("; ");
+    throw new ProviderAPIError(`All fallback providers failed: ${detail}`, {
       provider: this.id,
-      body: messages,
-      cause: errors,
+      body: detail,
+      retryable: errors.some((error) => error?.retryable === true),
+      cause: errors[0],
     });
   }
 }
@@ -191,11 +215,12 @@ export class OpenAICompatibleProvider extends BaseProvider {
     baseURL = undefined,
     headers = {},
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    maxErrorBodyChars = DEFAULT_MAX_ERROR_BODY_CHARS,
     fetchImpl = undefined,
     retryPolicy = null,
     requiresApiKey = undefined,
     allowEnv = true,
-    userAgent = "handoffkit-providers/1.14.0",
+    userAgent = `handoffkit-providers/${HANDOFFKIT_PROVIDERS_VERSION}`,
     metadata = {},
   } = {}) {
     const resolvedSpec = normalizeSpec(spec ?? provider);
@@ -203,7 +228,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
     const resolvedModel = firstDefined(
       model,
       allowEnv ? readEnv(resolvedSpec.modelEnv) : undefined,
-      resolvedSpec.defaultModel
+      resolvedSpec.defaultModel,
     );
     super({
       id: resolvedId,
@@ -213,9 +238,12 @@ export class OpenAICompatibleProvider extends BaseProvider {
     });
     this.spec = resolvedSpec;
     this.apiKey = firstDefined(apiKey, allowEnv ? readEnv(resolvedSpec.apiKeyEnv) : undefined, "");
-    this.baseURL = stripTrailingSlash(firstDefined(baseURL, allowEnv ? readEnv(resolvedSpec.baseURLEnv) : undefined, resolvedSpec.baseURL, ""));
+    this.baseURL = stripTrailingSlash(
+      firstDefined(baseURL, allowEnv ? readEnv(resolvedSpec.baseURLEnv) : undefined, resolvedSpec.baseURL, ""),
+    );
     this.headers = { ...(resolvedSpec.headers ?? {}), ...headers };
-    this.timeoutMs = timeoutMs;
+    this.timeoutMs = normalizeNonNegativeNumber(timeoutMs, DEFAULT_TIMEOUT_MS);
+    this.maxErrorBodyChars = normalizePositiveInteger(maxErrorBodyChars, DEFAULT_MAX_ERROR_BODY_CHARS);
     this.fetchImpl = fetchImpl;
     this.retryPolicy = retryPolicy instanceof RetryPolicy ? retryPolicy : new RetryPolicy({ maxAttempts: 1 });
     this.requiresApiKey = requiresApiKey ?? Boolean(resolvedSpec.requiresApiKey);
@@ -245,13 +273,18 @@ export class OpenAICompatibleProvider extends BaseProvider {
       retryPolicy = this.retryPolicy,
       messages = undefined,
       path = this.spec.chatCompletionsPath ?? "/chat/completions",
+      maxErrorBodyChars = this.maxErrorBodyChars,
       ...requestOptions
     } = options;
     const fetchFn = fetchImpl ?? globalThis.fetch;
     if (typeof fetchFn !== "function") {
-      throw new ProviderConfigurationError("fetch is not available. Pass fetchImpl or run on a runtime with global fetch.", {
-        provider: this.id,
-      });
+      throw new ProviderConfigurationError(
+        "fetch is not available. Pass fetchImpl or run on a runtime with global fetch.",
+        { provider: this.id },
+      );
+    }
+    if (!(retryPolicy instanceof RetryPolicy)) {
+      throw new ProviderConfigurationError("retryPolicy must be an instance of RetryPolicy.", { provider: this.id });
     }
 
     const payload = {
@@ -259,16 +292,18 @@ export class OpenAICompatibleProvider extends BaseProvider {
       messages: messages ?? promptToMessages(input),
       ...withoutTransportOptions(requestOptions),
     };
-    const operation = () => this.postChatCompletion({
-      fetchFn,
-      url: joinURL(this.baseURL, path),
-      payload,
-      headers,
-      timeoutMs,
-      signal,
-    });
+    const operation = () =>
+      this.postChatCompletion({
+        fetchFn,
+        url: joinURL(this.baseURL, path),
+        payload,
+        headers,
+        timeoutMs,
+        maxErrorBodyChars,
+        signal,
+      });
 
-    return retryPolicy.run(operation);
+    return retryPolicy.run(operation, { signal });
   }
 
   assertConfigured() {
@@ -289,10 +324,8 @@ export class OpenAICompatibleProvider extends BaseProvider {
     }
   }
 
-  async postChatCompletion({ fetchFn, url, payload, headers, timeoutMs, signal }) {
-    const controller = signal ? null : new AbortController();
-    const requestSignal = signal ?? controller.signal;
-    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  async postChatCompletion({ fetchFn, url, payload, headers, timeoutMs, maxErrorBodyChars, signal }) {
+    const request = createRequestSignal(signal, timeoutMs);
     const requestHeaders = this.buildHeaders(headers);
     const secrets = this.collectSecrets(requestHeaders);
 
@@ -301,40 +334,48 @@ export class OpenAICompatibleProvider extends BaseProvider {
         method: "POST",
         headers: requestHeaders,
         body: JSON.stringify(payload),
-        signal: requestSignal,
+        signal: request.signal,
       });
-      if (timer) clearTimeout(timer);
-      const responseText = await safeReadText(response);
+      const { text: responseText, json: responseJSON } = await readResponseBody(response);
       if (!response.ok) {
-        const sanitizedBody = redactSecrets(responseText, secrets);
+        const sanitizedBody = sanitizeErrorBody(redactSecrets(responseText, secrets), maxErrorBodyChars);
         throw new ProviderAPIError(
-          `${this.name} request failed with HTTP ${response.status}: ${sanitizedBody}`,
+          `${this.name} request failed with HTTP ${response.status}${sanitizedBody ? `: ${sanitizedBody}` : ""}`,
           {
             provider: this.id,
             status: response.status,
             body: sanitizedBody,
             retryable: DEFAULT_RETRY_STATUS_CODES.includes(response.status),
-          }
+          },
         );
       }
-      return parseJSONResponse(responseText, this.id);
+      return responseJSON ?? parseJSONResponse(responseText, this.id, maxErrorBodyChars, secrets);
     } catch (error) {
-      if (timer) clearTimeout(timer);
-      if (error?.name === "AbortError") {
-        throw new ProviderAPIError(`${this.name} request timed out after ${timeoutMs}ms`, {
+      if (error instanceof ProviderAPIError || error instanceof ProviderConfigurationError) throw error;
+      if (request.signal.aborted || error?.name === "AbortError") {
+        if (request.timedOut()) {
+          throw new ProviderAPIError(`${this.name} request timed out after ${timeoutMs}ms`, {
+            provider: this.id,
+            retryable: true,
+            timedOut: true,
+            cause: error,
+          });
+        }
+        throw new ProviderAPIError(`${this.name} request was aborted`, {
           provider: this.id,
-          retryable: true,
+          retryable: false,
+          aborted: true,
           cause: error,
         });
       }
-      if (error instanceof ProviderAPIError || error instanceof ProviderConfigurationError) {
-        throw error;
-      }
-      throw new ProviderAPIError(`${this.name} request failed: ${redactSecrets(error?.message ?? String(error), secrets)}`, {
+      const detail = sanitizeErrorBody(redactSecrets(error?.message ?? String(error), secrets), maxErrorBodyChars);
+      throw new ProviderAPIError(`${this.name} request failed${detail ? `: ${detail}` : ""}`, {
         provider: this.id,
         retryable: true,
         cause: error,
       });
+    } finally {
+      request.cleanup();
     }
   }
 
@@ -376,10 +417,10 @@ export class RetryPolicy {
     retryErrorNames = ["AbortError"],
     sleepImpl = sleep,
   } = {}) {
-    this.maxAttempts = Math.max(1, maxAttempts);
-    this.baseDelayMs = Math.max(0, baseDelayMs);
-    this.maxDelayMs = Math.max(0, maxDelayMs);
-    this.backoffFactor = Math.max(1, backoffFactor);
+    this.maxAttempts = normalizePositiveInteger(maxAttempts, 3);
+    this.baseDelayMs = normalizeNonNegativeNumber(baseDelayMs, 250);
+    this.maxDelayMs = normalizeNonNegativeNumber(maxDelayMs, 5000);
+    this.backoffFactor = Math.max(1, Number(backoffFactor) || 1);
     this.jitter = Boolean(jitter);
     this.retryStatusCodes = [...retryStatusCodes];
     this.retryErrorNames = [...retryErrorNames];
@@ -387,7 +428,7 @@ export class RetryPolicy {
   }
 
   shouldRetry(error, attempt) {
-    if (attempt >= this.maxAttempts) return false;
+    if (attempt >= this.maxAttempts || error?.aborted === true) return false;
     const status = error?.status ?? error?.statusCode;
     if (status) return this.retryStatusCodes.includes(status);
     if (error?.retryable === true) return true;
@@ -402,15 +443,14 @@ export class RetryPolicy {
     return Math.floor(capped * (0.5 + Math.random() * 0.5));
   }
 
-  async run(operation) {
-    let attempt = 1;
-    for (;;) {
+  async run(operation, { signal } = {}) {
+    for (let attempt = 1; ; attempt += 1) {
+      throwIfAborted(signal);
       try {
-        return await operation({ attempt });
+        return await operation({ attempt, signal });
       } catch (error) {
         if (!this.shouldRetry(error, attempt)) throw error;
-        await this.sleepImpl(this.delayForAttempt(attempt));
-        attempt += 1;
+        await waitWithSignal(this.sleepImpl, this.delayForAttempt(attempt), signal);
       }
     }
   }
@@ -468,7 +508,8 @@ export class ProviderRouter extends ProviderSelector {
     const errors = [];
     for (const candidate of candidates) {
       try {
-        const generate = candidate.agenerate?.bind(candidate) ?? candidate.generate.bind(candidate);
+        const generate = candidate.agenerate?.bind(candidate) ?? candidate.generate?.bind(candidate);
+        if (!generate) throw new TypeError("Provider has no generate or agenerate method.");
         return await generate(prompt, generateOptions);
       } catch (error) {
         errors.push(error);
@@ -476,10 +517,10 @@ export class ProviderRouter extends ProviderSelector {
       }
     }
 
-    const detail = errors.map((error) => error.message).join("; ");
+    const detail = errors.map((error) => error?.message ?? String(error)).join("; ");
     throw new ProviderAPIError(`All provider routes failed: ${detail}`, {
       provider: provider || id,
-      retryable: errors.some((error) => error.retryable),
+      retryable: errors.some((error) => error?.retryable === true),
       cause: errors[0],
     });
   }
@@ -501,8 +542,9 @@ export function listProviderSpecs() {
 
 export function redactSecrets(value, secrets = []) {
   let text = typeof value === "string" ? value : JSON.stringify(value);
+  if (typeof text !== "string") text = value == null ? "" : String(value);
   for (const secret of secrets) {
-    if (!secret) continue;
+    if (typeof secret !== "string" || secret.length === 0) continue;
     text = text.split(secret).join(REDACTED);
   }
   text = text.replace(/(bearer\s+)([a-z0-9._~+/-]+)/gi, `$1${REDACTED}`);
@@ -510,20 +552,86 @@ export function redactSecrets(value, secrets = []) {
   return text;
 }
 
+export function sanitizeErrorBody(value, maxChars = DEFAULT_MAX_ERROR_BODY_CHARS) {
+  const text = String(value ?? "").replace(/[\r\n\t]+/g, " ").replace(/\s{2,}/g, " ").trim();
+  const limit = normalizePositiveInteger(maxChars, DEFAULT_MAX_ERROR_BODY_CHARS);
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit)}… [truncated ${text.length - limit} chars]`;
+}
+
 function normalizeSpec(specOrId) {
   if (!specOrId) return PROVIDER_SPECS["openai-compatible"];
   if (typeof specOrId === "string") {
     const spec = PROVIDER_SPECS[specOrId];
-    if (!spec) {
-      throw new ProviderConfigurationError(`Unknown provider spec: ${specOrId}`);
-    }
+    if (!spec) throw new ProviderConfigurationError(`Unknown provider spec: ${specOrId}`);
     return spec;
+  }
+  if (typeof specOrId !== "object" || Array.isArray(specOrId)) {
+    throw new ProviderConfigurationError("Provider spec must be a provider id or object.");
   }
   return {
     ...PROVIDER_SPECS["openai-compatible"],
     ...specOrId,
     headers: { ...(specOrId.headers ?? {}) },
   };
+}
+
+function createRequestSignal(externalSignal, timeoutMs) {
+  const controller = new AbortController();
+  let didTimeout = false;
+  let didExternalAbort = false;
+  const onExternalAbort = () => {
+    didExternalAbort = true;
+    controller.abort(externalSignal?.reason);
+  };
+  if (externalSignal) {
+    if (externalSignal.aborted) onExternalAbort();
+    else externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+  }
+  const normalizedTimeout = normalizeNonNegativeNumber(timeoutMs, DEFAULT_TIMEOUT_MS);
+  const timer = normalizedTimeout > 0
+    ? setTimeout(() => {
+        didTimeout = true;
+        controller.abort();
+      }, normalizedTimeout)
+    : null;
+  return {
+    signal: controller.signal,
+    timedOut: () => didTimeout && !didExternalAbort,
+    cleanup() {
+      if (timer) clearTimeout(timer);
+      externalSignal?.removeEventListener?.("abort", onExternalAbort);
+    },
+  };
+}
+
+function throwIfAborted(signal) {
+  if (!signal?.aborted) return;
+  const error = new Error("Operation was aborted");
+  error.name = "AbortError";
+  throw error;
+}
+
+async function waitWithSignal(sleepImpl, ms, signal) {
+  throwIfAborted(signal);
+  if (!signal) {
+    await sleepImpl(ms);
+    return;
+  }
+  let onAbort;
+  const aborted = new Promise((_, reject) => {
+    onAbort = () => {
+      const error = new Error("Operation was aborted");
+      error.name = "AbortError";
+      reject(error);
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    await Promise.race([Promise.resolve(sleepImpl(ms)), aborted]);
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+  }
 }
 
 function promptToMessages(input) {
@@ -535,24 +643,27 @@ function promptToMessages(input) {
 function promptToText(input) {
   if (typeof input === "string") return input;
   if (input == null) return "";
-  if (Array.isArray(input)) {
-    return input.map((message) => message?.content ?? "").join("\n");
-  }
+  if (Array.isArray(input)) return input.map((message) => message?.content ?? "").join("\n");
   if (typeof input.content === "string") return input.content;
   return JSON.stringify(input);
 }
 
 function withoutTransportOptions(options) {
   const copy = { ...options };
-  delete copy.fetchImpl;
-  delete copy.signal;
-  delete copy.timeoutMs;
-  delete copy.headers;
-  delete copy.retryPolicy;
-  delete copy.path;
-  delete copy.agent;
-  delete copy.task;
-  delete copy.context;
+  for (const key of [
+    "fetchImpl",
+    "signal",
+    "timeoutMs",
+    "maxErrorBodyChars",
+    "headers",
+    "retryPolicy",
+    "path",
+    "agent",
+    "task",
+    "context",
+  ]) {
+    delete copy[key];
+  }
   return copy;
 }
 
@@ -567,33 +678,43 @@ function extractAssistantText(response) {
 function contentToText(content) {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
-  return content.map((part) => {
-    if (typeof part === "string") return part;
-    if (typeof part?.text === "string") return part.text;
-    if (typeof part?.content === "string") return part.content;
-    return "";
-  }).join("");
+  return content
+    .map((part) => {
+      if (typeof part === "string") return part;
+      if (typeof part?.text === "string") return part.text;
+      if (typeof part?.content === "string") return part.content;
+      return "";
+    })
+    .join("");
 }
 
-async function safeReadText(response) {
-  try {
-    return await response.text();
-  } catch (_) {
-    return "";
+async function readResponseBody(response) {
+  if (typeof response?.text === "function") {
+    return { text: await response.text(), json: undefined };
   }
+  if (typeof response?.json === "function") {
+    const json = await response.json();
+    return { text: JSON.stringify(json), json };
+  }
+  return { text: "", json: undefined };
 }
 
-function parseJSONResponse(text, provider) {
+function parseJSONResponse(text, provider, maxChars, secrets) {
   if (!text) return {};
   try {
     return JSON.parse(text);
   } catch (error) {
-    throw new ProviderAPIError(`${provider} returned invalid JSON.`, {
+    const body = sanitizeErrorBody(redactSecrets(text, secrets), maxChars);
+    throw new ProviderAPIError(`${provider} returned invalid JSON${body ? `: ${body}` : ""}`, {
       provider,
-      body: text,
+      body,
       cause: error,
     });
   }
+}
+
+function formatProviderError(error) {
+  return `[${error?.provider || "unknown"}]: ${error?.message ?? String(error)}`;
 }
 
 function hasHeader(headers, wanted) {
@@ -621,11 +742,19 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function normalizePositiveInteger(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+function normalizeNonNegativeNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 function deepFreeze(value) {
   if (!value || typeof value !== "object") return value;
   Object.freeze(value);
-  for (const item of Object.values(value)) {
-    deepFreeze(item);
-  }
+  for (const item of Object.values(value)) deepFreeze(item);
   return value;
 }

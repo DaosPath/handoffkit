@@ -14,6 +14,12 @@ importers:
       '@handoffkit/node':
         specifier: workspace:*
         version: link:packages/js/node
+      '@types/node':
+        specifier: ^26.1.1
+        version: 26.1.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
   apps/web:
     dependencies:
@@ -69,6 +75,9 @@ importers:
       '@handoffkit/node':
         specifier: workspace:*
         version: link:../node
+      '@handoffkit/providers':
+        specifier: workspace:*
+        version: link:../providers
       '@handoffkit/recipes':
         specifier: workspace:*
         version: link:../recipes
@@ -91,6 +100,10 @@ importers:
       '@handoffkit/core':
         specifier: workspace:*
         version: link:../core
+    devDependencies:
+      '@handoffkit/providers':
+        specifier: workspace:*
+        version: link:../providers
 
   packages/js/templates: {}
 

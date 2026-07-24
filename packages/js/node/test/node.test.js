@@ -84,3 +84,29 @@ test("node package JsonMemoryStore persists data to disk", async () => {
   assert.equal(list.length, 1);
   assert.equal(list[0].content, "Persisted facts are awesome");
 });
+
+
+test("node writes are atomic and leave no temporary files", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "handoffkit-atomic-"));
+  const trace = RunTrace.fromTeamResult(new Team({ agents: [new Agent({ name: "Atomic" })] }).run("Persist."));
+  const store = new FileTraceStore({ root: dir });
+  await store.save(trace, "latest");
+  await writeReportFiles(trace, "report", dir);
+  const entries = await import("node:fs/promises").then((fs) => fs.readdir(dir));
+  assert.equal(entries.some((name) => name.endsWith(".tmp")), false);
+});
+
+test("project indexer enforces maxFiles and normalizes extensions", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "handoffkit-index-limit-"));
+  await writeFile(join(dir, "a.TS"), "export const a = 1;");
+  await writeFile(join(dir, "b.ts"), "export const b = 2;");
+  const docs = new ProjectIndexer({ root: dir, allowedExtensions: ["TS"], maxFiles: 1 }).index();
+  assert.equal(docs.length, 1);
+  assert.equal(docs[0].metadata.extension, ".ts");
+});
+
+test("node parity defaults to current core version", async () => {
+  const contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts");
+  const report = await buildNodeContractParityReport({ contractsRoot });
+  assert.equal(report.version, "1.14.2");
+});

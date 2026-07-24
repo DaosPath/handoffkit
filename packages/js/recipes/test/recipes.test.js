@@ -9,6 +9,8 @@ import {
   WorkflowTemplate,
   planExecuteReviewRecipe,
   runModelFusionPanel,
+  realFusionPanel,
+  ffmpegAvailable,
   buildDubbingPlan,
   formatSRT,
   MediaAsset,
@@ -177,4 +179,38 @@ test("Media 1.13 context handoffs match Python -ion surface", async () => {
   );
   assert.equal(planned[0].nextOperations[0], "transcription");
   assert.deepEqual(planned[2].history, ["inspection", "transcription"]);
+});
+
+
+test("real fusion uses the public providers API concurrently", async () => {
+  const calls = [];
+  const panel = await realFusionPanel("ollama", ["model-a", "model-b"], "Review this", {
+    timeout: 1,
+    maxParallel: 2,
+    fetchImpl: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      calls.push(body.model);
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({ choices: [{ message: { content: `answer-${body.model}` } }] });
+        },
+      };
+    },
+  });
+  assert.deepEqual(calls.sort(), ["model-a", "model-b"]);
+  assert.equal(panel.length, 2);
+  assert.equal(panel.every((item) => item.confidence === "model-reported"), true);
+});
+
+test("ffmpeg detection never invokes a shell", async () => {
+  assert.equal(await ffmpegAvailable("definitely-not-an-executable;echo-pwned"), false);
+});
+
+test("media constructors tolerate missing wire objects", () => {
+  assert.equal(MediaAsset.fromDict().path, "");
+  assert.equal(TranscriptSegment.fromDict().text, "");
+  assert.equal(SpeakerProfile.fromDict().speakerId, "");
+  assert.equal(buildDubbingPlan([new TranscriptSegment({ index: 1, text: "source" })])[0].targetText, "source");
 });

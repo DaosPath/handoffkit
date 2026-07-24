@@ -1,10 +1,12 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+const RESERVED_WINDOWS_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
 export class TemplateFile {
   constructor({ path: filePath, content } = {}) {
-    if (!filePath) throw new TypeError("TemplateFile path is required.");
-    this.path = String(filePath).replace(/\\/g, "/");
+    this.path = normalizeTemplatePath(filePath);
     this.content = String(content ?? "");
   }
 
@@ -23,12 +25,24 @@ export class TemplateFile {
 
 export class ProjectTemplate {
   constructor({ name, description = "", files = [], metadata = {} } = {}) {
-    this.name = String(name || "");
+    this.name = String(name || "").trim();
     this.description = String(description || "");
     this.files = (Array.isArray(files) ? files : []).map((file) =>
       file instanceof TemplateFile ? file : new TemplateFile(file),
     );
-    this.metadata = metadata ? { ...metadata } : {};
+    this.metadata = metadata && typeof metadata === "object" ? { ...metadata } : {};
+    this.validate();
+  }
+
+  validate() {
+    if (!this.name) throw new TypeError("ProjectTemplate name is required.");
+    if (this.files.length === 0) throw new TypeError(`ProjectTemplate ${this.name} must contain at least one file.`);
+    const seen = new Set();
+    for (const file of this.files) {
+      if (seen.has(file.path)) throw new TypeError(`ProjectTemplate ${this.name} contains duplicate file: ${file.path}`);
+      seen.add(file.path);
+    }
+    return this;
   }
 
   toJSON() {
@@ -106,7 +120,12 @@ export class ScaffoldResult {
 
 export class TemplateScaffolder {
   constructor(templates = builtinTemplates()) {
-    this.templates = new Map(templates.map((template) => [template.name, template]));
+    this.templates = new Map();
+    for (const candidate of Array.isArray(templates) ? templates : []) {
+      const template = candidate instanceof ProjectTemplate ? candidate : new ProjectTemplate(candidate);
+      if (this.templates.has(template.name)) throw new TypeError(`Duplicate template name: ${template.name}`);
+      this.templates.set(template.name, template);
+    }
   }
 
   listTemplates() {
@@ -122,36 +141,35 @@ export class TemplateScaffolder {
   }
 
   async scaffold(projectName, { template = "basic-agent", output = ".", force = false } = {}) {
-    if (!String(projectName || "").trim()) {
-      throw new TypeError("projectName must be a non-empty string.");
-    }
+    const safeProjectName = normalizeProjectName(projectName);
     const selected = this.get(template);
-    const root = path.resolve(output, projectName);
+    const outputRoot = path.resolve(output);
+    const root = path.resolve(outputRoot, safeProjectName);
+    if (!isInside(root, outputRoot) || root === outputRoot) {
+      throw new TypeError(`Project path escapes output directory: ${projectName}`);
+    }
     await mkdir(root, { recursive: true });
     const filesWritten = [];
     const skipped = [];
 
     for (const file of selected.files) {
       const destination = path.resolve(root, file.path);
-      if (!isInside(destination, root)) {
+      if (!isInside(destination, root) || destination === root) {
         throw new TypeError(`Template file escapes output directory: ${file.path}`);
       }
 
       let exists = false;
       try {
-        await import("node:fs/promises").then((fs) => fs.stat(destination));
-        exists = true;
+        exists = (await stat(destination)).isFile();
       } catch (error) {
         if (error?.code !== "ENOENT") throw error;
       }
-
       if (exists && !force) {
         skipped.push(destination);
         continue;
       }
 
-      await mkdir(path.dirname(destination), { recursive: true });
-      await writeFile(destination, file.render({ project_name: projectName }), "utf8");
+      await atomicWriteFile(destination, file.render({ project_name: safeProjectName }));
       filesWritten.push(destination);
     }
 
@@ -180,10 +198,12 @@ export function builtinTemplates() {
             "  \"type\": \"module\",",
             "  \"private\": true,",
             "  \"packageManager\": \"pnpm@11.1.1\",",
+            "  \"engines\": { \"node\": \">=18.17.0\" },",
             "  \"dependencies\": {",
-            "    \"@handoffkit/core\": \"^1.14.0\"",
+            "    \"@handoffkit/core\": \"^1.14.2\"",
             "  },",
             "  \"scripts\": {",
+            "    \"check\": \"node --check main.js\",",
             "    \"start\": \"node main.js\"",
             "  }",
             "}",
@@ -199,10 +219,15 @@ export function builtinTemplates() {
             "",
             "```bash",
             "pnpm install",
+            "pnpm check",
             "pnpm start",
             "```",
             "",
           ].join("\n"),
+        }),
+        new TemplateFile({
+          path: ".gitignore",
+          content: ["node_modules/", ".env", "runs/", ""].join("\n"),
         }),
         new TemplateFile({
           path: "main.js",
@@ -222,7 +247,7 @@ export function builtinTemplates() {
             "  summary: result.finalOutput,",
             "  decisions: [\"Use @handoffkit/core only.\"],",
             "  importantFiles: [\"main.js\"],",
-            "  nextSteps: [\"Implement the CLI\", \"Run pnpm start\"],",
+            "  nextSteps: [\"Implement the CLI\", \"Run pnpm check\"],",
             "  metadata: { errorsChecked: true },",
             "});",
             "",
@@ -234,6 +259,46 @@ export function builtinTemplates() {
       ],
     }),
   ];
+}
+
+async function atomicWriteFile(filePath, content) {
+  const destination = path.resolve(filePath);
+  const directory = path.dirname(destination);
+  await mkdir(directory, { recursive: true });
+  const temporary = path.join(directory, `.${path.basename(destination)}.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    await writeFile(temporary, content, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await rename(temporary, destination);
+  } finally {
+    await rm(temporary, { force: true }).catch(() => {});
+  }
+}
+
+function normalizeTemplatePath(value) {
+  const raw = String(value || "").trim().replace(/\\/g, "/");
+  if (!raw || raw === "." || raw === ".." || raw.startsWith("/") || /^[a-zA-Z]:/.test(raw)) {
+    throw new TypeError("TemplateFile path must be a non-empty relative file path.");
+  }
+  const normalized = path.posix.normalize(raw);
+  if (normalized === ".." || normalized.startsWith("../") || normalized.endsWith("/")) {
+    throw new TypeError(`TemplateFile path escapes template root: ${value}`);
+  }
+  return normalized;
+}
+
+function normalizeProjectName(value) {
+  const name = String(value || "").trim();
+  if (!name || name === "." || name === "..") throw new TypeError("projectName must be a non-empty package name.");
+  if (name.includes("/") || name.includes("\\") || /[<>:"|?*\x00-\x1f]/.test(name)) {
+    throw new TypeError("projectName must be a single safe directory name.");
+  }
+  if (name.endsWith(".") || name.endsWith(" ") || RESERVED_WINDOWS_NAMES.test(name)) {
+    throw new TypeError(`projectName is not portable across platforms: ${name}`);
+  }
+  if (!/^[a-z0-9][a-z0-9._-]*$/.test(name)) {
+    throw new TypeError("projectName must be a lowercase npm-compatible name.");
+  }
+  return name;
 }
 
 function isInside(child, parent) {

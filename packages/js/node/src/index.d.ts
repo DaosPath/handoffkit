@@ -1,5 +1,5 @@
 export * from "@handoffkit/core";
-import { ContextDocument, RunTrace } from "@handoffkit/core";
+import { ContextDocument, MemoryStore, RunTrace } from "@handoffkit/core";
 
 export class FileTraceStore {
   root: string;
@@ -34,11 +34,17 @@ export class ProjectIndexer {
   root: string;
   allowedExtensions: Set<string>;
   maxFileSize: number;
-  constructor(init?: { root?: string; allowedExtensions?: string[]; maxFileSize?: number });
+  maxFiles: number;
+  constructor(init?: {
+    root?: string;
+    allowedExtensions?: string[];
+    maxFileSize?: number;
+    maxFiles?: number;
+  });
   index(): ContextDocument[];
 }
 
-export class JsonMemoryStore extends import("@handoffkit/core").MemoryStore {
+export class JsonMemoryStore extends MemoryStore {
   filePath: string;
   constructor(filePath: string);
 }

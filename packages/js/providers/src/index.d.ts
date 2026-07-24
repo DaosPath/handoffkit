@@ -1,3 +1,5 @@
+export const HANDOFFKIT_PROVIDERS_VERSION: "1.14.2";
+
 export interface ProviderSpec {
   id: string;
   name: string;
@@ -31,7 +33,17 @@ export class ProviderAPIError extends Error {
   statusCode: number;
   body: string;
   retryable: boolean;
-  constructor(message: string, init?: { provider?: string; status?: number; body?: string; retryable?: boolean; cause?: unknown });
+  aborted: boolean;
+  timedOut: boolean;
+  constructor(message: string, init?: {
+    provider?: string;
+    status?: number;
+    body?: string;
+    retryable?: boolean;
+    aborted?: boolean;
+    timedOut?: boolean;
+    cause?: unknown;
+  });
 }
 
 export class BaseProvider {
@@ -50,6 +62,13 @@ export class EchoProvider extends BaseProvider {
   constructor(init?: { id?: string; name?: string; model?: string; prefix?: string; metadata?: Record<string, unknown> });
 }
 
+export class FallbackProvider extends BaseProvider {
+  providers: BaseProvider[];
+  lastErrors: string[];
+  selectedProvider: string;
+  constructor(init?: { providers?: BaseProvider[]; name?: string; id?: string; metadata?: Record<string, unknown> });
+}
+
 export interface OpenAICompatibleProviderInit {
   provider?: keyof typeof PROVIDER_SPECS | string;
   id?: string;
@@ -60,6 +79,7 @@ export interface OpenAICompatibleProviderInit {
   baseURL?: string;
   headers?: Record<string, string>;
   timeoutMs?: number;
+  maxErrorBodyChars?: number;
   fetchImpl?: typeof fetch;
   retryPolicy?: RetryPolicy | null;
   requiresApiKey?: boolean;
@@ -68,18 +88,31 @@ export interface OpenAICompatibleProviderInit {
   metadata?: Record<string, unknown>;
 }
 
+export interface ChatCompletionOptions extends Record<string, unknown> {
+  fetchImpl?: typeof fetch;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  maxErrorBodyChars?: number;
+  headers?: Record<string, string>;
+  retryPolicy?: RetryPolicy;
+  messages?: unknown[];
+  path?: string;
+  model?: string;
+}
+
 export class OpenAICompatibleProvider extends BaseProvider {
   spec: ProviderSpec;
   apiKey: string;
   baseURL: string;
   headers: Record<string, string>;
   timeoutMs: number;
+  maxErrorBodyChars: number;
   fetchImpl?: typeof fetch;
   retryPolicy: RetryPolicy;
   requiresApiKey: boolean;
   userAgent: string;
   constructor(init?: OpenAICompatibleProviderInit);
-  createChatCompletion(input: unknown, options?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  createChatCompletion(input: unknown, options?: ChatCompletionOptions): Promise<Record<string, unknown>>;
   assertConfigured(): void;
   buildHeaders(headers?: Record<string, string>): Record<string, string>;
   collectSecrets(headers?: Record<string, string>): string[];
@@ -106,7 +139,10 @@ export class RetryPolicy {
   });
   shouldRetry(error: unknown, attempt: number): boolean;
   delayForAttempt(attempt: number): number;
-  run<T>(operation: (context: { attempt: number }) => Promise<T> | T): Promise<T>;
+  run<T>(
+    operation: (context: { attempt: number; signal?: AbortSignal }) => Promise<T> | T,
+    options?: { signal?: AbortSignal },
+  ): Promise<T>;
 }
 
 export class ProviderSelector {
@@ -130,3 +166,4 @@ export function createProvider(provider: keyof typeof PROVIDER_SPECS | "echo" | 
 export function getProviderSpec(provider: keyof typeof PROVIDER_SPECS | string | Partial<ProviderSpec>): ProviderSpec;
 export function listProviderSpecs(): ProviderSpec[];
 export function redactSecrets(value: unknown, secrets?: string[]): string;
+export function sanitizeErrorBody(value: unknown, maxChars?: number): string;

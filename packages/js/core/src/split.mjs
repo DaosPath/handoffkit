@@ -3,6 +3,12 @@
  */
 import fs from "node:fs";
 
+if (!process.argv.includes("--force-regenerate")) {
+  throw new Error(
+    "split.mjs is an archival migration tool and can overwrite hardened modules. Pass --force-regenerate only after reviewing index.monolith.js.",
+  );
+}
+
 const monolithPath = fs.existsSync("index.monolith.js")
   ? "index.monolith.js"
   : "index.js";

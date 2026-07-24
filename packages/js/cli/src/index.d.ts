@@ -1,4 +1,4 @@
-﻿export const VERSION: "1.12.0";
+export const VERSION: "1.14.2";
 
 export function runDemo(): string;
 export function runRecipeDemo(): string;

@@ -1,27 +1,26 @@
 # @handoffkit/core source layout
 
-Modular split (P1/P2) — public entry remains `index.js`.
+The public entrypoint is `index.js`; implementation is split into focused browser-safe modules.
 
 | Module | Responsibility |
 |--------|----------------|
 | `utils.js` | Constants, pure helpers, JSON helpers, version |
-| `contracts.js` | HandoffState, Validation*, ContractParity |
-| `providers-core.js` | BaseProvider, Echo, OpenAI, Ollama |
-| `safety.js` | Dangerous commands, approval helpers |
-| `tools.js` | Tool*, ToolRegistry, ProviderToolAdapter |
-| `agent.js` | Agent, AgentRunResult, ToolAgentRunResult |
-| `team.js` | HandoffProtocol, Team |
-| `quality.js` | HandoffQuality* |
-| `tracing.js` | Trace*, RunTrace, ReplayRunner |
-| `context.js` | Context* packs |
-| `evaluation.js` | WorkflowEvaluator |
-| `memory.js` | Memory* |
-| `extensions.js` | Extension* |
+| `contracts.js` | HandoffState, validation, contract parity |
+| `providers-core.js` | Base, echo, fallback, OpenAI and Ollama providers |
+| `safety.js` | Dangerous commands and approval helpers |
+| `tools.js` | Tool registry and provider adapters |
+| `agent.js` | Agent and run results |
+| `team.js` | Handoff protocol and teams |
+| `quality.js` | Handoff quality evaluation |
+| `tracing.js` | Trace, timeline and replay models |
+| `context.js` | Context documents and packs |
+| `evaluation.js` | Workflow evaluation |
+| `memory.js` | In-memory stores and reports |
+| `extensions.js` | Extension registry |
 
-`index.monolith.js` is a backup of the pre-split sources.  
-`split.mjs` regenerates modules from the monolith if needed.
+`index.monolith.js` and `split.mjs` are archival migration artifacts, excluded from npm tarballs. Running the splitter requires `--force-regenerate` because it can overwrite hardened modules.
 
 ```bash
-cd packages/js/core
-pnpm test
+pnpm --filter @handoffkit/core check
+pnpm --filter @handoffkit/core test
 ```

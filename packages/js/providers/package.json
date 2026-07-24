@@ -1,10 +1,11 @@
 {
   "name": "@handoffkit/providers",
-  "version": "1.14.1",
+  "version": "1.14.2",
   "description": "Standalone JavaScript LLM provider adapters and routing utilities for HandoffKit.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DaosPath/handoffkit.git"
+    "url": "git+https://github.com/DaosPath/handoffkit.git",
+    "directory": "packages/js/providers"
   },
   "type": "module",
   "main": "./src/index.js",
@@ -12,7 +13,8 @@
   "exports": {
     ".": {
       "types": "./src/index.d.ts",
-      "import": "./src/index.js"
+      "import": "./src/index.js",
+      "default": "./src/index.js"
     }
   },
   "files": [
@@ -21,13 +23,31 @@
   ],
   "license": "MIT",
   "scripts": {
-    "check": "node --check src/index.js && node --check test/providers.test.js",
-    "test": "node --test"
+    "check": "node ../../../scripts/js/check-package.mjs",
+    "test": "node --test",
+    "prepack": "pnpm run check && pnpm run test"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18.17.0"
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "homepage": "https://github.com/DaosPath/handoffkit#readme",
+  "bugs": {
+    "url": "https://github.com/DaosPath/handoffkit/issues"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "handoff",
+    "orchestration",
+    "multi-agent",
+    "llm",
+    "providers",
+    "openai",
+    "ollama",
+    "routing"
+  ],
+  "sideEffects": false
 }

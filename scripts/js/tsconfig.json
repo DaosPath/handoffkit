@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": false,
+    "ignoreDeprecations": "6.0",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "baseUrl": "../..",
+    "paths": {
+      "@handoffkit/core": ["packages/js/core/src/index.d.ts"],
+      "@handoffkit/providers": ["packages/js/providers/src/index.d.ts"],
+      "@handoffkit/node": ["packages/js/node/src/index.d.ts"],
+      "@handoffkit/recipes": ["packages/js/recipes/src/index.d.ts"],
+      "@handoffkit/templates": ["packages/js/templates/src/index.d.ts"],
+      "@handoffkit/cli": ["packages/js/cli/src/index.d.ts"]
+    }
+  },
+  "include": ["type-smoke.ts"]
+}

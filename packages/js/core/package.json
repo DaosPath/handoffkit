@@ -1,10 +1,11 @@
 {
   "name": "@handoffkit/core",
-  "version": "1.14.1",
+  "version": "1.14.2",
   "description": "Browser-safe JavaScript contract layer for multi-agent workflows with structured handoffs.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DaosPath/handoffkit.git"
+    "url": "git+https://github.com/DaosPath/handoffkit.git",
+    "directory": "packages/js/core"
   },
   "type": "module",
   "main": "./src/index.js",
@@ -12,7 +13,8 @@
   "exports": {
     ".": {
       "types": "./src/index.d.ts",
-      "import": "./src/index.js"
+      "import": "./src/index.js",
+      "default": "./src/index.js"
     }
   },
   "files": [
@@ -23,13 +25,30 @@
   ],
   "license": "MIT",
   "scripts": {
-    "check": "node --check src/index.js && node --check src/utils.js && node --check src/contracts.js && node --check src/agent.js && node --check test/core.test.js",
-    "test": "node --test"
+    "check": "node ../../../scripts/js/check-package.mjs",
+    "test": "node --test",
+    "prepack": "pnpm run check && pnpm run test"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18.17.0"
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "homepage": "https://github.com/DaosPath/handoffkit#readme",
+  "bugs": {
+    "url": "https://github.com/DaosPath/handoffkit/issues"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "handoff",
+    "orchestration",
+    "multi-agent",
+    "llm",
+    "browser",
+    "contracts",
+    "runtime"
+  ],
+  "sideEffects": false
 }

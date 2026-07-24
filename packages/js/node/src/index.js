@@ -1,15 +1,19 @@
 import fs from "node:fs";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import path, { join } from "node:path";
 
 export * from "@handoffkit/core";
 import {
   ContextDocument,
+  HANDOFFKIT_CORE_VERSION,
+  MemoryItem,
+  MemoryStore,
   RunTrace,
   buildContractParityReport,
 } from "@handoffkit/core";
 
-const DEFAULT_EXTENSIONS = new Set([".py", ".md", ".toml", ".json", ".txt", ".yaml", ".yml", ".js", ".ts"]);
+const DEFAULT_EXTENSIONS = new Set([".py", ".md", ".toml", ".json", ".txt", ".yaml", ".yml", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx"]);
 const IGNORED_DIRS = new Set([
   ".git",
   "node_modules",
@@ -20,26 +24,28 @@ const IGNORED_DIRS = new Set([
   ".venv",
   "venv",
   ".ruff_cache",
+  ".next",
+  ".turbo",
+  "coverage",
 ]);
 
 export class FileTraceStore {
   constructor({ root = "traces" } = {}) {
-    this.root = root;
+    this.root = path.resolve(root);
   }
 
   async save(trace, name = "") {
     const runTrace = trace instanceof RunTrace ? trace : RunTrace.fromJSON(trace);
-    await mkdir(this.root, { recursive: true });
     const fileName = `${safeFileName(name || runTrace.runId)}.json`;
     const filePath = join(this.root, fileName);
-    await writeFile(filePath, runTrace.toJSONString(2), "utf8");
+    await atomicWriteFile(filePath, runTrace.toJSONString(2));
     return filePath;
   }
 
   async load(nameOrPath) {
-    const filePath = nameOrPath.endsWith(".json")
-      ? nameOrPath
-      : join(this.root, `${safeFileName(nameOrPath)}.json`);
+    const value = String(nameOrPath || "");
+    if (!value) throw new TypeError("nameOrPath must be a non-empty string");
+    const filePath = value.endsWith(".json") ? path.resolve(value) : join(this.root, `${safeFileName(value)}.json`);
     return RunTrace.fromJSON(await readFile(filePath, "utf8"));
   }
 
@@ -48,7 +54,8 @@ export class FileTraceStore {
       const entries = await readdir(this.root, { withFileTypes: true });
       return entries
         .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
-        .map((entry) => join(this.root, entry.name));
+        .map((entry) => join(this.root, entry.name))
+        .sort();
     } catch (error) {
       if (error?.code === "ENOENT") return [];
       throw error;
@@ -57,24 +64,31 @@ export class FileTraceStore {
 }
 
 export async function writeReportFiles(report, name, outputDir = "reports") {
-  await mkdir(outputDir, { recursive: true });
-  const base = join(outputDir, safeFileName(name));
+  const base = join(path.resolve(outputDir), safeFileName(name));
   const jsonPath = `${base}.json`;
   const markdownPath = `${base}.md`;
   const data = report?.toJSON?.() ?? report;
   const markdown = report?.toMarkdown?.() ?? `# ${name}\n\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\`\n`;
-  await writeFile(jsonPath, JSON.stringify(data, null, 2), "utf8");
-  await writeFile(markdownPath, markdown, "utf8");
+  await Promise.all([
+    atomicWriteFile(jsonPath, JSON.stringify(data, null, 2)),
+    atomicWriteFile(markdownPath, markdown),
+  ]);
   return { jsonPath, markdownPath };
 }
 
 export async function loadReportJSON(filePath) {
-  return JSON.parse(await readFile(filePath, "utf8"));
+  const absolute = path.resolve(filePath);
+  const source = await readFile(absolute, "utf8");
+  try {
+    return JSON.parse(source);
+  } catch (cause) {
+    throw new SyntaxError(`Invalid JSON report: ${absolute} (${cause.message})`, { cause });
+  }
 }
 
 export async function buildNodeContractParityReport({
   runtime = "node",
-  version = "1.14.0",
+  version = HANDOFFKIT_CORE_VERSION,
   contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts"),
   expectedFixtures,
   expectedSchemas,
@@ -99,15 +113,21 @@ export async function readContractInventory(contractsRoot) {
 }
 
 export class ProjectIndexer {
-  constructor({ root = ".", allowedExtensions = null, maxFileSize = 64000 } = {}) {
-    this.root = root;
-    this.allowedExtensions = allowedExtensions ? new Set(allowedExtensions) : DEFAULT_EXTENSIONS;
-    this.maxFileSize = maxFileSize;
+  constructor({ root = ".", allowedExtensions = null, maxFileSize = 64000, maxFiles = 10000 } = {}) {
+    this.root = path.resolve(root);
+    this.allowedExtensions = new Set(
+      (allowedExtensions ? [...allowedExtensions] : [...DEFAULT_EXTENSIONS]).map((extension) =>
+        String(extension).toLowerCase().startsWith(".") ? String(extension).toLowerCase() : `.${String(extension).toLowerCase()}`,
+      ),
+    );
+    this.maxFileSize = normalizePositiveInteger(maxFileSize, 64000);
+    this.maxFiles = normalizePositiveInteger(maxFiles, 10000);
   }
 
   index() {
     const docs = [];
     const walk = (dir) => {
+      if (docs.length >= this.maxFiles) return;
       let entries = [];
       try {
         entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -115,9 +135,10 @@ export class ProjectIndexer {
         return;
       }
       for (const entry of entries) {
+        if (docs.length >= this.maxFiles) break;
+        if (entry.isSymbolicLink()) continue;
         const fullPath = path.join(dir, entry.name);
         const relative = path.relative(this.root, fullPath);
-
         const parts = relative.split(path.sep);
         const isIgnored = parts.some((part) => IGNORED_DIRS.has(part) || part.endsWith(".egg-info"));
         if (isIgnored) continue;
@@ -125,42 +146,67 @@ export class ProjectIndexer {
         if (entry.isDirectory()) {
           walk(fullPath);
         } else if (entry.isFile()) {
-          const ext = path.extname(entry.name);
-          if (!this.allowedExtensions.has(ext)) continue;
-
+          const extension = path.extname(entry.name).toLowerCase();
+          if (!this.allowedExtensions.has(extension)) continue;
           try {
-            const stat = fs.statSync(fullPath);
-            if (stat.size > this.maxFileSize) continue;
-
+            const fileStat = fs.statSync(fullPath);
+            if (fileStat.size > this.maxFileSize) continue;
             const content = fs.readFileSync(fullPath, "utf8");
             const lines = content.split(/\r?\n/);
-            const summary = this._summarize(entry.name, ext, lines, stat.size, content);
-
-            docs.push(new ContextDocument({
-              path: relative.replace(/\\/g, "/"),
-              content,
-              summary,
-              metadata: {
-                extension: ext,
-                size: stat.size,
-                lineCount: lines.length,
-              },
-            }));
+            docs.push(
+              new ContextDocument({
+                path: relative.replace(/\\/g, "/"),
+                content,
+                summary: this._summarize(entry.name, extension, lines, content),
+                metadata: {
+                  extension,
+                  size: fileStat.size,
+                  lineCount: lines.length,
+                },
+              }),
+            );
           } catch (_) {
-            // Ignore stat or read errors.
+            // Ignore files that disappear or cannot be decoded while indexing.
           }
         }
       }
     };
 
     walk(this.root);
-    return docs.sort((a, b) => a.path.localeCompare(b.path));
+    return docs.sort((left, right) => left.path.localeCompare(right.path));
   }
 
-  _summarize(name, ext, lines, _size, content) {
-    const previewLines = lines.slice(0, 3).map((line) => line.trim()).filter(Boolean);
-    const preview = previewLines.join(" ");
-    return `${name}: ${lines.length} lines, ${Buffer.byteLength(content, "utf8")} bytes, extension ${ext}. ${preview}`.trim();
+  _summarize(name, extension, lines, content) {
+    const preview = lines.slice(0, 3).map((line) => line.trim()).filter(Boolean).join(" ");
+    return `${name}: ${lines.length} lines, ${Buffer.byteLength(content, "utf8")} bytes, extension ${extension}. ${preview}`.trim();
+  }
+}
+
+export class JsonMemoryStore extends MemoryStore {
+  constructor(filePath) {
+    if (!filePath) throw new TypeError("filePath is required for JsonMemoryStore");
+    const absolute = path.resolve(filePath);
+    fs.mkdirSync(path.dirname(absolute), { recursive: true });
+    if (!fs.existsSync(absolute)) atomicWriteFileSync(absolute, "[]");
+    const raw = fs.readFileSync(absolute, "utf8").trim();
+    let items = [];
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) throw new TypeError("JSON memory store must contain a list");
+        items = parsed.map((item) => MemoryItem.fromDict(item));
+      } catch (cause) {
+        throw new SyntaxError(`Invalid JSON memory store: ${absolute} (${cause.message})`, { cause });
+      }
+    }
+    super({ items });
+    this.filePath = absolute;
+  }
+
+  _save() {
+    if (!this.filePath) return;
+    const serialized = JSON.stringify(this.list().map((item) => item.toDict()), null, 2);
+    atomicWriteFileSync(this.filePath, serialized);
   }
 }
 
@@ -174,40 +220,39 @@ async function readDirectoryNames(dir) {
   }
 }
 
+async function atomicWriteFile(filePath, data) {
+  const absolute = path.resolve(filePath);
+  const directory = path.dirname(absolute);
+  await mkdir(directory, { recursive: true });
+  const temporary = join(directory, `.${path.basename(absolute)}.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    await writeFile(temporary, data, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await rename(temporary, absolute);
+  } finally {
+    await rm(temporary, { force: true }).catch(() => {});
+  }
+}
+
+function atomicWriteFileSync(filePath, data) {
+  const absolute = path.resolve(filePath);
+  const directory = path.dirname(absolute);
+  fs.mkdirSync(directory, { recursive: true });
+  const temporary = join(directory, `.${path.basename(absolute)}.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    fs.writeFileSync(temporary, data, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    fs.renameSync(temporary, absolute);
+  } finally {
+    try {
+      fs.rmSync(temporary, { force: true });
+    } catch (_) {}
+  }
+}
+
 function safeFileName(value) {
   return String(value || "report").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "report";
 }
 
-import { MemoryStore, MemoryItem } from "@handoffkit/core";
-
-export class JsonMemoryStore extends MemoryStore {
-  constructor(filePath) {
-    if (!filePath) throw new Error("filePath is required for JsonMemoryStore");
-    const dir = path.dirname(filePath);
-    fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, "[]", "utf8");
-    }
-    const raw = fs.readFileSync(filePath, "utf8").trim();
-    let items = [];
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) {
-          throw new Error("JSON memory store must contain a list");
-        }
-        items = parsed.map(item => MemoryItem.fromDict(item));
-      } catch (error) {
-        throw new Error(`Invalid JSON memory store: ${filePath} (${error.message})`);
-      }
-    }
-    super({ items });
-    this.filePath = filePath;
-  }
-
-  _save() {
-    if (!this.filePath) return;
-    const serialized = JSON.stringify(this.list().map(item => item.toDict()), null, 2);
-    fs.writeFileSync(this.filePath, serialized, "utf8");
-  }
+function normalizePositiveInteger(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }

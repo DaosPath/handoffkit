@@ -1,5 +1,5 @@
 /**
- * 1.14.1 mini-demo: offline fallback + structured handoff (JavaScript).
+ * 1.14.2 mini-demo: offline fallback + structured handoff (JavaScript).
  * Mirrors Python examples/demos/core_runtime_safety_demo.py and C++ consumer_core.
  * No network required.
  */
@@ -13,7 +13,7 @@ import {
 } from "../src/index.js";
 
 function main() {
-  console.log("handoffkit JS — core_runtime_safety_demo (1.14.1)");
+  console.log("handoffkit JS — core_runtime_safety_demo (1.14.2)");
   console.log("theme: FallbackProvider + Team hybrid_state handoff\n");
 
   const fb = new FallbackProvider({

@@ -1,5 +1,7 @@
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import {
   Agent,
@@ -14,15 +16,10 @@ import {
   writeReportFiles,
 } from "@handoffkit/node";
 
-import {
-  RecipeRunner,
-  WorkflowTemplate,
-} from "../../recipes/src/index.js";
-import {
-  TemplateScaffolder,
-} from "../../templates/src/index.js";
+import { RecipeRunner, WorkflowTemplate } from "@handoffkit/recipes";
+import { TemplateScaffolder } from "@handoffkit/templates";
 
-export const VERSION = "1.14.0";
+export const VERSION = "1.14.2";
 
 const SHOWCASES = {
   "coding-review": {
@@ -199,42 +196,53 @@ export async function listProviders({ jsonOutput = false } = {}) {
       env: [],
       description: "Deterministic local provider for demos and tests.",
     },
-    {
-      name: "openai",
-      package: "@handoffkit/core",
-      default_model: "gpt-4o-mini",
-      offline: false,
-      env: ["OPENAI_API_KEY", "OPENAI_MODEL", "OPENAI_BASE_URL"],
-      description: "OpenAI-compatible chat completions provider.",
-    },
-    {
-      name: "ollama",
-      package: "@handoffkit/core",
-      default_model: "llama3.1",
-      offline: false,
-      env: ["OLLAMA_HOST"],
-      description: "Local Ollama generate endpoint provider.",
-    },
   ];
 
-  let providerPackage = null;
+  let mode = "offline-core";
   try {
-    providerPackage = await import("@handoffkit/providers");
-  } catch (_) {
-    providerPackage = null;
+    const providerPackage = await import("@handoffkit/providers");
+    const specs = providerPackage.listProviderSpecs?.() ?? [];
+    for (const spec of specs) {
+      providers.push({
+        name: spec.id,
+        package: "@handoffkit/providers",
+        default_model: spec.defaultModel || "",
+        offline: spec.id === "ollama",
+        env: [spec.apiKeyEnv, spec.modelEnv, spec.baseURLEnv].filter(Boolean),
+        description: `${spec.name} via ${spec.protocol}.`,
+      });
+    }
+    mode = "providers-package";
+  } catch (error) {
+    if (error?.code !== "ERR_MODULE_NOT_FOUND") throw error;
+    providers.push(
+      {
+        name: "openai",
+        package: "@handoffkit/core",
+        default_model: "gpt-4o-mini",
+        offline: false,
+        env: ["OPENAI_API_KEY", "OPENAI_MODEL", "OPENAI_BASE_URL"],
+        description: "OpenAI-compatible chat completions provider.",
+      },
+      {
+        name: "ollama",
+        package: "@handoffkit/core",
+        default_model: "llama3.1",
+        offline: true,
+        env: ["OLLAMA_HOST"],
+        description: "Local Ollama generate endpoint provider.",
+      },
+    );
   }
 
-  const payload = {
-    mode: providerPackage ? "providers-package" : "offline-core",
-    providers,
-  };
+  const payload = { mode, providers };
   if (jsonOutput) return JSON.stringify(payload, null, 2);
 
   const lines = ["HandoffKit JS providers", `Mode: ${payload.mode}`, ""];
   for (const provider of providers) {
     lines.push(`- ${provider.name}: ${provider.description}`);
     lines.push(`  package: ${provider.package}`);
-    lines.push(`  default: ${provider.default_model}`);
+    lines.push(`  default: ${provider.default_model || "none"}`);
     lines.push(`  offline: ${provider.offline}`);
     lines.push(`  env: ${provider.env.join(", ") || "none"}`);
   }
@@ -263,7 +271,7 @@ export async function initProjectInteractive(defaultProjectName, options = {}) {
   try {
     const name = (await rl.question(`Project name (${defaultProjectName}): `)).trim() || defaultProjectName;
     const template = (await rl.question("Template (basic-agent): ")).trim() || "basic-agent";
-    const provider = (await rl.question("LLM Provider (openai/nvidia/groq/ollama/echo) [openai]: ")).trim() || "openai";
+    const provider = validateProviderId((await rl.question("LLM Provider (openai/nvidia/groq/ollama/echo) [openai]: ")).trim() || "openai");
     
     let apiKey = "";
     if (provider !== "echo" && provider !== "ollama") {
@@ -296,7 +304,7 @@ export async function initProjectInteractive(defaultProjectName, options = {}) {
       provider,
       model: provider === "openai" ? "gpt-4o-mini" : (provider === "nvidia" ? "meta/llama-3.1-8b-instruct" : "default")
     };
-    await writeFile(path.join(targetDir, "handoff.config.json"), JSON.stringify(config, null, 2), "utf8");
+    await atomicWriteFile(path.join(targetDir, "handoff.config.json"), JSON.stringify(config, null, 2));
 
     return [
       result.toMarkdown(),
@@ -319,171 +327,115 @@ export async function initProjectInteractive(defaultProjectName, options = {}) {
 }
 
 export async function createExtension(name, { output = ".", force = false } = {}) {
-  const fs = await import("node:fs/promises");
-  const { join, resolve } = await import("node:path");
-  
-  const extDir = resolve(output, name);
-  try {
-    await fs.mkdir(extDir, { recursive: true });
-  } catch (err) {
-    // ignore
+  const extensionName = validateExtensionName(name);
+  const outputRoot = path.resolve(output);
+  const extensionRoot = path.resolve(outputRoot, extensionName);
+  if (!isInside(extensionRoot, outputRoot) || extensionRoot === outputRoot) {
+    throw new TypeError(`Extension path escapes output directory: ${name}`);
   }
-  
-  const initPath = join(extDir, "index.js");
-  const initTypesPath = join(extDir, "index.d.ts");
-  const toolsPath = join(extDir, "tools.js");
-  const recipesPath = join(extDir, "recipes.js");
-  
+  await mkdir(extensionRoot, { recursive: true });
+
+  const indexPath = path.join(extensionRoot, "index.js");
   if (!force) {
     try {
-      await fs.access(initPath);
-      throw new Error(`Extension already exists in ${extDir}. Use --force to overwrite.`);
-    } catch (err) {
-      if (err.message && err.message.includes("already exists")) {
-        throw err;
-      }
+      await stat(indexPath);
+      throw new Error(`Extension already exists in ${extensionRoot}. Use --force to overwrite.`);
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
     }
   }
-  
-  const initContent = `import { Extension } from "@handoffkit/core";
-import { miHerramienta } from "./tools.js";
-import { miReceta } from "./recipes.js";
 
-export const extension = new Extension({
-  name: "${name}",
-  description: "Plugin personalizado ${name}",
-  version: "1.0.0",
-  tools: [miHerramienta],
-  recipes: [miReceta]
-});
-`;
+  const quotedName = JSON.stringify(extensionName);
+  const files = new Map([
+    ["index.js", `import { Extension } from "@handoffkit/core";\nimport { miHerramienta } from "./tools.js";\nimport { miReceta } from "./recipes.js";\n\nexport const extension = new Extension({\n  name: ${quotedName},\n  description: "Custom HandoffKit extension",\n  version: "0.1.0",\n  tools: [miHerramienta],\n  recipes: [miReceta],\n});\n`],
+    ["index.d.ts", `import { Extension } from "@handoffkit/core";\nexport const extension: Extension;\n`],
+    ["tools.js", `import { defineTool } from "@handoffkit/core";\n\nexport const miHerramienta = defineTool({\n  name: "mi_herramienta",\n  description: "Example extension tool.",\n  parameters: {\n    type: "object",\n    properties: { param: { type: "string" } },\n    required: ["param"],\n  },\n  execute: ({ param }) => \`Processed parameter: \${param}\`,\n});\n`],
+    ["recipes.js", `import { Recipe } from "@handoffkit/recipes";\n\nexport const miReceta = new Recipe({\n  name: "mi_receta_ejemplo",\n  description: "Example extension recipe",\n  steps: [],\n});\n`],
+    ["package.json", `${JSON.stringify({
+      name: extensionName,
+      version: "0.1.0",
+      private: true,
+      type: "module",
+      engines: { node: ">=18.17.0" },
+      dependencies: {
+        "@handoffkit/core": "^1.14.2",
+        "@handoffkit/recipes": "^1.14.2",
+      },
+      scripts: { check: "node --check index.js && node --check tools.js && node --check recipes.js" },
+    }, null, 2)}\n`],
+    [".gitignore", "node_modules/\n.env\n"],
+  ]);
 
-  const initTypesContent = `import { Extension } from "@handoffkit/core";
-export const extension: Extension;
-`;
-
-  const toolsContent = `import { defineTool } from "@handoffkit/core";
-
-export const miHerramienta = defineTool({
-  name: "mi_herramienta",
-  description: "Una herramienta de ejemplo.",
-  parameters: {
-    type: "object",
-    properties: {
-      param: { type: "string" }
-    },
-    required: ["param"]
-  },
-  execute: ({ param }) => {
-    return \`Procesado parámetro: \${param}\`;
-  }
-});
-`;
-
-  const recipesContent = `import { Recipe } from "@handoffkit/core";
-
-export const miReceta = new Recipe({
-  name: "mi_receta_ejemplo",
-  description: "Una receta de ejemplo",
-  steps: []
-});
-`;
-
-  await fs.writeFile(initPath, initContent, "utf8");
-  await fs.writeFile(initTypesPath, initTypesContent, "utf8");
-  await fs.writeFile(toolsPath, toolsContent, "utf8");
-  await fs.writeFile(recipesPath, recipesContent, "utf8");
-  
-  return `Scaffolded extension ${name} successfully in ${extDir}.`;
+  await Promise.all([...files].map(([relative, content]) => atomicWriteFile(path.join(extensionRoot, relative), content)));
+  return `Scaffolded extension ${extensionName} successfully in ${extensionRoot}.`;
 }
 
 export async function loadDynamicExtensions(registry) {
-  const fs = await import("node:fs/promises");
-  const { resolve } = await import("node:path");
-  const configPath = resolve("handoff.config.json");
+  const configPath = path.resolve("handoff.config.json");
+  let config;
   try {
-    const raw = await fs.readFile(configPath, "utf8");
-    const config = JSON.parse(raw);
-    const extensions = config.extensions || [];
-    for (const extPath of extensions) {
-      const absolutePath = extPath.startsWith(".") ? resolve(extPath) : extPath;
-      const fileUrl = absolutePath.startsWith("/") || absolutePath.includes(":") ? `file://${absolutePath.replace(/\\/g, "/")}` : absolutePath;
-      const mod = await import(fileUrl);
-      if (mod.extension) {
-        registry.register(mod.extension);
-      }
+    config = JSON.parse(await readFile(configPath, "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") return;
+    if (error instanceof SyntaxError) {
+      throw new SyntaxError(`Invalid extension configuration ${configPath}: ${error.message}`, { cause: error });
     }
-  } catch (err) {
-    // Ignore
+    throw error;
+  }
+  const extensions = config.extensions ?? [];
+  if (!Array.isArray(extensions)) throw new TypeError("handoff.config.json extensions must be an array.");
+
+  for (const entry of extensions) {
+    if (typeof entry !== "string" || !entry.trim()) throw new TypeError("Each extension path must be a non-empty string.");
+    const value = entry.trim();
+    const specifier = value.startsWith(".") || path.isAbsolute(value)
+      ? pathToFileURL(path.resolve(value)).href
+      : value;
+    let module;
+    try {
+      module = await import(specifier);
+    } catch (cause) {
+      throw new Error(`Failed to load HandoffKit extension ${value}: ${cause.message}`, { cause });
+    }
+    if (!module.extension) throw new TypeError(`Extension module ${value} must export 'extension'.`);
+    registry.register(module.extension);
   }
 }
 
 export async function setKey(name, value) {
   const envPath = path.resolve(".env");
-  let content = "";
-  try {
-    content = await readFile(envPath, "utf8");
-  } catch (_) {}
-
-  const lines = content.split(/\r?\n/).filter(Boolean);
-  let updated = false;
-  const newLines = lines.map(line => {
-    const parts = line.split("=");
-    if (parts[0] === name) {
-      updated = true;
-      return `${name}=${value}`;
-    }
-    return line;
-  });
-
-  if (!updated) {
-    newLines.push(`${name}=${value}`);
-  }
-
-  await writeFile(envPath, newLines.join("\n") + "\n", "utf8");
+  await writeEnvKey(envPath, name, value);
   return `Set key ${name} successfully in .env`;
 }
 
 export async function deleteKey(name) {
+  const envKey = validateEnvKey(name);
   const envPath = path.resolve(".env");
-  let content = "";
+  let content;
   try {
     content = await readFile(envPath, "utf8");
-  } catch (_) {
-    return `No .env file found.`;
+  } catch (error) {
+    if (error?.code === "ENOENT") return "No .env file found.";
+    throw error;
   }
-
-  const lines = content.split(/\r?\n/).filter(Boolean);
-  const newLines = lines.filter(line => {
-    const parts = line.split("=");
-    return parts[0] !== name;
-  });
-
-  await writeFile(envPath, newLines.join("\n") + "\n", "utf8");
-  return `Deleted key ${name} successfully from .env`;
+  const lines = content.split(/\r?\n/);
+  const filtered = lines.filter((line) => parseEnvAssignment(line)?.key !== envKey);
+  await atomicWriteFile(envPath, normalizeEnvLines(filtered));
+  return `Deleted key ${envKey} successfully from .env`;
 }
 
 export async function listKeys() {
   const envPath = path.resolve(".env");
-  let content = "";
+  let content;
   try {
     content = await readFile(envPath, "utf8");
-  } catch (_) {
-    return "No keys configured (.env not found).";
+  } catch (error) {
+    if (error?.code === "ENOENT") return "No keys configured (.env not found).";
+    throw error;
   }
-
-  const lines = content.split(/\r?\n/).filter(Boolean);
-  if (lines.length === 0) return "No keys configured (.env is empty).";
-
-  const rows = lines.map(line => {
-    const parts = line.split("=");
-    const key = parts[0];
-    const val = parts.slice(1).join("=");
-    const redacted = val.length > 8 ? `${val.slice(0, 4)}...${val.slice(-4)} (redacted)` : "[redacted]";
-    return `- ${key}=${redacted}`;
-  });
-
-  return ["Configured Keys:", ...rows].join("\n");
+  const keys = content.split(/\r?\n/).map(parseEnvAssignment).filter(Boolean).map((entry) => entry.key);
+  if (keys.length === 0) return "No keys configured (.env is empty).";
+  return ["Configured Keys:", ...keys.map((key) => `- ${key}=[redacted]`)].join("\n");
 }
 
 export async function writeProjectReport(projectPath, { outputDir = "reports", query = "handoffkit" } = {}) {
@@ -536,14 +488,14 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       return 0;
     }
     if (command === "doctor-benchmark" || command === "doctor" || command === "-d") {
-      const limit = Number(rest[0] || 30);
+      const limit = parsePositiveInteger(rest[0] ?? "30", "doctor benchmark limit");
       const { runDoctorBenchmark } = await import("./benchmarks/doctor.js");
       const report = await runDoctorBenchmark(limit);
       stdout(report.toMarkdown());
       return 0;
     }
     if (command === "mai-benchmark" || command === "mai" || command === "-m") {
-      const limit = Number(rest[0] || 30);
+      const limit = parsePositiveInteger(rest[0] ?? "30", "MAI benchmark limit");
       const { runMAIStyleBenchmark } = await import("./benchmarks/mai.js");
       const report = await runMAIStyleBenchmark(limit);
       stdout(report.toMarkdown());
@@ -681,15 +633,98 @@ function helpText() {
 function readFlag(argv, name) {
   const index = argv.indexOf(name);
   if (index === -1) return null;
-  return argv[index + 1] || null;
+  const value = argv[index + 1];
+  if (!value || value.startsWith("--")) throw new Error(`${name} requires a value.`);
+  return value;
+}
+
+function parsePositiveInteger(value, label) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) throw new TypeError(`${label} must be a positive integer.`);
+  return parsed;
+}
+
+function validateExtensionName(value) {
+  const name = String(value || "").trim();
+  if (!/^[a-z0-9][a-z0-9._-]*$/.test(name) || name === "." || name === "..") {
+    throw new TypeError("Extension name must be a lowercase npm-compatible name.");
+  }
+  return name;
+}
+
+function validateProviderId(value) {
+  const provider = String(value || "").trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]*$/.test(provider)) throw new TypeError("Provider id contains invalid characters.");
+  return provider;
+}
+
+function validateEnvKey(value) {
+  const key = String(value || "").trim();
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) throw new TypeError("Environment key must match [A-Za-z_][A-Za-z0-9_]*.");
+  return key;
+}
+
+function validateEnvValue(value) {
+  const text = String(value ?? "");
+  if (/[\r\n\0]/.test(text)) throw new TypeError("Environment values cannot contain newlines or NUL characters.");
+  return text;
+}
+
+function parseEnvAssignment(line) {
+  const match = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line);
+  return match ? { key: match[1], value: match[2] } : null;
+}
+
+function normalizeEnvLines(lines) {
+  const content = lines.join("\n").replace(/\n+$/, "");
+  return content ? `${content}\n` : "";
+}
+
+async function writeEnvKey(filePath, name, value) {
+  const key = validateEnvKey(name);
+  const safeValue = validateEnvValue(value);
+  let content = "";
+  try {
+    content = await readFile(filePath, "utf8");
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+  const lines = content.split(/\r?\n/);
+  let updated = false;
+  const next = lines.map((line) => {
+    if (parseEnvAssignment(line)?.key !== key) return line;
+    updated = true;
+    return `${key}=${safeValue}`;
+  });
+  if (!updated) next.push(`${key}=${safeValue}`);
+  await atomicWriteFile(filePath, normalizeEnvLines(next));
+}
+
+async function atomicWriteFile(filePath, content) {
+  const destination = path.resolve(filePath);
+  const directory = path.dirname(destination);
+  await mkdir(directory, { recursive: true });
+  const temporary = path.join(directory, `.${path.basename(destination)}.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    await writeFile(temporary, content, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await rename(temporary, destination);
+  } finally {
+    await rm(temporary, { force: true }).catch(() => {});
+  }
+}
+
+function isInside(child, parent) {
+  const relative = path.relative(parent, child);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
 async function writeLatestRun(report, trace) {
   const root = path.resolve("runs", "latest");
-  await mkdir(root, { recursive: true });
-  await writeFile(path.join(root, "report.json"), JSON.stringify(report, null, 2), "utf8");
-  await writeFile(path.join(root, "report.md"), renderShowcaseMarkdown(report), "utf8");
-  await writeFile(path.join(root, "trace.json"), trace.toJSONString(2), "utf8");
+  await Promise.all([
+    atomicWriteFile(path.join(root, "report.json"), JSON.stringify(report, null, 2)),
+    atomicWriteFile(path.join(root, "report.md"), renderShowcaseMarkdown(report)),
+    atomicWriteFile(path.join(root, "trace.json"), trace.toJSONString(2)),
+  ]);
 }
 
 function renderShowcaseMarkdown(report) {

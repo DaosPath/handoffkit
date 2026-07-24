@@ -399,12 +399,12 @@ export class FusionReport {
     this.success = Boolean(success);
     this.task = task;
     this.mode = mode;
-    this.panel = panel.map(item => item instanceof PanelResponse ? item : new PanelResponse(item));
-    this.consensus = consensus || [];
-    this.contradictions = contradictions || [];
-    this.coverageGaps = coverageGaps || [];
-    this.uniqueInsights = uniqueInsights || [];
-    this.blindSpots = blindSpots || [];
+    this.panel = (Array.isArray(panel) ? panel : []).map(item => item instanceof PanelResponse ? item : new PanelResponse(item));
+    this.consensus = Array.isArray(consensus) ? [...consensus] : [];
+    this.contradictions = Array.isArray(contradictions) ? [...contradictions] : [];
+    this.coverageGaps = Array.isArray(coverageGaps) ? [...coverageGaps] : [];
+    this.uniqueInsights = Array.isArray(uniqueInsights) ? [...uniqueInsights] : [];
+    this.blindSpots = Array.isArray(blindSpots) ? [...blindSpots] : [];
     this.finalAnswer = finalAnswer;
     this.safetyNote = safetyNote;
   }
@@ -557,72 +557,106 @@ export function judgeFusionPanel(task, panel, { mode } = {}) {
   });
 }
 
-export async function runModelFusionPanel({ task = DEFAULT_FUSION_TASK, provider = "opencode-go", models = DEFAULT_FUSION_MODELS, real = false, timeout = 300 } = {}) {
-  let panel;
-  let mode;
-  if (real) {
-    panel = await realFusionPanel(provider, splitModels(models), task, { timeout });
-    mode = "real-provider-panel";
-  } else {
-    panel = offlineFusionPanel(task);
-    mode = "offline-deterministic-panel";
-  }
-  const report = judgeFusionPanel(task, panel, { mode });
-  return report;
+export async function runModelFusionPanel({
+  task = DEFAULT_FUSION_TASK,
+  provider = "opencode-go",
+  models = DEFAULT_FUSION_MODELS,
+  real = false,
+  timeout = 300,
+  fetchImpl = undefined,
+  signal = undefined,
+  maxParallel = 4,
+} = {}) {
+  const panel = real
+    ? await realFusionPanel(provider, splitModels(models), task, { timeout, fetchImpl, signal, maxParallel })
+    : offlineFusionPanel(task);
+  const mode = real ? "real-provider-panel" : "offline-deterministic-panel";
+  return judgeFusionPanel(task, panel, { mode });
 }
 
-export async function realFusionPanel(provider, models, task = DEFAULT_FUSION_TASK, { timeout = 300 } = {}) {
+export async function realFusionPanel(
+  provider,
+  models,
+  task = DEFAULT_FUSION_TASK,
+  { timeout = 300, fetchImpl = undefined, signal = undefined, maxParallel = 4 } = {},
+) {
   let providersModule;
   try {
     providersModule = await import("@handoffkit/providers");
-  } catch (err) {
-    throw new Error("The '@handoffkit/providers' package is required to run a real fusion panel. Install it first.");
+  } catch (cause) {
+    throw new Error("The '@handoffkit/providers' package is required to run a real fusion panel. Install it first.", { cause });
   }
-  const { ProviderSelector, ModelCandidate } = providersModule;
-  const selector = new ProviderSelector();
+  const { createProvider } = providersModule;
+  if (typeof createProvider !== "function") {
+    throw new TypeError("@handoffkit/providers does not expose createProvider().");
+  }
+
+  const modelList = (Array.isArray(models) ? models : splitModels(models))
+    .map(String)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (modelList.length === 0) throw new TypeError("realFusionPanel requires at least one model.");
+  const providerId = normalizeFusionProviderId(provider);
+  const timeoutValue = Number(timeout);
+  const timeoutMs = Number.isFinite(timeoutValue) && timeoutValue > 0
+    ? (timeoutValue <= 1000 ? timeoutValue * 1000 : timeoutValue)
+    : 300000;
   const roles = [
     "broad diagnostician",
     "mechanism checker",
     "adversarial reviewer",
     "retrieval planner",
   ];
-  const responses = [];
-  for (let index = 0; index < models.length; index++) {
-    const model = models[index];
+
+  return mapWithConcurrency(modelList, maxParallel, async (model, index) => {
     const role = roles[index % roles.length];
-    const candidate = new ModelCandidate({ provider, model, priority: index });
     try {
-      const spec = selector.getProvider(candidate.provider);
-      const providerInstance = spec.factory(candidate.model);
-      if (timeout) {
-        providerInstance.timeout = timeout;
-      }
-      const prompt = _panelPrompt(task, role);
-      const res = await providerInstance.generate(prompt, { temperature: 0 });
-      responses.push(
-        new PanelResponse({
-          model: `${provider}/${model}`,
-          role,
-          answer: res.trim().replace(/\n/g, " ").substring(0, 800),
-          strengths: ["real provider response"],
-          risks: ["cost, latency, and provider availability"],
-          confidence: "model-reported",
-        })
-      );
-    } catch (exc) {
-      responses.push(
-        new PanelResponse({
-          model: `${provider}/${model}`,
-          role,
-          answer: `Provider failed safely: ${String(exc.message || exc).substring(0, 240)}`,
-          strengths: [],
-          risks: ["provider call failed"],
-          confidence: "failed",
-        })
-      );
+      const providerInstance = createProvider(providerId, { model, timeoutMs, fetchImpl });
+      const response = await providerInstance.agenerate(_panelPrompt(task, role), {
+        temperature: 0,
+        signal,
+      });
+      return new PanelResponse({
+        model: `${provider}/${model}`,
+        role,
+        answer: String(response || "").trim().replace(/\s+/g, " ").slice(0, 800),
+        strengths: ["real provider response"],
+        risks: ["cost, latency, and provider availability"],
+        confidence: "model-reported",
+      });
+    } catch (error) {
+      return new PanelResponse({
+        model: `${provider}/${model}`,
+        role,
+        answer: `Provider failed safely: ${String(error?.message || error).replace(/\s+/g, " ").slice(0, 240)}`,
+        strengths: [],
+        risks: ["provider call failed"],
+        confidence: "failed",
+      });
     }
-  }
-  return responses;
+  });
+}
+
+function normalizeFusionProviderId(provider) {
+  const value = String(provider || "").trim().toLowerCase();
+  if (value === "opencode-go" || value === "opencode_go") return "opencode";
+  return value || "opencode";
+}
+
+async function mapWithConcurrency(items, maxParallel, worker) {
+  const limit = Math.max(1, Math.min(items.length, Math.floor(Number(maxParallel) || 1)));
+  const results = new Array(items.length);
+  let cursor = 0;
+  const runners = Array.from({ length: limit }, async () => {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) return;
+      results[index] = await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
+  return results;
 }
 
 function _panelPrompt(task, role) {
@@ -665,7 +699,7 @@ export class MediaAsset {
     };
   }
 
-  static fromDict(data) {
+  static fromDict(data = {}) {
     return new MediaAsset({
       path: data.path || "",
       mediaType: data.media_type || data.mediaType || "",
@@ -699,7 +733,7 @@ export class TranscriptSegment {
     };
   }
 
-  static fromDict(data) {
+  static fromDict(data = {}) {
     return new TranscriptSegment({
       index: data.index,
       start: data.start,
@@ -733,7 +767,7 @@ export class SpeakerProfile {
     };
   }
 
-  static fromDict(data) {
+  static fromDict(data = {}) {
     return new SpeakerProfile({
       speakerId: data.speaker_id || data.speakerId || "",
       label: data.label || "",
@@ -774,7 +808,7 @@ export class DubbingSegment {
     };
   }
 
-  static fromDict(data) {
+  static fromDict(data = {}) {
     return new DubbingSegment({
       index: data.index,
       start: data.start,
@@ -793,11 +827,11 @@ export class DubbingSegment {
 export class MediaWorkflowReport {
   constructor({ success, source, targetLanguage, transcriptSegments = [], speakers = [], dubbingSegments = [], outputFiles = [], warnings = [], metadata = {} } = {}) {
     this.success = Boolean(success);
-    this.source = source instanceof MediaAsset ? source : MediaAsset.fromDict(source);
+    this.source = source instanceof MediaAsset ? source : MediaAsset.fromDict(source || {});
     this.targetLanguage = targetLanguage;
-    this.transcriptSegments = transcriptSegments.map(item => item instanceof TranscriptSegment ? item : TranscriptSegment.fromDict(item));
-    this.speakers = speakers.map(item => item instanceof SpeakerProfile ? item : SpeakerProfile.fromDict(item));
-    this.dubbingSegments = dubbingSegments.map(item => item instanceof DubbingSegment ? item : DubbingSegment.fromDict(item));
+    this.transcriptSegments = (Array.isArray(transcriptSegments) ? transcriptSegments : []).map(item => item instanceof TranscriptSegment ? item : TranscriptSegment.fromDict(item));
+    this.speakers = (Array.isArray(speakers) ? speakers : []).map(item => item instanceof SpeakerProfile ? item : SpeakerProfile.fromDict(item));
+    this.dubbingSegments = (Array.isArray(dubbingSegments) ? dubbingSegments : []).map(item => item instanceof DubbingSegment ? item : DubbingSegment.fromDict(item));
     this.outputFiles = Array.isArray(outputFiles) ? outputFiles : [];
     this.warnings = Array.isArray(warnings) ? warnings : [];
     this.metadata = metadata || {};
@@ -862,7 +896,7 @@ export class MediaWorkflowReport {
   }
 }
 
-export function buildDubbingPlan(segments, translations, speakers = []) {
+export function buildDubbingPlan(segments, translations = {}, speakers = []) {
   const voiceBySpeaker = {};
   for (const item of speakers) {
     voiceBySpeaker[item.speakerId] = item.voice;
@@ -917,13 +951,26 @@ export function formatSRT(segments, { translated = false } = {}) {
   return blocks.join("\n\n") + "\n";
 }
 
+async function atomicWriteText(filePath, content) {
+  const { mkdir, rename, rm, writeFile } = await import("node:fs/promises");
+  const { randomUUID } = await import("node:crypto");
+  const { basename, dirname, resolve } = await import("node:path");
+  const destination = resolve(filePath);
+  const directory = dirname(destination);
+  await mkdir(directory, { recursive: true });
+  const temporary = resolve(directory, `.${basename(destination)}.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    await writeFile(temporary, content, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    await rename(temporary, destination);
+  } finally {
+    await rm(temporary, { force: true }).catch(() => {});
+  }
+}
+
 // Async Node.js filesystem integrations with dynamic imports
 export async function writeTranscriptJSON(segments, filePath) {
-  const { writeFile, mkdir } = await import("node:fs/promises");
-  const { dirname } = await import("node:path");
-  await mkdir(dirname(filePath), { recursive: true });
-  const payload = { segments: segments.map(s => s.toDict()) };
-  await writeFile(filePath, JSON.stringify(payload, null, 2), "utf8");
+  const payload = { segments: (Array.isArray(segments) ? segments : []).map((segment) => segment.toDict()) };
+  await atomicWriteText(filePath, JSON.stringify(payload, null, 2));
   return filePath;
 }
 
@@ -943,43 +990,21 @@ export async function readTranscriptJSON(filePath) {
 }
 
 export async function writeSRT(segments, filePath, { translated = false } = {}) {
-  const { writeFile, mkdir } = await import("node:fs/promises");
-  const { dirname } = await import("node:path");
-  await mkdir(dirname(filePath), { recursive: true });
-  const content = formatSRT(segments, { translated });
-  await writeFile(filePath, content, "utf8");
+  await atomicWriteText(filePath, formatSRT(segments, { translated }));
   return filePath;
 }
 
 export async function ffmpegAvailable(ffmpeg = "ffmpeg") {
-  const { execSync } = await import("node:child_process");
-  try {
-    const checkCmd = process.platform === "win32" ? `where ${ffmpeg}` : `which ${ffmpeg}`;
-    execSync(checkCmd, { stdio: "ignore" });
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-async function runArgv(argv) {
-  const { spawn } = await import("node:child_process");
-  return new Promise((resolve, reject) => {
-    const child = spawn(argv[0], argv.slice(1), { shell: false });
-    let stdout = "";
-    let stderr = "";
-    child.stdout?.on("data", (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr?.on("data", (chunk) => {
-      stderr += chunk;
-    });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code === 0) resolve({ stdout, stderr });
-      else reject(new Error(`command failed (${code}): ${stderr || stdout}`));
-    });
+  const executable = String(ffmpeg || "").trim();
+  if (!executable || executable.includes("\r") || executable.includes("\n") || executable.includes("\0")) return false;
+  const { spawnSync } = await import("node:child_process");
+  const result = spawnSync(executable, ["-version"], {
+    shell: false,
+    stdio: "ignore",
+    windowsHide: true,
+    timeout: 5000,
   });
+  return !result.error && result.status === 0;
 }
 
 export async function extractAudio(videoPath, audioPath, { ffmpeg = "ffmpeg", overwrite = false } = {}) {

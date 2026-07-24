@@ -16,6 +16,8 @@ export class ProjectTemplate {
   name: string;
   description: string;
   files: TemplateFile[];
+  metadata: Record<string, unknown>;
+  validate(): this;
   toJSON(): Record<string, unknown>;
   toJSONString(space?: number): string;
   toMarkdown(): string;

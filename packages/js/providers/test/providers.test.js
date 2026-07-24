@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   EchoProvider,
   FallbackProvider,
+  HANDOFFKIT_PROVIDERS_VERSION,
   GROQ_SPEC,
   NVIDIA_SPEC,
   OLLAMA_SPEC,
@@ -20,6 +21,7 @@ import {
   getProviderSpec,
   listProviderSpecs,
   redactSecrets,
+  sanitizeErrorBody,
 } from "../src/index.js";
 
 function jsonResponse(body, { status = 200 } = {}) {
@@ -236,4 +238,102 @@ test("fallback provider routes to next configured provider on failure", async ()
     name: "ProviderAPIError",
     message: /All fallback providers failed/,
   });
+});
+
+
+test("provider version and default user agent stay aligned with package version", () => {
+  const provider = new OpenAICompatibleProvider({
+    provider: "ollama",
+    model: "test",
+    allowEnv: false,
+  });
+  assert.equal(HANDOFFKIT_PROVIDERS_VERSION, "1.14.2");
+  assert.equal(provider.userAgent, `handoffkit-providers/${HANDOFFKIT_PROVIDERS_VERSION}`);
+});
+
+test("external signals do not disable request timeouts", async () => {
+  const external = new AbortController();
+  const provider = new OpenAICompatibleProvider({
+    provider: "ollama",
+    model: "test",
+    timeoutMs: 10,
+    allowEnv: false,
+    fetchImpl: async (_url, init) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => {
+        const error = new Error("aborted");
+        error.name = "AbortError";
+        reject(error);
+      }, { once: true });
+    }),
+  });
+
+  await assert.rejects(
+    () => provider.agenerate("hello", { signal: external.signal }),
+    (error) => {
+      assert.equal(error instanceof ProviderAPIError, true);
+      assert.equal(error.timedOut, true);
+      assert.equal(error.aborted, false);
+      assert.equal(error.retryable, true);
+      return true;
+    },
+  );
+});
+
+test("caller aborts are classified and are not retried", async () => {
+  const controller = new AbortController();
+  let attempts = 0;
+  const provider = new OpenAICompatibleProvider({
+    provider: "ollama",
+    model: "test",
+    timeoutMs: 1000,
+    retryPolicy: new RetryPolicy({ maxAttempts: 3, baseDelayMs: 0 }),
+    allowEnv: false,
+    fetchImpl: async (_url, init) => {
+      attempts += 1;
+      return new Promise((_resolve, reject) => {
+        init.signal.addEventListener("abort", () => {
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          reject(error);
+        }, { once: true });
+      });
+    },
+  });
+
+  const pending = provider.agenerate("hello", { signal: controller.signal });
+  controller.abort();
+  await assert.rejects(pending, (error) => {
+    assert.equal(error.aborted, true);
+    assert.equal(error.timedOut, false);
+    assert.equal(error.retryable, false);
+    return true;
+  });
+  assert.equal(attempts, 1);
+});
+
+test("provider errors are single-line, redacted, and bounded", async () => {
+  const secret = "secret-key";
+  const provider = new OpenAICompatibleProvider({
+    provider: "openai-compatible",
+    apiKey: secret,
+    model: "test",
+    maxErrorBodyChars: 32,
+    allowEnv: false,
+    fetchImpl: async () => ({
+      ok: false,
+      status: 500,
+      async text() {
+        return `${secret}\n${"x".repeat(100)}`;
+      },
+    }),
+  });
+
+  await assert.rejects(() => provider.agenerate("hello"), (error) => {
+    assert.doesNotMatch(error.body, /secret-key/);
+    assert.doesNotMatch(error.body, /\n/);
+    assert.match(error.body, /truncated/);
+    return true;
+  });
+  assert.equal(redactSecrets(undefined), "");
+  assert.equal(sanitizeErrorBody("a\n b", 10), "a b");
 });

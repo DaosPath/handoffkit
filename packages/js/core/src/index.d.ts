@@ -1,6 +1,6 @@
 export type Severity = "error" | "warning";
 
-export const HANDOFFKIT_CORE_VERSION: "1.12.0";
+export const HANDOFFKIT_CORE_VERSION: "1.14.2";
 
 export function toJSONValue(value: unknown): unknown;
 export function toJSONString(value: unknown, space?: number): string;
@@ -161,22 +161,33 @@ export class OpenAIProvider extends BaseProvider {
   baseUrl: string;
   headers: Record<string, string>;
   timeout: number;
+  maxErrorBodyChars: number;
+  fetchImpl?: typeof fetch;
+  userAgent: string;
+  lastUsage: Record<string, number> | null;
   constructor(init?: {
     model?: string;
     apiKey?: string;
     baseUrl?: string;
     headers?: Record<string, string>;
     timeout?: number;
+    maxErrorBodyChars?: number;
+    fetchImpl?: typeof fetch;
+    userAgent?: string;
   });
 }
 
 export class OllamaProvider extends BaseProvider {
   baseUrl: string;
   timeout: number;
+  maxErrorBodyChars: number;
+  fetchImpl?: typeof fetch;
   constructor(init?: {
     model?: string;
     baseUrl?: string;
     timeout?: number;
+    maxErrorBodyChars?: number;
+    fetchImpl?: typeof fetch;
   });
 }
 

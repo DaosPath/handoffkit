@@ -26,3 +26,21 @@ test("template scaffolder writes files and skips without force", async () => {
   assert.ok(second.skipped.length > 0);
   assert.match(main, /@handoffkit\/core/);
 });
+
+
+test("template scaffolder rejects path traversal and invalid npm names", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "handoffkit-template-safety-"));
+  const scaffolder = new TemplateScaffolder();
+  await assert.rejects(() => scaffolder.scaffold("../escape", { output: dir }), /safe directory|package name/);
+  await assert.rejects(() => scaffolder.scaffold("Bad Name", { output: dir }), /lowercase npm-compatible/);
+});
+
+test("builtin template pins the current compatible core and writes no temporary files", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "handoffkit-template-version-"));
+  const result = await new TemplateScaffolder().scaffold("demo-agent", { output: dir });
+  const manifest = JSON.parse(await readFile(join(result.root, "package.json"), "utf8"));
+  const files = await import("node:fs/promises").then((fs) => fs.readdir(result.root));
+  assert.equal(manifest.dependencies["@handoffkit/core"], "^1.14.2");
+  assert.equal(manifest.scripts.check, "node --check main.js");
+  assert.equal(files.some((name) => name.endsWith(".tmp")), false);
+});

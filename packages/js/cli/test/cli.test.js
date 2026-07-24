@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -59,7 +59,7 @@ test("providers list stays offline and supports JSON", async () => {
   const text = await listProviders();
   const json = JSON.parse(await listProviders({ jsonOutput: true }));
 
-  assert.match(text, /Mode: offline-core/);
+  assert.match(text, /Mode: providers-package/);
   assert.equal(json.providers[0].name, "echo");
   assert.equal(json.providers[0].offline, true);
 });
@@ -103,7 +103,7 @@ test("keys management commands work correctly", async () => {
 
     const outList = [];
     assert.equal(await main(["keys", "list"], { stdout: (text) => outList.push(text) }), 0);
-    assert.match(outList[0], /OPENAI_API_KEY=sk-1\.\.\.7890 \(redacted\)/);
+    assert.match(outList[0], /OPENAI_API_KEY=\[redacted\]/);
 
     const outDel = [];
     assert.equal(await main(["keys", "delete", "OPENAI_API_KEY"], { stdout: (text) => outDel.push(text) }), 0);
@@ -150,6 +150,7 @@ test("create-extension scaffolds valid extension files", async () => {
   assert.match(indexSrc, /@handoffkit\/core/);
   assert.match(indexSrc, /export const extension/);
   assert.match(toolsSrc, /defineTool/);
+  assert.match(recipesSrc, /@handoffkit\/recipes/);
   assert.match(recipesSrc, /Recipe/);
   assert.match(typesSrc, /Extension/);
 });
@@ -204,4 +205,43 @@ test("main routes demo-fusion command", async () => {
   } finally {
     process.chdir(cwd);
   }
+});
+
+
+test("CLI rejects environment and extension injection", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "handoffkit-js-cli-safety-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  try {
+    assert.equal(await main(["keys", "set", "BAD-NAME", "value"], { stderr: () => {} }), 1);
+    assert.equal(await main(["keys", "set", "GOOD_KEY", "line1\nINJECTED=yes"], { stderr: () => {} }), 1);
+    await assert.rejects(() => createExtension("../escape", { output: dir }), /npm-compatible/);
+  } finally {
+    process.chdir(cwd);
+  }
+});
+
+test("dynamic extensions ignore only missing config and report malformed config", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "handoffkit-js-dynext-invalid-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  try {
+    const { ExtensionRegistry } = await import("@handoffkit/core");
+    await writeFile(join(dir, "handoff.config.json"), "{invalid", "utf8");
+    await assert.rejects(() => loadDynamicExtensions(new ExtensionRegistry()), /Invalid extension configuration/);
+  } finally {
+    process.chdir(cwd);
+  }
+});
+
+test("CLI version and source imports use public package boundaries", async () => {
+  assert.equal(VERSION, "1.14.2");
+  const source = await readFile(join(import.meta.dirname, "..", "src", "index.js"), "utf8");
+  assert.doesNotMatch(source, /\.\.\/\.\.\/recipes\/src/);
+  assert.doesNotMatch(source, /\.\.\/\.\.\/templates\/src/);
+});
+
+test("benchmark limits must be positive integers", async () => {
+  assert.equal(await main(["doctor", "0"], { stderr: () => {} }), 1);
+  assert.equal(await main(["mai", "not-a-number"], { stderr: () => {} }), 1);
 });
