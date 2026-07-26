@@ -10,7 +10,11 @@ from handoffkit.browser.page import PageMarkdown
 from handoffkit.browser.research import ResearchPack, gather_web_research
 from handoffkit.browser.search import web_search
 from handoffkit.browser.tools import register_browser_tools
-from handoffkit.browser.transport import default_transport, make_fixture_map_transport, make_transport
+from handoffkit.browser.transport import (
+    default_transport,
+    make_fixture_map_transport,
+    make_transport,
+)
 from handoffkit.browser.types import ExplorePolicy
 from handoffkit.tool_execution import ToolRegistry
 
@@ -26,7 +30,12 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
         transport = default_transport(True)
 
     cache = None
-    if opts.get("use_cache") or opts.get("useCache") or opts.get("cache_root") or opts.get("cacheRoot"):
+    if (
+        opts.get("use_cache")
+        or opts.get("useCache")
+        or opts.get("cache_root")
+        or opts.get("cacheRoot")
+    ):
         cache = BrowserCache(
             root=opts.get("cache_root") or opts.get("cacheRoot") or str(default_cache_root()),
             ttl_ms=int(opts.get("cache_ttl_ms") or opts.get("cacheTtlMs") or 24 * 60 * 60 * 1000),

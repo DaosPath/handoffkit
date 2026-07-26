@@ -7,7 +7,7 @@ from typing import Any
 
 from handoffkit.browser.cache import BrowserCache
 from handoffkit.browser.html_extract import extract_page
-from handoffkit.browser.transport import HttpTransport, WebTransport, default_transport
+from handoffkit.browser.transport import WebTransport, default_transport
 from handoffkit.browser.types import (
     ExplorePolicy,
     ExploreResult,
@@ -111,7 +111,11 @@ def explore_url(
         step.success = True
         step.title = extracted["title"] if pol.extract_title else ""
         step.text = extracted["text"] if pol.extract_text else ""
-        step.markdown = smart_truncate(extracted["markdown"], pol.max_markdown_chars) if pol.emit_markdown else ""
+        step.markdown = (
+            smart_truncate(extracted["markdown"], pol.max_markdown_chars)
+            if pol.emit_markdown
+            else ""
+        )
         links: list[ExtractedLink] = extracted["links"] if pol.extract_links else []
         blocked: list[str] = []
         kept: list[ExtractedLink] = []

@@ -171,7 +171,9 @@ def web_search(
 
     if "duckduckgo" in providers or "ddg" in providers:
         try:
-            hits = search_duckduckgo(kw, max_results=max_results, transport=tr, timeout_ms=timeout_ms)
+            hits = search_duckduckgo(
+                kw, max_results=max_results, transport=tr, timeout_ms=timeout_ms
+            )
             if hits:
                 raw.extend(hits)
                 used.append("duckduckgo")

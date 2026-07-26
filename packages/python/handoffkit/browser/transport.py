@@ -206,7 +206,8 @@ def make_fixture_map_transport() -> MapTransport:
     m = MapTransport()
     index = (
         "<!DOCTYPE html><html><head><title>Fixture Home</title></head><body>"
-        "<h1>Welcome to Fixture</h1><p>Home page for offline web explorer tests. Alpha &amp; beta notes.</p>"
+        "<h1>Welcome to Fixture</h1>"
+        "<p>Home page for offline web explorer tests. Alpha &amp; beta notes.</p>"
         "<script>secret_should_not_appear();</script>"
         '<a href="/about.html">About Us</a>'
         '<a href="/docs/guide.html">Guide</a>'
@@ -221,7 +222,8 @@ def make_fixture_map_transport() -> MapTransport:
     )
     guide = (
         "<html><head><title>Guide</title></head><body>"
-        "<h2>User Guide</h2><p>Step one: configure ExplorePolicy. Step two: inject WebTransport.</p>"
+        "<h2>User Guide</h2>"
+        "<p>Step one: configure ExplorePolicy. Step two: inject WebTransport.</p>"
         '<a href="/">Home</a></body></html>'
     )
     m.set_page("https://fixture.local/", index)

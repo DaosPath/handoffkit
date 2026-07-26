@@ -75,7 +75,7 @@ class PageMarkdown:
             status=result.steps[0].status if result.steps else 0,
             success=result.success,
             error=result.error,
-            links=[l.to_dict() for l in result.links],
+            links=[link.to_dict() for link in result.links],
             fetched_at=datetime.now(timezone.utc).isoformat(),
             format=format if format in {"markdown", "readme"} else "markdown",
             metadata={"pages_fetched": result.pages_fetched},
@@ -108,7 +108,7 @@ def page_from_html(
         excerpt=(extracted["text"] or md)[:400],
         status=status,
         success=True,
-        links=[l.to_dict() for l in extracted["links"]],
+        links=[link.to_dict() for link in extracted["links"]],
         fetched_at=datetime.now(timezone.utc).isoformat(),
     )
 

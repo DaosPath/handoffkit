@@ -97,7 +97,8 @@ def test_rank_and_soft_block_helpers():
     )
     assert ranked[0]["url"].endswith("/foo")
     assert detect_soft_block("Just a moment... cloudflare", 403)["blocked"] is True
-    assert "truncated" in smart_truncate("a" * 100, 40).lower() or len(smart_truncate("a" * 100, 40)) <= 60
+    truncated = smart_truncate("a" * 100, 40)
+    assert "truncated" in truncated.lower() or len(truncated) <= 60
 
 
 def test_run_web_grounded_answer_offline():

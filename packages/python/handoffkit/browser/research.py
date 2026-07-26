@@ -173,7 +173,14 @@ def gather_web_research(
             result = explore_url(url, policy=explore_policy, transport=tr, cache=browser_cache)
             tool = "web_explore"
         else:
-            fetch_pol = ExplorePolicy.from_dict({**explore_policy.to_dict(), "max_depth": 0, "max_pages": 1, "same_host_only": False})
+            fetch_pol = ExplorePolicy.from_dict(
+                {
+                    **explore_policy.to_dict(),
+                    "max_depth": 0,
+                    "max_pages": 1,
+                    "same_host_only": False,
+                }
+            )
             result = fetch_markdown(url, policy=fetch_pol, transport=tr, cache=browser_cache)
             tool = "web_fetch_markdown"
         page = PageMarkdown.from_explore_result(result, max_chars=60000, format=format)
