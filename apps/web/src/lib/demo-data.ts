@@ -9,7 +9,6 @@ export type DemoCategory =
   | "Clinical"
   | "Coding"
   | "Eval"
-  | "Media"
   | "Research"
   | "Support";
 
@@ -118,7 +117,7 @@ export type DemoItem = {
   tags: DemoTag[];
   featured?: boolean;
   accent: "blue" | "green" | "purple" | "orange";
-  workflowKind: "panel" | "coding" | "rescue" | "support" | "media";
+  workflowKind: "panel" | "coding" | "rescue" | "support";
   metrics: {
     successRate: string;
     avgHandoffs: string;
@@ -146,7 +145,6 @@ export const demoCategories: DemoCategory[] = [
   "Clinical",
   "Coding",
   "Eval",
-  "Media",
   "Research",
   "Support",
 ];
@@ -783,145 +781,6 @@ export const demos: DemoItem[] = [
   "recommended_fix": "Tighten schema validation before agent step"
 }`,
       player: { speed: "1.0x", current: "00:00", total: "00:58" },
-    },
-  },
-  {
-    id: "media-dubbing",
-    title: "Speaker-aware Video Dubbing",
-    description:
-      "Translate a video while preserving speaker turns, timing decisions, subtitles, and delivery artifacts in one replayable workflow.",
-    category: "Media",
-    tags: [
-      { label: "Video", tone: "purple" },
-      { label: "Localization", tone: "cyan" },
-      { label: "Replayable", tone: "green" },
-    ],
-    accent: "purple",
-    workflowKind: "media",
-    metrics: {
-      successRate: "85% quality",
-      avgHandoffs: "5",
-      avgLatency: "Offline plan",
-      totalRuns: "Deterministic",
-    },
-    detail: {
-      longDescription:
-        "A media-localization team transcribes the source, identifies speaker turns, adapts dialogue, plans distinct voices, synchronizes audio, and packages the translated video with subtitles and a complete audit trail.",
-      highlights: [
-        "Speaker-aware transcript segments",
-        "Timing and overlap risk tracking",
-        "Separate voice artifacts per speaker",
-        "Translated video and subtitle manifest",
-      ],
-      workflow: {
-        title: "Media localization pipeline",
-        stages: [
-          {
-            id: "source",
-            nodes: [{ id: "source-video", label: "Source Video", sublabel: "MP4", tone: "navy" }],
-          },
-          {
-            id: "speech",
-            nodes: [
-              { id: "transcriber", label: "Transcriber", sublabel: "Segments", tone: "blue" },
-              { id: "speaker-map", label: "Speaker Mapper", sublabel: "Voices", tone: "cyan" },
-            ],
-          },
-          {
-            id: "localize",
-            nodes: [
-              { id: "translator", label: "Translator", sublabel: "Spanish", tone: "purple" },
-              { id: "timing", label: "Timing Editor", sublabel: "Sync", tone: "orange" },
-            ],
-          },
-          {
-            id: "delivery",
-            nodes: [{ id: "publisher", label: "Publisher", sublabel: "Video + SRT", tone: "green" }],
-          },
-        ],
-      },
-      flowSteps: [
-        {
-          id: "media-1",
-          label: "1 / Ingest",
-          kind: "system",
-          title: "Inspect source media",
-          detail: "Capture duration, audio stream, and source-language metadata.",
-          stageId: "source",
-        },
-        {
-          id: "media-2",
-          label: "2 / Transcribe",
-          kind: "agent",
-          title: "Segment speech and speakers",
-          detail: "Create timestamped transcript segments and stable speaker identities.",
-          stageId: "speech",
-        },
-        {
-          id: "media-3",
-          label: "3 / Adapt",
-          kind: "agent",
-          title: "Translate for timing",
-          detail: "Preserve meaning while recording overlap and duration constraints.",
-          stageId: "localize",
-        },
-        {
-          id: "media-4",
-          label: "4 / Voice",
-          kind: "agent",
-          title: "Render distinct voices",
-          detail: "Produce one reviewable audio artifact per detected speaker.",
-          stageId: "localize",
-        },
-        {
-          id: "media-5",
-          label: "5 / Deliver",
-          kind: "complete",
-          title: "Mux and verify",
-          detail: "Package synchronized video, subtitles, decisions, and quality evidence.",
-          stageId: "delivery",
-        },
-      ],
-      timeline: [
-        { id: "mt1", label: "Ingest", kind: "system", time: "00:00", detail: "Source video inspected" },
-        { id: "mt2", label: "Transcript", kind: "agent", time: "00:08", detail: "Two speaker segments detected" },
-        { id: "mt3", label: "Translation", kind: "agent", time: "00:21", detail: "Spanish dialogue adapted" },
-        { id: "mt4", label: "Voice render", kind: "agent", time: "00:38", detail: "Speaker tracks prepared" },
-        { id: "mt5", label: "Synchronization", kind: "agent", time: "00:51", detail: "Timing risks recorded" },
-        { id: "mt6", label: "Complete", kind: "complete", time: "01:04", detail: "Delivery manifest verified" },
-      ],
-      runSummary: {
-        status: "Success",
-        runId: "run_media_demo",
-        started: "Offline fixture",
-        duration: "01:04",
-        models: ["Whisper-compatible", "Translation provider", "Voice renderer"],
-        handoffs: 5,
-        tokens: 0,
-        tokensLabel: "Offline fixture",
-        cost: "$0.00",
-        costNote: "Static deterministic showcase; no provider call is made from this page.",
-      },
-      handoffs: [
-        { from: "Transcriber", to: "Speaker Mapper", summary: "Timestamped transcript with two stable speaker IDs." },
-        { from: "Speaker Mapper", to: "Translator", summary: "Speaker turns, tone notes, and overlap windows attached." },
-        { from: "Translator", to: "Timing Editor", summary: "Spanish script with duration constraints and subtitle cues." },
-        { from: "Timing Editor", to: "Publisher", summary: "Synchronized tracks, risk notes, and final asset manifest." },
-      ],
-      sampleOutput: `{
-  "status": "passed",
-  "quality_score": 0.85,
-  "speakers": 2,
-  "artifacts": [
-    "original_video.mp4",
-    "translated_video_synced.mp4",
-    "speaker1_audio.wav",
-    "speaker2_audio.wav",
-    "spanish_subtitles.srt"
-  ],
-  "next_steps": ["Human review before publication"]
-}`,
-      player: { speed: "1.0x", current: "00:00", total: "01:04" },
     },
   },
   {

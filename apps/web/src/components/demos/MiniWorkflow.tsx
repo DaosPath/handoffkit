@@ -1,5 +1,5 @@
 type MiniWorkflowProps = {
-  kind: "panel" | "coding" | "rescue" | "support" | "media";
+  kind: "panel" | "coding" | "rescue" | "support";
 };
 
 export function MiniWorkflow({ kind }: MiniWorkflowProps) {
@@ -55,27 +55,6 @@ export function MiniWorkflow({ kind }: MiniWorkflowProps) {
               {l}
             </span>
             {i < 3 && <span className="text-[0.6rem] text-[var(--blue)]">→</span>}
-          </span>
-        ))}
-      </div>
-    );
-  }
-
-  if (kind === "media") {
-    return (
-      <div className="flex flex-wrap items-center justify-center gap-1 py-1">
-        {["Transcript", "Translate", "Voices", "Mux"].map((label, index) => (
-          <span key={label} className="inline-flex items-center gap-1">
-            <span
-              className={`workflow-node !min-w-0 !px-2 !py-1.5 !text-[0.6rem] ${
-                index === 3 ? "workflow-node-green" : "workflow-node-purple"
-              }`}
-            >
-              {label}
-            </span>
-            {index < 3 && (
-              <span className="text-[0.6rem] text-[var(--blue)]">-&gt;</span>
-            )}
           </span>
         ))}
       </div>
