@@ -66,7 +66,9 @@ def extract_title(html_src: str) -> str:
     return _clean_text(m.group(1)) if m else ""
 
 
-def extract_links(html_src: str, base_url: str = "", *, max_links: int = 100) -> list[ExtractedLink]:
+def extract_links(
+    html_src: str, base_url: str = "", *, max_links: int = 100
+) -> list[ExtractedLink]:
     out: list[ExtractedLink] = []
     seen: set[str] = set()
     for m in _A_RE.finditer(html_src or ""):
@@ -85,7 +87,9 @@ def extract_links(html_src: str, base_url: str = "", *, max_links: int = 100) ->
     return out
 
 
-def extract_text(html_src: str, *, max_chars: int = 50000, strip_scripts_styles: bool = True) -> str:
+def extract_text(
+    html_src: str, *, max_chars: int = 50000, strip_scripts_styles: bool = True
+) -> str:
     body = prefer_main_content(strip_noise(html_src, strip_scripts_styles=strip_scripts_styles))
     body = _BLOCK_RE.sub("\n", body)
     text = _clean_text(body)

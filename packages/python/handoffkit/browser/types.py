@@ -6,7 +6,6 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 from urllib.parse import urljoin, urlparse, urlunparse
 
-
 DEFAULT_UA = "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)"
 
 
@@ -96,7 +95,7 @@ class ExploreStep:
             "title": self.title,
             "text": self.text,
             "markdown": self.markdown,
-            "links": [l.to_dict() for l in self.links],
+            "links": [link.to_dict() for link in self.links],
             "raw_body_bytes": self.raw_body_bytes,
             "blocked_links": list(self.blocked_links),
         }
@@ -128,7 +127,7 @@ class ExploreResult:
             "title": self.title,
             "text": self.text,
             "markdown": self.markdown,
-            "links": [l.to_dict() for l in self.links],
+            "links": [link.to_dict() for link in self.links],
             "steps": [s.to_dict() for s in self.steps],
             "policy": self.policy.to_dict(),
             "error": self.error,

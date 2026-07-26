@@ -85,7 +85,10 @@ def make_web_fetch_tool(default_transport_ref: Any = None) -> Tool:
     return Tool(
         run,
         name="web_fetch",
-        description="Fetch one URL and extract title, text, links, and markdown under ExplorePolicy budgets.",
+        description=(
+            "Fetch one URL and extract title, text, links, and markdown "
+            "under ExplorePolicy budgets."
+        ),
     )
 
 
@@ -117,7 +120,10 @@ def make_web_explore_tool(default_transport_ref: Any = None) -> Tool:
     return Tool(
         run,
         name="web_explore",
-        description="Bounded BFS crawl from a start URL. Use for docs sites when one page is not enough.",
+        description=(
+            "Bounded BFS crawl from a start URL. "
+            "Use for docs sites when one page is not enough."
+        ),
     )
 
 
@@ -152,7 +158,10 @@ def make_html_to_markdown_tool(default_transport_ref: Any = None) -> Tool:
         markdown = html_to_markdown(body, base_url=final_url, max_chars=max_chars)
         title = extract_title(body)
         if include_header and final_url and "Source:" not in markdown[:200]:
-            markdown = f"# {title}\n\nSource: {final_url}\n\n{markdown}" if title else f"Source: {final_url}\n\n{markdown}"
+            if title:
+                markdown = f"# {title}\n\nSource: {final_url}\n\n{markdown}"
+            else:
+                markdown = f"Source: {final_url}\n\n{markdown}"
         if format == "readme":
             markdown = to_readme_markdown(title=title, url=final_url, markdown=markdown)
         return {
@@ -167,7 +176,10 @@ def make_html_to_markdown_tool(default_transport_ref: Any = None) -> Tool:
     return Tool(
         run,
         name="html_to_markdown",
-        description="Convert an HTML string (or fetch a URL) into compact Markdown for agent context.",
+        description=(
+            "Convert an HTML string (or fetch a URL) into compact Markdown "
+            "for agent context."
+        ),
     )
 
 
@@ -194,7 +206,9 @@ def make_web_fetch_markdown_tool(default_transport_ref: Any = None) -> Tool:
             policy=policy,
             transport=_resolve_transport({"transport": transport}, default_transport_ref),
         )
-        return PageMarkdown.from_explore_result(result, max_chars=max_chars, format=format).to_dict()
+        return PageMarkdown.from_explore_result(
+            result, max_chars=max_chars, format=format
+        ).to_dict()
 
     return Tool(
         run,

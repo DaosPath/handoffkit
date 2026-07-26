@@ -22,7 +22,12 @@ from handoffkit.browser.html_extract import (
     prefer_main_content,
 )
 from handoffkit.browser.kit import create_browser_agent_kit
-from handoffkit.browser.page import PageMarkdown, format_readme_bundle, page_from_html, to_readme_markdown
+from handoffkit.browser.page import (
+    PageMarkdown,
+    format_readme_bundle,
+    page_from_html,
+    to_readme_markdown,
+)
 from handoffkit.browser.rank import host_score, rank_search_hits
 from handoffkit.browser.research import (
     ResearchPack,
@@ -31,7 +36,12 @@ from handoffkit.browser.research import (
     make_search_query_from_task,
     research_prompt_section,
 )
-from handoffkit.browser.search import keyword_compress, search_duckduckgo, search_wikipedia, web_search
+from handoffkit.browser.search import (
+    keyword_compress,
+    search_duckduckgo,
+    search_wikipedia,
+    web_search,
+)
 from handoffkit.browser.tools import (
     make_html_to_markdown_tool,
     make_web_explore_tool,
@@ -93,7 +103,9 @@ def browser_toolkit(transport: Any | None = None) -> dict[str, Any]:
     """Return callables an agent/runtime can bind as tools."""
     t = transport or HttpTransport()
     return {
-        "web_search": lambda query, max_results=6: web_search(query, transport=t, max_results=max_results),
+        "web_search": lambda query, max_results=6: web_search(
+            query, transport=t, max_results=max_results
+        ),
         "web_fetch_markdown": lambda url: web_fetch_markdown(url, transport=t),
         "web_research": lambda query, max_pages=3: gather_web_research(
             query, transport=t, max_pages=max_pages
