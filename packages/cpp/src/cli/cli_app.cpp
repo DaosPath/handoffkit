@@ -24,8 +24,9 @@
 #include <handoffkit/runtime/diff_score.hpp>
 #include <handoffkit/runtime/team.hpp>
 #include <handoffkit/runtime/trace.hpp>
-#include <handoffkit/explore/explorer.hpp>
-#include <handoffkit/explore/tools.hpp>
+#include <handoffkit/browser/explorer.hpp>
+#include <handoffkit/browser/tools.hpp>
+#include <handoffkit/browser/kit.hpp>
 #include <handoffkit/version.hpp>
 #include <handoffkit/workflows/templates.hpp>
 #include <handoffkit/train/dataset.hpp>
@@ -1062,8 +1063,8 @@ CliResult cmd_parse_structured(const std::vector<std::string>& args) {
                           : CliResult{1, parsed.to_json().dump(2) + "\n", "parse failed\n"};
 }
 
-explore::ExplorePolicy policy_from_cli_args(const std::vector<std::string>& args) {
-    explore::ExplorePolicy p;
+browser::ExplorePolicy policy_from_cli_args(const std::vector<std::string>& args) {
+    browser::ExplorePolicy p;
     const std::string md = optional_flag_value(args, "--max-depth");
     if (!md.empty()) p.max_depth = std::stoi(md);
     const std::string mp = optional_flag_value(args, "--max-pages");
@@ -1097,13 +1098,13 @@ CliResult cmd_explore(const std::vector<std::string>& args) {
             "  --deny-host H --allow-host H --any-host --user-agent UA\n"
             "  --json                     Emit full snake_case JSON result\n"
             "  --markdown                 Prefer markdown excerpt in text output\n"
-            "Inject explore::WebTransport / ExplorePolicy; prefer result markdown for prompts.\n"
+            "Inject browser::WebTransport / ExplorePolicy; prefer result markdown for prompts.\n"
         );
     }
     const std::string sub = args[1];
     if (sub == "tools") {
         ToolRegistry reg;
-        explore::register_web_explorer_tools(reg, explore::make_fixture_map_transport());
+        browser::register_browser_tools(reg, browser::make_fixture_map_transport());
         std::ostringstream ss;
         for (const auto& n : reg.names()) ss << n << "\n";
         return ok(ss.str());
@@ -1118,24 +1119,24 @@ CliResult cmd_explore(const std::vector<std::string>& args) {
             html.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
         } else {
             // default: fixture home HTML via map transport body
-            auto map = explore::make_fixture_map_transport();
+            auto map = browser::make_fixture_map_transport();
             if (url.empty()) url = "https://fixture.local/";
-            explore::TransportRequest treq;
+            browser::TransportRequest treq;
             treq.url = url;
             auto resp = map->get(treq);
             if (!resp.error.empty()) return fail(1, resp.error + "\n");
             html = resp.body;
         }
-        explore::HtmlToMarkdownOptions opts;
+        browser::HtmlToMarkdownOptions opts;
         opts.base_url = url.empty() ? "https://fixture.local/" : url;
         opts.include_source_header = true;
         opts.include_links_section = true;
-        auto md = explore::html_to_markdown(html, opts);
+        auto md = browser::html_to_markdown(html, opts);
         if (has_flag(args, "--json")) {
             nlohmann::json j{
                 {"success", true},
                 {"url", opts.base_url},
-                {"title", explore::extract_title(html)},
+                {"title", browser::extract_title(html)},
                 {"markdown", md},
                 {"markdown_chars", md.size()},
                 {"format", "markdown"},
@@ -1148,10 +1149,10 @@ CliResult cmd_explore(const std::vector<std::string>& args) {
     auto policy = policy_from_cli_args(args);
     std::string transport_kind = optional_flag_value(args, "--transport");
     std::string url = optional_flag_value(args, "--url");
-    explore::TransportPtr transport;
+    browser::TransportPtr transport;
 
     if (sub == "fixture") {
-        transport = explore::make_fixture_map_transport();
+        transport = browser::make_fixture_map_transport();
         if (url.empty()) url = "https://fixture.local/";
         if (transport_kind.empty()) transport_kind = "fixture";
         // sensible defaults for offline demo
@@ -1176,18 +1177,18 @@ CliResult cmd_explore(const std::vector<std::string>& args) {
 #endif
         }
         if (transport_kind == "fixture") {
-            transport = explore::make_fixture_map_transport();
+            transport = browser::make_fixture_map_transport();
         } else if (transport_kind == "http" || transport_kind == "live") {
-            transport = explore::make_transport("http");
+            transport = browser::make_transport("http");
         } else {
-            transport = explore::make_transport("map");
+            transport = browser::make_transport("map");
         }
     } else {
         return fail(2, "unknown explore subcommand: " + sub + "\n");
     }
 
     policy.emit_markdown = true;
-    explore::WebExplorer explorer(transport);
+    browser::WebExplorer explorer(transport);
     const bool fetch_only = (sub == "fetch" || sub == "md");
     auto result = fetch_only ? explorer.fetch(url, policy) : explorer.explore(url, policy);
     if (!result) {

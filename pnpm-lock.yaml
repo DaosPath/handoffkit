@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@handoffkit/browser':
+        specifier: workspace:*
+        version: link:packages/js/browser
       '@handoffkit/core':
         specifier: workspace:*
         version: link:packages/js/core
@@ -67,8 +70,17 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  packages/js/browser:
+    dependencies:
+      '@handoffkit/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/js/cli:
     dependencies:
+      '@handoffkit/browser':
+        specifier: workspace:*
+        version: link:../browser
       '@handoffkit/core':
         specifier: workspace:*
         version: link:../core
@@ -101,6 +113,9 @@ importers:
         specifier: workspace:*
         version: link:../core
     devDependencies:
+      '@handoffkit/browser':
+        specifier: workspace:*
+        version: link:../browser
       '@handoffkit/providers':
         specifier: workspace:*
         version: link:../providers

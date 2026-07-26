@@ -1,6 +1,7 @@
 #pragma once
 
-/// Umbrella header for the HandoffKit C++ **runtime core** (no demos/fusion).
+/// Umbrella header for the HandoffKit C++ **runtime core** (no demos/fusion/browser).
+/// For web search/explore/scrape use <handoffkit/browser.hpp> or link handoffkit::browser.
 #include <handoffkit/error.hpp>
 #include <handoffkit/handoff.hpp>
 #include <handoffkit/version.hpp>
@@ -24,11 +25,6 @@
 #include <handoffkit/runtime/team.hpp>
 #include <handoffkit/runtime/tool.hpp>
 #include <handoffkit/runtime/trace.hpp>
-#include <handoffkit/explore/web_types.hpp>
-#include <handoffkit/explore/transport.hpp>
-#include <handoffkit/explore/html_extract.hpp>
-#include <handoffkit/explore/explorer.hpp>
-#include <handoffkit/explore/tools.hpp>
 #include <handoffkit/util/text.hpp>
 #include <handoffkit/workflows/recipe.hpp>
 #include <handoffkit/workflows/templates.hpp>

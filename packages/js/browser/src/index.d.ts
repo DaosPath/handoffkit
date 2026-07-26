@@ -1,0 +1,307 @@
+import type { Tool, ToolRegistry } from "@handoffkit/core";
+
+export declare const HANDOFFKIT_BROWSER_VERSION: string;
+
+export interface ExtractedLink {
+  href: string;
+  absolute: string;
+  text: string;
+}
+
+export declare class ExplorePolicy {
+  maxDepth: number;
+  maxPages: number;
+  timeoutMs: number;
+  maxBodyBytes: number;
+  maxTextChars: number;
+  maxLinksPerPage: number;
+  sameHostOnly: boolean;
+  followRedirects: boolean;
+  maxRedirects: number;
+  userAgent: string;
+  allowHosts: string[];
+  denyHosts: string[];
+  extraHeaders: Record<string, string>;
+  extractText: boolean;
+  extractLinks: boolean;
+  extractTitle: boolean;
+  stripScriptsStyles: boolean;
+  emitMarkdown: boolean;
+  maxMarkdownChars: number;
+  constructor(init?: Record<string, unknown>);
+  toDict(): Record<string, unknown>;
+  static fromDict(data?: Record<string, unknown>): ExplorePolicy;
+}
+
+export declare function parseUrl(url: string): {
+  scheme: string;
+  host: string;
+  path: string;
+  query: string;
+  valid: boolean;
+};
+export declare function resolveUrl(base: string, href: string): string;
+export declare function normalizeHost(host: string): string;
+export declare function hostAllowed(host: string, policy: ExplorePolicy | Record<string, unknown>): boolean;
+export declare function urlAllowed(
+  url: string,
+  policy: ExplorePolicy | Record<string, unknown>,
+  originHost?: string,
+): boolean;
+export declare function policyFromArgs(args?: Record<string, unknown>): ExplorePolicy;
+export declare function resultToDict(result: ExploreResult): Record<string, unknown>;
+export declare function linkToDict(link: ExtractedLink): Record<string, unknown>;
+export declare function stepToDict(step: ExploreStep): Record<string, unknown>;
+
+export declare class TransportRequest {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  timeoutMs: number;
+  maxBodyBytes: number;
+  followRedirects: boolean;
+  maxRedirects: number;
+  constructor(init?: Record<string, unknown>);
+}
+
+export declare class TransportResponse {
+  status: number;
+  finalUrl: string;
+  contentType: string;
+  body: string;
+  headers: Record<string, string>;
+  error: string;
+  constructor(init?: Record<string, unknown>);
+  ok(): boolean;
+  toDict(): Record<string, unknown>;
+}
+
+export interface WebTransport {
+  name(): string;
+  get(request: TransportRequest | Record<string, unknown>): Promise<TransportResponse>;
+}
+
+export declare class MapTransport implements WebTransport {
+  constructor(pages?: Record<string, string | { body?: string; status?: number; contentType?: string }>);
+  name(): string;
+  setPage(url: string, body: string, status?: number, contentType?: string): this;
+  setError(url: string, error: string): this;
+  clear(): this;
+  get(request: TransportRequest | Record<string, unknown>): Promise<TransportResponse>;
+}
+
+export declare class HttpTransport implements WebTransport {
+  constructor(opts?: { fetchImpl?: typeof fetch | null; name?: string; retries?: number; baseDelayMs?: number });
+  name(): string;
+  get(request: TransportRequest | Record<string, unknown>): Promise<TransportResponse>;
+}
+
+export declare function makeTransport(kind?: string, opts?: Record<string, unknown>): WebTransport;
+export declare function defaultTransport(preferLive?: boolean): WebTransport;
+export declare function makeFixtureMapTransport(): MapTransport;
+
+export declare function decodeHtmlEntities(input: string): string;
+export declare function extractTitle(html: string): string;
+export declare function extractText(html: string, stripScriptsStyles?: boolean, maxChars?: number): string;
+export declare function extractLinks(html: string, baseUrl?: string, maxLinks?: number): ExtractedLink[];
+export declare function preferMainContent(html: string): string;
+export declare function htmlToMarkdown(html: string, opts?: Record<string, unknown>): string;
+export declare function pageHtmlToMarkdown(
+  url: string,
+  html: string,
+  policy?: ExplorePolicy | Record<string, unknown>,
+): string;
+export declare function extractPage(
+  url: string,
+  html: string,
+  policy?: ExplorePolicy | Record<string, unknown>,
+): {
+  url: string;
+  title: string;
+  text: string;
+  markdown: string;
+  links: ExtractedLink[];
+  rawBodyBytes: number;
+};
+
+export interface ExploreStep {
+  stepIndex: number;
+  depth: number;
+  url: string;
+  finalUrl: string;
+  status: number;
+  success: boolean;
+  error: string;
+  title: string;
+  text: string;
+  markdown: string;
+  links: ExtractedLink[];
+  rawBodyBytes: number;
+  blockedLinks: string[];
+}
+
+export interface ExploreResult {
+  success: boolean;
+  startUrl: string;
+  finalUrl: string;
+  pagesFetched: number;
+  maxDepthReached: number;
+  title: string;
+  text: string;
+  markdown: string;
+  links: ExtractedLink[];
+  steps: ExploreStep[];
+  policy: ExplorePolicy;
+  error: string;
+  metadata: Record<string, unknown>;
+}
+
+export declare class WebExplorer {
+  constructor(transport?: WebTransport | null, policy?: ExplorePolicy | Record<string, unknown> | null);
+  setTransport(transport: WebTransport | null): this;
+  setPolicy(policy: ExplorePolicy | Record<string, unknown>): this;
+  fetch(url: string, policyOverride?: ExplorePolicy | Record<string, unknown> | null): Promise<ExploreResult>;
+  explore(startUrl: string, policyOverride?: ExplorePolicy | Record<string, unknown> | null): Promise<ExploreResult>;
+}
+
+export declare function webFetch(
+  url: string,
+  transport?: WebTransport | null,
+  policy?: ExplorePolicy | Record<string, unknown>,
+): Promise<ExploreResult>;
+export declare function webExplore(
+  startUrl: string,
+  transport?: WebTransport | null,
+  policy?: ExplorePolicy | Record<string, unknown>,
+): Promise<ExploreResult>;
+
+export interface SearchHit {
+  title: string;
+  url: string;
+  score?: number;
+}
+
+export interface SearchResult {
+  success: boolean;
+  query: string;
+  keywords: string;
+  results: SearchHit[];
+  count: number;
+  engine: string;
+  error?: string;
+}
+
+export declare function webSearch(query: string, opts?: Record<string, unknown>): Promise<SearchResult>;
+export declare function multiSearch(
+  transport: WebTransport,
+  query: string,
+  maxResults?: number,
+  timeoutMs?: number,
+): Promise<SearchHit[]>;
+export declare function keywordCompress(query: string, maxWords?: number): string;
+export declare function urlEncodeComponent(s: string): string;
+export declare function urlDecodeBasic(input: string): string;
+
+export declare class PageMarkdown {
+  url: string;
+  title: string;
+  markdown: string;
+  excerpt: string;
+  text: string;
+  links: ExtractedLink[];
+  fetchedAt: string;
+  format: string;
+  blocked: boolean;
+  error: string;
+  markdownChars: number;
+  success: boolean;
+  constructor(init?: Record<string, unknown>);
+  toDict(): Record<string, unknown>;
+  static fromDict(data?: Record<string, unknown>): PageMarkdown;
+  static fromExploreResult(result: ExploreResult, opts?: { maxChars?: number; format?: string }): PageMarkdown;
+}
+
+export declare function makeExcerpt(text: string, max?: number): string;
+export declare function toReadmeMarkdown(opts: {
+  title?: string;
+  url?: string;
+  markdown?: string;
+  links?: ExtractedLink[];
+}): string;
+
+export declare class ResearchPack {
+  enabled: boolean;
+  used: boolean;
+  queries: string[];
+  urls_fetched: string[];
+  markdown_context: string;
+  pages: PageMarkdown[];
+  citations: Array<{ title: string; url: string }>;
+  steps: unknown[];
+  pages_ok: number;
+  tool_calls: number;
+  error: string;
+  transport: string;
+  mode: string;
+  constructor(init?: Record<string, unknown>);
+  toDict(): Record<string, unknown>;
+  promptSection(): string;
+}
+
+export declare function gatherWebResearch(config?: Record<string, unknown>): Promise<ResearchPack>;
+export declare function researchPromptSection(research: ResearchPack | Record<string, unknown>): string;
+export declare function extractUrlsFromText(text: string): string[];
+export declare function makeSearchQueryFromTask(task: string, maxChars?: number): string;
+
+export declare class BrowserCache {
+  constructor(opts?: { root?: string; ttlMs?: number });
+  get(url: string): Promise<Record<string, unknown> | null>;
+  set(url: string, payload?: Record<string, unknown>): Promise<boolean>;
+}
+export declare function defaultCacheRoot(): string;
+
+export declare function hostScore(url: string): number;
+export declare function rankSearchHits(
+  hits?: SearchHit[],
+  opts?: { allowHosts?: string[]; denyHosts?: string[] },
+): Array<SearchHit & { score: number }>;
+export declare function filterUrlsByHosts(
+  urls: string[],
+  opts?: { allowHosts?: string[]; denyHosts?: string[] },
+): string[];
+
+export declare function detectSoftBlock(body?: string, status?: number): { blocked: boolean; reason: string };
+export declare function smartTruncate(markdown: string, maxChars?: number): string;
+export declare function mapWithConcurrency<T, R>(
+  items: T[],
+  maxParallel: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]>;
+export declare function canonicalUrl(url: string): string;
+export declare function withRetries<T>(
+  fn: (attempt: number) => Promise<T>,
+  opts?: { retries?: number; baseDelayMs?: number; retryOn?: ((value: T) => boolean) | null },
+): Promise<T>;
+
+export declare function createBrowserAgentKit(options?: Record<string, unknown>): {
+  transport: WebTransport;
+  policy: ExplorePolicy;
+  registry: ToolRegistry;
+  explorer: WebExplorer;
+  cache: BrowserCache | null;
+  defaults: Record<string, unknown>;
+  tools: Tool[];
+  search: (query: string, opts?: Record<string, unknown>) => Promise<SearchResult>;
+  fetchMarkdown: (url: string, opts?: Record<string, unknown>) => Promise<PageMarkdown>;
+  gather: (config?: Record<string, unknown>) => Promise<ResearchPack>;
+  ResearchPack: typeof ResearchPack;
+};
+
+export declare function registerBrowserTools(registry: ToolRegistry, transport?: WebTransport | null): ToolRegistry;
+export declare function registerWebExplorerTools(registry: ToolRegistry, transport?: WebTransport | null): ToolRegistry;
+export declare function makeWebSearchTool(defaultTransportRef?: WebTransport | null): Tool;
+export declare function makeWebFetchTool(defaultTransportRef?: WebTransport | null): Tool;
+export declare function makeWebExploreTool(defaultTransportRef?: WebTransport | null): Tool;
+export declare function makeHtmlToMarkdownTool(defaultTransportRef?: WebTransport | null): Tool;
+export declare function makeWebFetchMarkdownTool(defaultTransportRef?: WebTransport | null): Tool;
+export declare function makeWebResearchTool(defaultTransportRef?: WebTransport | null): Tool;

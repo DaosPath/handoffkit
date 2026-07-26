@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
-const packageNames = ["core", "providers", "node", "recipes", "templates", "cli"];
+const packageNames = ["core", "providers", "node", "browser", "recipes", "templates", "cli"];
 const manifests = [];
 
 function fail(message) {

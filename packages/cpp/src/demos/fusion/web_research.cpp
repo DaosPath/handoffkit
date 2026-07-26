@@ -1,8 +1,9 @@
 #include <handoffkit/demos/fusion/web_research.hpp>
 #include <handoffkit/demos/fusion/prompt.hpp>
-#include <handoffkit/explore/explorer.hpp>
-#include <handoffkit/explore/html_extract.hpp>
-#include <handoffkit/explore/tools.hpp>
+#include <handoffkit/browser/explorer.hpp>
+#include <handoffkit/browser/html_extract.hpp>
+#include <handoffkit/browser/tools.hpp>
+#include <handoffkit/browser/research.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -117,7 +118,7 @@ void push_hit(std::vector<std::pair<std::string, std::string>>& hits, std::strin
 
 /// Wikipedia OpenSearch → list of {title, url}. Works offline if transport maps the API URL.
 std::vector<std::pair<std::string, std::string>> wikipedia_opensearch(
-    explore::TransportPtr transport,
+    browser::TransportPtr transport,
     std::string_view query,
     int max_results,
     int timeout_ms
@@ -134,7 +135,7 @@ std::vector<std::pair<std::string, std::string>> wikipedia_opensearch(
         "https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=" +
         std::to_string(max_results) + "&search=" + url_encode_component(q);
 
-    explore::TransportRequest req;
+    browser::TransportRequest req;
     req.url = api;
     req.timeout_ms = timeout_ms > 0 ? timeout_ms : 15000;
     req.headers["User-Agent"] = "HandoffKit/1.0";
@@ -165,7 +166,7 @@ std::vector<std::pair<std::string, std::string>> wikipedia_opensearch(
 
 /// DuckDuckGo HTML results (no API key). Best-effort link extraction.
 std::vector<std::pair<std::string, std::string>> duckduckgo_html_search(
-    explore::TransportPtr transport,
+    browser::TransportPtr transport,
     std::string_view query,
     int max_results,
     int timeout_ms
@@ -180,7 +181,7 @@ std::vector<std::pair<std::string, std::string>> duckduckgo_html_search(
     const std::string url =
         "https://html.duckduckgo.com/html/?q=" + url_encode_component(q);
 
-    explore::TransportRequest req;
+    browser::TransportRequest req;
     req.url = url;
     req.timeout_ms = timeout_ms > 0 ? timeout_ms : 20000;
     req.headers["User-Agent"] = "HandoffKit/1.0";
@@ -235,7 +236,7 @@ std::vector<std::pair<std::string, std::string>> duckduckgo_html_search(
 }
 
 std::vector<std::pair<std::string, std::string>> multi_search(
-    explore::TransportPtr transport,
+    browser::TransportPtr transport,
     std::string_view query,
     int max_results,
     int timeout_ms
@@ -257,7 +258,7 @@ std::vector<std::pair<std::string, std::string>> multi_search(
     return hits;
 }
 
-Tool make_web_search_tool(explore::TransportPtr default_transport) {
+Tool make_web_search_tool(browser::TransportPtr default_transport) {
     auto transport = default_transport;
     return Tool(
         "web_search",
@@ -275,9 +276,9 @@ Tool make_web_search_tool(explore::TransportPtr default_transport) {
             if (args.contains("timeout_ms") && args["timeout_ms"].is_number_integer()) {
                 timeout_ms = args["timeout_ms"].get<int>();
             }
-            auto t = transport ? transport : explore::make_transport("http");
+            auto t = transport ? transport : browser::make_transport("http");
             if (args.contains("transport") && args["transport"].is_string()) {
-                t = explore::make_transport(args["transport"].get<std::string>());
+                t = browser::make_transport(args["transport"].get<std::string>());
             }
             auto hits = multi_search(t, query, max_results, timeout_ms);
             nlohmann::json results = nlohmann::json::array();
@@ -435,25 +436,24 @@ std::string make_search_query_from_task(std::string_view task, std::size_t max_c
     return out;
 }
 
-ToolRegistry make_fusion_web_tool_registry(explore::TransportPtr transport) {
+ToolRegistry make_fusion_web_tool_registry(browser::TransportPtr transport) {
     ToolRegistry reg;
-    explore::register_web_explorer_tools(reg, transport);
-    reg.add(make_web_search_tool(transport));
+    browser::register_browser_tools(reg, transport);
     return reg;
 }
 
 WebResearchResult gather_web_research(const FusionConfig& config) {
-    explore::TransportPtr t;
+    browser::TransportPtr t;
     if (config.web_transport == "map" || config.web_transport == "fixture" ||
         config.web_transport == "stub" || config.web_transport == "offline") {
-        t = explore::make_fixture_map_transport();
+        t = browser::make_fixture_map_transport();
     } else {
-        t = explore::make_transport(config.web_transport.empty() ? "http" : config.web_transport);
+        t = browser::make_transport(config.web_transport.empty() ? "http" : config.web_transport);
     }
     return gather_web_research(config, t);
 }
 
-WebResearchResult gather_web_research(const FusionConfig& config, explore::TransportPtr transport) {
+WebResearchResult gather_web_research(const FusionConfig& config, browser::TransportPtr transport) {
     WebResearchResult r;
     r.enabled = config.enable_web_tools;
     r.transport = transport ? transport->name() : "";

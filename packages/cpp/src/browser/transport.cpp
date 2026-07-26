@@ -1,4 +1,4 @@
-#include <handoffkit/explore/transport.hpp>
+#include <handoffkit/browser/transport.hpp>
 
 #include <algorithm>
 
@@ -7,7 +7,7 @@
 #endif
 
 namespace handoffkit {
-namespace explore {
+namespace browser {
 
 MapTransport::MapTransport(std::unordered_map<std::string, Entry> pages) : pages_(std::move(pages)) {}
 
@@ -176,5 +176,5 @@ std::shared_ptr<MapTransport> make_fixture_map_transport() {
     return map;
 }
 
-}  // namespace explore
+}  // namespace browser
 }  // namespace handoffkit

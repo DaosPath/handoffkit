@@ -235,7 +235,7 @@ test("dynamic extensions ignore only missing config and report malformed config"
 });
 
 test("CLI version and source imports use public package boundaries", async () => {
-  assert.equal(VERSION, "1.14.2");
+  assert.equal(VERSION, "1.15.0");
   const source = await readFile(join(import.meta.dirname, "..", "src", "index.js"), "utf8");
   assert.doesNotMatch(source, /\.\.\/\.\.\/recipes\/src/);
   assert.doesNotMatch(source, /\.\.\/\.\.\/templates\/src/);

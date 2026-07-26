@@ -1,4 +1,4 @@
-"""1.14.2 mini-demo: offline fallback + safe tools + structured handoff (Python).
+"""1.15.0 mini-demo: offline fallback + safe tools + structured handoff (Python).
 
 Justifies the patch release alongside C++ handoffkit::core packaging and the
 matching JS/Rust demos. No network required.

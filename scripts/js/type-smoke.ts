@@ -17,6 +17,7 @@ import {
   sanitizeErrorBody,
 } from "@handoffkit/providers";
 import { FileTraceStore, JsonMemoryStore, ProjectIndexer } from "@handoffkit/node";
+import { HANDOFFKIT_BROWSER_VERSION, registerBrowserTools, webSearch } from "@handoffkit/browser";
 import { Recipe, RecipeRunner, realFusionPanel } from "@handoffkit/recipes";
 import { TemplateScaffolder } from "@handoffkit/templates";
 import { VERSION, main } from "@handoffkit/cli";
@@ -36,7 +37,9 @@ const recipe = new Recipe({ name: "typed", steps: [] });
 const runner = new RecipeRunner(recipe);
 const scaffolder = new TemplateScaffolder();
 
-void [HANDOFFKIT_CORE_VERSION, HANDOFFKIT_PROVIDERS_VERSION, VERSION, handoff, coreFallback, openai, traceStore, memoryStore, indexer, runner, scaffolder];
+void [HANDOFFKIT_CORE_VERSION, HANDOFFKIT_PROVIDERS_VERSION, HANDOFFKIT_BROWSER_VERSION, VERSION, handoff, coreFallback, openai, traceStore, memoryStore, indexer, runner, scaffolder];
+void registerBrowserTools;
+void webSearch;
 void team.arun("typed");
 void router.route("typed");
 void realFusionPanel("ollama", ["test"], "typed", { signal: new AbortController().signal });

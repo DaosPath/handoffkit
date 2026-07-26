@@ -97,8 +97,11 @@ void test_default_safe_registry_no_shell() {
     auto exec = reg.execute(call);
     assert(exec);
     assert(!exec.value().success);
-    assert(exec.value().error.find("denied") != std::string::npos ||
-           exec.value().error.find("not enabled") != std::string::npos);
+    const std::string err = exec.value().error.is_string()
+        ? exec.value().error.get<std::string>()
+        : exec.value().error.dump();
+    assert(err.find("denied") != std::string::npos ||
+           err.find("not enabled") != std::string::npos);
 
     // Fresh default still has no shell
     ToolRegistry reg2;

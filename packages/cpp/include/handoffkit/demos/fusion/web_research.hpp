@@ -3,7 +3,7 @@
 // Fusion pre-step: run native web explorer tools and inject page Markdown into prompts.
 
 #include <handoffkit/demos/fusion/types.hpp>
-#include <handoffkit/explore/transport.hpp>
+#include <handoffkit/browser/transport.hpp>
 #include <handoffkit/runtime/tool.hpp>
 
 #include <string>
@@ -39,7 +39,7 @@ struct WebResearchResult {
 [[nodiscard]] std::string make_search_query_from_task(std::string_view task, std::size_t max_chars = 140);
 
 /// Build registry with web_fetch, web_explore, html_to_markdown, web_fetch_markdown, web_search.
-[[nodiscard]] ToolRegistry make_fusion_web_tool_registry(explore::TransportPtr transport);
+[[nodiscard]] ToolRegistry make_fusion_web_tool_registry(browser::TransportPtr transport);
 
 /// Run research using FusionConfig web_* flags (seed urls, auto search, transport).
 [[nodiscard]] WebResearchResult gather_web_research(const FusionConfig& config);
@@ -47,7 +47,7 @@ struct WebResearchResult {
 /// Same as above with an injected transport (tests / fixtures).
 [[nodiscard]] WebResearchResult gather_web_research(
     const FusionConfig& config,
-    explore::TransportPtr transport
+    browser::TransportPtr transport
 );
 
 }  // namespace fusion

@@ -108,5 +108,5 @@ test("project indexer enforces maxFiles and normalizes extensions", async () => 
 test("node parity defaults to current core version", async () => {
   const contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts");
   const report = await buildNodeContractParityReport({ contractsRoot });
-  assert.equal(report.version, "1.14.2");
+  assert.equal(report.version, "1.15.0");
 });

@@ -29,6 +29,7 @@
   "devDependencies": {
     "@handoffkit/core": "workspace:*",
     "@handoffkit/node": "workspace:*",
+    "@handoffkit/browser": "workspace:*",
     "@types/node": "^26.1.1",
     "typescript": "^6.0.3"
   },

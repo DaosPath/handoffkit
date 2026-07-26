@@ -6,7 +6,7 @@ import os
 
 class HandoffKitConan(ConanFile):
     name = "handoffkit"
-    version = "1.14.2"
+    version = "1.15.0"
     license = "MIT"
     author = "DaosPath <daospath@gmail.com>"
     url = "https://github.com/DaosPath/handoffkit"
@@ -76,10 +76,13 @@ class HandoffKitConan(ConanFile):
         # Headers include <nlohmann/json.hpp>; propagate Conan dependency to consumers.
         self.cpp_info.requires = ["nlohmann_json::nlohmann_json"]
         # Link demos then core (demos depends on core symbols).
-        self.cpp_info.libs = ["handoffkit_demos", "handoffkit_core"]
+        self.cpp_info.libs = ["handoffkit_demos", "handoffkit_browser", "handoffkit_core"]
         self.cpp_info.components["core"].libs = ["handoffkit_core"]
         self.cpp_info.components["core"].set_property("cmake_target_name", "handoffkit::core")
         self.cpp_info.components["core"].requires = ["nlohmann_json::nlohmann_json"]
+        self.cpp_info.components["browser"].libs = ["handoffkit_browser"]
+        self.cpp_info.components["browser"].requires = ["core", "nlohmann_json::nlohmann_json"]
+        self.cpp_info.components["browser"].set_property("cmake_target_name", "handoffkit::browser")
         self.cpp_info.components["demos"].libs = ["handoffkit_demos"]
-        self.cpp_info.components["demos"].requires = ["core", "nlohmann_json::nlohmann_json"]
+        self.cpp_info.components["demos"].requires = ["browser", "nlohmann_json::nlohmann_json"]
         self.cpp_info.components["demos"].set_property("cmake_target_name", "handoffkit::demos")
