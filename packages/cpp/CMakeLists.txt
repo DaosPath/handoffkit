@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(handoffkit VERSION 1.14.2 LANGUAGES CXX)
+project(handoffkit VERSION 1.15.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -75,11 +75,6 @@ set(HANDOFFKIT_CORE_SOURCES
   src/runtime/consensus.cpp
   src/runtime/scheduler.cpp
   src/runtime/diff_score.cpp
-  src/explore/web_types.cpp
-  src/explore/html_extract.cpp
-  src/explore/transport.cpp
-  src/explore/explorer.cpp
-  src/explore/tools.cpp
   src/util/text.cpp
   src/evaluation/workflow_eval.cpp
   src/workflows/recipe.cpp
@@ -157,6 +152,31 @@ set_target_properties(handoffkit_core PROPERTIES
 )
 add_library(handoffkit::core ALIAS handoffkit_core)
 
+set(HANDOFFKIT_BROWSER_SOURCES
+  src/browser/web_types.cpp
+  src/browser/html_extract.cpp
+  src/browser/transport.cpp
+  src/browser/explorer.cpp
+  src/browser/tools.cpp
+  src/browser/rank.cpp
+  src/browser/util.cpp
+  src/browser/cache.cpp
+  src/browser/page.cpp
+  src/browser/research.cpp
+  src/browser/kit.cpp
+)
+
+add_library(handoffkit_browser ${HANDOFFKIT_BROWSER_SOURCES})
+target_link_libraries(handoffkit_browser PUBLIC handoffkit_core)
+handoffkit_apply_common(handoffkit_browser)
+set_target_properties(handoffkit_browser PROPERTIES
+  VERSION ${PROJECT_VERSION}
+  SOVERSION ${PROJECT_VERSION_MAJOR}
+  EXPORT_NAME browser
+  OUTPUT_NAME handoffkit_browser
+)
+add_library(handoffkit::browser ALIAS handoffkit_browser)
+
 # List core sources once (for build logs / split verification)
 set(_hk_core_src_list "")
 foreach(_s ${HANDOFFKIT_CORE_SOURCES})
@@ -166,11 +186,11 @@ message(STATUS "handoffkit_core sources (${list_length}): no fusion/demos")
 list(LENGTH HANDOFFKIT_CORE_SOURCES _hk_core_n)
 message(STATUS "handoffkit_core file count: ${_hk_core_n}")
 
-set(_hk_install_libs handoffkit_core)
+set(_hk_install_libs handoffkit_core handoffkit_browser)
 
 if(HANDOFFKIT_BUILD_DEMOS)
   add_library(handoffkit_demos ${HANDOFFKIT_DEMOS_SOURCES})
-  target_link_libraries(handoffkit_demos PUBLIC handoffkit_core)
+  target_link_libraries(handoffkit_demos PUBLIC handoffkit_browser)
   handoffkit_apply_common(handoffkit_demos)
   set_target_properties(handoffkit_demos PROPERTIES
     VERSION ${PROJECT_VERSION}
@@ -184,12 +204,12 @@ if(HANDOFFKIT_BUILD_DEMOS)
   message(STATUS "handoffkit_demos file count: ${_hk_demo_n} (includes fusion)")
 endif()
 
-# Canonical consumer target: INTERFACE → demos (full monorepo) or core-only
+# Canonical consumer target: INTERFACE → demos (full) or core+browser
 add_library(handoffkit INTERFACE)
 if(HANDOFFKIT_BUILD_DEMOS)
   target_link_libraries(handoffkit INTERFACE handoffkit_demos)
 else()
-  target_link_libraries(handoffkit INTERFACE handoffkit_core)
+  target_link_libraries(handoffkit INTERFACE handoffkit_core handoffkit_browser)
 endif()
 add_library(handoffkit::handoffkit ALIAS handoffkit)
 list(APPEND _hk_install_libs handoffkit)
@@ -237,7 +257,7 @@ if(HANDOFFKIT_BUILD_TESTS)
   handoffkit_add_test(test_http_parse tests/test_http_parse.cpp LINK handoffkit_core)
   handoffkit_add_test(test_orchestrator_eval tests/test_orchestrator_eval.cpp LINK handoffkit_core)
   handoffkit_add_test(test_structured_replay_text tests/test_structured_replay_text.cpp LINK handoffkit_core)
-  handoffkit_add_test(test_web_explorer tests/test_web_explorer.cpp LINK handoffkit_core)
+  handoffkit_add_test(test_web_explorer tests/test_web_explorer.cpp LINK handoffkit_browser)
   handoffkit_add_test(test_core_runtime tests/test_core_runtime.cpp LINK handoffkit_core)
   handoffkit_add_test(test_train_core tests/test_train_core.cpp LINK handoffkit_core)
 

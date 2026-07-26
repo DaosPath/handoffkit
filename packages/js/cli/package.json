@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/cli",
-  "version": "1.14.2",
+  "version": "1.15.0",
   "description": "Autonomous Node.js CLI and offline demos for HandoffKit.",
   "repository": {
     "type": "git",
@@ -31,6 +31,7 @@
     "prepack": "pnpm run check && pnpm run test"
   },
   "dependencies": {
+    "@handoffkit/browser": "workspace:*",
     "@handoffkit/core": "workspace:*",
     "@handoffkit/node": "workspace:*",
     "@handoffkit/recipes": "workspace:*",

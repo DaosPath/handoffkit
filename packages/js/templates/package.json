@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/templates",
-  "version": "1.14.2",
+  "version": "1.15.0",
   "description": "Offline JavaScript starter templates for HandoffKit.",
   "repository": {
     "type": "git",

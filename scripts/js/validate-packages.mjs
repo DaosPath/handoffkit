@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { gunzipSync } from "node:zlib";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
-const packageNames = ["core", "providers", "node", "recipes", "templates", "cli"];
+const packageNames = ["core", "providers", "node", "browser", "recipes", "templates", "cli"];
 const pnpmCli = process.env.npm_execpath;
 
 if (!pnpmCli) {

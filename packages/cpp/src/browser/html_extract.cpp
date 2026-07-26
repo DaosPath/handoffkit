@@ -1,11 +1,11 @@
-#include <handoffkit/explore/html_extract.hpp>
+#include <handoffkit/browser/html_extract.hpp>
 
 #include <cctype>
 #include <regex>
 #include <sstream>
 
 namespace handoffkit {
-namespace explore {
+namespace browser {
 namespace {
 
 std::string lower_copy(std::string s) {
@@ -137,13 +137,43 @@ std::string extract_title(std::string_view html) {
     return collapse_ws(decode_html_entities(raw));
 }
 
-std::string extract_text(std::string_view html, bool strip_scripts_styles, int max_chars) {
+std::string prefer_main_content(std::string_view html) {
     std::string s(html);
-    if (strip_scripts_styles) {
-        s = strip_tags_region(std::move(s), "script");
-        s = strip_tags_region(std::move(s), "style");
-        s = strip_tags_region(std::move(s), "noscript");
+    for (const char* tag : {"script", "style", "noscript", "svg", "nav", "footer", "aside"}) {
+        s = strip_tags_region(std::move(s), tag);
     }
+    const std::string low = lower_copy(s);
+    for (const char* tag : {"article", "main"}) {
+        const std::string open = "<" + std::string(tag);
+        const auto b = low.find(open);
+        if (b == std::string::npos) continue;
+        const auto gt = low.find('>', b);
+        const std::string close = "</" + std::string(tag) + ">";
+        const auto e = low.find(close, gt == std::string::npos ? b : gt);
+        if (gt == std::string::npos || e == std::string::npos || e <= gt) continue;
+        const std::string title = extract_title(html);
+        const std::string inner = s.substr(gt + 1, e - gt - 1);
+        if (title.empty()) return inner;
+        return "<html><head><title>" + title + "</title></head><body>" + inner + "</body></html>";
+    }
+    const auto body_idx = low.find("<body");
+    if (body_idx != std::string::npos) {
+        const auto gt = low.find('>', body_idx);
+        const auto e = low.find("</body>", gt == std::string::npos ? body_idx : gt);
+        if (gt != std::string::npos && e != std::string::npos && e > gt) {
+            std::string inner = s.substr(gt + 1, e - gt - 1);
+            inner = strip_tags_region(std::move(inner), "header");
+            const std::string title = extract_title(html);
+            if (title.empty()) return inner;
+            return "<html><head><title>" + title + "</title></head><body>" + inner + "</body></html>";
+        }
+    }
+    return s;
+}
+
+std::string extract_text(std::string_view html, bool strip_scripts_styles, int max_chars) {
+    std::string s = prefer_main_content(html);
+    (void)strip_scripts_styles;
     // drop tags
     std::string text;
     text.reserve(s.size());
@@ -241,26 +271,11 @@ void append_inline_text(std::string& out, std::string_view chunk) {
 }  // namespace
 
 std::string html_to_markdown(std::string_view html, const HtmlToMarkdownOptions& opts) {
-    std::string s(html);
-    if (opts.strip_scripts_styles) {
-        s = strip_tags_region(std::move(s), "script");
-        s = strip_tags_region(std::move(s), "style");
-        s = strip_tags_region(std::move(s), "noscript");
-        s = strip_tags_region(std::move(s), "svg");
-    }
-
-    std::string title = extract_title(s);
-    // Prefer body content if present
-    {
-        std::string low = lower_copy(s);
-        auto b = low.find("<body");
-        if (b != std::string::npos) {
-            auto gt = low.find('>', b);
-            auto e = low.find("</body>", gt == std::string::npos ? b : gt);
-            if (gt != std::string::npos && e != std::string::npos && e > gt) {
-                s = s.substr(gt + 1, e - gt - 1);
-            }
-        }
+    const std::string title = extract_title(html);
+    std::string s = prefer_main_content(html);
+    if (!opts.strip_scripts_styles) {
+        // prefer_main_content already strips scripts/styles; keep caller html if disabled.
+        s = std::string(html);
     }
 
     std::ostringstream md;
@@ -539,5 +554,5 @@ PageExtract extract_page(std::string_view url, std::string_view html, const Expl
     return p;
 }
 
-}  // namespace explore
+}  // namespace browser
 }  // namespace handoffkit

@@ -1,11 +1,12 @@
-#include <handoffkit/explore/explorer.hpp>
+#include <handoffkit/browser/explorer.hpp>
+#include <handoffkit/browser/util.hpp>
 
 #include <queue>
 #include <set>
 #include <utility>
 
 namespace handoffkit {
-namespace explore {
+namespace browser {
 
 WebExplorer::WebExplorer(TransportPtr transport) : transport_(std::move(transport)) {
     if (!transport_) transport_ = std::make_shared<MapTransport>();
@@ -62,6 +63,12 @@ Result<ExploreStep> WebExplorer::fetch_one(std::string_view url, int depth,
     if (!resp.error.empty()) {
         step.success = false;
         step.error = resp.error;
+        return Result<ExploreStep>::success(std::move(step));
+    }
+    const auto block = detect_soft_block(resp.body, resp.status);
+    if (block.blocked) {
+        step.success = false;
+        step.error = block.reason.empty() ? "soft_block" : block.reason;
         return Result<ExploreStep>::success(std::move(step));
     }
     if (resp.status < 200 || resp.status >= 400) {
@@ -240,5 +247,5 @@ Result<ExploreResult> web_explore(std::string_view start_url, TransportPtr trans
     return ex.explore(start_url, policy);
 }
 
-}  // namespace explore
+}  // namespace browser
 }  // namespace handoffkit

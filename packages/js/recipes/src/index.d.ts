@@ -347,3 +347,22 @@ export function mediaContextToWorkflowReport(
   context: MediaContext,
   options?: { success?: boolean }
 ): MediaWorkflowReport;
+
+export function runWebGroundedAnswer(options: {
+  query?: string;
+  question?: string;
+  maxPages?: number;
+  allowHosts?: string[];
+  denyHosts?: string[];
+  provider?: { agenerate: (prompt: string, opts?: { temperature?: number }) => Promise<unknown>; model?: string } | null;
+  model?: string;
+  transport?: unknown;
+  format?: string;
+}): Promise<{
+  success: boolean;
+  query: string;
+  research: Record<string, unknown>;
+  prompt_section: string;
+  answer: string;
+  model: string;
+}>;

@@ -1,0 +1,754 @@
+#include <handoffkit/browser/research.hpp>
+#include <handoffkit/browser/explorer.hpp>
+#include <handoffkit/browser/rank.hpp>
+#include <handoffkit/browser/util.hpp>
+#include <handoffkit/browser/page.hpp>
+
+#include <algorithm>
+#include <chrono>
+#include <cctype>
+#include <regex>
+#include <sstream>
+
+namespace handoffkit {
+namespace browser {
+namespace {
+
+using Clock = std::chrono::steady_clock;
+
+int64_t elapsed_ms(Clock::time_point start) {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start).count();
+}
+
+std::string url_encode_component(std::string_view s) {
+    static const char* hex = "0123456789ABCDEF";
+    std::string out;
+    out.reserve(s.size() * 3);
+    for (unsigned char c : s) {
+        if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            out.push_back(static_cast<char>(c));
+        } else if (c == ' ') {
+            out.push_back('+');
+        } else {
+            out.push_back('%');
+            out.push_back(hex[c >> 4]);
+            out.push_back(hex[c & 0xF]);
+        }
+    }
+    return out;
+}
+
+std::string url_decode_basic(std::string s) {
+    std::string out;
+    out.reserve(s.size());
+    for (std::size_t i = 0; i < s.size(); ++i) {
+        if (s[i] == '%' && i + 2 < s.size()) {
+            auto hex = [](char c) -> int {
+                if (c >= '0' && c <= '9') return c - '0';
+                if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+                if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+                return -1;
+            };
+            const int hi = hex(s[i + 1]);
+            const int lo = hex(s[i + 2]);
+            if (hi >= 0 && lo >= 0) {
+                out.push_back(static_cast<char>((hi << 4) | lo));
+                i += 2;
+                continue;
+            }
+        } else if (s[i] == '+') {
+            out.push_back(' ');
+            continue;
+        }
+        out.push_back(s[i]);
+    }
+    return out;
+}
+
+bool is_stopword(const std::string& w) {
+    static const char* k[] = {
+        "a", "an", "the", "of", "in", "on", "at", "to", "for", "and", "or", "that", "this", "was",
+        "were", "is", "are", "had", "have", "has", "with", "its", "it", "as", "by", "from", "what",
+        "which", "who", "when", "where", "how", "name", "title", "old", "new", "been", "be", "do",
+        "does", "did", "into", "about", "over", "under", "their", "there", "these", "those", "than",
+        "then", "them", "they", "you", "your", "our", "we", "i", "me", "my",
+    };
+    for (const char* s : k) {
+        if (w == s) return true;
+    }
+    return false;
+}
+
+std::string strip_tags(std::string_view html) {
+    std::string out(html);
+    out = std::regex_replace(out, std::regex(R"(<[^>]+>)"), " ");
+    out = std::regex_replace(out, std::regex(R"(\s+)"), " ");
+    while (!out.empty() && out.front() == ' ') out.erase(out.begin());
+    while (!out.empty() && out.back() == ' ') out.pop_back();
+    return out;
+}
+
+void push_hit(std::vector<std::pair<std::string, std::string>>& hits, std::string title, std::string url,
+              int max_results) {
+    if (static_cast<int>(hits.size()) >= max_results) return;
+    if (url.rfind("http", 0) != 0) return;
+    if (url.find("duckduckgo.com") != std::string::npos) return;
+    if (url.find("wikipedia.org/w/api.php") != std::string::npos) return;
+    for (auto& h : hits) {
+        if (h.second == url) {
+            if (h.first.empty() && !title.empty()) h.first = std::move(title);
+            return;
+        }
+    }
+    hits.emplace_back(std::move(title), std::move(url));
+}
+
+std::vector<std::pair<std::string, std::string>> wikipedia_opensearch(TransportPtr transport,
+                                                                      std::string_view query,
+                                                                      int max_results, int timeout_ms) {
+    std::vector<std::pair<std::string, std::string>> hits;
+    if (!transport || query.empty() || max_results < 1) return hits;
+
+    std::string q(query);
+    const std::string kw = keyword_compress(query, 8);
+    if (!kw.empty() && kw.size() + 10 < q.size()) q = kw;
+
+    const std::string api =
+        "https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=" +
+        std::to_string(max_results) + "&search=" + url_encode_component(q);
+
+    TransportRequest req;
+    req.url = api;
+    req.timeout_ms = timeout_ms > 0 ? timeout_ms : 15000;
+    req.headers["User-Agent"] = "HandoffKit-Browser/1.0";
+    req.headers["Accept"] = "application/json";
+    const auto resp = transport->get(req);
+    if (!resp.error.empty() || resp.status < 200 || resp.status >= 300 || resp.body.empty()) {
+        return hits;
+    }
+
+    try {
+        const auto j = nlohmann::json::parse(resp.body);
+        if (!j.is_array() || j.size() < 4 || !j[1].is_array() || !j[3].is_array()) {
+            return hits;
+        }
+        const auto& titles = j[1];
+        const auto& urls = j[3];
+        const std::size_t n =
+            std::min({titles.size(), urls.size(), static_cast<std::size_t>(max_results)});
+        for (std::size_t i = 0; i < n; ++i) {
+            if (!titles[i].is_string() || !urls[i].is_string()) continue;
+            push_hit(hits, titles[i].get<std::string>(), urls[i].get<std::string>(), max_results);
+        }
+    } catch (...) {
+        return hits;
+    }
+    return hits;
+}
+
+std::vector<std::pair<std::string, std::string>> duckduckgo_html_search(TransportPtr transport,
+                                                                        std::string_view query,
+                                                                        int max_results, int timeout_ms) {
+    std::vector<std::pair<std::string, std::string>> hits;
+    if (!transport || query.empty() || max_results < 1) return hits;
+
+    std::string q(query);
+    const std::string kw = keyword_compress(query, 10);
+    if (!kw.empty()) q = kw;
+
+    const std::string url = "https://html.duckduckgo.com/html/?q=" + url_encode_component(q);
+
+    TransportRequest req;
+    req.url = url;
+    req.timeout_ms = timeout_ms > 0 ? timeout_ms : 20000;
+    req.headers["User-Agent"] = "HandoffKit-Browser/1.0";
+    req.headers["Accept"] = "text/html,application/xhtml+xml";
+    const auto resp = transport->get(req);
+    if (!resp.error.empty() || resp.status < 200 || resp.status >= 300 || resp.body.empty()) {
+        return hits;
+    }
+
+    const std::string& html = resp.body;
+
+    std::size_t pos = 0;
+    while (static_cast<int>(hits.size()) < max_results) {
+        const auto a = html.find("result__a", pos);
+        if (a == std::string::npos) break;
+        auto href = html.find("href=\"", a);
+        if (href == std::string::npos || href > a + 120) {
+            pos = a + 8;
+            continue;
+        }
+        href += 6;
+        const auto hend = html.find('"', href);
+        if (hend == std::string::npos) break;
+        std::string link = html.substr(href, hend - href);
+        if (link.find("uddg=") != std::string::npos) {
+            const auto u = link.find("uddg=");
+            link = url_decode_basic(link.substr(u + 5));
+            const auto amp = link.find('&');
+            if (amp != std::string::npos) link = link.substr(0, amp);
+        }
+        std::string title;
+        const auto gt = html.find('>', hend);
+        const auto close = gt == std::string::npos ? std::string::npos : html.find("</a>", gt);
+        if (gt != std::string::npos && close != std::string::npos) {
+            title = strip_tags(html.substr(gt + 1, close - gt - 1));
+        }
+        push_hit(hits, std::move(title), link, max_results);
+        pos = hend;
+    }
+
+    pos = 0;
+    while (static_cast<int>(hits.size()) < max_results) {
+        const auto u = html.find("uddg=", pos);
+        if (u == std::string::npos) break;
+        std::size_t end = u + 5;
+        while (end < html.size()) {
+            const char c = html[end];
+            if (c == '&' || c == '"' || c == '\'' || c == ' ' || c == '<' || c == '>') break;
+            ++end;
+        }
+        const std::string dec = url_decode_basic(html.substr(u + 5, end - u - 5));
+        push_hit(hits, {}, dec, max_results);
+        pos = end;
+    }
+    return hits;
+}
+
+std::vector<std::pair<std::string, std::string>> multi_search(TransportPtr transport, std::string_view query,
+                                                              int max_results, int timeout_ms) {
+    auto hits = duckduckgo_html_search(transport, query, max_results, timeout_ms);
+    if (static_cast<int>(hits.size()) < max_results) {
+        const auto wiki = wikipedia_opensearch(transport, query, max_results, timeout_ms);
+        for (const auto& h : wiki) {
+            push_hit(hits, h.first, h.second, max_results);
+        }
+    }
+    if (hits.empty()) {
+        const auto short_q = keyword_compress(query, 4);
+        if (!short_q.empty() && short_q != query) {
+            hits = wikipedia_opensearch(transport, short_q, max_results, timeout_ms);
+        }
+    }
+    std::sort(hits.begin(), hits.end(), [](const auto& a, const auto& b) {
+        if (a.first.empty() != b.first.empty()) return !a.first.empty();
+        return a.second < b.second;
+    });
+    if (static_cast<int>(hits.size()) > max_results) {
+        hits.resize(static_cast<std::size_t>(max_results));
+    }
+    return hits;
+}
+
+TransportPtr resolve_tool_transport(const nlohmann::json& args, TransportPtr default_transport) {
+    if (args.contains("transport") && args["transport"].is_string()) {
+        return make_transport(args["transport"].get<std::string>());
+    }
+    return default_transport ? default_transport : make_transport("http");
+}
+
+PageMarkdown page_from_cache_json(const nlohmann::json& j) {
+    PageMarkdown p;
+    p.success = j.value("success", true);
+    p.url = j.value("url", std::string{});
+    p.title = j.value("title", std::string{});
+    p.markdown = j.value("markdown", std::string{});
+    p.excerpt = j.value("excerpt", std::string{});
+    p.text = j.value("text", std::string{});
+    p.fetched_at = j.value("fetched_at", std::string{});
+    p.format = j.value("format", std::string{"markdown"});
+    p.blocked = j.value("blocked", false);
+    p.error = j.value("error", std::string{});
+    p.markdown_chars = j.value("markdown_chars", static_cast<int>(p.markdown.size()));
+    return p;
+}
+
+void append_unique_url(std::vector<std::string>& urls, const std::string& url) {
+    const std::string canon = canonical_url(url);
+    if (canon.empty()) return;
+    if (std::find(urls.begin(), urls.end(), canon) == urls.end()) {
+        urls.push_back(canon);
+    }
+}
+
+ExplorePolicy research_policy(const WebResearchConfig& config) {
+    ExplorePolicy p;
+    p.max_depth = config.max_depth;
+    p.max_pages = config.prefer_explore ? config.max_pages : 1;
+    p.timeout_ms = config.timeout_ms;
+    p.same_host_only = config.prefer_explore;
+    p.emit_markdown = true;
+    p.allow_hosts = config.allow_hosts;
+    p.deny_hosts = config.deny_hosts;
+    p.max_markdown_chars = config.context_max_chars;
+    return p;
+}
+
+}  // namespace
+
+std::string keyword_compress(std::string_view query, std::size_t max_words) {
+    std::string out;
+    std::string word;
+    std::size_t count = 0;
+    auto flush = [&]() {
+        if (word.empty()) return;
+        std::string low = word;
+        for (char& c : low) {
+            if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+        }
+        if (!is_stopword(low) && word.size() >= 2) {
+            if (!out.empty()) out.push_back(' ');
+            out += word;
+            ++count;
+        }
+        word.clear();
+    };
+    for (char c : query) {
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '\'' || c == '-') {
+            word.push_back(c);
+        } else {
+            flush();
+            if (count >= max_words) break;
+        }
+    }
+    if (count < max_words) flush();
+    return out;
+}
+
+std::vector<std::string> extract_urls_from_text(std::string_view text) {
+    std::vector<std::string> out;
+    const std::string s(text);
+    std::size_t i = 0;
+    while (i < s.size()) {
+        const auto pos = s.find("http", i);
+        if (pos == std::string::npos) break;
+        if (pos + 7 > s.size()) break;
+        const bool ok = s.compare(pos, 8, "https://") == 0 || s.compare(pos, 7, "http://") == 0;
+        if (!ok) {
+            i = pos + 4;
+            continue;
+        }
+        std::size_t end = pos;
+        while (end < s.size()) {
+            const unsigned char c = static_cast<unsigned char>(s[end]);
+            if (std::isspace(c) || c == ')' || c == ']' || c == '>' || c == '"' || c == '\'' ||
+                c == '<' || c == '|' || c == ',') {
+                break;
+            }
+            ++end;
+        }
+        std::string url = s.substr(pos, end - pos);
+        while (!url.empty() && (url.back() == '.' || url.back() == ';' || url.back() == ':')) {
+            url.pop_back();
+        }
+        if (url.size() > 10) {
+            append_unique_url(out, url);
+        }
+        i = end;
+    }
+    return out;
+}
+
+std::string make_search_query_from_task(std::string_view task, std::size_t max_chars) {
+    std::string s(task);
+    auto tpos = s.find("TASK:");
+    if (tpos == std::string::npos) tpos = s.find("Task:");
+    if (tpos != std::string::npos) {
+        s = s.substr(tpos + 5);
+    }
+    const char* prefixes[] = {
+        "Deep research style answer (research only).",
+        "Deep research style answer",
+        "Deep research",
+    };
+    for (const char* pfx : prefixes) {
+        if (s.rfind(pfx, 0) == 0) {
+            s = s.substr(std::char_traits<char>::length(pfx));
+            break;
+        }
+    }
+    std::string out;
+    out.reserve(s.size());
+    bool space = false;
+    for (char c : s) {
+        if (std::isspace(static_cast<unsigned char>(c))) {
+            if (!out.empty()) space = true;
+            continue;
+        }
+        if (space) {
+            out.push_back(' ');
+            space = false;
+        }
+        out.push_back(c);
+    }
+    while (!out.empty() &&
+           (out.front() == ':' || std::isspace(static_cast<unsigned char>(out.front())))) {
+        out.erase(out.begin());
+    }
+    if (out.size() > max_chars) {
+        const auto cut = out.find(". ");
+        if (cut != std::string::npos && cut >= 40 && cut < max_chars) {
+            out = out.substr(0, cut);
+        } else {
+            out = out.substr(0, max_chars);
+        }
+    }
+    if (out.empty()) return out;
+    const std::string kw = keyword_compress(out, 12);
+    if (!kw.empty()) return kw.size() > max_chars ? kw.substr(0, max_chars) : kw;
+    return out;
+}
+
+nlohmann::json web_search(std::string_view query, TransportPtr transport, int max_results, int timeout_ms,
+                          const std::vector<std::string>& allow_hosts,
+                          const std::vector<std::string>& deny_hosts) {
+    const std::string q(query);
+    max_results = std::max(1, std::min(8, max_results));
+    if (q.empty()) {
+        return {
+            {"success", false},
+            {"query", ""},
+            {"keywords", ""},
+            {"results", nlohmann::json::array()},
+            {"count", 0},
+            {"engine", "duckduckgo_html+wikipedia_opensearch"},
+            {"error", "query is required"},
+        };
+    }
+    if (!transport) transport = make_transport("http");
+
+    const auto raw_hits = multi_search(transport, q, max_results, timeout_ms);
+    const auto ranked = rank_search_hits(raw_hits, allow_hosts, deny_hosts);
+    nlohmann::json results = nlohmann::json::array();
+    const int n = std::min(max_results, static_cast<int>(ranked.size()));
+    for (int i = 0; i < n; ++i) {
+        results.push_back({{"title", ranked[static_cast<std::size_t>(i)].title},
+                           {"url", ranked[static_cast<std::size_t>(i)].url},
+                           {"score", ranked[static_cast<std::size_t>(i)].score}});
+    }
+    return {
+        {"success", !results.empty()},
+        {"query", q},
+        {"keywords", keyword_compress(q)},
+        {"results", results},
+        {"count", results.size()},
+        {"engine", "duckduckgo_html+wikipedia_opensearch"},
+        {"error", results.empty() ? "no search results" : ""},
+    };
+}
+
+nlohmann::json WebResearchResult::to_json() const {
+    nlohmann::json pages_j = nlohmann::json::array();
+    for (const auto& p : pages) pages_j.push_back(p.to_json());
+    return {
+        {"enabled", enabled},
+        {"used", used},
+        {"queries", queries},
+        {"urls_fetched", urls_fetched},
+        {"markdown_chars", markdown_context.size()},
+        {"markdown_context", markdown_context},
+        {"pages", pages_j},
+        {"citations", citations},
+        {"steps", steps},
+        {"pages_ok", pages_ok},
+        {"tool_calls", tool_calls},
+        {"error", error},
+        {"transport", transport},
+        {"mode", mode},
+    };
+}
+
+std::string WebResearchResult::prompt_section() const {
+    if (markdown_context.empty()) return {};
+    std::ostringstream ss;
+    ss << "### Live web research (Markdown from HandoffKit browser)\n"
+       << "Use the following fetched page content as evidence. Prefer these sources over invention.\n"
+       << "Tools used: web_search, web_fetch_markdown, html_to_markdown.\n";
+    if (!citations.empty()) {
+        ss << "\nCitations:\n";
+        for (const auto& c : citations) {
+            const std::string title = c.value("title", std::string{});
+            const std::string url = c.value("url", std::string{});
+            ss << "- [" << (title.empty() ? url : title) << "](" << url << ")\n";
+        }
+        ss << "\n";
+    }
+    ss << markdown_context;
+    return ss.str();
+}
+
+WebResearchResult gather_web_research(const WebResearchConfig& config, TransportPtr transport) {
+    const auto started = Clock::now();
+    WebResearchResult result;
+    result.enabled = true;
+    if (!transport) transport = make_transport("http");
+    result.transport = transport ? transport->name() : "";
+
+    const bool seed_only = config.seed_only;
+    const bool auto_search = seed_only ? false : config.auto_search;
+    const int max_pages = std::max(1, config.max_pages);
+    const int context_max_chars = std::max(1000, config.context_max_chars);
+    result.mode = seed_only ? "seed_only" : (auto_search ? "search_then_fetch" : "urls_only");
+
+    std::vector<std::string> urls;
+    for (const auto& u : config.seed_urls) append_unique_url(urls, u);
+    for (const auto& u : extract_urls_from_text(config.task)) append_unique_url(urls, u);
+    for (const auto& u : extract_urls_from_text(config.query)) append_unique_url(urls, u);
+
+    if (urls.empty() && auto_search) {
+        const std::string q =
+            config.query.empty() ? make_search_query_from_task(config.task) : config.query;
+        if (!q.empty()) {
+            result.queries.push_back(q);
+            ++result.tool_calls;
+            const auto t0 = Clock::now();
+            const auto search = web_search(q, transport, std::min(8, std::max(4, max_pages * 2)),
+                                           config.timeout_ms, config.allow_hosts, config.deny_hosts);
+            nlohmann::json step = {{"tool", "web_search"},
+                                   {"query", q},
+                                   {"success", search.value("success", false)},
+                                   {"count", search.value("count", 0)},
+                                   {"ms", elapsed_ms(t0)},
+                                   {"result",
+                                    {{"success", search.value("success", false)},
+                                     {"count", search.value("count", 0)},
+                                     {"results", search.value("results", nlohmann::json::array())},
+                                     {"error", search.value("error", std::string{})}}}};
+            if (search.value("success", false) && search.contains("results") &&
+                search["results"].is_array()) {
+                for (const auto& hit : search["results"]) {
+                    if (hit.contains("url") && hit["url"].is_string()) {
+                        append_unique_url(urls, hit["url"].get<std::string>());
+                    }
+                }
+            } else if (search.contains("error") && search["error"].is_string()) {
+                result.error = search["error"].get<std::string>();
+            }
+            result.steps.push_back(std::move(step));
+        }
+    }
+
+    std::vector<std::pair<std::string, std::string>> url_hits;
+    url_hits.reserve(urls.size());
+    for (const auto& u : urls) url_hits.emplace_back("", u);
+    const auto ranked = rank_search_hits(url_hits, config.allow_hosts, config.deny_hosts);
+    std::vector<std::string> candidates;
+    candidates.reserve(ranked.size());
+    for (const auto& h : ranked) candidates.push_back(h.url);
+    const int candidate_cap = std::max(max_pages * 3, max_pages);
+    if (static_cast<int>(candidates.size()) > candidate_cap) {
+        candidates.resize(static_cast<std::size_t>(candidate_cap));
+    }
+
+    if (candidates.empty()) {
+        if (result.error.empty()) result.error = "no urls to fetch";
+        result.used = !result.queries.empty();
+        result.steps.push_back(
+            {{"tool", "research_done"}, {"ms", elapsed_ms(started)}, {"pages_ok", result.pages_ok}});
+        return result;
+    }
+
+    WebExplorer explorer(transport);
+    const ExplorePolicy policy = research_policy(config);
+    std::ostringstream md_parts;
+
+    for (const auto& url : candidates) {
+        if (result.pages_ok >= max_pages) break;
+
+        const auto t0 = Clock::now();
+        ++result.tool_calls;
+        nlohmann::json step;
+
+        if (config.cache) {
+            if (const auto hit = config.cache->get(url)) {
+                if (hit->contains("markdown") && (*hit)["markdown"].is_string() &&
+                    !(*hit)["markdown"].get<std::string>().empty()) {
+                    PageMarkdown page = page_from_cache_json(*hit);
+                    if (page.url.empty()) page.url = url;
+                    page.markdown = smart_truncate(page.markdown, context_max_chars);
+                    page.markdown_chars = static_cast<int>(page.markdown.size());
+                    page.excerpt = make_excerpt(page.markdown);
+                    result.pages_ok += 1;
+                    result.urls_fetched.push_back(page.url);
+                    result.pages.push_back(page);
+                    result.citations.push_back({{"title", page.title}, {"url", page.url}});
+                    if (!page.markdown.empty()) {
+                        if (!md_parts.str().empty()) md_parts << "\n\n---\n\n";
+                        md_parts << page.markdown;
+                    }
+                    step = {{"tool", "cache_hit"},
+                            {"url", url},
+                            {"success", true},
+                            {"title", page.title},
+                            {"chars", page.markdown_chars},
+                            {"ms", elapsed_ms(t0)}};
+                    result.steps.push_back(std::move(step));
+                    continue;
+                }
+            }
+        }
+
+        Result<ExploreResult> fetched = config.prefer_explore ? explorer.explore(url, policy)
+                                                              : explorer.fetch(url, policy);
+        step["tool"] = config.prefer_explore ? "web_explore" : "web_fetch";
+        step["url"] = url;
+
+        if (!fetched) {
+            step["success"] = false;
+            step["error"] = fetched.error().message;
+            step["ms"] = elapsed_ms(t0);
+            result.steps.push_back(std::move(step));
+            continue;
+        }
+
+        const ExploreResult& er = fetched.value();
+        PageMarkdown page =
+            PageMarkdown::from_explore_result(er, context_max_chars, config.format);
+        step["success"] = er.success;
+        step["title"] = er.title;
+        step["error"] = er.error;
+        step["chars"] = page.markdown_chars;
+        step["ms"] = elapsed_ms(t0);
+        if (!er.steps.empty()) step["status"] = er.steps.front().status;
+
+        if (!er.success) {
+            result.steps.push_back(std::move(step));
+            continue;
+        }
+
+        if (config.cache) {
+            config.cache->set(url, page.to_json());
+        }
+
+        result.pages_ok += 1;
+        result.urls_fetched.push_back(page.url);
+        result.pages.push_back(page);
+        result.citations.push_back({{"title", page.title}, {"url", page.url}});
+        if (!page.markdown.empty()) {
+            if (!md_parts.str().empty()) md_parts << "\n\n---\n\n";
+            md_parts << page.markdown;
+        }
+        result.steps.push_back(std::move(step));
+    }
+
+    result.markdown_context = smart_truncate(md_parts.str(), context_max_chars);
+    result.used = result.pages_ok > 0 || !result.queries.empty();
+    if (result.pages_ok == 0 && result.error.empty()) {
+        result.error = "no pages fetched successfully";
+    }
+    result.steps.push_back(
+        {{"tool", "research_done"}, {"ms", elapsed_ms(started)}, {"pages_ok", result.pages_ok}});
+    return result;
+}
+
+Tool make_web_search_tool(TransportPtr default_transport) {
+    auto transport = default_transport;
+    return Tool(
+        "web_search",
+        "Search the live web for a query. Returns ranked {title,url,score} hits. Follow up with "
+        "web_fetch_markdown on the best URLs.",
+        [transport](const nlohmann::json& args) -> Result<nlohmann::json> {
+            if (!args.contains("query") || !args["query"].is_string()) {
+                return Error::invalid_argument("query is required", "query");
+            }
+            int max_results = 6;
+            if (args.contains("max_results") && args["max_results"].is_number_integer()) {
+                max_results = std::max(1, std::min(8, args["max_results"].get<int>()));
+            }
+            int timeout_ms = 20000;
+            if (args.contains("timeout_ms") && args["timeout_ms"].is_number_integer()) {
+                timeout_ms = args["timeout_ms"].get<int>();
+            }
+            std::vector<std::string> allow_hosts;
+            std::vector<std::string> deny_hosts;
+            if (args.contains("allow_hosts") && args["allow_hosts"].is_array()) {
+                for (const auto& h : args["allow_hosts"]) {
+                    if (h.is_string()) allow_hosts.push_back(h.get<std::string>());
+                }
+            }
+            if (args.contains("deny_hosts") && args["deny_hosts"].is_array()) {
+                for (const auto& h : args["deny_hosts"]) {
+                    if (h.is_string()) deny_hosts.push_back(h.get<std::string>());
+                }
+            }
+            const auto t = resolve_tool_transport(args, transport);
+            return web_search(args["query"].get<std::string>(), t, max_results, timeout_ms,
+                              allow_hosts, deny_hosts);
+        },
+        nlohmann::json{
+            {"type", "object"},
+            {"properties",
+             {{"query", {{"type", "string"}}},
+              {"max_results", {{"type", "integer"}}},
+              {"timeout_ms", {{"type", "integer"}}},
+              {"transport", {{"type", "string"}}},
+              {"allow_hosts", {{"type", "array"}}},
+              {"deny_hosts", {{"type", "array"}}}}},
+            {"required", nlohmann::json::array({"query"})},
+        });
+}
+
+Tool make_web_research_tool(TransportPtr default_transport) {
+    auto transport = default_transport;
+    return Tool(
+        "web_research",
+        "Run search-then-fetch research and return markdown_context and citations for grounded "
+        "answers.",
+        [transport](const nlohmann::json& args) -> Result<nlohmann::json> {
+            if (!args.contains("query") || !args["query"].is_string()) {
+                return Error::invalid_argument("query is required", "query");
+            }
+            WebResearchConfig cfg;
+            cfg.query = args["query"].get<std::string>();
+            if (args.contains("max_pages") && args["max_pages"].is_number_integer()) {
+                cfg.max_pages = std::max(1, std::min(8, args["max_pages"].get<int>()));
+            }
+            if (args.contains("timeout_ms") && args["timeout_ms"].is_number_integer()) {
+                cfg.timeout_ms = args["timeout_ms"].get<int>();
+            }
+            if (args.contains("allow_hosts") && args["allow_hosts"].is_array()) {
+                for (const auto& h : args["allow_hosts"]) {
+                    if (h.is_string()) cfg.allow_hosts.push_back(h.get<std::string>());
+                }
+            }
+            if (args.contains("deny_hosts") && args["deny_hosts"].is_array()) {
+                for (const auto& h : args["deny_hosts"]) {
+                    if (h.is_string()) cfg.deny_hosts.push_back(h.get<std::string>());
+                }
+            }
+            if (args.contains("seed_only") && args["seed_only"].is_boolean()) {
+                cfg.seed_only = args["seed_only"].get<bool>();
+            }
+            if (args.contains("seed_urls") && args["seed_urls"].is_array()) {
+                for (const auto& u : args["seed_urls"]) {
+                    if (u.is_string()) cfg.seed_urls.push_back(u.get<std::string>());
+                }
+            }
+            if (args.contains("format") && args["format"].is_string()) {
+                cfg.format = args["format"].get<std::string>();
+            }
+            const auto t = resolve_tool_transport(args, transport);
+            WebResearchResult pack = gather_web_research(cfg, t);
+            nlohmann::json out = pack.to_json();
+            out["success"] = pack.pages_ok > 0;
+            return out;
+        },
+        nlohmann::json{
+            {"type", "object"},
+            {"properties",
+             {{"query", {{"type", "string"}}},
+              {"max_pages", {{"type", "integer"}}},
+              {"timeout_ms", {{"type", "integer"}}},
+              {"transport", {{"type", "string"}}},
+              {"allow_hosts", {{"type", "array"}}},
+              {"deny_hosts", {{"type", "array"}}},
+              {"seed_only", {{"type", "boolean"}}},
+              {"seed_urls", {{"type", "array"}}},
+              {"format", {{"type", "string"}}}}},
+            {"required", nlohmann::json::array({"query"})},
+        });
+}
+
+}  // namespace browser
+}  // namespace handoffkit

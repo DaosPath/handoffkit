@@ -1679,3 +1679,59 @@ export function mediaContextToWorkflowReport(context, { success = true } = {}) {
     },
   });
 }
+
+/**
+ * Grounded Q&A: @handoffkit/browser research + optional LLM answer.
+ * Requires optional peer `@handoffkit/browser`. Provider is optional peer `@handoffkit/providers`.
+ */
+export async function runWebGroundedAnswer({
+  query,
+  question = "",
+  maxPages = 3,
+  allowHosts = [],
+  denyHosts = [],
+  provider = null,
+  model = "",
+  transport = null,
+  format = "markdown",
+} = {}) {
+  let browser;
+  try {
+    browser = await import("@handoffkit/browser");
+  } catch (cause) {
+    throw new Error("Install @handoffkit/browser to use runWebGroundedAnswer().", { cause });
+  }
+  const q = String(query || question || "").trim();
+  if (!q) throw new TypeError("runWebGroundedAnswer requires query.");
+
+  const pack = await browser.gatherWebResearch({
+    query: q,
+    maxPages,
+    allowHosts,
+    denyHosts,
+    transport,
+    format,
+  });
+  const section = browser.researchPromptSection(pack);
+  let answer = "";
+  if (provider && typeof provider.agenerate === "function") {
+    const prompt = [
+      "Answer using ONLY the web research below. Cite URLs. Be concise.",
+      "",
+      `Question: ${question || q}`,
+      "",
+      section || "(no sources)",
+    ].join("\n");
+    answer = String(await provider.agenerate(prompt, { temperature: 0.2 }) || "").trim();
+  }
+
+  return {
+    success: pack.pages_ok > 0,
+    query: q,
+    research: pack.toDict(),
+    prompt_section: section,
+    answer,
+    model: model || provider?.model || "",
+  };
+}
+

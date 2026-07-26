@@ -22,7 +22,7 @@ Native **C++20** multi-agent runtime with structured handoffs.
 | `build_run_trace` + `write_report_json` / `write_report_files` | Done |
 | Provider catalog (NVIDIA/Groq/Grok/OpenRouter/Ollama/OpenCode/…) | Done |
 | Live HTTP via `OpenAiCompatibleProvider` (`HANDOFFKIT_WITH_HTTP`) | Done (default OFF) |
-| Native web explorer (`explore::WebExplorer`, injectable `WebTransport`) | Done (offline fixture + optional live HTTP) |
+| Native web browser (`browser::WebExplorer`, search, research, injectable transport) | Done (lib `handoffkit_browser` / `handoffkit::browser`) |
 | Native DRACO JSONL benchmark (baseline/Fusion, resume, judge, weighted reports) | Done |
 | CMake: `handoffkit_core` vs optional `handoffkit_demos` (fusion) | Done |
 | CMake install + `handoffkit::core` / `handoffkit::handoffkit` | Done |
@@ -34,7 +34,8 @@ Native **C++20** multi-agent runtime with structured handoffs.
 
 | Target | Contents |
 |--------|----------|
-| `handoffkit_core` / `handoffkit::core` | Runtime only (agent/team/protocol/providers/tools/explore/io) — **no fusion demos** |
+| `handoffkit_core` / `handoffkit::core` | Runtime only (agent/team/protocol/providers/tools/io) — **no browser, no fusion** |
+| `handoffkit_browser` / `handoffkit::browser` | Web search / fetch / explore / HTML→MD tools (separate from core) |
 | `handoffkit_demos` / `handoffkit::demos` | Demo catalog + fusion suite + CLI app sources (optional, `HANDOFFKIT_BUILD_DEMOS=ON` default) |
 | `handoffkit` / `handoffkit::handoffkit` | INTERFACE → demos (full monorepo) or core when demos OFF |
 
@@ -190,30 +191,24 @@ Built by default (`HANDOFFKIT_BUILD_CLI=ON`). Offline Echo-based demos — no AP
 
 Subcommands: `help`, `version`, `doctor`, `demos`, `demo`, `explore`, `team`, `tools`, `validate`, `quality`, `report`, `cases`, `templates`, `evaluate`, `replay`, `parse-structured`, `providers`, `generate`, `benchmark`, `train`, and `fusion`.
 
-### Native web explorer (fork-controllable)
+### Native web browser (separate lib)
 
-First-party C++ explorer (not a browser embed). Callers own **policy** + **transport**:
+First-party C++ browser complement (not Chrome). Link `handoffkit::browser`. Callers own **policy** + **transport**:
 
 ```cpp
-#include <handoffkit/explore/explorer.hpp>
-#include <handoffkit/explore/tools.hpp>
+#include <handoffkit/browser.hpp>
 
-using namespace handoffkit::explore;
+using namespace handoffkit::browser;
 
-auto map = make_fixture_map_transport();  // or your MapTransport / HttpTransport
-WebExplorer ex(map);
-ExplorePolicy pol;
-pol.max_depth = 2;
-pol.max_pages = 8;
-pol.allow_hosts = {"fixture.local"};
-pol.deny_hosts = {"evil.example"};
-pol.user_agent = "MyFork/1.0";
-auto result = ex.explore("https://fixture.local/", pol);
-// result->to_json() is snake_case wire
+auto kit = create_browser_agent_kit({.fixture = true, .use_cache = true});
+auto hits = kit.search("metformin");
+auto pack = kit.gather({.query = "metformin", .max_pages = 3});
 
 ToolRegistry reg;
-register_web_explorer_tools(reg, map);  // tools: web_fetch, web_explore
+register_browser_tools(reg, kit.transport);  // web_search, web_fetch, web_explore, … web_research
 ```
+
+Legacy includes under `<handoffkit/explore/...>` remain as thin aliases to `browser::`.
 
 - **Offline / tests:** `MapTransport` or `make_fixture_map_transport()` (no network).
 - **Live HTTPS:** build with `-DHANDOFFKIT_WITH_HTTP=ON` and use `HttpTransport` / `--transport http`.
@@ -423,7 +418,7 @@ Offline OpenAI response parsing is always available via `parse_openai_chat_compl
 
 ## Version
 
-`1.14.2` — keep `CMakeLists.txt`, `version.hpp`, and `conanfile.py` in sync.
+`1.15.0` — keep `CMakeLists.txt`, `version.hpp`, and `conanfile.py` in sync.
 
 ## Publishing / Trusted path
 

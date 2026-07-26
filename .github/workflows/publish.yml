@@ -12,7 +12,7 @@ on:
           - testpypi
           - npm
       release_version:
-        description: Version to retry for npm, for example 1.14.2
+        description: Version to retry for npm, for example 1.15.0
         required: false
         type: string
   push:
@@ -186,6 +186,9 @@ jobs:
           - package: "@handoffkit/templates"
             directory: packages/js/templates
             archive: handoffkit-templates
+          - package: "@handoffkit/browser"
+            directory: packages/js/browser
+            archive: handoffkit-browser
           - package: "@handoffkit/recipes"
             directory: packages/js/recipes
             archive: handoffkit-recipes

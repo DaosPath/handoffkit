@@ -36,6 +36,7 @@ from handoffkit._cli.demos import (
     select_provider_model,
     validate_report,
 )
+from handoffkit._cli.browse import add_browse_parser, run_browse_command
 from handoffkit._cli.media import (
     inspect_media_transcript,
     list_media_ops_text,
@@ -84,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
         "demo-media-context",
         help="Run creation→generation→edition media context handoff demo.",
     )
+    add_browse_parser(subparsers)
+
     media_parser = subparsers.add_parser("media", help="Inspect and plan media workflows.")
     media_subparsers = media_parser.add_subparsers(dest="media_command")
     media_inspect_parser = media_subparsers.add_parser("inspect", help="Inspect transcript JSON.")
@@ -307,6 +310,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "demo-media-context":
         print(run_media_context_demo())
         return 0
+    if args.command == "browse":
+        return run_browse_command(args)
     if args.command == "media":
         if args.media_command == "inspect":
             print(inspect_media_transcript(args.path))

@@ -2,7 +2,7 @@
 
 HandoffKit releases use GitHub Actions CI and Trusted Publishing for both PyPI
 and the public npm packages. Production publishing is triggered by pushing a
-version tag such as `v1.14.2`.
+version tag such as `v1.15.0`.
 
 ## Trusted Publisher Setup
 
@@ -16,19 +16,20 @@ Configure the package indexes before publishing with the workflow:
 
 Do not store PyPI or npm publish tokens in files or GitHub Secrets. The workflow
 uses GitHub OIDC through `pypa/gh-action-pypi-publish` for Python and an
-OIDC-capable npm CLI for the six public JavaScript packages.
+OIDC-capable npm CLI for the public JavaScript packages (including `@handoffkit/browser`).
 
 The npm job first creates the package archives with `pnpm pack`, preserving the
 workspace dependency rewrites, and then publishes those `.tgz` files with
 `npm publish` so npm Trusted Publishing performs the OIDC exchange.
 
 npm Trusted Publishing is configured **per package**, not once for the entire
-`@handoffkit` scope. Configure these six package settings independently on
+`@handoffkit` scope. Configure these package settings independently on
 npmjs.com:
 
 - `@handoffkit/core`
 - `@handoffkit/providers`
 - `@handoffkit/templates`
+- `@handoffkit/browser`
 - `@handoffkit/recipes`
 - `@handoffkit/node`
 - `@handoffkit/cli`
@@ -36,7 +37,7 @@ npmjs.com:
 For every package use GitHub Actions with organization/user `DaosPath`,
 repository `handoffkit`, workflow filename `publish.yml`, no environment name,
 and allow `npm publish`. These values are case-sensitive. A working Trusted
-Publisher for `@handoffkit/core` does not authorize the other five packages.
+Publisher for `@handoffkit/core` does not authorize the other packages.
 
 ## Patch Release Checklist
 
@@ -72,7 +73,7 @@ git push origin vX.Y.Z
 
 7. The tag push automatically triggers:
    - PyPI Trusted Publishing for `handoffkit`.
-   - npm Trusted Publishing for all six `@handoffkit/*` packages.
+   - npm Trusted Publishing for all seven `@handoffkit/*` packages (including browser).
    - C++ source tarball construction, GitHub Release creation, asset upload, and
      OIDC provenance attestation.
 8. Verify the published Python and npm versions and inspect the C++ release

@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/recipes",
-  "version": "1.14.2",
+  "version": "1.15.0",
   "description": "Offline JavaScript workflow recipes for HandoffKit.",
   "repository": {
     "type": "git",
@@ -31,13 +31,18 @@
     "@handoffkit/core": "workspace:*"
   },
   "devDependencies": {
-    "@handoffkit/providers": "workspace:*"
+    "@handoffkit/providers": "workspace:*",
+    "@handoffkit/browser": "workspace:*"
   },
   "peerDependencies": {
-    "@handoffkit/providers": "workspace:*"
+    "@handoffkit/providers": "workspace:*",
+    "@handoffkit/browser": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@handoffkit/providers": {
+      "optional": true
+    },
+    "@handoffkit/browser": {
       "optional": true
     }
   },

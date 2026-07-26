@@ -9,6 +9,27 @@ release summary.
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-07-26
+
+### Added
+
+- **Browser runtime (cross-language):** first-party web search, fetch/explore,
+  HTML→Markdown, research packs, ranking, soft-block detection, and optional
+  disk cache — no Chrome, Cheerio, or paid search SDKs.
+- Published new npm package **`@handoffkit/browser`** (tools +
+  `createBrowserAgentKit`, CLI `handoffkit-js browse`).
+- Python **`handoffkit.browser`** modular package + CLI `handoffkit browse` +
+  recipe `run_web_grounded_answer`.
+- C++ **`handoffkit::browser`** library split from core (`handoffkit_browser`),
+  with explore headers kept as compatibility aliases.
+- npm Trusted Publishing matrix and docs now include `@handoffkit/browser`.
+
+### Changed
+
+- JS recipes optionally peer on `@handoffkit/browser` for
+  `runWebGroundedAnswer`.
+- Aligned Python / JS / C++ package metadata to **1.15.0**.
+
 ### Fixed
 
 - Made npm Trusted Publishing idempotent and independently retryable per package;

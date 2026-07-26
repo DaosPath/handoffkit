@@ -1,11 +1,11 @@
-#include <handoffkit/explore/web_types.hpp>
+#include <handoffkit/browser/web_types.hpp>
 
 #include <algorithm>
 #include <cctype>
 #include <sstream>
 
 namespace handoffkit {
-namespace explore {
+namespace browser {
 namespace {
 
 std::string lower_ascii(std::string s) {
@@ -280,5 +280,5 @@ nlohmann::json ExploreResult::to_json() const {
     };
 }
 
-}  // namespace explore
+}  // namespace browser
 }  // namespace handoffkit

@@ -19,7 +19,7 @@ import {
 import { RecipeRunner, WorkflowTemplate } from "@handoffkit/recipes";
 import { TemplateScaffolder } from "@handoffkit/templates";
 
-export const VERSION = "1.14.2";
+export const VERSION = "1.15.0";
 
 const SHOWCASES = {
   "coding-review": {
@@ -358,8 +358,8 @@ export async function createExtension(name, { output = ".", force = false } = {}
       type: "module",
       engines: { node: ">=18.17.0" },
       dependencies: {
-        "@handoffkit/core": "^1.14.2",
-        "@handoffkit/recipes": "^1.14.2",
+        "@handoffkit/core": "^1.15.0",
+        "@handoffkit/recipes": "^1.15.0",
       },
       scripts: { check: "node --check index.js && node --check tools.js && node --check recipes.js" },
     }, null, 2)}\n`],
@@ -596,6 +596,10 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       }));
       return 0;
     }
+    if (command === "browse" || command === "explore") {
+      const { runBrowseCommand } = await import("./browse.js");
+      return runBrowseCommand(rest, { stdout, stderr });
+    }
 
     throw new Error(`Unknown command: ${command}`);
   } catch (error) {
@@ -627,6 +631,7 @@ function helpText() {
     "  handoffkit-js keys set <name> <value>",
     "  handoffkit-js keys list",
     "  handoffkit-js keys delete <name>",
+    "  handoffkit-js browse search|fetch|research|fixture|tools …",
   ].join("\n");
 }
 

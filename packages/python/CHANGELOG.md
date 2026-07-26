@@ -3,6 +3,15 @@
 > This file preserves published Python package history. New monorepo-wide and
 > unreleased changes are recorded in the root [`CHANGELOG.md`](../../CHANGELOG.md).
 
+## 1.15.0
+
+- **Browser improvements:** modular `handoffkit.browser` (search, explore, scrape,
+  HTML→Markdown, research pack, tools, kit) with parity to `@handoffkit/browser`
+  and C++ `handoffkit::browser`.
+- CLI: `handoffkit browse search|fetch|research|fixture|tools`.
+- Recipe helper: `handoffkit.recipes.web.run_web_grounded_answer`.
+- Published aligned `handoffkit==1.15.0` via PyPI Trusted Publishing.
+
 ## 1.14.2
 
 ### Patch — aligned trusted release and cross-runtime hardening
