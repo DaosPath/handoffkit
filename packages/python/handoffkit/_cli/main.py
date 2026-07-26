@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 
+from handoffkit._cli.browse import add_browse_parser, run_browse_command
 from handoffkit._cli.demos import (
     evaluate_report,
     list_provider_models,
@@ -36,7 +37,6 @@ from handoffkit._cli.demos import (
     select_provider_model,
     validate_report,
 )
-from handoffkit._cli.browse import add_browse_parser, run_browse_command
 from handoffkit._cli.media import (
     inspect_media_transcript,
     list_media_ops_text,
