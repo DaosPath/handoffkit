@@ -43,7 +43,7 @@ packages/python/*.egg-info/
 packages/python/tests/_tmp_tool_execution/
 packages/python/tests/_tmp_memory_context/
 
-# Local Codex workspace rules
+# Local workspace rules
 AGENTS.md
 
 # JavaScript / TypeScript monorepo
