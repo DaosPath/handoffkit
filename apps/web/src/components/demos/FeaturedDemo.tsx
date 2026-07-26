@@ -25,6 +25,7 @@ import {
   DollarSign,
   Layers,
   Zap,
+  Film,
 } from "lucide-react";
 import {
   demos,
@@ -65,6 +66,8 @@ function demoIcon(demo: DemoItem) {
       return FlaskConical;
     case "support":
       return LifeBuoy;
+    case "media":
+      return Film;
   }
 }
 

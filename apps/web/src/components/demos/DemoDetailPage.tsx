@@ -15,6 +15,7 @@ import {
   FlaskConical,
   Gavel,
   LifeBuoy,
+  Film,
   Play,
   Scale,
   User,
@@ -53,6 +54,8 @@ function demoHeroIcon(demo: DemoItem) {
       return FlaskConical;
     case "support":
       return LifeBuoy;
+    case "media":
+      return Film;
   }
 }
 
