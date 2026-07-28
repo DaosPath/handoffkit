@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@11.1.1",
   "scripts": {
-    "check": "pnpm workspace:validate && pnpm js:check && pnpm js:typecheck && pnpm web:check",
+    "check": "pnpm workspace:validate && pnpm js:check && pnpm js:typecheck && pnpm web:check && pnpm media:check",
     "test": "pnpm js:test && pnpm web:test:studio",
     "ci:js": "pnpm check && pnpm test && pnpm js:pack:check",
     "workspace:validate": "node scripts/js/validate-workspace.mjs",
@@ -24,7 +24,10 @@
     "web:lint": "pnpm --dir apps/web run lint",
     "web:build": "pnpm --dir apps/web run build",
     "web:test:studio": "pnpm --dir apps/web run test:studio",
-    "web:demo:mai": "pnpm --dir apps/web exec next dev -p 3000"
+    "web:demo:mai": "pnpm --dir apps/web exec next dev -p 3000",
+    "media:dev": "pnpm --dir apps/media-studio exec next dev -p 3100",
+    "media:check": "pnpm --dir apps/media-studio run check",
+    "media:build": "pnpm --dir apps/media-studio run build"
   },
   "devDependencies": {
     "@handoffkit/core": "workspace:*",
