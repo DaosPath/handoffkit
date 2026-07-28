@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/handoffkit-hero.svg" alt="HandoffKit — contract-first multi-agent workflows across Python, JavaScript, C++, and Rust contracts" width="100%">
+<img src="docs/assets/handoffkit-hero.svg" alt="HandoffKit — contract-first multi-agent workflows across Python, JavaScript, C++, and native Rust" width="100%">
 
 # HandoffKit
 
@@ -10,7 +10,7 @@ Move tasks, decisions, files, errors, evidence, and next steps between agents as
 validated data instead of fragile chat summaries.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/DaosPath/handoffkit/ci.yml?branch=main&label=CI&logo=github&logoColor=white&style=flat-square)](https://github.com/DaosPath/handoffkit/actions)
-[![Version](https://img.shields.io/badge/monorepo-1.16.0-38bdf8?style=flat-square)](CHANGELOG.md)
+[![Rust Runtime](https://img.shields.io/badge/Rust_runtime-1.17.0-38bdf8?style=flat-square)](packages/rust/README.md)
 [![PyPI](https://img.shields.io/pypi/v/handoffkit.svg?logo=python&logoColor=white&style=flat-square)](https://pypi.org/project/handoffkit/)
 [![npm](https://img.shields.io/npm/v/@handoffkit/core.svg?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/@handoffkit/core)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-7c3aed?logo=cplusplus&logoColor=white&style=flat-square)](packages/cpp/README.md)
@@ -107,27 +107,59 @@ Team team(std::move(agents), HandoffProtocol(ProtocolMode::HybridState));
 auto result = team.run("Prepare a release checklist");
 ```
 
+### Rust
+
+```bash
+cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit-cli -- csp doctor
+cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit-cli -- csp demo
+cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit --example csp_runtime_demo
+```
+
 <img src="docs/assets/coding-review-terminal.svg" alt="Five-minute HandoffKit coding review demo" width="100%">
 
 ---
 
 ## Runtime status
 
-HandoffKit uses one version across the monorepo, but each runtime has a clearly
-defined maturity level.
+HandoffKit subsystems can advance independently. Each runtime has an explicit
+version and maturity level; wire compatibility remains governed by HK-CSP 1.0.
 
 | Runtime | Status | Distribution | Main surface |
 |---|---|---|---|
 | **Python 3.10–3.14** | Production runtime; HK-CSP session runtime experimental | [PyPI `handoffkit`](https://pypi.org/project/handoffkit/) | Agents, teams, tools, recipes, traces, asyncio channels, stdio |
 | **JavaScript / TypeScript** | Production runtime; HK-CSP session runtime experimental | npm packages under `@handoffkit/*` | Browser-safe core/CSP, Node stdio, providers, recipes, templates, CLI |
 | **C++20** | Native runtime ready for local and Conan use | CMake install, Conan recipe, vcpkg overlay; registry publication pending | Runtime core, CSP codecs, providers, tools, reports, training jobs, native Fusion |
-| **Rust** | HK-CSP contracts and protocol layer | Source workspace; crates.io publication prepared, not yet released | Lightweight serde contracts, protocol negotiation, fixture parity |
+| **Rust 1.17** | Native Tokio runtime; runtime APIs experimental | Source workspace; crates.io publication prepared, not yet released | Contracts, protocol, sessions, processes, Agent/Team/Recipe, stdio/subprocess, CLI |
 
 Runtime documentation:
 [Python](packages/python/README.md) ·
 [JavaScript](packages/js/README.md) ·
 [C++](packages/cpp/README.md) ·
 [Rust](packages/rust/README.md)
+
+---
+
+## What ships in Rust 1.17.0
+
+| Area | Included |
+|---|---|
+| **Async runtime** | Tokio sessions, bounded FIFO channels, blocking backpressure, async send/receive/select, lifecycle and clean closure |
+| **Delivery semantics** | ACK/NACK, bounded retry, idempotency keys, in-memory deduplication, deadlines and propagated cancellation |
+| **Local execution** | Supervised local processes, progress events, artifact references and structured redacted errors |
+| **Workflows** | Native Rust Agent, Team and Recipe execution in classic or additive session mode |
+| **Tools and replay** | Async tool registry, Team/Recipe trace construction and side-effect-free replay summaries |
+| **Transports** | Bounded NDJSON framing, stdio, subprocess workers, handshake, correlation and graceful shutdown |
+| **Interop** | Real Rust to Python/JavaScript and Python/JavaScript to Rust subprocess tests |
+| **CLI** | `handoffkit-rs csp doctor`, `inspect`, `run`, `worker` and `demo` |
+| **Security** | 8 MiB default frames, depth validation, process/ACK/retry limits, malformed-line rejection and orphan protection |
+
+Contracts and HK-CSP 1.0 wire semantics are stable. Rust runtime, transport and
+CLI APIs remain experimental through the 1.19 stabilization phase. Unix
+sockets, TCP, WebSocket and distributed scheduling are not part of 1.17.
+
+[Rust runtime guide](docs/rust/RUNTIME.md) ·
+[Rust workspace](packages/rust/README.md) ·
+[HK-CSP roadmap](docs/spec/HK_CSP_ROADMAP.md)
 
 ---
 

@@ -1,0 +1,25 @@
+[package]
+name = "handoffkit-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Local CLI and worker for the HandoffKit Rust runtime"
+readme = "README.md"
+keywords = ["agents", "csp", "cli", "workflow", "handoff"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+chrono.workspace = true
+handoffkit-protocol = { path = "../handoffkit-protocol", version = "1.17.0" }
+handoffkit-runtime = { path = "../handoffkit-runtime", version = "1.17.0" }
+handoffkit-transport = { path = "../handoffkit-transport", version = "1.17.0" }
+serde_json.workspace = true
+tokio.workspace = true
+
+[[bin]]
+name = "handoffkit-rs"
+path = "src/main.rs"

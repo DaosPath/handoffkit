@@ -18,6 +18,12 @@ Required safeguards:
 - authenticate and encrypt network transports before production use,
 - bound retries, deduplication storage, process count, and pending ACKs.
 
-The 1.16 implementation provides local in-process and stdio communication. TCP
-and WebSocket adapters added later must be opt-in and must not listen publicly by
+The 1.17 Rust implementation adds bounded NDJSON parsing, nesting-depth checks,
+process and pending-ACK limits, subprocess `kill_on_drop`, timeout-based
+shutdown, unknown-message NACKs, and credential-pattern redaction. Python and
+JavaScript remain wire-compatible local peers.
+
+Current transports are local in-process and stdio/subprocess only. TCP,
+WebSocket, Unix sockets, authentication, and encryption are not implemented in
+1.17. Future network adapters must be opt-in and must not listen publicly by
 default.

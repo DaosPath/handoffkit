@@ -9,6 +9,41 @@ release summary.
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-07-28
+
+### Added
+
+- Added independent `handoffkit-runtime`, `handoffkit-transport`, and
+  `handoffkit-cli` Rust crates plus the expanded `handoffkit` facade.
+- Added Tokio HK-CSP sessions, bounded FIFO channels, blocking backpressure,
+  cancellation, deadlines, ACK/NACK, bounded retries, idempotency-key
+  deduplication, local processes, progress events, and artifact references.
+- Added native Rust Agent, Team, Recipe, and RecipeRunner execution with classic
+  and additive session modes.
+- Added native asynchronous tool registration/execution plus Team/Recipe trace
+  construction and side-effect-free replay summaries.
+- Added bounded NDJSON stdio and local subprocess transports with protocol
+  negotiation, correlation, structured errors, graceful shutdown, and orphan
+  protection.
+- Added Rust CLI commands `csp doctor`, `inspect`, `run`, `worker`, and `demo`.
+- Added real-process Rust to Python/JavaScript and Python/JavaScript to Rust
+  interoperability demos and CI coverage.
+
+### Security
+
+- Added message-size and nesting-depth limits, timestamp/config validation,
+  bounded process and pending-ACK counts, retry limits, malformed NDJSON
+  rejection, unknown-message NACKs, and secret-redacted errors.
+
+### Compatibility
+
+- HK-CSP wire version remains `1.0`; canonical snake_case contracts are
+  unchanged.
+- Python, JavaScript, C++, Browser, ML, and Fusion product versions remain at
+  their existing releases. Rust runtime packages alone advance to 1.17.0.
+- Distributed execution, Unix sockets, TCP, WebSocket, daemon and Tauri adapters
+  remain unimplemented and are not claimed by this release.
+
 ## [1.16.0] - 2026-07-27
 
 ### Added

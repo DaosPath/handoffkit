@@ -1,10 +1,9 @@
-//! 1.16.0 mini-demo: structured handoff wire (Rust contracts).
-//! Justifies the patch release alongside Python/JS demos and C++ handoffkit::core packaging.
+//! 1.17.0 mini-demo: structured handoff wire (Rust contracts).
 
 use handoffkit::HandoffState;
 
 fn main() {
-    println!("handoffkit Rust - core_runtime_safety_demo (1.16.0)");
+    println!("handoffkit Rust - core_runtime_safety_demo (1.17.0)");
     println!("theme: HandoffState markdown + JSON wire (contracts package)\n");
 
     let state = HandoffState {
@@ -14,7 +13,7 @@ fn main() {
         summary: "Python/JS demos + C++ handoffkit::core consumer smoke; no shell by default."
             .to_string(),
         decisions: vec![
-            "Ship HK-CSP 1.16.0 contracts.".to_string(),
+            "Run HK-CSP 1.17.0 with stable contracts.".to_string(),
             "Keep wire snake_case parity.".to_string(),
         ],
         important_files: vec![
