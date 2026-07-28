@@ -1,4 +1,4 @@
-export const HANDOFFKIT_PROVIDERS_VERSION: "1.15.0";
+export const HANDOFFKIT_PROVIDERS_VERSION: "1.16.0";
 
 export interface ProviderSpec {
   id: string;

@@ -1,6 +1,7 @@
 # @handoffkit/node
 
-Node.js utilities for HandoffKit traces, reports, and project context indexing.
+Node.js utilities for HandoffKit traces, reports, project context indexing, and
+HK-CSP NDJSON stdio/process transport.
 
 Use `@handoffkit/core` in browsers, Next.js client components, Vite, Deno,
 Bun, Cloudflare Workers, and other runtime-neutral environments. Use
@@ -34,3 +35,22 @@ const hits = new ContextRetriever(docs).search("handoff protocol");
 
 console.log(hits.map((doc) => doc.path));
 ```
+
+## HK-CSP stdio
+
+```js
+import { SubprocessStdioTransport } from "@handoffkit/node";
+
+const transport = SubprocessStdioTransport.spawn([
+  process.execPath,
+  "./worker.mjs",
+]);
+
+await transport.send(envelope);
+const reply = await transport.receive();
+await transport.close();
+```
+
+stdio uses one canonical JSON envelope per line. Protocol frames go through
+stdout/stdin; worker logs must use stderr. Process spawning always uses
+`shell: false`.

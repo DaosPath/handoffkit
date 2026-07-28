@@ -132,13 +132,13 @@ def test_contract_parity_report_covers_shared_contract_inventory() -> None:
 
     report = build_contract_parity_report(
         runtime="python",
-        version="1.15.0",
+        version="1.16.0",
         contracts_root=CONTRACTS_ROOT,
     )
 
     assert report.success is True
-    assert report.fixture_count == 7
-    assert report.schema_count == 7
+    assert report.fixture_count == 18
+    assert report.schema_count == 18
     assert "handoff_state" in report.supported_contracts
     assert "Contract Parity Report" in report.to_markdown()
 
@@ -151,9 +151,9 @@ def test_contract_parity_report_uses_embedded_inventory_when_installed(
 
     monkeypatch.setattr(contracts, "_default_contracts_root", lambda: tmp_path / "missing")
 
-    report = contracts.build_contract_parity_report(runtime="python", version="1.15.0")
+    report = contracts.build_contract_parity_report(runtime="python", version="1.16.0")
 
     assert report.success is True
-    assert report.fixture_count == 7
-    assert report.schema_count == 7
+    assert report.fixture_count == 18
+    assert report.schema_count == 18
     assert report.metadata["source"] == "embedded_inventory"

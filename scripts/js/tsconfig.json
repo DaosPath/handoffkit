@@ -12,6 +12,7 @@
     "baseUrl": "../..",
     "paths": {
       "@handoffkit/core": ["packages/js/core/src/index.d.ts"],
+      "@handoffkit/csp": ["packages/js/csp/src/index.d.ts"],
       "@handoffkit/providers": ["packages/js/providers/src/index.d.ts"],
       "@handoffkit/node": ["packages/js/node/src/index.d.ts"],
       "@handoffkit/browser": ["packages/js/browser/src/index.d.ts"],

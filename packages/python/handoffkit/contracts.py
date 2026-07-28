@@ -15,6 +15,17 @@ DEFAULT_FIXTURES = [
     "tool_call.json",
     "tool_result.json",
     "provider_tool_schema.json",
+    "message_envelope.json",
+    "session_config.json",
+    "channel_config.json",
+    "delivery_ack.json",
+    "delivery_nack.json",
+    "process_error.json",
+    "worker_capabilities.json",
+    "artifact_ref.json",
+    "training_job.json",
+    "evaluation_job.json",
+    "job_progress.json",
 ]
 
 DEFAULT_SCHEMAS = [
@@ -25,6 +36,17 @@ DEFAULT_SCHEMAS = [
     "tool-call.schema.json",
     "tool-result.schema.json",
     "provider-tool-schema.schema.json",
+    "message-envelope.schema.json",
+    "session-config.schema.json",
+    "channel-config.schema.json",
+    "delivery-ack.schema.json",
+    "delivery-nack.schema.json",
+    "process-error.schema.json",
+    "worker-capabilities.schema.json",
+    "artifact-ref.schema.json",
+    "training-job.schema.json",
+    "evaluation-job.schema.json",
+    "job-progress.schema.json",
 ]
 
 

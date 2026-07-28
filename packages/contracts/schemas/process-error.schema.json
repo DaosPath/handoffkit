@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/process-error.schema.json",
+  "title": "ProcessError",
+  "type": "object",
+  "required": ["code", "message", "process_id", "retryable", "details", "timestamp"],
+  "properties": {
+    "code": { "type": "string", "minLength": 1 },
+    "message": { "type": "string" },
+    "process_id": { "type": "string", "minLength": 1 },
+    "retryable": { "type": "boolean" },
+    "details": { "type": "object" },
+    "timestamp": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}

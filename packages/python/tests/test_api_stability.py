@@ -47,8 +47,11 @@ def test_stable_api_candidates_import_from_public_namespace() -> None:
 
 def test_new_public_helpers_import_from_public_namespace() -> None:
     from handoffkit import (  # noqa: PLC0415
+        CspRuntime,
         FileTraceStore,
+        MessageEnvelope,
         ReplaySummary,
+        RuntimeMode,
         ShowcaseResult,
         TraceEvent,
         TraceStep,
@@ -59,11 +62,14 @@ def test_new_public_helpers_import_from_public_namespace() -> None:
         write_report_files,
     )
 
+    assert CspRuntime.__name__ == "CspRuntime"
     assert FileTraceStore.__name__ == "FileTraceStore"
+    assert MessageEnvelope.__name__ == "MessageEnvelope"
     assert ReplaySummary.__name__ == "ReplaySummary"
     assert ShowcaseResult.__name__ == "ShowcaseResult"
     assert TraceEvent.__name__ == "TraceEvent"
     assert TraceStep.__name__ == "TraceStep"
+    assert RuntimeMode.SESSION.value == "session"
     assert callable(build_showcase)
     assert callable(load_report_json)
     assert callable(run_showcase)
@@ -71,7 +77,7 @@ def test_new_public_helpers_import_from_public_namespace() -> None:
     assert callable(write_report_files)
 
 
-def test_version_is_188() -> None:
+def test_version_is_1160() -> None:
     from handoffkit import __version__  # noqa: PLC0415
 
-    assert __version__ == "1.15.0"
+    assert __version__ == "1.16.0"

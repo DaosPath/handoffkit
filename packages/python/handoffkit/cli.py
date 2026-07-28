@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from handoffkit._cli.csp import csp_demo, csp_doctor, csp_inspect
 from handoffkit._cli.demos import (
     evaluate_report,
     list_provider_models,
@@ -57,6 +58,9 @@ from handoffkit._cli.project import (
 
 __all__ = [
     "main",
+    "csp_demo",
+    "csp_doctor",
+    "csp_inspect",
     "run_demo",
     "run_async_demo",
     "run_recipe_demo",

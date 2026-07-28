@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/artifact-ref.schema.json",
+  "title": "ArtifactRef",
+  "type": "object",
+  "required": ["artifact_id", "uri", "sha256", "size_bytes", "media_type", "metadata"],
+  "properties": {
+    "artifact_id": { "type": "string", "minLength": 1 },
+    "uri": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "size_bytes": { "type": "integer", "minimum": 0 },
+    "media_type": { "type": "string", "minLength": 1 },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

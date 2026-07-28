@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/worker-capabilities.schema.json",
+  "title": "WorkerCapabilities",
+  "type": "object",
+  "required": ["worker_id", "runtime", "os", "architecture", "cpu_cores", "memory_bytes", "cuda", "cuda_devices", "profiles", "operations", "metadata"],
+  "properties": {
+    "worker_id": { "type": "string", "minLength": 1 },
+    "runtime": { "type": "string", "minLength": 1 },
+    "os": { "type": "string", "minLength": 1 },
+    "architecture": { "type": "string", "minLength": 1 },
+    "cpu_cores": { "type": "integer", "minimum": 1 },
+    "memory_bytes": { "type": "integer", "minimum": 0 },
+    "cuda": { "type": "boolean" },
+    "cuda_devices": { "type": "array", "items": { "type": "string" } },
+    "profiles": { "type": "array", "items": { "type": "string" } },
+    "operations": { "type": "array", "items": { "type": "string" } },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

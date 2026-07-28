@@ -24,7 +24,7 @@ export class HandoffProtocol {
 }
 
 export class Team {
-  constructor({ agents = [], protocol = new HandoffProtocol(), metadata = {} } = {}) {
+  constructor({ agents = [], protocol = new HandoffProtocol(), metadata = {}, runtimeMode = "classic", runtime = null } = {}) {
     const list = Array.isArray(agents) ? agents : [];
     if (list.length === 0) {
       throw new TypeError("Team requires at least one agent.");
@@ -32,9 +32,14 @@ export class Team {
     this.agents = [...list];
     this.protocol = protocol;
     this.metadata = metadata ? { ...metadata } : {};
+    this.runtimeMode = runtimeMode;
+    this.runtime = runtime;
   }
 
   run(task) {
+    if (this.runtimeMode !== "classic") {
+      throw new Error("Team.run() only supports classic mode in JavaScript; use arun() for CSP modes.");
+    }
     const stepResults = [];
     const handoffs = [];
     let currentTask = task;
@@ -76,6 +81,8 @@ export class Team {
   }
 
   async arun(task) {
+    if (this.runtimeMode !== "classic") return this._arunSession(task);
+
     const stepResults = [];
     const handoffs = [];
     let currentTask = task;
@@ -113,6 +120,80 @@ export class Team {
       stepResults,
       handoffs,
       metadata: this.metadata,
+    });
+  }
+
+  async _arunSession(task) {
+    if (!this.runtime?.createSession || !this.runtime?.makeEnvelope) {
+      throw new TypeError("CSP mode requires a CspRuntime from @handoffkit/csp.");
+    }
+    const session = this.runtime.createSession();
+    const stepResults = new Array(this.agents.length);
+    const handoffs = new Array(Math.max(this.agents.length - 1, 0));
+    for (let index = 0; index < this.agents.length; index += 1) session.channel(`agent-${index}`);
+
+    for (let index = 0; index < this.agents.length; index += 1) {
+      const agent = this.agents[index];
+      session.spawn(`agent:${agent.name}:${index}`, async (context) => {
+        const incoming = await context.receive(`agent-${index}`);
+        const currentTask = incoming.payload?.task ?? task;
+        const previousContext = incoming.payload?.context ?? null;
+        const result = await agent.arun(currentTask, { context: previousContext });
+        stepResults[index] = result;
+        context.ack(incoming, { process: agent.name });
+
+        if (index + 1 < this.agents.length) {
+          const nextAgent = this.agents[index + 1];
+          const handoff = this.protocol.transfer({
+            fromAgent: agent,
+            toAgent: nextAgent,
+            task: currentTask,
+            summary: result.finalOutput,
+            decisions: [`${agent.name} completed its step.`],
+            nextSteps: [`${nextAgent.name} should continue from structured state.`],
+            metadata: { runtime_mode: "session" },
+          });
+          handoffs[index] = handoff;
+          await context.send(`agent-${index + 1}`, this.runtime.makeEnvelope({
+            sessionId: session.sessionId,
+            channel: `agent-${index + 1}`,
+            source: agent.name,
+            target: nextAgent.name,
+            sequence: index + 1,
+            payloadType: "handoff_state",
+            payload: {
+              task: result.finalOutput,
+              context: result.finalOutput,
+              handoff_state: handoff.toJSON(),
+            },
+            idempotencyKey: `${session.sessionId}:handoff:${index}`,
+          }));
+        }
+      });
+    }
+
+    await session.send("agent-0", this.runtime.makeEnvelope({
+      sessionId: session.sessionId,
+      channel: "agent-0",
+      source: "team",
+      target: this.agents[0].name,
+      sequence: 0,
+      payloadType: "task",
+      payload: { task, context: null },
+      idempotencyKey: `${session.sessionId}:task`,
+    }));
+    try {
+      await session.wait();
+    } finally {
+      await session.close();
+    }
+    return new TeamRunResult({
+      success: stepResults.every((result) => result.success),
+      task,
+      finalOutput: stepResults.at(-1)?.finalOutput ?? "",
+      stepResults,
+      handoffs,
+      metadata: { ...this.metadata, runtime_mode: this.runtimeMode },
     });
   }
 }

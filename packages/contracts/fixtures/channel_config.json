@@ -1,0 +1,7 @@
+{
+  "name": "handoffs",
+  "capacity": 64,
+  "overflow_policy": "block",
+  "requires_ack": true,
+  "metadata": {}
+}

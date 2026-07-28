@@ -1,12 +1,20 @@
-[package]
-name = "handoffkit"
-version = "1.14.1"
+[workspace]
+members = [
+  "crates/handoffkit-contracts",
+  "crates/handoffkit-protocol",
+  "handoffkit",
+]
+resolver = "2"
+
+[workspace.package]
+version = "1.16.0"
 edition = "2021"
 authors = ["DaosPath <daospath@gmail.com>"]
-description = "Rust contract layer for multi-agent workflows with structured handoffs"
 license = "MIT"
 repository = "https://github.com/DaosPath/handoffkit"
+homepage = "https://github.com/DaosPath/handoffkit"
+rust-version = "1.82"
 
-[dependencies]
+[workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

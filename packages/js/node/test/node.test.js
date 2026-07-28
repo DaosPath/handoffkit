@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import test from "node:test";
+
+import { makeEnvelope } from "@handoffkit/csp";
 
 import {
   Agent,
@@ -15,6 +18,8 @@ import {
   loadReportJSON,
   writeReportFiles,
   JsonMemoryStore,
+  NodeStdioTransport,
+  SubprocessStdioTransport,
 } from "../src/index.js";
 
 test("node package writes traces and reports", async () => {
@@ -58,8 +63,8 @@ test("node package can inspect monorepo contract inventory", async () => {
   });
 
   assert.equal(report.success, true);
-  assert.equal(report.fixtureCount, 7);
-  assert.equal(report.schemaCount, 7);
+  assert.equal(report.fixtureCount, 18);
+  assert.equal(report.schemaCount, 18);
   assert.match(report.toMarkdown(), /Contract Parity Report/);
 });
 
@@ -108,5 +113,40 @@ test("project indexer enforces maxFiles and normalizes extensions", async () => 
 test("node parity defaults to current core version", async () => {
   const contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts");
   const report = await buildNodeContractParityReport({ contractsRoot });
-  assert.equal(report.version, "1.15.0");
+  assert.equal(report.version, "1.16.0");
+});
+
+test("node stdio transport uses one JSON envelope per line", async () => {
+  const wire = new PassThrough();
+  const transport = new NodeStdioTransport({ readable: wire, writable: wire });
+  const envelope = makeEnvelope({
+    sessionId: "stdio",
+    channel: "tasks",
+    source: "test",
+    sequence: 1,
+    payloadType: "json",
+    payload: { ok: true },
+  });
+  await transport.send(envelope);
+  assert.deepEqual((await transport.receive()).toWire(), envelope.toWire());
+  await transport.close();
+});
+
+test("subprocess stdio transport starts without a shell", async () => {
+  const childPath = join(import.meta.dirname, "..", "fixtures", "stdio-child.mjs");
+  const transport = SubprocessStdioTransport.spawn([process.execPath, childPath]);
+  const envelope = makeEnvelope({
+    sessionId: "child",
+    channel: "tasks",
+    source: "parent",
+    target: "node-child",
+    sequence: 1,
+    payloadType: "json",
+    payload: { task: "echo" },
+  });
+  await transport.send(envelope);
+  const response = await transport.receive();
+  assert.equal(response.messageId, envelope.messageId);
+  assert.equal(response.source, "node-child");
+  await transport.close();
 });

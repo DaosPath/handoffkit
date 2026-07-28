@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/delivery-nack.schema.json",
+  "title": "DeliveryNack",
+  "type": "object",
+  "required": ["message_id", "code", "message", "retryable", "processed_at", "metadata"],
+  "properties": {
+    "message_id": { "type": "string", "minLength": 1 },
+    "code": { "type": "string", "minLength": 1 },
+    "message": { "type": "string" },
+    "retryable": { "type": "boolean" },
+    "processed_at": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,10 @@
+{
+  "code": "process_failed",
+  "message": "Worker exited before acknowledging the message.",
+  "process_id": "coder-worker",
+  "retryable": true,
+  "details": {
+    "exit_code": 1
+  },
+  "timestamp": "2026-01-01T00:00:02Z"
+}

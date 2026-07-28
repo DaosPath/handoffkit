@@ -12,6 +12,15 @@ import {
   Team,
 } from "@handoffkit/core";
 import {
+  DEFAULT_CHANNEL_CAPACITY,
+  DEFAULT_MAX_MESSAGE_BYTES,
+  CspRuntime,
+  HK_CSP_VERSION,
+  MessageEnvelope,
+  RuntimeMode,
+  makeEnvelope,
+} from "@handoffkit/csp";
+import {
   ProjectIndexer,
   writeReportFiles,
 } from "@handoffkit/node";
@@ -19,7 +28,52 @@ import {
 import { RecipeRunner, WorkflowTemplate } from "@handoffkit/recipes";
 import { TemplateScaffolder } from "@handoffkit/templates";
 
-export const VERSION = "1.15.0";
+export const VERSION = "1.16.0";
+
+export function cspDoctor() {
+  return JSON.stringify({
+    protocol: "HK-CSP",
+    protocol_version: HK_CSP_VERSION,
+    runtime_modes: Object.values(RuntimeMode),
+    available_modes: [RuntimeMode.CLASSIC, RuntimeMode.SESSION],
+    transports: { in_process: true, stdio: true, distributed: false },
+    defaults: {
+      channel_capacity: DEFAULT_CHANNEL_CAPACITY,
+      max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
+    },
+  }, null, 2);
+}
+
+export async function cspDemo() {
+  const runtime = new CspRuntime();
+  const session = runtime.createSession({ sessionId: "csp-demo-js" });
+  const received = [];
+  session.spawn("worker", async (context) => {
+    const envelope = await context.receive("tasks");
+    received.push(envelope.payload.task);
+    context.ack(envelope, { worker: "js-demo" });
+  });
+  const envelope = makeEnvelope({
+    sessionId: session.sessionId,
+    channel: "tasks",
+    source: "cli",
+    target: "worker",
+    sequence: 1,
+    payloadType: "task",
+    payload: { task: "preserve structured context" },
+    requiresAck: true,
+    idempotencyKey: "csp-demo-js-task",
+  });
+  const ack = await session.sendWithAck("tasks", envelope);
+  await session.wait();
+  await session.close();
+  return JSON.stringify({ success: true, session_id: session.sessionId, received, ack: ack.toWire() }, null, 2);
+}
+
+export async function cspInspect(filePath) {
+  if (!filePath) throw new TypeError("csp inspect requires a path.");
+  return MessageEnvelope.fromJSON(await readFile(path.resolve(filePath), "utf8")).toJSONString(2);
+}
 
 const SHOWCASES = {
   "coding-review": {
@@ -358,8 +412,8 @@ export async function createExtension(name, { output = ".", force = false } = {}
       type: "module",
       engines: { node: ">=18.17.0" },
       dependencies: {
-        "@handoffkit/core": "^1.15.0",
-        "@handoffkit/recipes": "^1.15.0",
+        "@handoffkit/core": "^1.16.0",
+        "@handoffkit/recipes": "^1.16.0",
       },
       scripts: { check: "node --check index.js && node --check tools.js && node --check recipes.js" },
     }, null, 2)}\n`],
@@ -483,6 +537,14 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     }
 
     const [command, ...rest] = argv;
+    if (command === "csp") {
+      const subcommand = rest[0];
+      if (subcommand === "doctor") stdout(cspDoctor());
+      else if (subcommand === "demo") stdout(await cspDemo());
+      else if (subcommand === "inspect") stdout(await cspInspect(rest[1]));
+      else throw new Error("csp requires subcommand: doctor, demo, or inspect.");
+      return 0;
+    }
     if (command === "demo") {
       stdout(runDemo());
       return 0;
@@ -616,6 +678,7 @@ function helpText() {
     "  handoffkit-js --version",
     "  handoffkit-js demo",
     "  handoffkit-js demo-recipe",
+    "  handoffkit-js csp doctor|demo|inspect <path>",
     "  handoffkit-js doctor-benchmark [limit]  (alias: doctor, -d)",
     "  handoffkit-js mai-benchmark [limit]     (alias: mai, -m)",
     "  handoffkit-js demo-coding-review",

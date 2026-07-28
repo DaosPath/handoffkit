@@ -8,6 +8,13 @@ import {
   Team,
 } from "@handoffkit/core";
 import {
+  CspRuntime,
+  HANDOFFKIT_CSP_VERSION,
+  MessageEnvelope,
+  RuntimeMode,
+  makeEnvelope,
+} from "@handoffkit/csp";
+import {
   EchoProvider,
   FallbackProvider,
   HANDOFFKIT_PROVIDERS_VERSION,
@@ -23,7 +30,16 @@ import { TemplateScaffolder } from "@handoffkit/templates";
 import { VERSION, main } from "@handoffkit/cli";
 
 const agent = new Agent({ name: "Planner" });
-const team = new Team({ agents: [agent] });
+const cspRuntime = new CspRuntime({ mode: RuntimeMode.SESSION });
+const team = new Team({ agents: [agent], runtimeMode: RuntimeMode.SESSION, runtime: cspRuntime });
+const envelope: MessageEnvelope<{ task: string }> = makeEnvelope({
+  sessionId: "typed",
+  channel: "tasks",
+  source: "type-smoke",
+  payloadType: "task",
+  payload: { task: "typed" },
+  sequence: 1,
+});
 const handoff = new HandoffState({ task: "test", fromAgent: "A", toAgent: "B", summary: "done", nextSteps: ["ship"] });
 const coreFallback = new CoreFallbackProvider({ providers: [new CoreEchoProvider()] });
 const retry = new RetryPolicy({ maxAttempts: 2 });
@@ -37,7 +53,7 @@ const recipe = new Recipe({ name: "typed", steps: [] });
 const runner = new RecipeRunner(recipe);
 const scaffolder = new TemplateScaffolder();
 
-void [HANDOFFKIT_CORE_VERSION, HANDOFFKIT_PROVIDERS_VERSION, HANDOFFKIT_BROWSER_VERSION, VERSION, handoff, coreFallback, openai, traceStore, memoryStore, indexer, runner, scaffolder];
+void [HANDOFFKIT_CORE_VERSION, HANDOFFKIT_CSP_VERSION, HANDOFFKIT_PROVIDERS_VERSION, HANDOFFKIT_BROWSER_VERSION, VERSION, envelope, handoff, coreFallback, openai, traceStore, memoryStore, indexer, runner, scaffolder];
 void registerBrowserTools;
 void webSearch;
 void team.arun("typed");

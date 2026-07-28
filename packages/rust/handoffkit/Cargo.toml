@@ -1,0 +1,18 @@
+[package]
+name = "handoffkit"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Rust convenience crate for HandoffKit contracts and HK-CSP"
+readme = "README.md"
+keywords = ["agents", "csp", "workflow", "handoff"]
+categories = ["development-tools"]
+
+[dependencies]
+handoffkit-contracts = { path = "../crates/handoffkit-contracts", version = "1.16.0" }
+handoffkit-protocol = { path = "../crates/handoffkit-protocol", version = "1.16.0" }
+serde_json.workspace = true

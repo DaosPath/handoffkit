@@ -1,0 +1,15 @@
+{
+  "session_id": "session-demo",
+  "runtime_mode": "session",
+  "channel_capacity": 64,
+  "max_message_bytes": 8388608,
+  "ack_timeout_ms": 30000,
+  "dedup_capacity": 4096,
+  "retry_policy": {
+    "max_attempts": 3,
+    "base_delay_ms": 100,
+    "max_delay_ms": 2000
+  },
+  "deadline": null,
+  "metadata": {}
+}

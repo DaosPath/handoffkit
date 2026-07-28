@@ -1,5 +1,8 @@
 export * from "@handoffkit/core";
 import { ContextDocument, MemoryStore, RunTrace } from "@handoffkit/core";
+import { MessageEnvelope, Transport } from "@handoffkit/csp";
+import { ChildProcessWithoutNullStreams } from "node:child_process";
+import { Readable, Writable } from "node:stream";
 
 export class FileTraceStore {
   root: string;
@@ -47,4 +50,24 @@ export class ProjectIndexer {
 export class JsonMemoryStore extends MemoryStore {
   filePath: string;
   constructor(filePath: string);
+}
+
+export class NodeStdioTransport extends Transport {
+  readable: Readable;
+  writable: Writable;
+  maxMessageBytes: number;
+  constructor(init: { readable: Readable; writable: Writable; maxMessageBytes?: number });
+  send(envelope: MessageEnvelope | Record<string, unknown>): Promise<void>;
+  receive(): Promise<MessageEnvelope>;
+  close(): Promise<void>;
+}
+
+export class SubprocessStdioTransport extends NodeStdioTransport {
+  child: ChildProcessWithoutNullStreams;
+  stderr: Readable;
+  constructor(child: ChildProcessWithoutNullStreams, options?: { maxMessageBytes?: number });
+  static spawn(
+    argv: string[],
+    options?: { cwd?: string; env?: NodeJS.ProcessEnv; maxMessageBytes?: number },
+  ): SubprocessStdioTransport;
 }

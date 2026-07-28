@@ -4,7 +4,24 @@ version = 4
 
 [[package]]
 name = "handoffkit"
-version = "1.14.1"
+version = "1.16.0"
+dependencies = [
+ "handoffkit-contracts",
+ "handoffkit-protocol",
+ "serde_json",
+]
+
+[[package]]
+name = "handoffkit-contracts"
+version = "1.16.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "handoffkit-protocol"
+version = "1.16.0"
 dependencies = [
  "serde",
  "serde_json",

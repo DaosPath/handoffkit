@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(handoffkit VERSION 1.15.0 LANGUAGES CXX)
+project(handoffkit VERSION 1.16.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -59,6 +59,7 @@ endif()
 # --- core runtime sources (no demos/fusion) ---
 set(HANDOFFKIT_CORE_SOURCES
   src/handoff.cpp
+  src/csp/contracts.cpp
   src/core/validation.cpp
   src/core/quality.cpp
   src/runtime/protocol.cpp
@@ -251,6 +252,7 @@ if(HANDOFFKIT_BUILD_TESTS)
 
   # Core-only tests (must not require demos/fusion)
   handoffkit_add_test(test_handoff tests/test_handoff.cpp LINK handoffkit_core)
+  handoffkit_add_test(test_csp_contracts tests/test_csp_contracts.cpp LINK handoffkit_core)
   handoffkit_add_test(test_runtime tests/test_runtime.cpp LINK handoffkit_core)
   handoffkit_add_test(test_validation_quality tests/test_validation_quality.cpp LINK handoffkit_core)
   handoffkit_add_test(test_memory_trace_reports tests/test_memory_trace_reports.cpp LINK handoffkit_core)

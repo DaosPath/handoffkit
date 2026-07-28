@@ -95,34 +95,34 @@ impl HandoffState {
                 continue;
             }
 
-            if line_str.starts_with("Task:") {
-                task = line_str["Task:".len()..].trim().to_string();
+            if let Some(value) = line_str.strip_prefix("Task:") {
+                task = value.trim().to_string();
                 continue;
             }
-            if line_str.starts_with("From:") {
-                from_agent = line_str["From:".len()..].trim().to_string();
+            if let Some(value) = line_str.strip_prefix("From:") {
+                from_agent = value.trim().to_string();
                 if from_agent == "-" {
                     from_agent.clear();
                 }
                 continue;
             }
-            if line_str.starts_with("To:") {
-                to_agent = line_str["To:".len()..].trim().to_string();
+            if let Some(value) = line_str.strip_prefix("To:") {
+                to_agent = value.trim().to_string();
                 if to_agent == "-" {
                     to_agent.clear();
                 }
                 continue;
             }
 
-            if line_str.starts_with("## ") {
-                current_section = line_str["## ".len()..].trim().to_lowercase();
+            if let Some(value) = line_str.strip_prefix("## ") {
+                current_section = value.trim().to_lowercase();
                 continue;
             }
 
             if current_section == "summary" {
                 summary_lines.push(line_str);
-            } else if line_str.starts_with('-') {
-                let val = line_str[1..].trim().to_string();
+            } else if let Some(value) = line_str.strip_prefix('-') {
+                let val = value.trim().to_string();
                 if val.is_empty() || val == "-" {
                     continue;
                 }
@@ -228,7 +228,7 @@ impl RunTrace {
             lines.push(format!("   - Tools Used: {}", step.tool_results.len()));
             if !step.output.is_empty() {
                 let preview = if step.output.len() > 60 {
-                    format!("{}...", &step.output[..60].replace('\n', " "))
+                    format!("{}...", step.output[..60].replace('\n', " "))
                 } else {
                     step.output.replace('\n', " ")
                 };

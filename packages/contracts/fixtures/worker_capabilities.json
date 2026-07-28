@@ -1,0 +1,13 @@
+{
+  "worker_id": "native-worker-01",
+  "runtime": "cpp",
+  "os": "linux",
+  "architecture": "aarch64",
+  "cpu_cores": 8,
+  "memory_bytes": 8589934592,
+  "cuda": false,
+  "cuda_devices": [],
+  "profiles": ["edge", "embedded-linux"],
+  "operations": ["evaluate", "generate", "gguf_export"],
+  "metadata": {}
+}

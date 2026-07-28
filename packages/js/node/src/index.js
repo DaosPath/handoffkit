@@ -1,7 +1,16 @@
 import fs from "node:fs";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path, { join } from "node:path";
+
+import {
+  DEFAULT_MAX_MESSAGE_BYTES,
+  MessageEnvelope,
+  MessageTooLargeError,
+  Transport,
+} from "@handoffkit/csp";
 
 export * from "@handoffkit/core";
 import {
@@ -207,6 +216,103 @@ export class JsonMemoryStore extends MemoryStore {
     if (!this.filePath) return;
     const serialized = JSON.stringify(this.list().map((item) => item.toDict()), null, 2);
     atomicWriteFileSync(this.filePath, serialized);
+  }
+}
+
+export class NodeStdioTransport extends Transport {
+  constructor({ readable, writable, maxMessageBytes = DEFAULT_MAX_MESSAGE_BYTES }) {
+    super();
+    if (!readable || !writable) throw new TypeError("readable and writable streams are required");
+    this.readable = readable;
+    this.writable = writable;
+    this.maxMessageBytes = maxMessageBytes;
+    this.buffer = "";
+    this.lines = [];
+    this.waiters = [];
+    this.ended = false;
+    this.failure = null;
+    readable.setEncoding?.("utf8");
+    readable.on("data", (chunk) => this._accept(String(chunk)));
+    readable.on("end", () => this._finish());
+    readable.on("error", (error) => this._finish(error));
+  }
+
+  _accept(chunk) {
+    this.buffer += chunk;
+    if (Buffer.byteLength(this.buffer, "utf8") > this.maxMessageBytes) {
+      this._finish(new MessageTooLargeError(`stdio frame exceeds ${this.maxMessageBytes} bytes`));
+      return;
+    }
+    while (true) {
+      const newline = this.buffer.indexOf("\n");
+      if (newline < 0) break;
+      const line = this.buffer.slice(0, newline).replace(/\r$/, "");
+      this.buffer = this.buffer.slice(newline + 1);
+      if (!line.trim()) continue;
+      const waiter = this.waiters.shift();
+      if (waiter) waiter.resolve(line);
+      else this.lines.push(line);
+    }
+  }
+
+  _finish(error = null) {
+    if (this.ended) return;
+    this.ended = true;
+    this.failure = error;
+    for (const waiter of this.waiters.splice(0)) {
+      waiter.reject(error ?? new Error("stdio peer closed the protocol stream"));
+    }
+  }
+
+  async send(value) {
+    const envelope = value instanceof MessageEnvelope ? value : MessageEnvelope.fromWire(value);
+    const data = `${envelope.toJSONString()}\n`;
+    if (Buffer.byteLength(data, "utf8") > this.maxMessageBytes) {
+      throw new MessageTooLargeError(`stdio frame exceeds ${this.maxMessageBytes} bytes`);
+    }
+    if (!this.writable.write(data, "utf8")) await once(this.writable, "drain");
+  }
+
+  async receive() {
+    const line = this.lines.shift();
+    if (line) return MessageEnvelope.fromJSON(line);
+    if (this.ended) throw this.failure ?? new Error("stdio peer closed the protocol stream");
+    const pending = new Promise((resolve, reject) => this.waiters.push({ resolve, reject }));
+    return MessageEnvelope.fromJSON(await pending);
+  }
+
+  async close() {
+    if (!this.writable.destroyed && !this.writable.writableEnded) this.writable.end();
+    this._finish();
+  }
+}
+
+export class SubprocessStdioTransport extends NodeStdioTransport {
+  constructor(child, options = {}) {
+    if (!child.stdout || !child.stdin) throw new TypeError("child must expose stdin and stdout");
+    super({ readable: child.stdout, writable: child.stdin, ...options });
+    this.child = child;
+    this.stderr = child.stderr;
+  }
+
+  static spawn(argv, { cwd, env, maxMessageBytes = DEFAULT_MAX_MESSAGE_BYTES } = {}) {
+    if (!Array.isArray(argv) || argv.length === 0) throw new TypeError("argv must not be empty");
+    const child = spawn(argv[0], argv.slice(1), {
+      cwd,
+      env,
+      shell: false,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return new SubprocessStdioTransport(child, { maxMessageBytes });
+  }
+
+  async close() {
+    await super.close();
+    if (this.child.exitCode == null && this.child.signalCode == null) {
+      const exited = once(this.child, "exit");
+      const timeout = new Promise((resolve) => setTimeout(resolve, 2000, "timeout"));
+      if (await Promise.race([exited, timeout]) === "timeout") this.child.kill();
+    }
   }
 }
 

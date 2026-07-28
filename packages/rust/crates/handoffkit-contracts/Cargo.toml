@@ -1,0 +1,17 @@
+[package]
+name = "handoffkit-contracts"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Canonical HandoffKit workflow contracts"
+readme = "README.md"
+keywords = ["agents", "workflow", "contracts", "handoff"]
+categories = ["development-tools", "data-structures"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

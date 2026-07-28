@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
-const packageNames = ["core", "providers", "node", "browser", "recipes", "templates", "cli"];
+const packageNames = ["core", "csp", "providers", "node", "browser", "recipes", "templates", "cli"];
 const manifests = [];
 
 function fail(message) {
@@ -50,6 +50,8 @@ for (const { short, packageRoot, manifest } of manifests) {
   if (Object.keys(module).length === 0) fail(`${manifest.name}: public entrypoint has no exports`);
   const runtimeVersion = short === "core"
     ? module.HANDOFFKIT_CORE_VERSION
+    : short === "csp"
+      ? module.HANDOFFKIT_CSP_VERSION
     : short === "providers"
       ? module.HANDOFFKIT_PROVIDERS_VERSION
       : short === "cli"

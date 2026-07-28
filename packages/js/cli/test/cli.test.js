@@ -30,6 +30,19 @@ test("version and help work offline", async () => {
   assert.match(child.stdout, new RegExp(`handoffkit-js ${VERSION.replace(/\./g, "\\.")}`));
 });
 
+test("csp doctor, demo, and inspect work offline", async () => {
+  const output = [];
+  assert.equal(await main(["csp", "doctor"], { stdout: (text) => output.push(text) }), 0);
+  assert.equal(JSON.parse(output.pop()).protocol, "HK-CSP");
+
+  assert.equal(await main(["csp", "demo"], { stdout: (text) => output.push(text) }), 0);
+  assert.equal(JSON.parse(output.pop()).success, true);
+
+  const fixture = join(import.meta.dirname, "..", "..", "..", "contracts", "fixtures", "message_envelope.json");
+  assert.equal(await main(["csp", "inspect", fixture], { stdout: (text) => output.push(text) }), 0);
+  assert.equal(JSON.parse(output.pop()).protocol_version, "1.0");
+});
+
 test("basic and recipe demos use JS core offline", async () => {
   assert.match(runDemo(), /HandoffKit JS demo/);
   assert.match(runDemo(), /Handoffs: 2/);
@@ -235,7 +248,7 @@ test("dynamic extensions ignore only missing config and report malformed config"
 });
 
 test("CLI version and source imports use public package boundaries", async () => {
-  assert.equal(VERSION, "1.15.0");
+  assert.equal(VERSION, "1.16.0");
   const source = await readFile(join(import.meta.dirname, "..", "src", "index.js"), "utf8");
   assert.doesNotMatch(source, /\.\.\/\.\.\/recipes\/src/);
   assert.doesNotMatch(source, /\.\.\/\.\.\/templates\/src/);
