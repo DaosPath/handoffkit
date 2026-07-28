@@ -228,7 +228,7 @@ impl RunTrace {
             lines.push(format!("   - Tools Used: {}", step.tool_results.len()));
             if !step.output.is_empty() {
                 let preview = if step.output.len() > 60 {
-                    format!("{}...", &step.output[..60].replace('\n', " "))
+                    format!("{}...", step.output[..60].replace('\n', " "))
                 } else {
                     step.output.replace('\n', " ")
                 };
