@@ -2,7 +2,7 @@
 
 HandoffKit releases use GitHub Actions CI and Trusted Publishing for PyPI, npm,
 and crates.io. Production publishing is triggered by pushing a version tag such
-as `v1.16.0`.
+as `vX.Y.Z` after every participating subsystem has passed its release gate.
 
 ## Trusted Publisher Setup
 
@@ -20,7 +20,8 @@ uses GitHub OIDC through `pypa/gh-action-pypi-publish` for Python and an
 OIDC-capable npm CLI for the public JavaScript packages (including `@handoffkit/browser`).
 Rust publishing uses `rust-lang/crates-io-auth-action` and an ephemeral OIDC
 token. Configure a Trusted Publisher independently for `handoffkit-contracts`,
-`handoffkit-protocol`, and `handoffkit` before the first Rust publication.
+`handoffkit-protocol`, `handoffkit-runtime`, `handoffkit-transport`,
+`handoffkit-cli`, and `handoffkit` before each crate's first publication.
 
 The npm job first creates the package archives with `pnpm pack`, preserving the
 workspace dependency rewrites, and then publishes those `.tgz` files with
@@ -46,7 +47,9 @@ Publisher for `@handoffkit/core` does not authorize the other packages.
 
 ## Patch Release Checklist
 
-1. Update aligned version metadata for Python, JavaScript, Rust, and C++.
+1. Update version metadata only for participating products. Core subsystem
+   releases may advance Rust without changing Python, JavaScript, Browser, C++,
+   ML, or Fusion when those products are unchanged.
 2. Move the root `Unreleased` notes under the new version and update the Python
    package changelog and README release summary.
 3. Run local validation:
@@ -71,26 +74,31 @@ ctest --test-dir build-release -C Release --output-on-failure
 ```
 
 4. Commit only the intended release files and push `main`.
-5. Optionally run the `Publish` workflow manually to publish the Python build to
+5. For a Rust-only subsystem release, do not create a global `vX.Y.Z` tag while
+   Python, npm, or C++ remain on another version. After explicit approval, use
+   `workflow_dispatch` with target `crates` and `release_version`; the crates job
+   publishes only the Rust workspace in dependency order.
+6. Optionally run the `Publish` workflow manually to publish the Python build to
    TestPyPI, then verify installation in a clean environment.
-6. Create and push the annotated version tag:
+7. Create and push the annotated version tag only for an aligned monorepo
+   release:
 
 ```powershell
 git tag -a vX.Y.Z -m "HandoffKit X.Y.Z"
 git push origin vX.Y.Z
 ```
 
-7. The tag push automatically triggers:
+8. The tag push automatically triggers:
    - PyPI Trusted Publishing for `handoffkit`.
    - npm Trusted Publishing for all eight `@handoffkit/*` packages, including
      `@handoffkit/csp` and `@handoffkit/browser`.
-   - crates.io Trusted Publishing for the Rust contracts, protocol, and
-     convenience crates in dependency order.
+   - crates.io Trusted Publishing for contracts, protocol, runtime, transport,
+     CLI, and the convenience crate in dependency order.
    - C++ source tarball construction, GitHub Release creation, asset upload, and
      OIDC provenance attestation.
-8. Verify the published Python, npm, and Rust versions and inspect the C++
+9. Verify the published Python, npm, and Rust versions and inspect the C++
    release assets and checksums.
-9. For a partial npm release, correct the affected package's Trusted Publisher,
+10. For a partial npm release, correct the affected package's Trusted Publisher,
    then run `Publish` manually with target `npm` and the existing
    `release_version`. The workflow skips package versions that are already
    public and retries every package independently.

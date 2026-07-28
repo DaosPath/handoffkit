@@ -1,0 +1,22 @@
+[package]
+name = "handoffkit-runtime"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Tokio runtime for HK-CSP sessions, channels, and workflows"
+readme = "README.md"
+keywords = ["csp", "agents", "async", "workflow", "handoff"]
+categories = ["asynchronous", "concurrency"]
+
+[dependencies]
+chrono.workspace = true
+handoffkit-contracts = { path = "../handoffkit-contracts", version = "1.17.0" }
+handoffkit-protocol = { path = "../handoffkit-protocol", version = "1.17.0" }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true

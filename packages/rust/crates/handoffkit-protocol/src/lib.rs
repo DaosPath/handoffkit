@@ -10,6 +10,8 @@ use std::fmt::{Display, Formatter};
 pub const PROTOCOL_VERSION: &str = "1.0";
 pub const DEFAULT_CHANNEL_CAPACITY: usize = 64;
 pub const DEFAULT_MAX_MESSAGE_BYTES: usize = 8 * 1024 * 1024;
+pub const DEFAULT_MAX_NESTING_DEPTH: usize = 64;
+pub const MAX_ERROR_MESSAGE_BYTES: usize = 2_048;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProtocolError(pub String);
@@ -21,6 +23,21 @@ impl Display for ProtocolError {
 }
 
 impl std::error::Error for ProtocolError {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ValidationLimits {
+    pub max_message_bytes: usize,
+    pub max_nesting_depth: usize,
+}
+
+impl Default for ValidationLimits {
+    fn default() -> Self {
+        Self {
+            max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
+            max_nesting_depth: DEFAULT_MAX_NESTING_DEPTH,
+        }
+    }
+}
 
 pub fn negotiate_version(remote: &str) -> Result<&'static str, ProtocolError> {
     let local_major = PROTOCOL_VERSION.split('.').next();
@@ -68,6 +85,34 @@ impl Default for RetryPolicy {
             base_delay_ms: default_base_delay_ms(),
             max_delay_ms: default_max_delay_ms(),
         }
+    }
+}
+
+impl RetryPolicy {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        if self.max_attempts == 0 {
+            return Err(ProtocolError(
+                "retry_policy.max_attempts must be at least 1".to_string(),
+            ));
+        }
+        if self.max_attempts > 100 {
+            return Err(ProtocolError(
+                "retry_policy.max_attempts must not exceed 100".to_string(),
+            ));
+        }
+        if self.base_delay_ms > self.max_delay_ms {
+            return Err(ProtocolError(
+                "retry_policy.base_delay_ms must not exceed max_delay_ms".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn delay_ms(&self, attempt: u32) -> u64 {
+        let exponent = attempt.saturating_sub(1).min(20);
+        self.base_delay_ms
+            .saturating_mul(1_u64 << exponent)
+            .min(self.max_delay_ms)
     }
 }
 
@@ -120,6 +165,36 @@ pub struct SessionConfig {
     pub metadata: HashMap<String, Value>,
 }
 
+impl SessionConfig {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        require_nonempty("session_id", &self.session_id)?;
+        if self.channel_capacity == 0 {
+            return Err(ProtocolError(
+                "channel_capacity must be at least 1".to_string(),
+            ));
+        }
+        if self.max_message_bytes == 0 {
+            return Err(ProtocolError(
+                "max_message_bytes must be at least 1".to_string(),
+            ));
+        }
+        if self.ack_timeout_ms == 0 {
+            return Err(ProtocolError(
+                "ack_timeout_ms must be at least 1".to_string(),
+            ));
+        }
+        if self.dedup_capacity == 0 {
+            return Err(ProtocolError(
+                "dedup_capacity must be at least 1".to_string(),
+            ));
+        }
+        if let Some(deadline) = &self.deadline {
+            parse_timestamp("deadline", deadline)?;
+        }
+        self.retry_policy.validate()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ChannelConfig {
     pub name: String,
@@ -131,6 +206,18 @@ pub struct ChannelConfig {
     pub requires_ack: bool,
     #[serde(default)]
     pub metadata: HashMap<String, Value>,
+}
+
+impl ChannelConfig {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        require_nonempty("channel.name", &self.name)?;
+        if self.capacity == 0 {
+            return Err(ProtocolError(
+                "channel.capacity must be at least 1".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -166,6 +253,10 @@ pub struct MessageEnvelope {
 
 impl MessageEnvelope {
     pub fn validate(&self) -> Result<(), ProtocolError> {
+        self.validate_with_limits(ValidationLimits::default())
+    }
+
+    pub fn validate_with_limits(&self, limits: ValidationLimits) -> Result<(), ProtocolError> {
         negotiate_version(&self.protocol_version)?;
         for (name, value) in [
             ("message_id", &self.message_id),
@@ -175,12 +266,46 @@ impl MessageEnvelope {
             ("source", &self.source),
             ("payload_type", &self.payload_type),
         ] {
-            if value.is_empty() {
-                return Err(ProtocolError(format!("{name} must not be empty")));
-            }
+            require_nonempty(name, value)?;
         }
+        validate_optional_nonempty("target", self.target.as_deref())?;
+        validate_optional_nonempty("correlation_id", self.correlation_id.as_deref())?;
+        validate_optional_nonempty("causation_id", self.causation_id.as_deref())?;
+        validate_optional_nonempty("idempotency_key", self.idempotency_key.as_deref())?;
         if self.attempt == 0 {
             return Err(ProtocolError("attempt must be at least 1".to_string()));
+        }
+        let created_at = parse_timestamp("created_at", &self.created_at)?;
+        if let Some(deadline) = &self.deadline {
+            let deadline = parse_timestamp("deadline", deadline)?;
+            if deadline < created_at {
+                return Err(ProtocolError(
+                    "deadline must not be earlier than created_at".to_string(),
+                ));
+            }
+        }
+        let encoded_size = self
+            .encoded_size()
+            .map_err(|error| ProtocolError(format!("cannot encode envelope: {error}")))?;
+        if encoded_size > limits.max_message_bytes {
+            return Err(ProtocolError(format!(
+                "message exceeds limit of {} bytes",
+                limits.max_message_bytes
+            )));
+        }
+        let payload_depth = json_depth(&self.payload);
+        let metadata_depth = self
+            .metadata
+            .values()
+            .map(json_depth)
+            .max()
+            .unwrap_or(0)
+            .saturating_add(1);
+        if payload_depth.max(metadata_depth) > limits.max_nesting_depth {
+            return Err(ProtocolError(format!(
+                "message nesting depth exceeds limit of {}",
+                limits.max_nesting_depth
+            )));
         }
         Ok(())
     }
@@ -194,6 +319,80 @@ impl MessageEnvelope {
         next.attempt += 1;
         next
     }
+}
+
+pub fn utc_now() -> String {
+    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+}
+
+pub fn sanitize_error_message(message: impl AsRef<str>) -> String {
+    let mut sanitized = message
+        .as_ref()
+        .replace(['\r', '\n'], " ")
+        .replace('\0', "");
+    for prefix in ["Bearer ", "sk-", "gsk_", "pypi-"] {
+        sanitized = redact_token_after(&sanitized, prefix);
+    }
+    if sanitized.len() > MAX_ERROR_MESSAGE_BYTES {
+        let mut boundary = MAX_ERROR_MESSAGE_BYTES;
+        while !sanitized.is_char_boundary(boundary) {
+            boundary -= 1;
+        }
+        sanitized.truncate(boundary);
+    }
+    sanitized
+}
+
+pub fn json_depth(value: &Value) -> usize {
+    match value {
+        Value::Array(items) => 1 + items.iter().map(json_depth).max().unwrap_or(0),
+        Value::Object(items) => 1 + items.values().map(json_depth).max().unwrap_or(0),
+        _ => 1,
+    }
+}
+
+fn require_nonempty(name: &str, value: &str) -> Result<(), ProtocolError> {
+    if value.trim().is_empty() {
+        Err(ProtocolError(format!("{name} must not be empty")))
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_optional_nonempty(name: &str, value: Option<&str>) -> Result<(), ProtocolError> {
+    if value.is_some_and(|item| item.trim().is_empty()) {
+        Err(ProtocolError(format!("{name} must not be empty when set")))
+    } else {
+        Ok(())
+    }
+}
+
+fn parse_timestamp(
+    name: &str,
+    value: &str,
+) -> Result<chrono::DateTime<chrono::FixedOffset>, ProtocolError> {
+    chrono::DateTime::parse_from_rfc3339(value)
+        .map_err(|_| ProtocolError(format!("{name} must be an RFC 3339 timestamp")))
+}
+
+fn redact_token_after(value: &str, prefix: &str) -> String {
+    let mut output = String::with_capacity(value.len());
+    let mut remainder = value;
+    while let Some(position) = remainder.find(prefix) {
+        let (before, sensitive) = remainder.split_at(position);
+        output.push_str(before);
+        output.push_str(prefix);
+        output.push_str("[REDACTED]");
+        let token = &sensitive[prefix.len()..];
+        let end = token
+            .find(|character: char| {
+                character.is_whitespace() || matches!(character, ',' | ';' | ')' | ']' | '}')
+            })
+            .unwrap_or(token.len());
+        remainder = &token[end..];
+    }
+    output.push_str(remainder);
+    output
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

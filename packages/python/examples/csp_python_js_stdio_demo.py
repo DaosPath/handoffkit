@@ -8,7 +8,13 @@ import shutil
 from pathlib import Path
 
 from handoffkit import HandoffState
-from handoffkit.csp import SubprocessStdioTransport, make_envelope
+from handoffkit.csp import (
+    MessageEnvelope,
+    RuntimeMode,
+    SessionConfig,
+    SubprocessStdioTransport,
+    make_envelope,
+)
 
 
 async def run_demo() -> dict[str, object]:
@@ -19,6 +25,22 @@ async def run_demo() -> dict[str, object]:
     root = Path(__file__).resolve().parents[3]
     worker = root / "packages" / "js" / "node" / "examples" / "csp_worker.mjs"
     transport = await SubprocessStdioTransport.spawn([node, str(worker)], cwd=str(root))
+    config = SessionConfig(session_id="python-js-demo", runtime_mode=RuntimeMode.SESSION)
+    opening = make_envelope(
+        session_id=config.session_id,
+        channel="control",
+        source="python-demo",
+        sequence=0,
+        kind="session_open",
+        payload_type="json",
+        payload={
+            "protocol_version": "1.0",
+            "runtime": "python",
+            "session_config": config.to_dict(),
+            "capabilities": ["handoff_state", "request_response"],
+        },
+        idempotency_key="python-js-open",
+    )
     state = HandoffState(
         task="Verify cross-runtime HK-CSP",
         from_agent="python",
@@ -28,18 +50,41 @@ async def run_demo() -> dict[str, object]:
         next_steps=["Return the same structured state"],
     ).validate()
     envelope = make_envelope(
-        session_id="python-js-demo",
+        session_id=config.session_id,
         channel="requests",
         source="python-demo",
         target="javascript-worker",
         sequence=1,
+        kind="request",
         payload_type="handoff_state",
         payload=state.to_dict(),
         idempotency_key="python-js-demo-1",
     )
     try:
+        await transport.send(opening)
+        ready = await transport.receive()
+        if ready.kind != "session_ready" or ready.correlation_id != opening.message_id:
+            raise RuntimeError("JavaScript worker did not complete HK-CSP handshake.")
         await transport.send(envelope)
         response = await transport.receive()
+        if response.correlation_id != envelope.message_id:
+            raise RuntimeError("JavaScript worker response did not match the request.")
+        closing = MessageEnvelope(
+            message_id="python-js-close",
+            session_id=config.session_id,
+            channel="control",
+            kind="session_close",
+            source="python-demo",
+            target="javascript-worker",
+            sequence=2,
+            payload_type="json",
+            payload={},
+            idempotency_key="python-js-close",
+        )
+        await transport.send(closing)
+        closed = await transport.receive()
+        if closed.kind != "session_closed" or closed.correlation_id != closing.message_id:
+            raise RuntimeError("JavaScript worker did not close cleanly.")
     finally:
         await transport.close()
 
@@ -51,6 +96,7 @@ async def run_demo() -> dict[str, object]:
         "source_runtime": "python",
         "target_runtime": response.payload["runtime"],
         "payload_type": response.payload_type,
+        "handshake": ready.kind,
     }
 
 

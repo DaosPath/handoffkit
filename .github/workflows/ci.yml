@@ -124,6 +124,30 @@ jobs:
       - name: Test Rust workspace
         run: cargo test --manifest-path packages/rust/Cargo.toml --workspace
 
+      - name: Validate publishable Rust crates
+        shell: bash
+        run: |
+          set -euo pipefail
+          for crate in \
+            handoffkit-contracts \
+            handoffkit-protocol \
+            handoffkit-runtime \
+            handoffkit-transport \
+            handoffkit-cli \
+            handoffkit
+          do
+            cargo package \
+              --manifest-path packages/rust/Cargo.toml \
+              --package "$crate" \
+              --locked \
+              --allow-dirty \
+              --list >/dev/null
+          done
+          cargo package --manifest-path packages/rust/Cargo.toml \
+            --package handoffkit-contracts --locked --allow-dirty --no-verify
+          cargo package --manifest-path packages/rust/Cargo.toml \
+            --package handoffkit-protocol --locked --allow-dirty --no-verify
+
   cpp:
     name: C++
     runs-on: ubuntu-latest
@@ -200,7 +224,7 @@ jobs:
           packages/cpp/build-consumer/consumer_core /tmp/handoffkit-consumer-reports
 
   csp-interop:
-    name: HK-CSP Python to JavaScript stdio
+    name: HK-CSP Python / JavaScript / Rust stdio
     runs-on: ubuntu-latest
 
     steps:
@@ -222,11 +246,30 @@ jobs:
         with:
           version: 11.1.1
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install JavaScript workspace
         run: pnpm install --frozen-lockfile
 
       - name: Install Python package
         run: python -m pip install -e packages/python
 
-      - name: Run canonical stdio interop demo
+      - name: Build Rust worker
+        run: cargo build --manifest-path packages/rust/Cargo.toml -p handoffkit-cli
+
+      - name: Rust starts Python and JavaScript workers
+        env:
+          HANDOFFKIT_RUN_INTEROP_TESTS: "1"
+        run: >
+          cargo test --manifest-path packages/rust/Cargo.toml
+          -p handoffkit-transport --test cross_runtime -- --nocapture
+
+      - name: Python starts JavaScript worker
         run: python packages/python/examples/csp_python_js_stdio_demo.py
+
+      - name: Python starts Rust worker
+        run: python packages/python/examples/csp_python_rust_stdio_demo.py
+
+      - name: JavaScript starts Rust worker
+        run: node packages/js/node/examples/csp_js_rust_stdio_demo.mjs

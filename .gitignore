@@ -65,4 +65,5 @@ terminals/
 
 # CUDA MSVC build tree
 packages/cpp-ml/build-cuda/
+packages/cpp-ml/build-csp/
 

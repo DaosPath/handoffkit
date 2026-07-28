@@ -67,6 +67,32 @@ fn test_run_trace_timeline() {
 }
 
 #[test]
+fn test_run_trace_timeline_truncates_unicode_safely() {
+    let trace = RunTrace {
+        run_id: "unicode-run".to_string(),
+        name: "Unicode flow".to_string(),
+        success: true,
+        final_output: "Finished".to_string(),
+        steps: vec![TraceStep {
+            name: "Step 1".to_string(),
+            agent: "Writer".to_string(),
+            task: "Write".to_string(),
+            mode: "classic".to_string(),
+            success: true,
+            output: "診断".repeat(40),
+            handoff: None,
+            tool_results: vec![],
+            events: vec![],
+            metadata: std::collections::HashMap::new(),
+        }],
+        handoffs: vec![],
+        metadata: std::collections::HashMap::new(),
+    };
+
+    assert!(trace.to_timeline().contains("..."));
+}
+
+#[test]
 fn test_shared_validation_report_fixture_roundtrip() {
     let data = fixture("validation_report.json");
     let report: ValidationReport = serde_json::from_value(data.clone()).unwrap();
@@ -117,7 +143,7 @@ fn test_contract_parity_report_marks_supported_contracts() {
         "validation-report",
         "quality-report",
     ];
-    let report = ContractParityReport::new("rust", "1.16.0", &fixtures, &schemas);
+    let report = ContractParityReport::new("rust", "1.17.0", &fixtures, &schemas);
 
     assert!(report.success);
     assert_eq!(report.fixture_count, 4);
