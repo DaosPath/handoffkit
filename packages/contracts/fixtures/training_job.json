@@ -1,0 +1,21 @@
+{
+  "job_id": "train-001",
+  "dataset": {
+    "artifact_id": "dataset-001",
+    "uri": "file:///workspace/data/train.jsonl",
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "size_bytes": 1024,
+    "media_type": "application/x-ndjson",
+    "metadata": {}
+  },
+  "output": "file:///workspace/runs/train-001",
+  "config": {
+    "profile": "qlora",
+    "device": "cpu",
+    "epochs": 5
+  },
+  "requested_capabilities": ["train", "qlora"],
+  "deadline": null,
+  "idempotency_key": "train-001-v1",
+  "metadata": {}
+}

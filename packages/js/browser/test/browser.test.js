@@ -31,7 +31,7 @@ import {
 } from "../src/index.js";
 
 test("version matches package", () => {
-  assert.equal(HANDOFFKIT_BROWSER_VERSION, "1.15.0");
+  assert.equal(HANDOFFKIT_BROWSER_VERSION, "1.16.0");
 });
 
 test("html extract: title text links entities", () => {

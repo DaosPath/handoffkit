@@ -1,7 +1,7 @@
 {
   "name": "@handoffkit/node",
-  "version": "1.15.0",
-  "description": "Node.js filesystem utilities for HandoffKit traces, reports, and project context.",
+  "version": "1.16.0",
+  "description": "Node.js filesystem and HK-CSP stdio utilities for HandoffKit.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DaosPath/handoffkit.git",
@@ -28,6 +28,7 @@
     "prepack": "pnpm run check && pnpm run test"
   },
   "dependencies": {
+    "@handoffkit/csp": "workspace:*",
     "@handoffkit/core": "workspace:*"
   },
   "engines": {

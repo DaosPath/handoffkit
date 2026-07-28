@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/message-envelope.schema.json",
+  "title": "MessageEnvelope",
+  "type": "object",
+  "required": [
+    "protocol_version",
+    "message_id",
+    "session_id",
+    "channel",
+    "kind",
+    "source",
+    "sequence",
+    "created_at",
+    "attempt",
+    "requires_ack",
+    "payload_type",
+    "payload",
+    "metadata"
+  ],
+  "properties": {
+    "protocol_version": { "type": "string", "pattern": "^1\\.[0-9]+$" },
+    "message_id": { "type": "string", "minLength": 1 },
+    "session_id": { "type": "string", "minLength": 1 },
+    "channel": { "type": "string", "minLength": 1 },
+    "kind": { "type": "string", "minLength": 1 },
+    "source": { "type": "string", "minLength": 1 },
+    "target": { "type": ["string", "null"] },
+    "sequence": { "type": "integer", "minimum": 0 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "deadline": { "type": ["string", "null"], "format": "date-time" },
+    "correlation_id": { "type": ["string", "null"] },
+    "causation_id": { "type": ["string", "null"] },
+    "idempotency_key": { "type": ["string", "null"] },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "requires_ack": { "type": "boolean" },
+    "payload_type": { "type": "string", "minLength": 1 },
+    "payload": {},
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

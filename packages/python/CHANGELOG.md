@@ -3,6 +3,16 @@
 > This file preserves published Python package history. New monorepo-wide and
 > unreleased changes are recorded in the root [`CHANGELOG.md`](../../CHANGELOG.md).
 
+## 1.16.0
+
+- Added `handoffkit.csp` with asyncio sessions, bounded FIFO channels,
+  ACK/NACK, retries, deduplication, cancellation, deadlines, and stdio.
+- Added additive `runtime_mode` / `runtime` support to Team and RecipeRunner;
+  classic behavior remains the default.
+- Added `handoffkit csp doctor`, `handoffkit csp demo`, and
+  `handoffkit csp inspect`.
+- Added canonical CSP contracts and an offline Python-to-JavaScript stdio demo.
+
 ## 1.15.0
 
 - **Browser improvements:** modular `handoffkit.browser` (search, explore, scrape,

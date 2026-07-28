@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/cli",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "description": "Autonomous Node.js CLI and offline demos for HandoffKit.",
   "repository": {
     "type": "git",
@@ -33,6 +33,7 @@
   "dependencies": {
     "@handoffkit/browser": "workspace:*",
     "@handoffkit/core": "workspace:*",
+    "@handoffkit/csp": "workspace:*",
     "@handoffkit/node": "workspace:*",
     "@handoffkit/recipes": "workspace:*",
     "@handoffkit/templates": "workspace:*",

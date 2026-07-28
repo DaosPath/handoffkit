@@ -34,16 +34,20 @@ def test_publish_workflow_uses_trusted_publishing_without_tokens() -> None:
     assert "workflow_dispatch" in text
     assert "release_version" in text
     assert "inputs.target == 'npm'" in text
+    assert "inputs.target == 'crates'" in text
     assert "push:" in text
     assert "tags:" in text
     assert '"v*"' in text
     assert "npm publish" in text
     assert "npm view" in text
+    assert "rust-lang/crates-io-auth-action@v1" in text
+    assert "cargo publish" in text
     assert "fail-fast: false" in text
     assert "TestPyPI" in text
     assert "pypi" in text
     for package in (
         "@handoffkit/core",
+        "@handoffkit/csp",
         "@handoffkit/providers",
         "@handoffkit/templates",
         "@handoffkit/browser",
@@ -70,11 +74,13 @@ def test_release_process_docs_cover_trusted_publishing() -> None:
     assert "TestPyPI" in text
     assert "pypi" in text
     assert "npm" in text
+    assert "crates.io" in text
     assert "DaosPath" in text
     assert "handoffkit" in text
     assert "no environment name" in text
     for package in (
         "@handoffkit/core",
+        "@handoffkit/csp",
         "@handoffkit/providers",
         "@handoffkit/templates",
         "@handoffkit/browser",

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/evaluation-job.schema.json",
+  "title": "EvaluationJob",
+  "type": "object",
+  "required": ["job_id", "model", "dataset", "output", "config", "requested_capabilities", "idempotency_key", "metadata"],
+  "properties": {
+    "job_id": { "type": "string", "minLength": 1 },
+    "model": { "$ref": "artifact-ref.schema.json" },
+    "dataset": { "$ref": "artifact-ref.schema.json" },
+    "output": { "type": "string", "minLength": 1 },
+    "config": { "type": "object" },
+    "requested_capabilities": { "type": "array", "items": { "type": "string" } },
+    "deadline": { "type": ["string", "null"], "format": "date-time" },
+    "idempotency_key": { "type": "string", "minLength": 1 },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

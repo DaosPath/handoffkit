@@ -51,7 +51,7 @@ def test_cli_version(capsys) -> None:  # type: ignore[no-untyped-def]
     captured = capsys.readouterr()
 
     assert exc_info.value.code == 0
-    assert "handoffkit 1.15.0" in captured.out
+    assert "handoffkit 1.16.0" in captured.out
 
 
 def test_run_demo_reports_handoff_count() -> None:
@@ -462,4 +462,3 @@ def test_project_report_cli_route(tmp_path, monkeypatch, capsys) -> None:  # typ
     assert code == 0
     assert "HandoffKit project report" in captured.out
     assert (tmp_path / "out" / "project-report.json").exists()
-

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { CspRuntime } from "../../csp/src/index.js";
 
 import { Agent } from "@handoffkit/core";
 import {
@@ -76,6 +77,24 @@ test("recipe runner executes async with arun", async () => {
   assert.equal(result.stepResults.length, 3);
   assert.equal(result.handoffStates.length, 2);
   assert.equal(result.handoffStates[0].fromAgent, "Planner");
+});
+
+test("recipe runner session mode preserves CSP handoffs", async () => {
+  const recipe = WorkflowTemplate.planExecuteReview({
+    name: "release-session",
+    task: "Ship CSP support.",
+    planner: new Agent({ name: "Planner" }),
+    executor: new Agent({ name: "Executor" }),
+    reviewer: new Agent({ name: "Reviewer" }),
+  });
+  const result = await new RecipeRunner(recipe, {
+    runtimeMode: "session",
+    runtime: new CspRuntime(),
+  }).arun("Prepare release session.");
+
+  assert.equal(result.success, true);
+  assert.equal(result.handoffStates.length, 2);
+  assert.equal(result.metadata.runtime_mode, "session");
 });
 
 test("Model Fusion panel runs offline successfully", async () => {

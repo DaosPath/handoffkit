@@ -12,3 +12,10 @@ contains the centralized guides and demo indexes.
 | Rust | [docs/rust](rust/README.md) | [Rust demos](rust/demos/README.md) |
 
 Shared visual assets remain in [`assets/`](assets/) and [`img/`](img/).
+
+HK-CSP documentation:
+
+- [Specification](spec/HK_CSP.md)
+- [Wire format](spec/HK_CSP_WIRE.md)
+- [Security model](spec/HK_CSP_SECURITY.md)
+- [1.16-1.19 runtime roadmap](spec/HK_CSP_ROADMAP.md)

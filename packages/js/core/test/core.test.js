@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
+import { CspRuntime } from "../../csp/src/index.js";
 
 import {
   Agent,
@@ -86,6 +87,17 @@ test("contract parity report summarizes shared contract inventory", async () => 
         "tool_call.json",
         "tool_result.json",
         "provider_tool_schema.json",
+        "message_envelope.json",
+        "session_config.json",
+        "channel_config.json",
+        "delivery_ack.json",
+        "delivery_nack.json",
+        "process_error.json",
+        "worker_capabilities.json",
+        "artifact_ref.json",
+        "training_job.json",
+        "evaluation_job.json",
+        "job_progress.json",
       ],
       schemas: [
         "handoff-state.schema.json",
@@ -95,14 +107,25 @@ test("contract parity report summarizes shared contract inventory", async () => 
         "tool-call.schema.json",
         "tool-result.schema.json",
         "provider-tool-schema.schema.json",
+        "message-envelope.schema.json",
+        "session-config.schema.json",
+        "channel-config.schema.json",
+        "delivery-ack.schema.json",
+        "delivery-nack.schema.json",
+        "process-error.schema.json",
+        "worker-capabilities.schema.json",
+        "artifact-ref.schema.json",
+        "training-job.schema.json",
+        "evaluation-job.schema.json",
+        "job-progress.schema.json",
       ],
     },
   });
 
   assert.equal(report instanceof ContractParityReport, true);
   assert.equal(report.success, true);
-  assert.equal(report.fixtureCount, 7);
-  assert.equal(report.schemaCount, 7);
+  assert.equal(report.fixtureCount, 18);
+  assert.equal(report.schemaCount, 18);
   assert.ok(report.supportedContracts.includes("handoff_state"));
   assert.match(report.toMarkdown(), /Contract Parity Report/);
 });
@@ -115,8 +138,8 @@ test("core contract parity report uses embedded inventory without filesystem", a
 
   assert.equal(report.success, true);
   assert.equal(report.metadata.source, "embedded_inventory");
-  assert.equal(report.fixtureCount, 7);
-  assert.equal(report.schemaCount, 7);
+  assert.equal(report.fixtureCount, 18);
+  assert.equal(report.schemaCount, 18);
 });
 
 test("handoff state validates and roundtrips", () => {
@@ -187,6 +210,21 @@ test("agent and team async runtime mirrors sync flow", async () => {
   assert.equal(result.stepResults.length, 2);
   assert.equal(result.handoffs.length, 1);
   assert.match(result.finalOutput, /Echo/);
+});
+
+test("team session mode moves structured handoffs through CSP", async () => {
+  const team = new Team({
+    agents: [new Agent({ name: "Architect" }), new Agent({ name: "Coder" })],
+    runtimeMode: "session",
+    runtime: new CspRuntime(),
+  });
+
+  const result = await team.arun("Build a session runtime.");
+
+  assert.equal(result.success, true);
+  assert.equal(result.handoffs.length, 1);
+  assert.equal(result.metadata.runtime_mode, "session");
+  assert.equal(result.handoffs[0].toAgent, "Coder");
 });
 
 test("quality evaluator scores handoffs deterministically", () => {

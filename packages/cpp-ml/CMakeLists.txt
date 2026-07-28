@@ -66,11 +66,16 @@ find_package(Threads REQUIRED)
 target_link_libraries(handoffkit_ml PUBLIC Threads::Threads)
 
 if(HANDOFFKIT_ML_LINK_CORE)
-  if(TARGET handoffkit_core)
-    target_link_libraries(handoffkit_ml PUBLIC handoffkit_core)
-  else()
-    message(FATAL_ERROR "HANDOFFKIT_ML_LINK_CORE=ON but handoffkit_core target missing")
+  if(NOT TARGET handoffkit_core)
+    add_subdirectory(
+      "${HANDOFFKIT_CORE_SOURCE_DIR}"
+      "${CMAKE_CURRENT_BINARY_DIR}/handoffkit-core"
+      EXCLUDE_FROM_ALL
+    )
   endif()
+  target_include_directories(handoffkit_ml PUBLIC
+    $<BUILD_INTERFACE:${HANDOFFKIT_CORE_SOURCE_DIR}/include>
+  )
 endif()
 
 if(HANDOFFKIT_ML_BUILD_CLI)
@@ -124,6 +129,10 @@ if(HANDOFFKIT_ML_BUILD_TESTS)
   hk_ml_test(test_ml_resident_mlp tests/test_ml_resident_mlp.cpp)
   hk_ml_test(test_ml_resident_block tests/test_ml_resident_block.cpp)
   hk_ml_test(test_ml_resident_gpt tests/test_ml_resident_gpt.cpp)
+  if(HANDOFFKIT_ML_LINK_CORE)
+    hk_ml_test(test_ml_csp_jobs tests/test_ml_csp_jobs.cpp)
+    target_link_libraries(test_ml_csp_jobs PRIVATE handoffkit_core)
+  endif()
 endif()
 
 install(TARGETS handoffkit_ml

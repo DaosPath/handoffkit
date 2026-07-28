@@ -1,0 +1,17 @@
+[package]
+name = "handoffkit-protocol"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "HK-CSP wire protocol contracts and version negotiation"
+readme = "README.md"
+keywords = ["csp", "agents", "protocol", "workflow", "handoff"]
+categories = ["development-tools", "asynchronous"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

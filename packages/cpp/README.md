@@ -13,6 +13,7 @@ Native **C++20** multi-agent runtime with structured handoffs.
 | Area | Status |
 |------|--------|
 | Contract types + all `packages/contracts/fixtures/*` round-trips | Done |
+| HK-CSP 1.0 contracts, version negotiation, validation, and JSON codecs | Done (1.16; no threads/network yet) |
 | `HandoffStateValidator` + `ToolSchemaValidator` | Done |
 | Deterministic `HandoffQualityEvaluator` | Done |
 | `EchoProvider`, `FallbackProvider`, usage metrics on `AnyProvider` | Done |
@@ -418,7 +419,7 @@ Offline OpenAI response parsing is always available via `parse_openai_chat_compl
 
 ## Version
 
-`1.15.0` — keep `CMakeLists.txt`, `version.hpp`, and `conanfile.py` in sync.
+`1.16.0` — keep `CMakeLists.txt`, `version.hpp`, and `conanfile.py` in sync.
 
 ## Publishing / Trusted path
 

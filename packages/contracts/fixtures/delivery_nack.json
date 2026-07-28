@@ -1,0 +1,10 @@
+{
+  "message_id": "msg-0001",
+  "code": "worker_busy",
+  "message": "Worker capacity is exhausted.",
+  "retryable": true,
+  "processed_at": "2026-01-01T00:00:01Z",
+  "metadata": {
+    "consumer": "coder"
+  }
+}

@@ -44,7 +44,13 @@ export class RecipeRunResult {
 }
 
 export class RecipeRunner {
-  constructor(recipe: Recipe, options?: { protocol?: HandoffProtocol });
+  runtimeMode: string;
+  runtime: unknown;
+  constructor(recipe: Recipe, options?: {
+    protocol?: HandoffProtocol;
+    runtimeMode?: "classic" | "session" | "distributed";
+    runtime?: unknown;
+  });
   run(initialTask?: string): RecipeRunResult;
   arun(initialTask?: string): Promise<RecipeRunResult>;
 }

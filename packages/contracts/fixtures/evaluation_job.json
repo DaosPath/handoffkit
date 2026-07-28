@@ -1,0 +1,27 @@
+{
+  "job_id": "eval-001",
+  "model": {
+    "artifact_id": "model-001",
+    "uri": "file:///workspace/runs/train-001/model.hkckpt",
+    "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+    "size_bytes": 4096,
+    "media_type": "application/vnd.handoffkit.checkpoint",
+    "metadata": {}
+  },
+  "dataset": {
+    "artifact_id": "dataset-val-001",
+    "uri": "file:///workspace/data/val.jsonl",
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "size_bytes": 512,
+    "media_type": "application/x-ndjson",
+    "metadata": {}
+  },
+  "output": "file:///workspace/runs/eval-001",
+  "config": {
+    "batch_size": 1
+  },
+  "requested_capabilities": ["evaluate"],
+  "deadline": null,
+  "idempotency_key": "eval-001-v1",
+  "metadata": {}
+}

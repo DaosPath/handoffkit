@@ -166,12 +166,17 @@ export class RecipeRunResult {
 }
 
 export class RecipeRunner {
-  constructor(recipe, { protocol = new HandoffProtocol({ mode: "hybrid_state" }) } = {}) {
+  constructor(recipe, { protocol = new HandoffProtocol({ mode: "hybrid_state" }), runtimeMode = "classic", runtime = null } = {}) {
     this.recipe = (recipe instanceof Recipe ? recipe : new Recipe(recipe)).validate();
     this.protocol = protocol;
+    this.runtimeMode = runtimeMode;
+    this.runtime = runtime;
   }
 
   run(initialTask = "") {
+    if (this.runtimeMode !== "classic") {
+      throw new Error("RecipeRunner.run() only supports classic mode in JavaScript; use arun() for CSP modes.");
+    }
     const stepResults = [];
     const handoffStates = [];
     let previousOutput = "";
@@ -247,6 +252,14 @@ export class RecipeRunner {
     const handoffStates = [];
     let previousOutput = "";
     let success = true;
+    let session = null;
+    if (this.runtimeMode !== "classic") {
+      if (!this.runtime?.createSession || !this.runtime?.makeEnvelope) {
+        throw new TypeError("CSP mode requires a CspRuntime from @handoffkit/csp.");
+      }
+      session = this.runtime.createSession();
+      session.channel("recipe-handoffs");
+    }
 
     for (let index = 0; index < this.recipe.steps.length; index += 1) {
       const step = this.recipe.steps[index];
@@ -285,7 +298,7 @@ export class RecipeRunner {
       const nextStep = this.recipe.steps[index + 1];
       if (nextStep) {
         const nextAgent = nextStep.agent || new Agent({ name: nextStep.name });
-        handoffStates.push(this.protocol.transfer({
+        const handoff = this.protocol.transfer({
           fromAgent: agent,
           toAgent: nextAgent,
           task: nextStep.task,
@@ -297,11 +310,30 @@ export class RecipeRunner {
             fromStep: step.name,
             toStep: nextStep.name,
           },
-        }));
+        });
+        handoffStates.push(handoff);
+        if (session) {
+          const envelope = this.runtime.makeEnvelope({
+            sessionId: session.sessionId,
+            channel: "recipe-handoffs",
+            source: agent.name,
+            target: nextAgent.name,
+            sequence: index,
+            payloadType: "handoff_state",
+            payload: handoff.toJSON(),
+            idempotencyKey: `${session.sessionId}:recipe:${index}`,
+          });
+          await session.send("recipe-handoffs", envelope);
+          const received = await session.receive("recipe-handoffs");
+          session.ack(received, { step: nextStep.name });
+          previousOutput = received.payload.summary ?? result.finalOutput;
+        }
       }
 
-      previousOutput = result.finalOutput;
+      if (!session || !nextStep) previousOutput = result.finalOutput;
     }
+
+    if (session) await session.close();
 
     return new RecipeRunResult({
       recipeName: this.recipe.name,
@@ -309,7 +341,7 @@ export class RecipeRunner {
       finalOutput: stepResults.at(-1)?.output ?? "",
       stepResults,
       handoffStates,
-      metadata: { step_count: this.recipe.steps.length },
+      metadata: { step_count: this.recipe.steps.length, runtime_mode: this.runtimeMode },
     });
   }
 }

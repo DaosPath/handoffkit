@@ -10,7 +10,7 @@ Move tasks, decisions, files, errors, evidence, and next steps between agents as
 validated data instead of fragile chat summaries.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/DaosPath/handoffkit/ci.yml?branch=main&label=CI&logo=github&logoColor=white&style=flat-square)](https://github.com/DaosPath/handoffkit/actions)
-[![Version](https://img.shields.io/badge/monorepo-1.15.0-38bdf8?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/monorepo-1.16.0-38bdf8?style=flat-square)](CHANGELOG.md)
 [![PyPI](https://img.shields.io/pypi/v/handoffkit.svg?logo=python&logoColor=white&style=flat-square)](https://pypi.org/project/handoffkit/)
 [![npm](https://img.shields.io/npm/v/@handoffkit/core.svg?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/@handoffkit/core)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-7c3aed?logo=cplusplus&logoColor=white&style=flat-square)](packages/cpp/README.md)
@@ -68,8 +68,8 @@ handoffkit report runs/latest
 ### JavaScript / TypeScript
 
 ```bash
-npm install @handoffkit/core
-npm install @handoffkit/node       # optional filesystem helpers
+pnpm add @handoffkit/core @handoffkit/csp
+pnpm add @handoffkit/node          # optional stdio and filesystem helpers
 ```
 
 ```javascript
@@ -118,10 +118,10 @@ defined maturity level.
 
 | Runtime | Status | Distribution | Main surface |
 |---|---|---|---|
-| **Python 3.10–3.14** | Production runtime | [PyPI `handoffkit`](https://pypi.org/project/handoffkit/) | Agents, teams, tools, providers, recipes, traces, replay, reports, benchmarks |
-| **JavaScript / TypeScript** | Production runtime | npm packages under `@handoffkit/*` | Browser-safe core, Node storage, providers, recipes, templates, CLI |
-| **C++20** | Native runtime ready for local and Conan use | CMake install, Conan recipe, vcpkg overlay; registry publication pending | Runtime core, providers, tools, reports, web explorer, training jobs, native Fusion |
-| **Rust** | Contract layer under construction | Source only; **not published to crates.io** | Serde contract types and cross-runtime fixture parity tests |
+| **Python 3.10–3.14** | Production runtime; HK-CSP session runtime experimental | [PyPI `handoffkit`](https://pypi.org/project/handoffkit/) | Agents, teams, tools, recipes, traces, asyncio channels, stdio |
+| **JavaScript / TypeScript** | Production runtime; HK-CSP session runtime experimental | npm packages under `@handoffkit/*` | Browser-safe core/CSP, Node stdio, providers, recipes, templates, CLI |
+| **C++20** | Native runtime ready for local and Conan use | CMake install, Conan recipe, vcpkg overlay; registry publication pending | Runtime core, CSP codecs, providers, tools, reports, training jobs, native Fusion |
+| **Rust** | HK-CSP contracts and protocol layer | Source workspace; crates.io publication prepared, not yet released | Lightweight serde contracts, protocol negotiation, fixture parity |
 
 Runtime documentation:
 [Python](packages/python/README.md) ·
@@ -131,11 +131,15 @@ Runtime documentation:
 
 ---
 
-## What ships in 1.15.0
+## What ships in 1.16.0
 
 | Area | Included |
 |---|---|
-| **Browser (1.15 focus)** | First-party search/fetch/explore/HTML→MD: `@handoffkit/browser`, `handoffkit.browser`, C++ `handoffkit::browser` |
+| **HK-CSP contracts** | Versioned envelopes, sessions, channels, ACK/NACK, retry, deadlines, cancellation, jobs, capabilities, progress, and artifact references |
+| **Python session runtime** | Async bounded FIFO channels, local processes, deduplication, backpressure, stdio, and additive Team/Recipe session mode |
+| **JavaScript session runtime** | Browser-safe `@handoffkit/csp`; Node process/stdio transports in `@handoffkit/node` |
+| **Native protocol foundations** | Rust `contracts`/`protocol` workspace and C++20 CSP codecs plus ML job adapters |
+| **Interop** | Offline Python ↔ JavaScript NDJSON stdio demo using the canonical `snake_case` wire format |
 | **Structured handoffs** | `HandoffState`, protocol modes, shared schemas, Markdown and JSON serialization |
 | **Agent runtimes** | Agent/team execution in Python, JavaScript, and C++ |
 | **Validation and quality** | Contract validators, tool schema checks, deterministic handoff quality scoring |
@@ -147,6 +151,36 @@ Runtime documentation:
 The canonical wire contracts and cross-runtime fixtures live in
 [`packages/contracts`](packages/contracts/README.md). Contract drift becomes a
 CI failure instead of a production surprise.
+
+### HandoffState vs HK-CSP
+
+`HandoffState` defines **what information moves**: task, decisions, files,
+errors, evidence, and next steps. HK-CSP defines **how it moves**: session,
+channel, ordering, backpressure, acknowledgement, retries, cancellation, and
+deadlines.
+
+```python
+from handoffkit import CspRuntime, RuntimeMode
+
+runtime = CspRuntime(mode=RuntimeMode.SESSION)
+session = runtime.create_session(session_id="release-review")
+```
+
+```bash
+handoffkit csp doctor
+handoffkit csp demo
+handoffkit csp inspect packages/contracts/fixtures/message_envelope.json
+```
+
+Defaults remain safe and explicit: bounded channels (`64`), blocking
+backpressure, at most three attempts, an 8 MiB frame limit, and no exactly-once
+claim. `RuntimeMode.CLASSIC` is unchanged. `RuntimeMode.DISTRIBUTED` fails
+clearly until the 1.18 distributed runtime exists.
+
+Specification: [HK-CSP](docs/spec/HK_CSP.md) ·
+[wire format](docs/spec/HK_CSP_WIRE.md) ·
+[security model](docs/spec/HK_CSP_SECURITY.md) ·
+[1.16–1.19 roadmap](docs/spec/HK_CSP_ROADMAP.md)
 
 ---
 
@@ -234,10 +268,10 @@ handoffkit/
 ├── packages/
 │   ├── contracts/        shared schemas and cross-runtime fixtures
 │   ├── python/           production Python runtime and CLI
-│   ├── js/               core, node, providers, recipes, templates, CLI
+│   ├── js/               core, CSP, node, providers, recipes, templates, CLI
 │   ├── cpp/              native C++20 runtime, CLI, tools, and Fusion
 │   ├── cpp-ml/           optional native training complement
-│   └── rust/             Rust contract layer and parity tests
+│   └── rust/             Rust contracts/protocol workspace and parity tests
 ├── apps/
 │   └── web/              Next.js Studio and documentation experience
 ├── docs/
@@ -265,6 +299,8 @@ pnpm js:test
 pnpm python:lint
 pnpm python:test
 cargo test --manifest-path packages/rust/Cargo.toml
+cargo fmt --manifest-path packages/rust/Cargo.toml --all --check
+cargo clippy --manifest-path packages/rust/Cargo.toml --workspace --all-targets -- -D warnings
 
 cmake -S packages/cpp -B packages/cpp/build -DCMAKE_BUILD_TYPE=Release
 cmake --build packages/cpp/build --config Release

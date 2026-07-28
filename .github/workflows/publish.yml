@@ -11,8 +11,9 @@ on:
         options:
           - testpypi
           - npm
+          - crates
       release_version:
-        description: Version to retry for npm, for example 1.15.0
+        description: Version to retry for npm or crates.io, for example 1.16.0
         required: false
         type: string
   push:
@@ -126,7 +127,7 @@ jobs:
 
   publish-pypi:
     name: Publish to PyPI
-    needs: [build, quality-gate-js, quality-gate-cpp]
+    needs: [build, quality-gate-js, quality-gate-rust, quality-gate-cpp]
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag'
     environment:
@@ -168,9 +169,28 @@ jobs:
       - name: Verify workspace, tests, types, web, and tarballs
         run: pnpm ci:js
 
+  quality-gate-rust:
+    name: Rust fmt + clippy + tests (release gate)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path packages/rust/Cargo.toml --all --check
+
+      - name: Run Clippy
+        run: cargo clippy --manifest-path packages/rust/Cargo.toml --workspace --all-targets -- -D warnings
+
+      - name: Run tests
+        run: cargo test --manifest-path packages/rust/Cargo.toml --workspace
+
   publish-npm:
     name: Publish npm / ${{ matrix.package }}
-    needs: [quality-gate, quality-gate-js, quality-gate-cpp]
+    needs: [quality-gate, quality-gate-js, quality-gate-rust, quality-gate-cpp]
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.target == 'npm')
     strategy:
@@ -180,6 +200,9 @@ jobs:
           - package: "@handoffkit/core"
             directory: packages/js/core
             archive: handoffkit-core
+          - package: "@handoffkit/csp"
+            directory: packages/js/csp
+            archive: handoffkit-csp
           - package: "@handoffkit/providers"
             directory: packages/js/providers
             archive: handoffkit-providers
@@ -264,6 +287,75 @@ jobs:
           "dist/npm/${{ matrix.archive }}-${{ steps.version.outputs.version }}.tgz"
           --access public
 
+  publish-crates:
+    name: Publish Rust crates with Trusted Publishing
+    needs: [quality-gate, quality-gate-js, quality-gate-rust, quality-gate-cpp]
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.target == 'crates')
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Resolve and validate release version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${{ inputs.release_version }}"
+          fi
+          if [[ -z "$VERSION" ]]; then
+            echo "release_version is required for a crates.io workflow_dispatch retry" >&2
+            exit 1
+          fi
+          WORKSPACE_VERSION=$(sed -n 's/^version = "\([^"]*\)"/\1/p' packages/rust/Cargo.toml | head -n 1)
+          if [[ "$WORKSPACE_VERSION" != "$VERSION" ]]; then
+            echo "Rust workspace is $WORKSPACE_VERSION, expected $VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to crates.io with OIDC
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish crates in dependency order
+        shell: bash
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          publish_and_wait() {
+            local crate="$1"
+            local manifest="$2"
+            if cargo info "${crate}@${VERSION}" >/dev/null 2>&1; then
+              echo "${crate}@${VERSION} already exists; skipping"
+              return
+            fi
+            cargo publish --locked --manifest-path "$manifest"
+            for _ in $(seq 1 30); do
+              if cargo info "${crate}@${VERSION}" >/dev/null 2>&1; then
+                return
+              fi
+              sleep 10
+            done
+            echo "${crate}@${VERSION} did not become visible in time" >&2
+            exit 1
+          }
+
+          publish_and_wait handoffkit-contracts packages/rust/crates/handoffkit-contracts/Cargo.toml
+          publish_and_wait handoffkit-protocol packages/rust/crates/handoffkit-protocol/Cargo.toml
+          publish_and_wait handoffkit packages/rust/handoffkit/Cargo.toml
+
   quality-gate-cpp:
     name: C++ cmake + ctest (release gate)
     runs-on: ubuntu-latest
@@ -280,9 +372,26 @@ jobs:
       - name: Test C++ package
         run: ctest --test-dir packages/cpp/build -C Release --output-on-failure
 
+      - name: Configure cpp-ml CSP adapters
+        run: >
+          cmake -S packages/cpp-ml -B packages/cpp-ml/build-csp
+          -DCMAKE_BUILD_TYPE=Release
+          -DHANDOFFKIT_ML_LINK_CORE=ON
+          -DHANDOFFKIT_ML_BUILD_TESTS=ON
+          -DHANDOFFKIT_ML_BUILD_CLI=OFF
+          -DHANDOFFKIT_BUILD_TESTS=OFF
+          -DHANDOFFKIT_BUILD_EXAMPLES=OFF
+          -DHANDOFFKIT_BUILD_CLI=OFF
+          -DHANDOFFKIT_BUILD_DEMOS=OFF
+
+      - name: Build and test cpp-ml CSP adapters
+        run: |
+          cmake --build packages/cpp-ml/build-csp --target test_ml_csp_jobs --config Release
+          ctest --test-dir packages/cpp-ml/build-csp -C Release -R test_ml_csp_jobs --output-on-failure
+
   build-cpp-release-asset:
     name: Build C++ source tarball
-    needs: [quality-gate, quality-gate-js, quality-gate-cpp]
+    needs: [quality-gate, quality-gate-js, quality-gate-rust, quality-gate-cpp]
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository

@@ -1,10 +1,10 @@
-//! 1.14.1 mini-demo: structured handoff wire (Rust contracts).
+//! 1.16.0 mini-demo: structured handoff wire (Rust contracts).
 //! Justifies the patch release alongside Python/JS demos and C++ handoffkit::core packaging.
 
 use handoffkit::HandoffState;
 
 fn main() {
-    println!("handoffkit Rust — core_runtime_safety_demo (1.14.1)");
+    println!("handoffkit Rust - core_runtime_safety_demo (1.16.0)");
     println!("theme: HandoffState markdown + JSON wire (contracts package)\n");
 
     let state = HandoffState {
@@ -14,7 +14,7 @@ fn main() {
         summary: "Python/JS demos + C++ handoffkit::core consumer smoke; no shell by default."
             .to_string(),
         decisions: vec![
-            "Ship patch 1.14.1 with C++ tarball path.".to_string(),
+            "Ship HK-CSP 1.16.0 contracts.".to_string(),
             "Keep wire snake_case parity.".to_string(),
         ],
         important_files: vec![
@@ -24,7 +24,7 @@ fn main() {
         ],
         errors: vec![],
         next_steps: vec![
-            "Tag v1.14.1 and publish C++ source tarball.".to_string(),
+            "Validate Rust contract and protocol crates.".to_string(),
             "Fill conandata.yml sha256 from SHA256SUMS.".to_string(),
         ],
         context_refs: vec!["packages/cpp/RELEASE.md".to_string()],

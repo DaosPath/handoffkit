@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/browser",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "description": "First-party web search, explore, scrape, and HTML→Markdown tools for HandoffKit agents.",
   "repository": {
     "type": "git",

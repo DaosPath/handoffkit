@@ -28,6 +28,7 @@ pip install handoffkit
 </table>
 
 <p>
+  <strong>1.16.0:</strong> HK-CSP sessions, bounded channels, ACK/NACK, retries, cancellation, stdio, and cross-runtime protocol contracts.<br>
   <strong>1.9.0:</strong> browser-safe `@handoffkit/core` plus Node-only `@handoffkit/node` filesystem helpers.<br>
   <strong>1.8.8:</strong> installed-package-safe contract parity reports.<br>
   <strong>1.7.0:</strong> shared Python + JavaScript contracts with canonical JSON fixtures.<br>
@@ -44,6 +45,7 @@ pip install handoffkit
 ## Contents
 
 - [Quickstart](#quickstart)
+- [HK-CSP Sessions](#hk-csp-sessions)
 - [Unified Cross-runtime Contracts](#unified-cross-runtime-contracts)
 - [Provider Registry and Model Routing](#provider-registry-and-model-routing)
 - [JavaScript Core](#javascript-core)
@@ -90,9 +92,35 @@ Tester
 
 That makes agent workflows easier to inspect, test, replay, and improve.
 
+## HK-CSP Sessions
+
+`HandoffState` defines **what information moves** between agents. HK-CSP
+defines **how, when, and between which processes it moves**.
+
+```python
+from handoffkit import CspRuntime, RuntimeMode
+
+runtime = CspRuntime(mode=RuntimeMode.SESSION)
+session = runtime.create_session(session_id="review-run")
+```
+
+Python 1.16 provides asyncio bounded FIFO channels, blocking backpressure,
+ACK/NACK, retry with stable message identity, in-memory deduplication,
+cancellation, deadlines, and NDJSON stdio. Existing `Agent`, `Team`, and
+`RecipeRunner` behavior remains classic unless session mode is requested.
+
+```bash
+handoffkit csp doctor
+handoffkit csp demo
+handoffkit csp inspect packages/contracts/fixtures/message_envelope.json
+```
+
+`RuntimeMode.DISTRIBUTED` is reserved and fails clearly until the distributed
+runtime lands. See the [HK-CSP specification](../../docs/spec/HK_CSP.md).
+
 ## Unified Cross-runtime Contracts
 
-HandoffKit 1.8.x makes the Python, JavaScript, Rust, and C++ runtimes speak the
+HandoffKit 1.16 makes the Python, JavaScript, Rust, and C++ layers speak the
 same wire format. The canonical JSON contracts live in
 [`packages/contracts`](https://github.com/DaosPath/handoffkit/tree/main/packages/contracts).
 
@@ -127,7 +155,7 @@ so contract drift becomes a CI failure instead of a surprise for users.
 ```python
 from handoffkit import build_contract_parity_report
 
-report = build_contract_parity_report(runtime="python", version="1.9.0")
+report = build_contract_parity_report(runtime="python", version="1.16.0")
 print(report.to_markdown())
 ```
 
@@ -142,8 +170,9 @@ handoffkit/
     contracts/       # Shared JSON schemas and cross-runtime fixtures
     js/
       core/          # JavaScript/TypeScript package: @handoffkit/core
+      csp/           # Browser-safe HK-CSP package: @handoffkit/csp
       node/          # Node.js filesystem package: @handoffkit/node
-    rust/            # Rust contract package
+    rust/            # Rust contracts/protocol workspace
     cpp/             # C++17 contract package
     python/
       handoffkit/      # Python package published to PyPI

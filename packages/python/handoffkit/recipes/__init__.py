@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -9,6 +10,7 @@ from typing import Any
 
 from handoffkit.agent import Agent
 from handoffkit.context import ContextPack
+from handoffkit.csp import CspRuntime, RuntimeMode, make_envelope
 from handoffkit.handoff import HandoffState
 from handoffkit.memory import MemoryItem, MemoryStore
 from handoffkit.protocol import HandoffProtocol
@@ -195,9 +197,18 @@ class RecipeRunResult:
 class RecipeRunner:
     """Run a Recipe deterministically step by step."""
 
-    def __init__(self, recipe: Recipe, *, protocol: HandoffProtocol | None = None) -> None:
+    def __init__(
+        self,
+        recipe: Recipe,
+        *,
+        protocol: HandoffProtocol | None = None,
+        runtime_mode: RuntimeMode | str = RuntimeMode.CLASSIC,
+        runtime: CspRuntime | None = None,
+    ) -> None:
         self.recipe = recipe.validate()
         self.protocol = protocol or HandoffProtocol(mode="hybrid_state")
+        self.runtime_mode = RuntimeMode(runtime_mode)
+        self.runtime = runtime
 
     def run(
         self,
@@ -207,6 +218,15 @@ class RecipeRunner:
         tools: Sequence[Tool | Callable[..., Any]] | None = None,
     ) -> RecipeRunResult:
         """Run the recipe and return a structured report."""
+        if self.runtime_mode is not RuntimeMode.CLASSIC:
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                return asyncio.run(self.arun(initial_task, memory, context, tools))
+            raise RuntimeError(
+                "RecipeRunner.run() in CSP mode cannot run inside an event loop; use arun()."
+            )
+
         step_results: list[dict[str, Any]] = []
         handoff_states: list[HandoffState] = []
         context_used: list[ContextPack] = []
@@ -332,6 +352,11 @@ class RecipeRunner:
         previous_output = ""
         previous_state: HandoffState | None = None
         success = True
+        session = None
+        if self.runtime_mode is not RuntimeMode.CLASSIC:
+            runtime = self.runtime or CspRuntime(mode=self.runtime_mode)
+            session = runtime.create_session()
+            session.channel("recipe-handoffs")
 
         for index, step in enumerate(self.recipe.steps):
             agent = step.agent or Agent(step.name, f"Execute recipe step {step.name}.")
@@ -417,10 +442,28 @@ class RecipeRunner:
                     },
                 )
                 handoff_states.append(state)
-                previous_state = state
+                if session is None:
+                    previous_state = state
+                else:
+                    envelope = make_envelope(
+                        session_id=session.session_id,
+                        channel="recipe-handoffs",
+                        source=agent.name,
+                        target=next_agent.name,
+                        sequence=index,
+                        payload_type="handoff_state",
+                        payload=state.to_dict(),
+                        idempotency_key=f"{session.session_id}:recipe:{index}",
+                    )
+                    await session.send("recipe-handoffs", envelope)
+                    received = await session.receive("recipe-handoffs")
+                    session.ack(received, metadata={"step": next_step.name})
+                    previous_state = HandoffState.from_dict(received.payload)
             previous_output = output
 
         final_output = step_results[-1]["output"] if step_results else ""
+        if session is not None:
+            await session.close()
         return RecipeRunResult(
             recipe_name=self.recipe.name,
             success=success,
@@ -430,7 +473,11 @@ class RecipeRunner:
             context_used=context_used,
             memories_used=memories_used,
             tool_results=tool_results,
-            metadata={"step_count": len(self.recipe.steps), "async": True},
+            metadata={
+                "step_count": len(self.recipe.steps),
+                "async": True,
+                "runtime_mode": self.runtime_mode.value,
+            },
         )
 
     def _build_step_task(

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/job-progress.schema.json",
+  "title": "JobProgress",
+  "type": "object",
+  "required": ["job_id", "phase", "status", "step", "total_steps", "progress", "metrics", "message", "timestamp", "artifacts"],
+  "properties": {
+    "job_id": { "type": "string", "minLength": 1 },
+    "phase": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["queued", "running", "paused", "completed", "failed", "cancelled"] },
+    "step": { "type": "integer", "minimum": 0 },
+    "total_steps": { "type": "integer", "minimum": 0 },
+    "progress": { "type": "number", "minimum": 0, "maximum": 1 },
+    "loss": { "type": ["number", "null"] },
+    "metrics": { "type": "object" },
+    "message": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "artifact-ref.schema.json" }
+    }
+  },
+  "additionalProperties": true
+}

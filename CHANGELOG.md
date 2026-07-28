@@ -9,6 +9,40 @@ release summary.
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-07-27
+
+### Added
+
+- Published the HK-CSP 1.0 specification, security model, canonical JSON
+  schemas, and deterministic fixtures for sessions, channels, envelopes,
+  delivery results, process errors, worker capabilities, jobs, progress, and
+  artifact references.
+- Added Python asyncio CSP sessions with bounded FIFO channels, blocking
+  backpressure, ACK/NACK, retries, in-memory deduplication, deadlines,
+  cancellation, in-process execution, and NDJSON stdio transport.
+- Added browser-safe `@handoffkit/csp` and Node stdio/subprocess transports.
+- Added additive CSP session execution for Python and JavaScript Team/Recipe
+  runtimes while preserving classic defaults.
+- Converted the Rust package into lightweight `handoffkit-contracts`,
+  `handoffkit-protocol`, and `handoffkit` workspace crates.
+- Added C++20 HK-CSP codecs and cpp-ml adapters for training/evaluation jobs,
+  progress, capabilities, and artifacts without changing training math.
+- Added offline Python-to-JavaScript stdio interoperability coverage and CLI
+  commands `handoffkit csp doctor`, `demo`, and `inspect`.
+
+### Changed
+
+- Aligned Python, JavaScript, Rust, and C++ metadata to 1.16.0.
+- Extended CI/release gates with Rust fmt/clippy/tests, cpp-ml CSP adapters,
+  cross-runtime stdio testing, `@handoffkit/csp`, and prepared crates.io OIDC
+  publishing.
+
+### Compatibility
+
+- Existing classic Agent, Team, RecipeRunner, and HandoffState behavior remains
+  unchanged by default. Distributed mode remains unavailable until 1.18 and
+  fails with an explicit error.
+
 ## [1.15.0] - 2026-07-26
 
 ### Added

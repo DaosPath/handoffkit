@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 
 from handoffkit._cli.browse import add_browse_parser, run_browse_command
+from handoffkit._cli.csp import csp_demo, csp_doctor, csp_inspect
 from handoffkit._cli.demos import (
     evaluate_report,
     list_provider_models,
@@ -86,6 +87,19 @@ def main(argv: list[str] | None = None) -> int:
         help="Run creation→generation→edition media context handoff demo.",
     )
     add_browse_parser(subparsers)
+
+    csp_parser = subparsers.add_parser(
+        "csp",
+        help="Inspect and run the experimental HK-CSP coordination layer.",
+    )
+    csp_subparsers = csp_parser.add_subparsers(dest="csp_command")
+    csp_subparsers.add_parser("doctor", help="Show local HK-CSP capabilities.")
+    csp_subparsers.add_parser("demo", help="Run an offline in-process CSP demo.")
+    csp_inspect_parser = csp_subparsers.add_parser(
+        "inspect",
+        help="Validate and normalize an envelope JSON file.",
+    )
+    csp_inspect_parser.add_argument("path", help="Path to a MessageEnvelope JSON file.")
 
     media_parser = subparsers.add_parser("media", help="Inspect and plan media workflows.")
     media_subparsers = media_parser.add_subparsers(dest="media_command")
@@ -312,6 +326,17 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "browse":
         return run_browse_command(args)
+    if args.command == "csp":
+        if args.csp_command == "doctor":
+            print(csp_doctor())
+            return 0
+        if args.csp_command == "demo":
+            print(csp_demo())
+            return 0
+        if args.csp_command == "inspect":
+            print(csp_inspect(args.path))
+            return 0
+        parser.error("csp requires a subcommand")
     if args.command == "media":
         if args.media_command == "inspect":
             print(inspect_media_transcript(args.path))

@@ -1,8 +1,8 @@
 # Release Process
 
-HandoffKit releases use GitHub Actions CI and Trusted Publishing for both PyPI
-and the public npm packages. Production publishing is triggered by pushing a
-version tag such as `v1.15.0`.
+HandoffKit releases use GitHub Actions CI and Trusted Publishing for PyPI, npm,
+and crates.io. Production publishing is triggered by pushing a version tag such
+as `v1.16.0`.
 
 ## Trusted Publisher Setup
 
@@ -13,10 +13,14 @@ Configure the package indexes before publishing with the workflow:
 | TestPyPI | `DaosPath` | `handoffkit` | `publish.yml` | `handoffkit` |
 | PyPI | `DaosPath` | `handoffkit` | `publish.yml` | `pypi` |
 | npm `@handoffkit/*` | `DaosPath` | `handoffkit` | `publish.yml` | none |
+| crates.io HandoffKit crates | `DaosPath` | `handoffkit` | `publish.yml` | none |
 
 Do not store PyPI or npm publish tokens in files or GitHub Secrets. The workflow
 uses GitHub OIDC through `pypa/gh-action-pypi-publish` for Python and an
 OIDC-capable npm CLI for the public JavaScript packages (including `@handoffkit/browser`).
+Rust publishing uses `rust-lang/crates-io-auth-action` and an ephemeral OIDC
+token. Configure a Trusted Publisher independently for `handoffkit-contracts`,
+`handoffkit-protocol`, and `handoffkit` before the first Rust publication.
 
 The npm job first creates the package archives with `pnpm pack`, preserving the
 workspace dependency rewrites, and then publishes those `.tgz` files with
@@ -27,6 +31,7 @@ npm Trusted Publishing is configured **per package**, not once for the entire
 npmjs.com:
 
 - `@handoffkit/core`
+- `@handoffkit/csp`
 - `@handoffkit/providers`
 - `@handoffkit/templates`
 - `@handoffkit/browser`
@@ -41,13 +46,17 @@ Publisher for `@handoffkit/core` does not authorize the other packages.
 
 ## Patch Release Checklist
 
-1. Update aligned version metadata for Python, JavaScript, and C++.
+1. Update aligned version metadata for Python, JavaScript, Rust, and C++.
 2. Move the root `Unreleased` notes under the new version and update the Python
    package changelog and README release summary.
 3. Run local validation:
 
 ```powershell
 pnpm ci:js
+
+cargo fmt --manifest-path packages/rust/Cargo.toml --all --check
+cargo clippy --manifest-path packages/rust/Cargo.toml --workspace --all-targets -- -D warnings
+cargo test --manifest-path packages/rust/Cargo.toml --workspace
 
 cd packages/python
 ruff check --no-cache .
@@ -73,11 +82,14 @@ git push origin vX.Y.Z
 
 7. The tag push automatically triggers:
    - PyPI Trusted Publishing for `handoffkit`.
-   - npm Trusted Publishing for all seven `@handoffkit/*` packages (including browser).
+   - npm Trusted Publishing for all eight `@handoffkit/*` packages, including
+     `@handoffkit/csp` and `@handoffkit/browser`.
+   - crates.io Trusted Publishing for the Rust contracts, protocol, and
+     convenience crates in dependency order.
    - C++ source tarball construction, GitHub Release creation, asset upload, and
      OIDC provenance attestation.
-8. Verify the published Python and npm versions and inspect the C++ release
-   assets and checksums.
+8. Verify the published Python, npm, and Rust versions and inspect the C++
+   release assets and checksums.
 9. For a partial npm release, correct the affected package's Trusted Publisher,
    then run `Publish` manually with target `npm` and the existing
    `release_version`. The workflow skips package versions that are already

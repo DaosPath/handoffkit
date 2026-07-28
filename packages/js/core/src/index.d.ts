@@ -1,6 +1,6 @@
 export type Severity = "error" | "warning";
 
-export const HANDOFFKIT_CORE_VERSION: "1.15.0";
+export const HANDOFFKIT_CORE_VERSION: "1.16.0";
 
 export function toJSONValue(value: unknown): unknown;
 export function toJSONString(value: unknown, space?: number): string;
@@ -234,7 +234,15 @@ export class Team {
   agents: Agent[];
   protocol: HandoffProtocol;
   metadata: Record<string, unknown>;
-  constructor(init: { agents: Agent[]; protocol?: HandoffProtocol; metadata?: Record<string, unknown> });
+  runtimeMode: string;
+  runtime: unknown;
+  constructor(init: {
+    agents: Agent[];
+    protocol?: HandoffProtocol;
+    metadata?: Record<string, unknown>;
+    runtimeMode?: "classic" | "session" | "distributed";
+    runtime?: unknown;
+  });
   run(task: string): TeamRunResult;
   arun(task: string): Promise<TeamRunResult>;
 }

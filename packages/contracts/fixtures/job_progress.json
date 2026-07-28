@@ -1,0 +1,15 @@
+{
+  "job_id": "train-001",
+  "phase": "training",
+  "status": "running",
+  "step": 20,
+  "total_steps": 100,
+  "progress": 0.2,
+  "loss": 1.25,
+  "metrics": {
+    "learning_rate": 0.0002
+  },
+  "message": "Training step 20 of 100.",
+  "timestamp": "2026-01-01T00:01:00Z",
+  "artifacts": []
+}
