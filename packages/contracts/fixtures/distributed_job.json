@@ -1,0 +1,9 @@
+{
+  "job_id": "job-1",
+  "operation": "evaluate",
+  "payload": { "input": "artifact://dataset-1" },
+  "requested_capabilities": ["evaluate"],
+  "idempotency_key": "evaluate-dataset-1",
+  "deadline": null,
+  "metadata": {}
+}

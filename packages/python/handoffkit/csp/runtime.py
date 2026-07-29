@@ -13,10 +13,8 @@ from uuid import uuid4
 
 from handoffkit.csp.channel import CspChannel
 from handoffkit.csp.channel import select as select_channel
-from handoffkit.csp.errors import (
-    DeadlineExceededError,
-    DistributedRuntimeUnavailableError,
-)
+from handoffkit.csp.dedup import DedupStore
+from handoffkit.csp.errors import DeadlineExceededError
 from handoffkit.csp.models import (
     ChannelConfig,
     DeliveryAck,
@@ -27,6 +25,21 @@ from handoffkit.csp.models import (
 )
 
 ProcessHandler = Callable[["ProcessContext"], Awaitable[Any] | Any]
+
+
+@dataclass(frozen=True)
+class SessionDiagnostics:
+    """Bounded runtime counters for tests, diagnostics, and operators."""
+
+    session_id: str
+    channel_count: int
+    queued_messages: int
+    process_count: int
+    pending_ack_count: int
+    pending_envelope_count: int
+    dedup_count: int
+    cancelled: bool
+    closed: bool
 
 
 @dataclass
@@ -91,12 +104,14 @@ class ProcessContext:
 class CspSession:
     """Own channels, processes, acknowledgements, and cancellation state."""
 
-    def __init__(self, config: SessionConfig) -> None:
-        if config.runtime_mode is RuntimeMode.DISTRIBUTED:
-            raise DistributedRuntimeUnavailableError(
-                "RuntimeMode.DISTRIBUTED requires the HandoffKit distributed runtime."
-            )
+    def __init__(
+        self,
+        config: SessionConfig,
+        *,
+        dedup_store: DedupStore | None = None,
+    ) -> None:
         self.config = config
+        self._dedup_store = dedup_store
         self._channels: dict[str, CspChannel] = {}
         self._processes: dict[str, ProcessHandle] = {}
         self._pending_acks: dict[str, asyncio.Future[DeliveryAck | DeliveryNack]] = {}
@@ -117,6 +132,31 @@ class CspSession:
     @property
     def closed(self) -> bool:
         return self._closed
+
+    def diagnostics(self) -> SessionDiagnostics:
+        """Return a point-in-time view without exposing mutable internals."""
+        return SessionDiagnostics(
+            session_id=self.session_id,
+            channel_count=len(self._channels),
+            queued_messages=sum(channel.qsize() for channel in self._channels.values()),
+            process_count=sum(not handle.done for handle in self._processes.values()),
+            pending_ack_count=len(self._pending_acks),
+            pending_envelope_count=len(self._pending_envelopes),
+            dedup_count=len(self._dedup),
+            cancelled=self.cancelled,
+            closed=self.closed,
+        )
+
+    def _remember_key(self, key: str) -> bool:
+        if key in self._dedup:
+            return False
+        if self._dedup_store is not None and not self._dedup_store.claim(key):
+            return False
+        self._dedup[key] = None
+        self._dedup.move_to_end(key)
+        while len(self._dedup) > self.config.dedup_capacity:
+            self._dedup.popitem(last=False)
+        return True
 
     def channel(
         self,
@@ -182,16 +222,29 @@ class CspSession:
             raise ValueError("Envelope session_id does not match this session.")
         if self.cancelled:
             raise RuntimeError("Cannot send through a cancelled CSP session.")
-        if envelope.deadline is None and self.config.deadline:
-            envelope = replace(envelope, deadline=self.config.deadline)
+        remaining = self._remaining_deadline()
+        if remaining is not None and remaining <= 0:
+            self.cancel()
+            raise DeadlineExceededError(f"Session {self.session_id!r} deadline elapsed.")
+        if self.config.deadline:
+            session_deadline = datetime.fromisoformat(
+                self.config.deadline.replace("Z", "+00:00")
+            )
+            envelope_deadline = (
+                datetime.fromisoformat(envelope.deadline.replace("Z", "+00:00"))
+                if envelope.deadline
+                else None
+            )
+            if envelope_deadline is None or session_deadline < envelope_deadline:
+                envelope = replace(envelope, deadline=self.config.deadline)
         await self._with_deadline(self.channel(channel).send(envelope))
 
     async def receive(self, channel: str) -> MessageEnvelope:
         """Receive one non-duplicate message and track it until ACK/NACK."""
         while True:
             envelope = await self._with_deadline(self.channel(channel).receive())
-            key = envelope.idempotency_key
-            if key and key in self._dedup:
+            key = envelope.idempotency_key or envelope.message_id
+            if not self._remember_key(key):
                 self.ack(envelope, metadata={"duplicate": True})
                 continue
             self._pending_envelopes[envelope.message_id] = envelope
@@ -203,8 +256,8 @@ class CspSession:
             selected, envelope = await self._with_deadline(
                 select_channel(self.channel(name) for name in resolved)
             )
-            key = envelope.idempotency_key
-            if key and key in self._dedup:
+            key = envelope.idempotency_key or envelope.message_id
+            if not self._remember_key(key):
                 self.ack(envelope, metadata={"duplicate": True})
                 continue
             self._pending_envelopes[envelope.message_id] = envelope
@@ -235,9 +288,10 @@ class CspSession:
         """Acknowledge processing and remember its idempotency key."""
         ack = DeliveryAck(envelope.message_id, metadata=dict(metadata or {}))
         self._pending_envelopes.pop(envelope.message_id, None)
-        if envelope.idempotency_key:
-            self._dedup[envelope.idempotency_key] = None
-            self._dedup.move_to_end(envelope.idempotency_key)
+        key = envelope.idempotency_key or envelope.message_id
+        if key:
+            self._dedup[key] = None
+            self._dedup.move_to_end(key)
             while len(self._dedup) > self.config.dedup_capacity:
                 self._dedup.popitem(last=False)
         future = self._pending_acks.get(envelope.message_id)
@@ -263,6 +317,11 @@ class CspSession:
             metadata=dict(metadata or {}),
         )
         self._pending_envelopes.pop(envelope.message_id, None)
+        key = envelope.idempotency_key or envelope.message_id
+        if retryable and key:
+            self._dedup.pop(key, None)
+            if self._dedup_store is not None:
+                self._dedup_store.release(key)
         future = self._pending_acks.get(envelope.message_id)
         if future is not None and not future.done():
             future.set_result(nack)
@@ -343,24 +402,27 @@ class CspSession:
 class CspRuntime:
     """Factory for local HK-CSP sessions."""
 
-    def __init__(self, *, mode: RuntimeMode = RuntimeMode.SESSION) -> None:
+    def __init__(
+        self,
+        *,
+        mode: RuntimeMode = RuntimeMode.SESSION,
+        dedup_store: DedupStore | None = None,
+    ) -> None:
         self.mode = mode
+        self.dedup_store = dedup_store
 
     def create_session(
         self,
         *,
         session_id: str | None = None,
         config: SessionConfig | None = None,
+        dedup_store: DedupStore | None = None,
     ) -> CspSession:
-        if self.mode is RuntimeMode.DISTRIBUTED:
-            raise DistributedRuntimeUnavailableError(
-                "RuntimeMode.DISTRIBUTED becomes available with the distributed backend."
-            )
         resolved = config or SessionConfig(
             session_id=session_id or f"session-{uuid4().hex}",
             runtime_mode=self.mode,
         )
-        return CspSession(resolved)
+        return CspSession(resolved, dedup_store=dedup_store or self.dedup_store)
 
 
 def make_envelope(

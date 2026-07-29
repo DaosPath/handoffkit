@@ -58,6 +58,10 @@ apps/*/.data/
 packages/*/node_modules/
 packages/*/dist/
 packages/*/target/
+packages/rust/fuzz/artifacts/
+packages/rust/fuzz/corpus/
+packages/rust/fuzz/target/
+packages/rust/fuzz/crashes/
 
 # Local agent terminal logs
 terminals/

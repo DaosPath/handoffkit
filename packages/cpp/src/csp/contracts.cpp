@@ -1,5 +1,9 @@
 #include <handoffkit/csp/contracts.hpp>
 
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <regex>
 #include <stdexcept>
 
 namespace handoffkit::csp {
@@ -56,6 +60,88 @@ nlohmann::json artifacts_to_json(const std::vector<ArtifactRef>& artifacts) {
     return value;
 }
 
+bool blank(std::string_view value) {
+    return std::all_of(value.begin(), value.end(), [](unsigned char character) {
+        return std::isspace(character) != 0;
+    });
+}
+
+void require_text(std::string_view field, std::string_view value) {
+    if (value.empty() || blank(value)) {
+        throw std::invalid_argument(std::string(field) + " must not be empty");
+    }
+}
+
+std::int64_t days_from_civil(int year, unsigned month, unsigned day) {
+    year -= month <= 2;
+    const auto era = (year >= 0 ? year : year - 399) / 400;
+    const auto year_of_era = static_cast<unsigned>(year - era * 400);
+    const auto day_of_year =
+        (153U * (month > 2 ? month - 3 : month + 9) + 2U) / 5U + day - 1U;
+    const auto day_of_era =
+        year_of_era * 365U + year_of_era / 4U - year_of_era / 100U + day_of_year;
+    return static_cast<std::int64_t>(era) * 146097 + static_cast<std::int64_t>(day_of_era) -
+           719468;
+}
+
+std::int64_t parse_timestamp(std::string_view field, std::string_view value) {
+    static const std::regex pattern(
+        R"(^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]+))?(Z|([+-])([0-9]{2}):([0-9]{2}))$)"
+    );
+    std::smatch match;
+    const std::string timestamp(value);
+    if (!std::regex_match(timestamp, match, pattern)) {
+        throw std::invalid_argument(std::string(field) + " must be an RFC 3339 timestamp");
+    }
+
+    const int year = std::stoi(match[1].str());
+    const unsigned month = static_cast<unsigned>(std::stoul(match[2].str()));
+    const unsigned day = static_cast<unsigned>(std::stoul(match[3].str()));
+    const unsigned hour = static_cast<unsigned>(std::stoul(match[4].str()));
+    const unsigned minute = static_cast<unsigned>(std::stoul(match[5].str()));
+    const unsigned second = static_cast<unsigned>(std::stoul(match[6].str()));
+    static constexpr unsigned days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    const bool leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    const unsigned maximum_day = month == 2 && leap
+                                     ? 29U
+                                     : (month >= 1 && month <= 12 ? days_in_month[month - 1] : 0U);
+    if (day == 0 || day > maximum_day || hour > 23 || minute > 59 || second > 59) {
+        throw std::invalid_argument(std::string(field) + " must be an RFC 3339 timestamp");
+    }
+
+    std::string fraction = match[7].str();
+    fraction.resize(9, '0');
+    if (fraction.size() > 9) fraction.resize(9);
+    const std::int64_t nanoseconds = fraction.empty() ? 0 : std::stoll(fraction);
+
+    std::int64_t offset_seconds = 0;
+    if (match[8].str() != "Z") {
+        const auto offset_hour = std::stoll(match[10].str());
+        const auto offset_minute = std::stoll(match[11].str());
+        if (offset_hour > 23 || offset_minute > 59) {
+            throw std::invalid_argument(std::string(field) + " must be an RFC 3339 timestamp");
+        }
+        offset_seconds = (offset_hour * 60 + offset_minute) * 60;
+        if (match[9].str() == "-") offset_seconds = -offset_seconds;
+    }
+
+    const auto epoch_seconds =
+        days_from_civil(year, month, day) * 86400 + static_cast<std::int64_t>(hour) * 3600 +
+        static_cast<std::int64_t>(minute) * 60 + second - offset_seconds;
+    return epoch_seconds * 1000000000 + nanoseconds;
+}
+
+void validate_timestamp(std::string_view field, std::string_view value) {
+    static_cast<void>(parse_timestamp(field, value));
+}
+
+std::size_t json_depth(const nlohmann::json& value) {
+    if (!value.is_array() && !value.is_object()) return 1;
+    std::size_t depth = 1;
+    for (const auto& item : value) depth = std::max(depth, 1 + json_depth(item));
+    return depth;
+}
+
 }  // namespace
 
 std::string negotiate_version(std::string_view remote) {
@@ -67,12 +153,49 @@ std::string negotiate_version(std::string_view remote) {
     return std::string(protocol_version);
 }
 
+std::string validation_error_code(std::string_view message) {
+    const std::string value(message);
+    if (value.find("protocol version") != std::string::npos) return "unsupported_version";
+    if (value.find("RFC 3339") != std::string::npos) return "invalid_timestamp";
+    if (value.find("deadline must not") != std::string::npos) return "invalid_deadline";
+    if (value.find("must not be empty") != std::string::npos) return "empty_field";
+    if (value.find("at least") != std::string::npos) return "below_minimum";
+    if (value.find("must not exceed") != std::string::npos) return "above_maximum";
+    if (value.find("nesting depth") != std::string::npos) return "nesting_too_deep";
+    if (value.find("message exceeds") != std::string::npos) return "message_too_large";
+    if (value.find("sha256") != std::string::npos) return "invalid_sha256";
+    if (value.find("between 0 and 1") != std::string::npos) return "invalid_progress";
+    return "invalid_contract";
+}
+
+void RetryPolicy::validate() const {
+    if (max_attempts == 0) throw std::invalid_argument("max_attempts must be at least 1");
+    if (max_attempts > 100) throw std::invalid_argument("max_attempts must not exceed 100");
+    if (base_delay_ms > max_delay_ms) throw std::invalid_argument("retry delays are invalid");
+}
+
 nlohmann::json RetryPolicy::to_json() const {
     return {{"max_attempts", max_attempts}, {"base_delay_ms", base_delay_ms}, {"max_delay_ms", max_delay_ms}};
 }
 
 RetryPolicy RetryPolicy::from_json(const nlohmann::json& value) {
-    return {value.value("max_attempts", 3U), value.value("base_delay_ms", 100ULL), value.value("max_delay_ms", 2000ULL)};
+    RetryPolicy result{value.value("max_attempts", 3U), value.value("base_delay_ms", 100ULL), value.value("max_delay_ms", 2000ULL)};
+    result.validate();
+    return result;
+}
+
+void SessionConfig::validate() const {
+    require_text("session_id", session_id);
+    if (channel_capacity == 0) throw std::invalid_argument("channel_capacity must be at least 1");
+    if (max_message_bytes < 1024) throw std::invalid_argument("max_message_bytes must be at least 1024");
+    if (max_message_bytes > default_max_message_bytes) {
+        throw std::invalid_argument("max_message_bytes must not exceed 8388608");
+    }
+    if (ack_timeout_ms == 0 || dedup_capacity == 0) {
+        throw std::invalid_argument("ack_timeout_ms and dedup_capacity must be at least 1");
+    }
+    retry_policy.validate();
+    if (deadline) validate_timestamp("deadline", *deadline);
 }
 
 nlohmann::json SessionConfig::to_json() const {
@@ -100,7 +223,13 @@ SessionConfig SessionConfig::from_json(const nlohmann::json& value) {
     config.retry_policy = RetryPolicy::from_json(value.value("retry_policy", nlohmann::json::object()));
     config.deadline = optional_string(value, "deadline");
     config.metadata = object_or_empty(value.value("metadata", nlohmann::json::object()));
+    config.validate();
     return config;
+}
+
+void ChannelConfig::validate() const {
+    require_text("name", name);
+    if (capacity == 0) throw std::invalid_argument("capacity must be at least 1");
 }
 
 nlohmann::json ChannelConfig::to_json() const {
@@ -120,15 +249,30 @@ ChannelConfig ChannelConfig::from_json(const nlohmann::json& value) {
     config.overflow_policy = overflow_from_name(value.value("overflow_policy", "block"));
     config.requires_ack = value.value("requires_ack", false);
     config.metadata = object_or_empty(value.value("metadata", nlohmann::json::object()));
+    config.validate();
     return config;
 }
 
 void MessageEnvelope::validate() const {
     negotiate_version(protocol_version_value);
-    for (const auto* value : {&message_id, &session_id, &channel, &kind, &source, &payload_type}) {
-        if (value->empty()) throw std::invalid_argument("HK-CSP envelope contains an empty required field");
-    }
+    require_text("message_id", message_id);
+    require_text("session_id", session_id);
+    require_text("channel", channel);
+    require_text("kind", kind);
+    require_text("source", source);
+    require_text("payload_type", payload_type);
     if (attempt == 0) throw std::invalid_argument("HK-CSP attempt must be at least 1");
+    validate_timestamp("created_at", created_at);
+    if (deadline) validate_timestamp("deadline", *deadline);
+    for (const auto* value : {&target, &correlation_id, &causation_id, &idempotency_key}) {
+        if (*value && blank(**value)) throw std::invalid_argument("optional field must not be empty");
+    }
+    if (json_depth(payload) > 64 || json_depth(metadata) > 64) {
+        throw std::invalid_argument("JSON nesting depth must not exceed 64");
+    }
+    if (encoded_size() > default_max_message_bytes) {
+        throw std::invalid_argument("message exceeds 8388608 bytes");
+    }
 }
 
 std::size_t MessageEnvelope::encoded_size() const { return to_json().dump().size(); }
@@ -179,28 +323,59 @@ nlohmann::json DeliveryAck::to_json() const {
     return {{"message_id", message_id}, {"processed_at", processed_at}, {"metadata", object_or_empty(metadata)}};
 }
 
+void DeliveryAck::validate() const {
+    require_text("message_id", message_id);
+    validate_timestamp("processed_at", processed_at);
+}
+
 DeliveryAck DeliveryAck::from_json(const nlohmann::json& value) {
-    return {value.at("message_id").get<std::string>(), value.at("processed_at").get<std::string>(), object_or_empty(value.value("metadata", nlohmann::json::object()))};
+    DeliveryAck result{value.at("message_id").get<std::string>(), value.at("processed_at").get<std::string>(), object_or_empty(value.value("metadata", nlohmann::json::object()))};
+    result.validate();
+    return result;
 }
 
 nlohmann::json DeliveryNack::to_json() const {
     return {{"message_id", message_id}, {"code", code}, {"message", message}, {"retryable", retryable}, {"processed_at", processed_at}, {"metadata", object_or_empty(metadata)}};
 }
 
+void DeliveryNack::validate() const {
+    require_text("message_id", message_id);
+    require_text("code", code);
+    validate_timestamp("processed_at", processed_at);
+}
+
 DeliveryNack DeliveryNack::from_json(const nlohmann::json& value) {
-    return {value.at("message_id").get<std::string>(), value.at("code").get<std::string>(), value.at("message").get<std::string>(), value.value("retryable", false), value.at("processed_at").get<std::string>(), object_or_empty(value.value("metadata", nlohmann::json::object()))};
+    DeliveryNack result{value.at("message_id").get<std::string>(), value.at("code").get<std::string>(), value.at("message").get<std::string>(), value.value("retryable", false), value.at("processed_at").get<std::string>(), object_or_empty(value.value("metadata", nlohmann::json::object()))};
+    result.validate();
+    return result;
 }
 
 nlohmann::json ProcessError::to_json() const {
     return {{"code", code}, {"message", message}, {"process_id", process_id}, {"retryable", retryable}, {"details", object_or_empty(details)}, {"timestamp", timestamp}};
 }
 
+void ProcessError::validate() const {
+    require_text("code", code);
+    require_text("process_id", process_id);
+    validate_timestamp("timestamp", timestamp);
+}
+
 ProcessError ProcessError::from_json(const nlohmann::json& value) {
-    return {value.at("code").get<std::string>(), value.at("message").get<std::string>(), value.at("process_id").get<std::string>(), value.value("retryable", false), object_or_empty(value.value("details", nlohmann::json::object())), value.at("timestamp").get<std::string>()};
+    ProcessError result{value.at("code").get<std::string>(), value.at("message").get<std::string>(), value.at("process_id").get<std::string>(), value.value("retryable", false), object_or_empty(value.value("details", nlohmann::json::object())), value.at("timestamp").get<std::string>()};
+    result.validate();
+    return result;
 }
 
 nlohmann::json WorkerCapabilities::to_json() const {
     return {{"worker_id", worker_id}, {"runtime", runtime}, {"os", os}, {"architecture", architecture}, {"cpu_cores", cpu_cores}, {"memory_bytes", memory_bytes}, {"cuda", cuda}, {"cuda_devices", cuda_devices}, {"profiles", profiles}, {"operations", operations}, {"metadata", object_or_empty(metadata)}};
+}
+
+void WorkerCapabilities::validate() const {
+    require_text("worker_id", worker_id);
+    require_text("runtime", runtime);
+    require_text("os", os);
+    require_text("architecture", architecture);
+    if (cpu_cores == 0) throw std::invalid_argument("cpu_cores must be at least 1");
 }
 
 WorkerCapabilities WorkerCapabilities::from_json(const nlohmann::json& value) {
@@ -216,7 +391,68 @@ WorkerCapabilities WorkerCapabilities::from_json(const nlohmann::json& value) {
     result.profiles = value.value("profiles", std::vector<std::string>{});
     result.operations = value.value("operations", std::vector<std::string>{});
     result.metadata = object_or_empty(value.value("metadata", nlohmann::json::object()));
+    result.validate();
     return result;
+}
+
+nlohmann::json WorkerHeartbeat::to_json() const {
+    return {{"worker_id", worker_id}, {"sequence", sequence}, {"active_jobs", active_jobs}, {"load", load}, {"timestamp", timestamp}, {"metadata", object_or_empty(metadata)}};
+}
+
+void WorkerHeartbeat::validate() const {
+    require_text("worker_id", worker_id);
+    if (!std::isfinite(load) || load < 0.0 || load > 1.0) {
+        throw std::invalid_argument("load must be between 0 and 1");
+    }
+    validate_timestamp("timestamp", timestamp);
+}
+
+WorkerHeartbeat WorkerHeartbeat::from_json(const nlohmann::json& value) {
+    WorkerHeartbeat result{value.at("worker_id").get<std::string>(), value.at("sequence").get<std::uint64_t>(), value.at("active_jobs").get<std::uint32_t>(), value.at("load").get<double>(), value.at("timestamp").get<std::string>(), object_or_empty(value.value("metadata", nlohmann::json::object()))};
+    result.validate();
+    return result;
+}
+
+nlohmann::json DistributedJob::to_json() const {
+    return {{"job_id", job_id}, {"operation", operation}, {"payload", payload}, {"requested_capabilities", requested_capabilities}, {"idempotency_key", idempotency_key}, {"deadline", optional_json(deadline)}, {"metadata", object_or_empty(metadata)}};
+}
+
+DistributedJob DistributedJob::from_json(const nlohmann::json& value) {
+    DistributedJob result{value.at("job_id").get<std::string>(), value.at("operation").get<std::string>(), value.at("payload"), value.value("requested_capabilities", std::vector<std::string>{}), value.at("idempotency_key").get<std::string>(), optional_string(value, "deadline"), object_or_empty(value.value("metadata", nlohmann::json::object()))};
+    result.validate();
+    return result;
+}
+
+void DistributedJob::validate() const {
+    require_text("job_id", job_id);
+    require_text("operation", operation);
+    require_text("idempotency_key", idempotency_key);
+    for (const auto& capability : requested_capabilities) {
+        require_text("requested_capabilities item", capability);
+    }
+    if (deadline) validate_timestamp("deadline", *deadline);
+}
+
+nlohmann::json JobAssignment::to_json() const {
+    return {{"assignment_id", assignment_id}, {"job_id", job_id}, {"worker_id", worker_id}, {"attempt", attempt}, {"assigned_at", assigned_at}, {"lease_deadline", lease_deadline}, {"payload", payload}, {"metadata", object_or_empty(metadata)}};
+}
+
+JobAssignment JobAssignment::from_json(const nlohmann::json& value) {
+    JobAssignment result{value.at("assignment_id").get<std::string>(), value.at("job_id").get<std::string>(), value.at("worker_id").get<std::string>(), value.at("attempt").get<std::uint32_t>(), value.at("assigned_at").get<std::string>(), value.at("lease_deadline").get<std::string>(), value.at("payload"), object_or_empty(value.value("metadata", nlohmann::json::object()))};
+    result.validate();
+    return result;
+}
+
+void JobAssignment::validate() const {
+    require_text("assignment_id", assignment_id);
+    require_text("job_id", job_id);
+    require_text("worker_id", worker_id);
+    if (attempt == 0) throw std::invalid_argument("attempt must be at least 1");
+    const auto assigned = parse_timestamp("assigned_at", assigned_at);
+    const auto lease = parse_timestamp("lease_deadline", lease_deadline);
+    if (lease < assigned) {
+        throw std::invalid_argument("lease_deadline must not be earlier than assigned_at");
+    }
 }
 
 nlohmann::json ArtifactRef::to_json() const {
@@ -224,7 +460,21 @@ nlohmann::json ArtifactRef::to_json() const {
 }
 
 ArtifactRef ArtifactRef::from_json(const nlohmann::json& value) {
-    return {value.at("artifact_id").get<std::string>(), value.at("uri").get<std::string>(), value.at("sha256").get<std::string>(), value.at("size_bytes").get<std::uint64_t>(), value.at("media_type").get<std::string>(), object_or_empty(value.value("metadata", nlohmann::json::object()))};
+    ArtifactRef result{value.at("artifact_id").get<std::string>(), value.at("uri").get<std::string>(), value.at("sha256").get<std::string>(), value.at("size_bytes").get<std::uint64_t>(), value.at("media_type").get<std::string>(), object_or_empty(value.value("metadata", nlohmann::json::object()))};
+    result.validate();
+    return result;
+}
+
+void ArtifactRef::validate() const {
+    require_text("artifact_id", artifact_id);
+    require_text("uri", uri);
+    require_text("media_type", media_type);
+    if (sha256.size() != 64 ||
+        !std::all_of(sha256.begin(), sha256.end(), [](unsigned char character) {
+            return std::isxdigit(character) != 0;
+        })) {
+        throw std::invalid_argument("sha256 must contain exactly 64 hexadecimal characters");
+    }
 }
 
 nlohmann::json TrainingJob::to_json() const {
@@ -232,7 +482,17 @@ nlohmann::json TrainingJob::to_json() const {
 }
 
 TrainingJob TrainingJob::from_json(const nlohmann::json& value) {
-    return {value.at("job_id").get<std::string>(), ArtifactRef::from_json(value.at("dataset")), value.at("output").get<std::string>(), object_or_empty(value.value("config", nlohmann::json::object())), value.value("requested_capabilities", std::vector<std::string>{}), optional_string(value, "deadline"), value.at("idempotency_key").get<std::string>(), object_or_empty(value.value("metadata", nlohmann::json::object()))};
+    TrainingJob result{value.at("job_id").get<std::string>(), ArtifactRef::from_json(value.at("dataset")), value.at("output").get<std::string>(), object_or_empty(value.value("config", nlohmann::json::object())), value.value("requested_capabilities", std::vector<std::string>{}), optional_string(value, "deadline"), value.at("idempotency_key").get<std::string>(), object_or_empty(value.value("metadata", nlohmann::json::object()))};
+    result.validate();
+    return result;
+}
+
+void TrainingJob::validate() const {
+    require_text("job_id", job_id);
+    require_text("output", output);
+    require_text("idempotency_key", idempotency_key);
+    dataset.validate();
+    if (deadline) validate_timestamp("deadline", *deadline);
 }
 
 nlohmann::json EvaluationJob::to_json() const {
@@ -240,7 +500,18 @@ nlohmann::json EvaluationJob::to_json() const {
 }
 
 EvaluationJob EvaluationJob::from_json(const nlohmann::json& value) {
-    return {value.at("job_id").get<std::string>(), ArtifactRef::from_json(value.at("model")), ArtifactRef::from_json(value.at("dataset")), value.at("output").get<std::string>(), object_or_empty(value.value("config", nlohmann::json::object())), value.value("requested_capabilities", std::vector<std::string>{}), optional_string(value, "deadline"), value.at("idempotency_key").get<std::string>(), object_or_empty(value.value("metadata", nlohmann::json::object()))};
+    EvaluationJob result{value.at("job_id").get<std::string>(), ArtifactRef::from_json(value.at("model")), ArtifactRef::from_json(value.at("dataset")), value.at("output").get<std::string>(), object_or_empty(value.value("config", nlohmann::json::object())), value.value("requested_capabilities", std::vector<std::string>{}), optional_string(value, "deadline"), value.at("idempotency_key").get<std::string>(), object_or_empty(value.value("metadata", nlohmann::json::object()))};
+    result.validate();
+    return result;
+}
+
+void EvaluationJob::validate() const {
+    require_text("job_id", job_id);
+    require_text("output", output);
+    require_text("idempotency_key", idempotency_key);
+    model.validate();
+    dataset.validate();
+    if (deadline) validate_timestamp("deadline", *deadline);
 }
 
 nlohmann::json JobProgress::to_json() const {
@@ -260,7 +531,20 @@ JobProgress JobProgress::from_json(const nlohmann::json& value) {
     result.message = value.value("message", "");
     result.timestamp = value.at("timestamp").get<std::string>();
     result.artifacts = artifacts_from_json(value.value("artifacts", nlohmann::json::array()));
+    result.validate();
     return result;
+}
+
+void JobProgress::validate() const {
+    require_text("job_id", job_id);
+    require_text("phase", phase);
+    require_text("status", status);
+    validate_timestamp("timestamp", timestamp);
+    if (!std::isfinite(progress) || progress < 0.0 || progress > 1.0) {
+        throw std::invalid_argument("progress must be between 0 and 1");
+    }
+    if (step > total_steps) throw std::invalid_argument("step must not exceed total_steps");
+    for (const auto& artifact : artifacts) artifact.validate();
 }
 
 }  // namespace handoffkit::csp

@@ -223,8 +223,45 @@ jobs:
           cmake --build packages/cpp/build-consumer --config Release
           packages/cpp/build-consumer/consumer_core /tmp/handoffkit-consumer-reports
 
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/go
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Verify gofmt
+        run: |
+          diffs="$(gofmt -l .)"
+          if [ -n "$diffs" ]; then
+            echo "gofmt reformatted files:"
+            echo "$diffs"
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run go test
+        run: go test ./...
+
+      - name: Run go test -race
+        run: go test -race ./...
+
+      - name: Build Go worker binary
+        run: go build -o ../../.local-tests/bin/handoffkit-worker ./cmd/handoffkit-worker
+
   csp-interop:
-    name: HK-CSP Python / JavaScript / Rust stdio
+    name: HK-CSP Python / JavaScript / Rust / Go stdio
     runs-on: ubuntu-latest
 
     steps:
@@ -249,6 +286,11 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
       - name: Install JavaScript workspace
         run: pnpm install --frozen-lockfile
 
@@ -258,12 +300,21 @@ jobs:
       - name: Build Rust worker
         run: cargo build --manifest-path packages/rust/Cargo.toml -p handoffkit-cli
 
-      - name: Rust starts Python and JavaScript workers
+      - name: Build Go worker
+        run: go build -o .local-tests/bin/handoffkit-worker ./packages/go/cmd/handoffkit-worker
+
+      - name: Rust starts Python, JavaScript, and Go workers
         env:
           HANDOFFKIT_RUN_INTEROP_TESTS: "1"
         run: >
           cargo test --manifest-path packages/rust/Cargo.toml
           -p handoffkit-transport --test cross_runtime -- --nocapture
+
+      - name: Go starts Python, JavaScript, and Rust workers
+        env:
+          HANDOFFKIT_RUN_INTEROP_TESTS: "1"
+        run: >
+          go test -v ./packages/go/interop/...
 
       - name: Python starts JavaScript worker
         run: python packages/python/examples/csp_python_js_stdio_demo.py
@@ -271,5 +322,12 @@ jobs:
       - name: Python starts Rust worker
         run: python packages/python/examples/csp_python_rust_stdio_demo.py
 
+      - name: Python starts Go worker
+        run: python packages/python/examples/csp_python_go_stdio_demo.py
+
       - name: JavaScript starts Rust worker
         run: node packages/js/node/examples/csp_js_rust_stdio_demo.mjs
+
+      - name: JavaScript starts Go worker
+        run: node packages/js/node/examples/csp_js_go_stdio_demo.mjs
+

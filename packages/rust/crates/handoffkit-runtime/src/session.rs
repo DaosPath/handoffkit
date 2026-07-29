@@ -1,10 +1,10 @@
 use crate::{
-    select, CspChannel, RuntimeError, RuntimeResult, DEFAULT_MAX_PENDING_ACKS,
+    select, CspChannel, DedupStore, RuntimeError, RuntimeResult, DEFAULT_MAX_PENDING_ACKS,
     DEFAULT_MAX_PROCESSES,
 };
 use handoffkit_protocol::{
     utc_now, ChannelConfig, DeliveryAck, DeliveryNack, JobProgress, MessageEnvelope,
-    OverflowPolicy, RuntimeMode, SessionConfig, ValidationLimits,
+    OverflowPolicy, SessionConfig, ValidationLimits,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -63,6 +63,17 @@ pub struct RuntimeEvent {
     pub metadata: HashMap<String, Value>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SessionDiagnostics {
+    pub session_id: String,
+    pub state: SessionState,
+    pub channel_count: usize,
+    pub queued_messages: usize,
+    pub process_count: usize,
+    pub pending_ack_count: usize,
+    pub dedup_count: usize,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum DeliveryReceipt {
     Ack(DeliveryAck),
@@ -91,6 +102,18 @@ impl DedupCache {
         }
         true
     }
+
+    fn remove(&mut self, key: &str) -> bool {
+        if !self.keys.remove(key) {
+            return false;
+        }
+        self.order.retain(|item| item != key);
+        true
+    }
+
+    fn len(&self) -> usize {
+        self.keys.len()
+    }
 }
 
 struct SessionInner {
@@ -100,6 +123,8 @@ struct SessionInner {
     cancellation: CancellationToken,
     channel_notify: Arc<Notify>,
     dedup: Mutex<DedupCache>,
+    persistent_dedup: Option<Arc<dyn DedupStore>>,
+    delivery_keys: Mutex<HashMap<String, String>>,
     pending_acks: Mutex<HashMap<String, oneshot::Sender<AckResult>>>,
     events: broadcast::Sender<RuntimeEvent>,
     process_tokens: StdMutex<HashMap<String, CancellationToken>>,
@@ -143,13 +168,21 @@ impl std::fmt::Debug for CspSession {
 
 impl CspSession {
     pub fn new(config: SessionConfig) -> RuntimeResult<Self> {
+        Self::new_with_optional_dedup(config, None)
+    }
+
+    pub fn with_dedup_store(
+        config: SessionConfig,
+        store: Arc<dyn DedupStore>,
+    ) -> RuntimeResult<Self> {
+        Self::new_with_optional_dedup(config, Some(store))
+    }
+
+    fn new_with_optional_dedup(
+        config: SessionConfig,
+        persistent_dedup: Option<Arc<dyn DedupStore>>,
+    ) -> RuntimeResult<Self> {
         config.validate()?;
-        if config.runtime_mode == RuntimeMode::Distributed {
-            return Err(RuntimeError::new(
-                "distributed_unavailable",
-                "distributed runtime is reserved for HandoffKit 1.18",
-            ));
-        }
         let deadline = config.deadline.as_deref().and_then(deadline_instant);
         let (events, _) = broadcast::channel(256);
         let session = Self {
@@ -160,6 +193,8 @@ impl CspSession {
                 cancellation: CancellationToken::new(),
                 channel_notify: Arc::new(Notify::new()),
                 dedup: Mutex::new(DedupCache::default()),
+                persistent_dedup,
+                delivery_keys: Mutex::new(HashMap::new()),
                 pending_acks: Mutex::new(HashMap::new()),
                 events,
                 process_tokens: StdMutex::new(HashMap::new()),
@@ -195,6 +230,19 @@ impl CspSession {
 
     pub fn subscribe(&self) -> broadcast::Receiver<RuntimeEvent> {
         self.inner.events.subscribe()
+    }
+
+    pub async fn diagnostics(&self) -> SessionDiagnostics {
+        let channels = self.inner.channels.read().await;
+        SessionDiagnostics {
+            session_id: self.id().to_string(),
+            state: self.state(),
+            channel_count: channels.len(),
+            queued_messages: channels.values().map(CspChannel::len).sum(),
+            process_count: self.inner.process_count.load(Ordering::Acquire),
+            pending_ack_count: self.inner.pending_acks.lock().await.len(),
+            dedup_count: self.inner.dedup.lock().await.len(),
+        }
     }
 
     pub async fn open_channel(&self, config: ChannelConfig) -> RuntimeResult<CspChannel> {
@@ -246,8 +294,18 @@ impl CspSession {
             })
     }
 
-    pub async fn send(&self, channel: &str, envelope: MessageEnvelope) -> RuntimeResult<()> {
+    pub async fn send(&self, channel: &str, mut envelope: MessageEnvelope) -> RuntimeResult<()> {
         self.ensure_running()?;
+        if let Some(session_deadline) = &self.inner.config.deadline {
+            let should_inherit = envelope.deadline.as_ref().is_none_or(|envelope_deadline| {
+                let session = chrono::DateTime::parse_from_rfc3339(session_deadline);
+                let envelope = chrono::DateTime::parse_from_rfc3339(envelope_deadline);
+                matches!((session, envelope), (Ok(session), Ok(envelope)) if session < envelope)
+            });
+            if should_inherit {
+                envelope.deadline = Some(session_deadline.clone());
+            }
+        }
         self.validate_session_envelope(&envelope)?;
         self.channel(channel).await?.send(envelope).await
     }
@@ -267,13 +325,23 @@ impl CspSession {
             else {
                 return Ok(Some(envelope));
             };
-            let is_new = self
+            let mut is_new = self
                 .inner
                 .dedup
                 .lock()
                 .await
-                .insert(key, self.inner.config.dedup_capacity);
+                .insert(key.clone(), self.inner.config.dedup_capacity);
             if is_new {
+                if let Some(store) = &self.inner.persistent_dedup {
+                    is_new = store.claim(&key)?;
+                }
+            }
+            if is_new {
+                self.inner
+                    .delivery_keys
+                    .lock()
+                    .await
+                    .insert(envelope.message_id.clone(), key);
                 return Ok(Some(envelope));
             }
             self.emit(
@@ -399,6 +467,11 @@ impl CspSession {
     }
 
     pub async fn ack(&self, ack: DeliveryAck) -> bool {
+        self.inner
+            .delivery_keys
+            .lock()
+            .await
+            .remove(&ack.message_id);
         let sender = self.inner.pending_acks.lock().await.remove(&ack.message_id);
         let resolved = sender.is_some();
         if let Some(sender) = sender {
@@ -414,6 +487,22 @@ impl CspSession {
     }
 
     pub async fn nack(&self, nack: DeliveryNack) -> bool {
+        let delivery_key = self
+            .inner
+            .delivery_keys
+            .lock()
+            .await
+            .remove(&nack.message_id);
+        if nack.retryable {
+            if let Some(key) = delivery_key {
+                self.inner.dedup.lock().await.remove(&key);
+                if let Some(store) = &self.inner.persistent_dedup {
+                    if let Err(error) = store.release(&key) {
+                        self.emit("dedup_store_error", "", &nack.message_id, &error.message);
+                    }
+                }
+            }
+        }
         let sender = self
             .inner
             .pending_acks
@@ -600,6 +689,7 @@ impl CspSession {
             .await
             .map_err(|_| RuntimeError::new("shutdown_timeout", "processes did not stop in time"))?;
         self.inner.pending_acks.lock().await.clear();
+        self.inner.delivery_keys.lock().await.clear();
         self.inner
             .state
             .store(SessionState::Closed.as_u8(), Ordering::Release);
@@ -747,6 +837,7 @@ impl ProcessContext {
     }
 
     pub async fn progress(&self, channel: &str, progress: JobProgress) -> RuntimeResult<()> {
+        progress.validate()?;
         let envelope = self.session.envelope(
             channel,
             "progress",

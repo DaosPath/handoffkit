@@ -60,6 +60,18 @@ impl CspChannel {
         self.sender.capacity()
     }
 
+    pub fn max_capacity(&self) -> usize {
+        self.sender.max_capacity()
+    }
+
+    pub fn len(&self) -> usize {
+        self.max_capacity().saturating_sub(self.capacity())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn is_closed(&self) -> bool {
         self.closed.load(Ordering::Acquire)
             || self.sender.is_closed()

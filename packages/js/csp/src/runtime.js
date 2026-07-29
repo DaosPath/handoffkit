@@ -7,7 +7,6 @@ import {
   DEFAULT_MAX_MESSAGE_BYTES,
   DeliveryAck,
   DeliveryNack,
-  DistributedRuntimeUnavailableError,
   MessageTooLargeError,
   MessageEnvelope,
   OverflowPolicy,
@@ -23,6 +22,55 @@ export class Transport {
   async send(_envelope) { throw new CspError("Transport.send() is not implemented."); }
   async receive() { throw new CspError("Transport.receive() is not implemented."); }
   async close() { throw new CspError("Transport.close() is not implemented."); }
+}
+
+export class WebSocketTransport extends Transport {
+  constructor(socket, { maxMessageBytes = DEFAULT_MAX_MESSAGE_BYTES } = {}) {
+    super();
+    if (!socket || typeof socket.send !== "function" || typeof socket.close !== "function" || typeof socket.addEventListener !== "function") {
+      throw new TypeError("socket must implement the browser WebSocket interface");
+    }
+    this.socket = socket;
+    this.maxMessageBytes = maxMessageBytes;
+    this.queue = [];
+    this.waiters = [];
+    this.failure = null;
+    this.closed = false;
+    socket.addEventListener("message", (event) => this.accept(event.data));
+    socket.addEventListener("close", () => this.finish(new ChannelClosedError("WebSocket peer closed the protocol stream")));
+    socket.addEventListener("error", () => this.finish(new CspError("WebSocket transport failed")));
+  }
+  accept(raw) {
+    const text = typeof raw === "string" ? raw : new TextDecoder().decode(raw);
+    if (new TextEncoder().encode(text).byteLength > this.maxMessageBytes) {
+      this.finish(new MessageTooLargeError(`WebSocket frame exceeds ${this.maxMessageBytes} bytes.`));
+      return;
+    }
+    const waiter = this.waiters.shift();
+    if (waiter) waiter.resolve(text);
+    else this.queue.push(text);
+  }
+  finish(error) {
+    if (this.closed) return;
+    this.closed = true;
+    this.failure = error;
+    for (const waiter of this.waiters.splice(0)) waiter.reject(error);
+  }
+  async send(value) {
+    if (this.closed) throw this.failure ?? new ChannelClosedError("WebSocket transport is closed");
+    const envelope = value instanceof MessageEnvelope ? value : MessageEnvelope.fromWire(value);
+    const text = envelope.toJSONString();
+    if (new TextEncoder().encode(text).byteLength > this.maxMessageBytes) throw new MessageTooLargeError(`WebSocket frame exceeds ${this.maxMessageBytes} bytes.`);
+    this.socket.send(text);
+  }
+  async receive() {
+    const text = this.queue.shift();
+    if (text) return MessageEnvelope.fromJSON(text);
+    if (this.closed) throw this.failure ?? new ChannelClosedError("WebSocket transport is closed");
+    const pending = new Promise((resolve, reject) => this.waiters.push({ resolve, reject }));
+    return MessageEnvelope.fromJSON(await pending);
+  }
+  async close() { if (!this.closed) this.socket.close(); this.finish(new ChannelClosedError("WebSocket transport is closed")); }
 }
 
 export class CspChannel {
@@ -125,9 +173,9 @@ export class ProcessContext {
 }
 
 export class CspSession {
-  constructor(config) {
+  constructor(config, { dedupStore = null } = {}) {
     this.config = config instanceof SessionConfig ? config : new SessionConfig(config);
-    if (this.config.runtimeMode === RuntimeMode.DISTRIBUTED) throw new DistributedRuntimeUnavailableError("Distributed runtime is not installed.");
+    this.dedupStore = dedupStore;
     this.channels = new Map();
     this.processes = new Map();
     this.pendingAcks = new Map();
@@ -139,6 +187,26 @@ export class CspSession {
     this.armDeadline();
   }
   get sessionId() { return this.config.sessionId; }
+  diagnostics() {
+    return {
+      session_id: this.sessionId,
+      channel_count: this.channels.size,
+      queued_messages: [...this.channels.values()].reduce((total, channel) => total + channel.size, 0),
+      process_count: [...this.processes.values()].filter((handle) => !handle.done).length,
+      pending_ack_count: this.pendingAcks.size,
+      pending_envelope_count: this.pendingEnvelopes.size,
+      dedup_count: this.dedup.size,
+      cancelled: this.cancelled,
+      closed: this.closed,
+    };
+  }
+  rememberKey(key) {
+    if (this.dedup.has(key)) return false;
+    if (this.dedupStore && !this.dedupStore.claim(key)) return false;
+    this.dedup.set(key, true);
+    while (this.dedup.size > this.config.dedupCapacity) this.dedup.delete(this.dedup.keys().next().value);
+    return true;
+  }
   armDeadline() {
     if (!this.config.deadline || this.closed || this.cancelled) return;
     const remaining = Date.parse(this.config.deadline) - Date.now();
@@ -161,7 +229,7 @@ export class CspSession {
   }
   send(channel, envelope) {
     if (envelope.sessionId !== this.sessionId) throw new TypeError("Envelope sessionId does not match session.");
-    if (!envelope.deadline && this.config.deadline) {
+    if (this.config.deadline && (!envelope.deadline || Date.parse(this.config.deadline) < Date.parse(envelope.deadline))) {
       envelope = MessageEnvelope.fromWire({ ...envelope.toWire(), deadline: this.config.deadline });
     }
     return this.channel(channel).send(envelope);
@@ -169,7 +237,8 @@ export class CspSession {
   async receive(channel) {
     while (true) {
       const envelope = await this.channel(channel).receive();
-      if (envelope.idempotencyKey && this.dedup.has(envelope.idempotencyKey)) { this.ack(envelope, { duplicate: true }); continue; }
+      const key = envelope.idempotencyKey ?? envelope.messageId;
+      if (!this.rememberKey(key)) { this.ack(envelope, { duplicate: true }); continue; }
       this.pendingEnvelopes.set(envelope.messageId, envelope);
       return envelope;
     }
@@ -178,7 +247,8 @@ export class CspSession {
     const resolved = [...names];
     while (true) {
       const [channel, envelope] = await select(resolved.map((name) => this.channel(name)));
-      if (envelope.idempotencyKey && this.dedup.has(envelope.idempotencyKey)) {
+      const key = envelope.idempotencyKey ?? envelope.messageId;
+      if (!this.rememberKey(key)) {
         this.ack(envelope, { duplicate: true });
         continue;
       }
@@ -204,9 +274,10 @@ export class CspSession {
   ack(envelope, metadata = {}) {
     const ack = new DeliveryAck({ messageId: envelope.messageId, metadata });
     this.pendingEnvelopes.delete(envelope.messageId);
-    if (envelope.idempotencyKey) {
-      this.dedup.delete(envelope.idempotencyKey);
-      this.dedup.set(envelope.idempotencyKey, true);
+    const key = envelope.idempotencyKey ?? envelope.messageId;
+    if (key) {
+      this.dedup.delete(key);
+      this.dedup.set(key, true);
       while (this.dedup.size > this.config.dedupCapacity) this.dedup.delete(this.dedup.keys().next().value);
     }
     this.pendingAcks.get(envelope.messageId)?.resolve(ack);
@@ -215,6 +286,11 @@ export class CspSession {
   nack(envelope, { code, message, retryable = false, metadata = {} }) {
     const nack = new DeliveryNack({ messageId: envelope.messageId, code, message, retryable, metadata });
     this.pendingEnvelopes.delete(envelope.messageId);
+    const key = envelope.idempotencyKey ?? envelope.messageId;
+    if (retryable && key) {
+      this.dedup.delete(key);
+      this.dedupStore?.release(key);
+    }
     this.pendingAcks.get(envelope.messageId)?.resolve(nack);
     return nack;
   }
@@ -261,10 +337,9 @@ export class CspSession {
 }
 
 export class CspRuntime {
-  constructor({ mode = RuntimeMode.SESSION } = {}) { this.mode = mode; }
-  createSession({ sessionId = randomId("session"), config = null } = {}) {
-    if (this.mode === RuntimeMode.DISTRIBUTED) throw new DistributedRuntimeUnavailableError("Distributed runtime becomes available in HandoffKit 1.18.");
-    return new CspSession(config ?? new SessionConfig({ sessionId, runtimeMode: this.mode }));
+  constructor({ mode = RuntimeMode.SESSION, dedupStore = null } = {}) { this.mode = mode; this.dedupStore = dedupStore; }
+  createSession({ sessionId = randomId("session"), config = null, dedupStore = null } = {}) {
+    return new CspSession(config ?? new SessionConfig({ sessionId, runtimeMode: this.mode }), { dedupStore: dedupStore ?? this.dedupStore });
   }
   makeEnvelope(init) { return makeEnvelope(init); }
 }

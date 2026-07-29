@@ -3,10 +3,12 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { createConnection } from "node:net";
 import path, { join } from "node:path";
 
 import {
   DEFAULT_MAX_MESSAGE_BYTES,
+  MIN_MESSAGE_BYTES,
   MessageEnvelope,
   MessageTooLargeError,
   Transport,
@@ -223,6 +225,7 @@ export class NodeStdioTransport extends Transport {
   constructor({ readable, writable, maxMessageBytes = DEFAULT_MAX_MESSAGE_BYTES }) {
     super();
     if (!readable || !writable) throw new TypeError("readable and writable streams are required");
+    validateMaxMessageBytes(maxMessageBytes);
     this.readable = readable;
     this.writable = writable;
     this.maxMessageBytes = maxMessageBytes;
@@ -287,12 +290,200 @@ export class NodeStdioTransport extends Transport {
   }
 }
 
+export class FileDedupStore {
+  constructor(filePath, { capacity = 4096, maxLogBytes = 16 * 1024 * 1024 } = {}) {
+    if (!filePath) throw new TypeError("filePath is required");
+    if (!Number.isInteger(capacity) || capacity < 1) throw new TypeError("capacity must be at least 1");
+    if (!Number.isInteger(maxLogBytes) || maxLogBytes < 1024) throw new TypeError("maxLogBytes must be at least 1024");
+    this.filePath = path.resolve(filePath);
+    this.capacity = capacity;
+    this.maxLogBytes = maxLogBytes;
+    this.keys = new Map();
+    fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
+    if (!fs.existsSync(this.filePath)) fs.writeFileSync(this.filePath, "", { encoding: "utf8", mode: 0o600 });
+    const lines = fs.readFileSync(this.filePath, "utf8").split(/\r?\n/).filter(Boolean);
+    for (const line of lines) {
+      let record;
+      try { record = JSON.parse(line); } catch (cause) { throw new SyntaxError(`Invalid dedup log: ${cause.message}`, { cause }); }
+      const key = this.validateKey(record.key);
+      if (record.op === "claim") { this.keys.delete(key); this.keys.set(key, true); }
+      else if (record.op === "release") this.keys.delete(key);
+      else throw new SyntaxError("Invalid dedup log operation");
+    }
+    while (this.keys.size > this.capacity) this.keys.delete(this.keys.keys().next().value);
+  }
+  validateKey(key) {
+    const normalized = String(key ?? "").trim();
+    if (!normalized) throw new TypeError("idempotency key must not be empty");
+    if (Buffer.byteLength(normalized, "utf8") > 1024) throw new TypeError("idempotency key must not exceed 1024 bytes");
+    return normalized;
+  }
+  append(op, key) {
+    fs.appendFileSync(this.filePath, `${JSON.stringify({ op, key, timestamp: new Date().toISOString() })}\n`, { encoding: "utf8" });
+    if (fs.statSync(this.filePath).size > this.maxLogBytes) this.compact();
+  }
+  compact() {
+    const content = [...this.keys.keys()].map((key) => JSON.stringify({ op: "claim", key, timestamp: new Date().toISOString() })).join("\n");
+    atomicWriteFileSync(this.filePath, content ? `${content}\n` : "");
+  }
+  claim(value) {
+    const key = this.validateKey(value);
+    if (this.keys.has(key)) return false;
+    this.keys.set(key, true);
+    while (this.keys.size > this.capacity) this.keys.delete(this.keys.keys().next().value);
+    this.append("claim", key);
+    return true;
+  }
+  release(value) {
+    const key = this.validateKey(value);
+    if (!this.keys.delete(key)) return false;
+    this.append("release", key);
+    return true;
+  }
+  contains(value) { return this.keys.has(this.validateKey(value)); }
+  get size() { return this.keys.size; }
+}
+
+export class NetworkConfig {
+  constructor({ maxMessageBytes = DEFAULT_MAX_MESSAGE_BYTES, connectTimeoutMs = 5000, ioTimeoutMs = 30000, maxAttempts = 3, baseDelayMs = 100, maxDelayMs = 2000 } = {}) {
+    validateMaxMessageBytes(maxMessageBytes);
+    for (const [name, value] of Object.entries({ connectTimeoutMs, ioTimeoutMs, maxAttempts })) {
+      if (!Number.isInteger(value) || value < 1) throw new TypeError(`${name} must be at least 1`);
+    }
+    if (baseDelayMs < 0 || maxDelayMs < baseDelayMs) throw new TypeError("retry delays are invalid");
+    Object.assign(this, { maxMessageBytes, connectTimeoutMs, ioTimeoutMs, maxAttempts, baseDelayMs, maxDelayMs });
+  }
+}
+
+export class LengthDelimitedTransport extends Transport {
+  constructor(socket, { config = new NetworkConfig() } = {}) {
+    super();
+    if (!socket || typeof socket.write !== "function") throw new TypeError("socket is required");
+    this.socket = socket;
+    this.config = config instanceof NetworkConfig ? config : new NetworkConfig(config);
+    this.buffer = Buffer.alloc(0);
+    this.frames = [];
+    this.waiters = [];
+    this.ended = false;
+    this.failure = null;
+    socket.on("data", (chunk) => this.accept(Buffer.from(chunk)));
+    socket.on("end", () => this.finish());
+    socket.on("close", () => this.finish());
+    socket.on("error", (error) => this.finish(error));
+  }
+  accept(chunk) {
+    this.buffer = Buffer.concat([this.buffer, chunk]);
+    while (this.buffer.length >= 4) {
+      const size = this.buffer.readUInt32BE(0);
+      if (size > this.config.maxMessageBytes) {
+        this.finish(new MessageTooLargeError(`network frame exceeds ${this.config.maxMessageBytes} bytes`));
+        this.socket.destroy();
+        return;
+      }
+      if (this.buffer.length < size + 4) return;
+      const frame = this.buffer.subarray(4, size + 4);
+      this.buffer = this.buffer.subarray(size + 4);
+      const waiter = this.waiters.shift();
+      if (waiter) waiter.resolve(frame);
+      else this.frames.push(frame);
+    }
+  }
+  finish(error = null) {
+    if (this.ended) return;
+    this.ended = true;
+    this.failure = error;
+    for (const waiter of this.waiters.splice(0)) waiter.reject(error ?? new Error("network peer closed the protocol stream"));
+  }
+  async send(value) {
+    if (this.ended) throw this.failure ?? new Error("network transport is closed");
+    const envelope = value instanceof MessageEnvelope ? value : MessageEnvelope.fromWire(value);
+    const payload = Buffer.from(envelope.toJSONString(), "utf8");
+    if (payload.length > this.config.maxMessageBytes) throw new MessageTooLargeError(`network frame exceeds ${this.config.maxMessageBytes} bytes`);
+    const frame = Buffer.allocUnsafe(payload.length + 4);
+    frame.writeUInt32BE(payload.length, 0);
+    payload.copy(frame, 4);
+    if (!this.socket.write(frame)) await once(this.socket, "drain");
+  }
+  async receive() {
+    const frame = this.frames.shift();
+    if (frame) return MessageEnvelope.fromJSON(frame.toString("utf8"));
+    if (this.ended) throw this.failure ?? new Error("network peer closed the protocol stream");
+    const pending = new Promise((resolve, reject) => this.waiters.push({ resolve, reject }));
+    return MessageEnvelope.fromJSON((await pending).toString("utf8"));
+  }
+  async close() {
+    if (this.ended) return;
+    const closed = once(this.socket, "close").catch(() => []);
+    this.socket.end();
+    let timer;
+    const timeout = new Promise((resolve) => { timer = setTimeout(resolve, this.config.ioTimeoutMs, "timeout"); timer.unref?.(); });
+    const result = await Promise.race([closed, timeout]);
+    clearTimeout(timer);
+    if (result === "timeout") this.socket.destroy();
+    this.finish();
+  }
+}
+
+export class TcpTransport extends LengthDelimitedTransport {
+  static async connect(host, port, options = {}) {
+    const config = options.config instanceof NetworkConfig ? options.config : new NetworkConfig(options.config);
+    const socket = await connectSocket({ host, port }, config.connectTimeoutMs);
+    return new TcpTransport(socket, { config });
+  }
+  static async connectWithRetry(host, port, options = {}) {
+    const config = options.config instanceof NetworkConfig ? options.config : new NetworkConfig(options.config);
+    let lastError;
+    for (let attempt = 1; attempt <= config.maxAttempts; attempt += 1) {
+      try { return await TcpTransport.connect(host, port, { config }); }
+      catch (error) {
+        lastError = error;
+        if (attempt === config.maxAttempts) break;
+        const delay = Math.min(config.baseDelayMs * (2 ** (attempt - 1)), config.maxDelayMs);
+        if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+    throw new Error(`TCP connection failed after retries: ${String(lastError?.message ?? "connection failed").replace(/[\r\n\0]/g, " ")}`);
+  }
+}
+
+export class UnixSocketTransport extends LengthDelimitedTransport {
+  static async connect(socketPath, options = {}) {
+    const config = options.config instanceof NetworkConfig ? options.config : new NetworkConfig(options.config);
+    const socket = await connectSocket({ path: socketPath }, config.connectTimeoutMs);
+    return new UnixSocketTransport(socket, { config });
+  }
+}
+
+function validateMaxMessageBytes(value) {
+  if (!Number.isInteger(value) || value < MIN_MESSAGE_BYTES || value > DEFAULT_MAX_MESSAGE_BYTES) {
+    throw new TypeError(`maxMessageBytes must be between ${MIN_MESSAGE_BYTES} and ${DEFAULT_MAX_MESSAGE_BYTES}`);
+  }
+}
+
+function connectSocket(options, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const socket = createConnection(options);
+    const timer = setTimeout(() => {
+      socket.destroy();
+      reject(new Error("network connection timed out"));
+    }, timeoutMs);
+    socket.once("connect", () => { clearTimeout(timer); socket.removeListener("error", rejectOnce); resolve(socket); });
+    const rejectOnce = (error) => { clearTimeout(timer); reject(error); };
+    socket.once("error", rejectOnce);
+  });
+}
+
 export class SubprocessStdioTransport extends NodeStdioTransport {
   constructor(child, options = {}) {
     if (!child.stdout || !child.stdin) throw new TypeError("child must expose stdin and stdout");
     super({ readable: child.stdout, writable: child.stdin, ...options });
     this.child = child;
     this.stderr = child.stderr;
+    this.stderrTail = "";
+    this.stderr?.setEncoding?.("utf8");
+    this.stderr?.on("data", (chunk) => {
+      this.stderrTail = `${this.stderrTail}${String(chunk)}`.slice(-64 * 1024);
+    });
   }
 
   static spawn(argv, { cwd, env, maxMessageBytes = DEFAULT_MAX_MESSAGE_BYTES } = {}) {
@@ -310,8 +501,17 @@ export class SubprocessStdioTransport extends NodeStdioTransport {
     await super.close();
     if (this.child.exitCode == null && this.child.signalCode == null) {
       const exited = once(this.child, "exit");
-      const timeout = new Promise((resolve) => setTimeout(resolve, 2000, "timeout"));
-      if (await Promise.race([exited, timeout]) === "timeout") this.child.kill();
+      let timer;
+      const timeout = new Promise((resolve) => {
+        timer = setTimeout(resolve, 2000, "timeout");
+        timer.unref?.();
+      });
+      const result = await Promise.race([exited, timeout]);
+      clearTimeout(timer);
+      if (result === "timeout") {
+        this.child.kill();
+        await once(this.child, "exit").catch(() => []);
+      }
     }
   }
 }

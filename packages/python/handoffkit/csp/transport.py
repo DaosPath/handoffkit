@@ -3,11 +3,40 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
+import struct
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from dataclasses import dataclass, field
+from typing import Any
 
 from handoffkit.csp.errors import ChannelClosedError, MessageTooLargeError
-from handoffkit.csp.models import DEFAULT_MAX_MESSAGE_BYTES, MessageEnvelope
+from handoffkit.csp.models import (
+    DEFAULT_MAX_MESSAGE_BYTES,
+    MIN_MESSAGE_BYTES,
+    MessageEnvelope,
+    RetryPolicy,
+    sanitize_error_message,
+)
+
+
+@dataclass(frozen=True)
+class NetworkConfig:
+    """Bounded network transport configuration."""
+
+    max_message_bytes: int = DEFAULT_MAX_MESSAGE_BYTES
+    connect_timeout_ms: int = 5000
+    io_timeout_ms: int = 30000
+    retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
+
+    def __post_init__(self) -> None:
+        if not MIN_MESSAGE_BYTES <= self.max_message_bytes <= DEFAULT_MAX_MESSAGE_BYTES:
+            raise ValueError(
+                f"max_message_bytes must be between {MIN_MESSAGE_BYTES} "
+                f"and {DEFAULT_MAX_MESSAGE_BYTES}"
+            )
+        if self.connect_timeout_ms < 1 or self.io_timeout_ms < 1:
+            raise ValueError("network timeouts must be at least 1 ms")
 
 
 class Transport(ABC):
@@ -95,7 +124,7 @@ class SubprocessStdioTransport(Transport):
             cwd=cwd,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
         )
         return cls(process, max_message_bytes=max_message_bytes)
 
@@ -127,4 +156,188 @@ class SubprocessStdioTransport(Transport):
                 await asyncio.wait_for(self.process.wait(), timeout=2)
             except TimeoutError:
                 self.process.terminate()
-                await self.process.wait()
+                try:
+                    await asyncio.wait_for(self.process.wait(), timeout=2)
+                except TimeoutError:
+                    self.process.kill()
+                    await self.process.wait()
+
+
+class LengthDelimitedTransport(Transport):
+    """Four-byte big-endian length framing over asyncio streams."""
+
+    def __init__(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        *,
+        config: NetworkConfig | None = None,
+    ) -> None:
+        self.reader = reader
+        self.writer = writer
+        self.config = config or NetworkConfig()
+        self._send_lock = asyncio.Lock()
+        self._receive_lock = asyncio.Lock()
+        self._closed = False
+
+    async def _io(self, operation: Any) -> Any:
+        return await asyncio.wait_for(
+            operation,
+            timeout=self.config.io_timeout_ms / 1000,
+        )
+
+    async def send(self, envelope: MessageEnvelope) -> None:
+        if self._closed:
+            raise ChannelClosedError("network transport is closed")
+        payload = envelope.to_json().encode("utf-8")
+        if len(payload) > self.config.max_message_bytes:
+            raise MessageTooLargeError(
+                f"Encoded envelope exceeds {self.config.max_message_bytes} bytes."
+            )
+        frame = struct.pack(">I", len(payload)) + payload
+        async with self._send_lock:
+            self.writer.write(frame)
+            await self._io(self.writer.drain())
+
+    async def receive(self) -> MessageEnvelope:
+        if self._closed:
+            raise ChannelClosedError("network transport is closed")
+        async with self._receive_lock:
+            try:
+                header = await self._io(self.reader.readexactly(4))
+            except asyncio.IncompleteReadError as exc:
+                raise ChannelClosedError("network peer closed the protocol stream") from exc
+            size = struct.unpack(">I", header)[0]
+            if size > self.config.max_message_bytes:
+                raise MessageTooLargeError(
+                    f"Network frame exceeds {self.config.max_message_bytes} bytes."
+                )
+            try:
+                payload = await self._io(self.reader.readexactly(size))
+            except asyncio.IncompleteReadError as exc:
+                raise ChannelClosedError("network peer sent an incomplete frame") from exc
+        return MessageEnvelope.from_json(payload.decode("utf-8"))
+
+    async def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self.writer.close()
+        try:
+            await self.writer.wait_closed()
+        except (BrokenPipeError, ConnectionError):
+            pass
+
+
+class TcpTransport(LengthDelimitedTransport):
+    """Safe TCP client transport with bounded connection retry."""
+
+    @classmethod
+    async def connect(
+        cls,
+        host: str,
+        port: int,
+        *,
+        config: NetworkConfig | None = None,
+    ) -> TcpTransport:
+        resolved = config or NetworkConfig()
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=resolved.connect_timeout_ms / 1000,
+        )
+        return cls(reader, writer, config=resolved)
+
+    @classmethod
+    async def connect_with_retry(
+        cls,
+        host: str,
+        port: int,
+        *,
+        config: NetworkConfig | None = None,
+    ) -> TcpTransport:
+        resolved = config or NetworkConfig()
+        last_error: BaseException | None = None
+        policy = resolved.retry_policy
+        for attempt in range(1, policy.max_attempts + 1):
+            try:
+                return await cls.connect(host, port, config=resolved)
+            except (OSError, TimeoutError) as exc:
+                last_error = exc
+                if attempt >= policy.max_attempts:
+                    break
+                delay_ms = min(
+                    policy.base_delay_ms * (2 ** (attempt - 1)),
+                    policy.max_delay_ms,
+                )
+                if delay_ms:
+                    await asyncio.sleep(delay_ms / 1000)
+        detail = sanitize_error_message(str(last_error or "connection failed"))
+        raise ConnectionError(f"TCP connection failed after retries: {detail}") from last_error
+
+
+class UnixSocketTransport(LengthDelimitedTransport):
+    """Unix domain socket transport. Unsupported platforms fail clearly."""
+
+    @classmethod
+    async def connect(
+        cls,
+        path: str,
+        *,
+        config: NetworkConfig | None = None,
+    ) -> UnixSocketTransport:
+        resolved = config or NetworkConfig()
+        open_unix_connection = getattr(asyncio, "open_unix_connection", None)
+        if open_unix_connection is None:
+            raise RuntimeError("Unix domain sockets are unavailable on this platform")
+        reader, writer = await asyncio.wait_for(
+            open_unix_connection(path),
+            timeout=resolved.connect_timeout_ms / 1000,
+        )
+        return cls(reader, writer, config=resolved)
+
+
+class WebSocketTransport(Transport):
+    """Optional adapter around a connected WebSocket-like object."""
+
+    def __init__(
+        self,
+        socket: Any,
+        *,
+        max_message_bytes: int = DEFAULT_MAX_MESSAGE_BYTES,
+    ) -> None:
+        if max_message_bytes < MIN_MESSAGE_BYTES:
+            raise ValueError(f"max_message_bytes must be at least {MIN_MESSAGE_BYTES}")
+        for method in ("send", "recv", "close"):
+            if not callable(getattr(socket, method, None)):
+                raise TypeError(f"WebSocket adapter requires {method}()")
+        self.socket = socket
+        self.max_message_bytes = max_message_bytes
+
+    @staticmethod
+    async def _resolve(value: Any) -> Any:
+        return await value if inspect.isawaitable(value) else value
+
+    async def send(self, envelope: MessageEnvelope) -> None:
+        payload = envelope.to_json()
+        if len(payload.encode("utf-8")) > self.max_message_bytes:
+            raise MessageTooLargeError(
+                f"WebSocket frame exceeds {self.max_message_bytes} bytes."
+            )
+        await self._resolve(self.socket.send(payload))
+
+    async def receive(self) -> MessageEnvelope:
+        payload = await self._resolve(self.socket.recv())
+        if isinstance(payload, bytes):
+            encoded = payload
+            text = payload.decode("utf-8")
+        else:
+            text = str(payload)
+            encoded = text.encode("utf-8")
+        if len(encoded) > self.max_message_bytes:
+            raise MessageTooLargeError(
+                f"WebSocket frame exceeds {self.max_message_bytes} bytes."
+            )
+        return MessageEnvelope.from_json(text)
+
+    async def close(self) -> None:
+        await self._resolve(self.socket.close())

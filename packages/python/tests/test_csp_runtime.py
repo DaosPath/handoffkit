@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -13,7 +14,6 @@ from handoffkit.csp import (
     CspChannel,
     CspRuntime,
     DeadlineExceededError,
-    DistributedRuntimeUnavailableError,
     MessageEnvelope,
     OverflowPolicy,
     RetryPolicy,
@@ -130,6 +130,21 @@ def test_session_deadline_is_inherited_and_enforced() -> None:
         await session.send("tasks", envelope)
         received = await session.receive("tasks")
         assert received.deadline == deadline
+
+        earlier = (datetime.now(timezone.utc) + timedelta(seconds=10)).isoformat()
+        early_envelope = replace(
+            make_envelope(
+                session_id=session.session_id,
+                channel="tasks",
+                source="test",
+                sequence=2,
+                payload_type="json",
+                payload={},
+            ),
+            deadline=earlier,
+        )
+        await session.send("tasks", early_envelope)
+        assert (await session.receive("tasks")).deadline == earlier
         await session.close()
 
         expired = CspRuntime().create_session(
@@ -196,6 +211,17 @@ def test_recipe_session_uses_csp_handoffs() -> None:
     assert result.metadata["runtime_mode"] == "session"
 
 
-def test_distributed_mode_fails_until_backend_is_installed() -> None:
-    with pytest.raises(DistributedRuntimeUnavailableError, match="distributed"):
-        CspRuntime(mode=RuntimeMode.DISTRIBUTED).create_session()
+def test_distributed_mode_creates_a_distributed_session() -> None:
+    session = CspRuntime(mode=RuntimeMode.DISTRIBUTED).create_session()
+    assert session.config.runtime_mode is RuntimeMode.DISTRIBUTED
+    assert session.diagnostics().channel_count == 0
+
+
+def test_team_distributed_mode_uses_the_csp_execution_path() -> None:
+    team = Team(
+        [Agent("Architect", "Plan."), Agent("Coder", "Build.")],
+        runtime_mode=RuntimeMode.DISTRIBUTED,
+    )
+    result = team.run("Build a queue.")
+    assert [item.agent for item in result.agent_outputs] == ["Architect", "Coder"]
+    assert result.handoffs[0].metadata["runtime_mode"] == "distributed"

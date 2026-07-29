@@ -1,0 +1,284 @@
+{
+  "corpus_version": "1.0",
+  "cases": [
+    {
+      "id": "envelope_valid_minimal",
+      "kind": "message_envelope",
+      "valid": true,
+      "value": {
+        "protocol_version": "1.0",
+        "message_id": "msg-1",
+        "session_id": "session-1",
+        "channel": "tasks",
+        "kind": "data",
+        "source": "producer",
+        "target": null,
+        "sequence": 0,
+        "created_at": "2026-01-01T00:00:00Z",
+        "deadline": null,
+        "correlation_id": null,
+        "causation_id": null,
+        "idempotency_key": "job-1",
+        "attempt": 1,
+        "requires_ack": true,
+        "payload_type": "json",
+        "payload": { "answer": 42 },
+        "metadata": {}
+      }
+    },
+    {
+      "id": "envelope_empty_message_id",
+      "kind": "message_envelope",
+      "valid": false,
+      "error_code": "empty_field",
+      "value": {
+        "protocol_version": "1.0",
+        "message_id": " ",
+        "session_id": "session-1",
+        "channel": "tasks",
+        "kind": "data",
+        "source": "producer",
+        "target": null,
+        "sequence": 0,
+        "created_at": "2026-01-01T00:00:00Z",
+        "deadline": null,
+        "correlation_id": null,
+        "causation_id": null,
+        "idempotency_key": null,
+        "attempt": 1,
+        "requires_ack": false,
+        "payload_type": "json",
+        "payload": {},
+        "metadata": {}
+      }
+    },
+    {
+      "id": "envelope_unsupported_version",
+      "kind": "message_envelope",
+      "valid": false,
+      "error_code": "unsupported_version",
+      "value": {
+        "protocol_version": "2.0",
+        "message_id": "msg-2",
+        "session_id": "session-1",
+        "channel": "tasks",
+        "kind": "data",
+        "source": "producer",
+        "target": null,
+        "sequence": 0,
+        "created_at": "2026-01-01T00:00:00Z",
+        "deadline": null,
+        "correlation_id": null,
+        "causation_id": null,
+        "idempotency_key": null,
+        "attempt": 1,
+        "requires_ack": false,
+        "payload_type": "json",
+        "payload": {},
+        "metadata": {}
+      }
+    },
+    {
+      "id": "envelope_invalid_timestamp",
+      "kind": "message_envelope",
+      "valid": false,
+      "error_code": "invalid_timestamp",
+      "value": {
+        "protocol_version": "1.0",
+        "message_id": "msg-3",
+        "session_id": "session-1",
+        "channel": "tasks",
+        "kind": "data",
+        "source": "producer",
+        "target": null,
+        "sequence": 0,
+        "created_at": "not-a-timestamp",
+        "deadline": null,
+        "correlation_id": null,
+        "causation_id": null,
+        "idempotency_key": null,
+        "attempt": 1,
+        "requires_ack": false,
+        "payload_type": "json",
+        "payload": {},
+        "metadata": {}
+      }
+    },
+    {
+      "id": "session_valid",
+      "kind": "session_config",
+      "valid": true,
+      "value": {
+        "session_id": "session-1",
+        "runtime_mode": "session",
+        "channel_capacity": 64,
+        "max_message_bytes": 8388608,
+        "ack_timeout_ms": 30000,
+        "dedup_capacity": 4096,
+        "retry_policy": { "max_attempts": 3, "base_delay_ms": 100, "max_delay_ms": 2000 },
+        "deadline": null,
+        "metadata": {}
+      }
+    },
+    {
+      "id": "session_message_limit_too_small",
+      "kind": "session_config",
+      "valid": false,
+      "error_code": "below_minimum",
+      "value": {
+        "session_id": "session-1",
+        "runtime_mode": "session",
+        "channel_capacity": 64,
+        "max_message_bytes": 512,
+        "ack_timeout_ms": 30000,
+        "dedup_capacity": 4096,
+        "retry_policy": { "max_attempts": 3, "base_delay_ms": 100, "max_delay_ms": 2000 },
+        "deadline": null,
+        "metadata": {}
+      }
+    },
+    {
+      "id": "session_retry_attempts_too_large",
+      "kind": "session_config",
+      "valid": false,
+      "error_code": "above_maximum",
+      "value": {
+        "session_id": "session-1",
+        "runtime_mode": "session",
+        "channel_capacity": 64,
+        "max_message_bytes": 8388608,
+        "ack_timeout_ms": 30000,
+        "dedup_capacity": 4096,
+        "retry_policy": { "max_attempts": 101, "base_delay_ms": 100, "max_delay_ms": 2000 },
+        "deadline": null,
+        "metadata": {}
+      }
+    },
+    {
+      "id": "channel_valid",
+      "kind": "channel_config",
+      "valid": true,
+      "value": {
+        "name": "tasks",
+        "capacity": 1,
+        "overflow_policy": "block",
+        "requires_ack": false,
+        "metadata": {}
+      }
+    },
+    {
+      "id": "channel_empty_name",
+      "kind": "channel_config",
+      "valid": false,
+      "error_code": "empty_field",
+      "value": {
+        "name": "",
+        "capacity": 1,
+        "overflow_policy": "block",
+        "requires_ack": false,
+        "metadata": {}
+      }
+    },
+    {
+      "id": "ack_valid",
+      "kind": "delivery_ack",
+      "valid": true,
+      "value": {
+        "message_id": "msg-1",
+        "processed_at": "2026-01-01T00:00:01Z",
+        "metadata": {}
+      }
+    },
+    {
+      "id": "nack_empty_code",
+      "kind": "delivery_nack",
+      "valid": false,
+      "error_code": "empty_field",
+      "value": {
+        "message_id": "msg-1",
+        "code": "",
+        "message": "failed",
+        "retryable": false,
+        "processed_at": "2026-01-01T00:00:01Z",
+        "metadata": {}
+      }
+    },
+    {
+      "id": "process_error_valid",
+      "kind": "process_error",
+      "valid": true,
+      "value": {
+        "code": "worker_failed",
+        "message": "worker stopped",
+        "process_id": "worker-1",
+        "retryable": false,
+        "details": {},
+        "timestamp": "2026-01-01T00:00:01Z"
+      }
+    },
+    {
+      "id": "artifact_valid",
+      "kind": "artifact_ref",
+      "valid": true,
+      "value": {
+        "artifact_id": "report-1",
+        "uri": "file:///reports/result.json",
+        "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "size_bytes": 42,
+        "media_type": "application/json",
+        "metadata": {}
+      }
+    },
+    {
+      "id": "artifact_invalid_hash",
+      "kind": "artifact_ref",
+      "valid": false,
+      "error_code": "invalid_sha256",
+      "value": {
+        "artifact_id": "report-1",
+        "uri": "file:///reports/result.json",
+        "sha256": "abc",
+        "size_bytes": 42,
+        "media_type": "application/json",
+        "metadata": {}
+      }
+    },
+    {
+      "id": "worker_valid",
+      "kind": "worker_capabilities",
+      "valid": true,
+      "value": {
+        "worker_id": "worker-1",
+        "runtime": "rust",
+        "os": "linux",
+        "architecture": "x86_64",
+        "cpu_cores": 4,
+        "memory_bytes": 8589934592,
+        "cuda": false,
+        "cuda_devices": [],
+        "profiles": ["server"],
+        "operations": ["evaluate"],
+        "metadata": {}
+      }
+    },
+    {
+      "id": "progress_out_of_range",
+      "kind": "job_progress",
+      "valid": false,
+      "error_code": "invalid_progress",
+      "value": {
+        "job_id": "job-1",
+        "phase": "evaluation",
+        "status": "running",
+        "step": 2,
+        "total_steps": 4,
+        "progress": 1.5,
+        "loss": null,
+        "metrics": {},
+        "message": "working",
+        "timestamp": "2026-01-01T00:00:01Z",
+        "artifacts": []
+      }
+    }
+  ]
+}

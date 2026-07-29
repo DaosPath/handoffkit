@@ -168,11 +168,7 @@ impl Team {
         let task = task.into();
         match self.runtime_mode {
             RuntimeMode::Classic => self.run_classic(task).await,
-            RuntimeMode::Session => self.run_session(task).await,
-            RuntimeMode::Distributed => Err(RuntimeError::new(
-                "distributed_unavailable",
-                "distributed team execution is reserved for HandoffKit 1.18",
-            )),
+            RuntimeMode::Session | RuntimeMode::Distributed => self.run_session(task).await,
         }
     }
 
@@ -205,7 +201,7 @@ impl Team {
         let run_id = NEXT_WORKFLOW_ID.fetch_add(1, Ordering::Relaxed);
         let session_id = format!("team-{}-{run_id}", self.name);
         let session = runtime
-            .create_session(default_session_config(session_id))
+            .create_session(default_session_config(session_id, self.runtime_mode))
             .await?;
         let execution = self.execute_session(&session, task).await;
         let cleanup = runtime.close_session(session.id()).await;
@@ -544,10 +540,10 @@ fn team_result(
     }
 }
 
-fn default_session_config(session_id: String) -> SessionConfig {
+fn default_session_config(session_id: String, runtime_mode: RuntimeMode) -> SessionConfig {
     SessionConfig {
         session_id,
-        runtime_mode: RuntimeMode::Session,
+        runtime_mode,
         channel_capacity: handoffkit_protocol::DEFAULT_CHANNEL_CAPACITY,
         max_message_bytes: handoffkit_protocol::DEFAULT_MAX_MESSAGE_BYTES,
         ack_timeout_ms: 5_000,

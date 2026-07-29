@@ -129,7 +129,7 @@ class Team:
                         to_agent=next_agent,
                         task=task,
                         summary=current_output,
-                        metadata={"runtime_mode": RuntimeMode.SESSION.value},
+                        metadata={"runtime_mode": self.runtime_mode.value},
                     )
                     handoffs[index] = state
                     await context.send(

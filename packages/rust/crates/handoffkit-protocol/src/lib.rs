@@ -11,6 +11,7 @@ pub const PROTOCOL_VERSION: &str = "1.0";
 pub const DEFAULT_CHANNEL_CAPACITY: usize = 64;
 pub const DEFAULT_MAX_MESSAGE_BYTES: usize = 8 * 1024 * 1024;
 pub const DEFAULT_MAX_NESTING_DEPTH: usize = 64;
+pub const MIN_MESSAGE_BYTES: usize = 1_024;
 pub const MAX_ERROR_MESSAGE_BYTES: usize = 2_048;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -173,10 +174,10 @@ impl SessionConfig {
                 "channel_capacity must be at least 1".to_string(),
             ));
         }
-        if self.max_message_bytes == 0 {
-            return Err(ProtocolError(
-                "max_message_bytes must be at least 1".to_string(),
-            ));
+        if self.max_message_bytes < MIN_MESSAGE_BYTES {
+            return Err(ProtocolError(format!(
+                "max_message_bytes must be at least {MIN_MESSAGE_BYTES}"
+            )));
         }
         if self.ack_timeout_ms == 0 {
             return Err(ProtocolError(
@@ -275,14 +276,9 @@ impl MessageEnvelope {
         if self.attempt == 0 {
             return Err(ProtocolError("attempt must be at least 1".to_string()));
         }
-        let created_at = parse_timestamp("created_at", &self.created_at)?;
+        parse_timestamp("created_at", &self.created_at)?;
         if let Some(deadline) = &self.deadline {
-            let deadline = parse_timestamp("deadline", deadline)?;
-            if deadline < created_at {
-                return Err(ProtocolError(
-                    "deadline must not be earlier than created_at".to_string(),
-                ));
-            }
+            parse_timestamp("deadline", deadline)?;
         }
         let encoded_size = self
             .encoded_size()
@@ -321,6 +317,159 @@ impl MessageEnvelope {
     }
 }
 
+impl DeliveryAck {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        require_nonempty("message_id", &self.message_id)?;
+        parse_timestamp("processed_at", &self.processed_at)?;
+        Ok(())
+    }
+}
+
+impl DeliveryNack {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        require_nonempty("message_id", &self.message_id)?;
+        require_nonempty("code", &self.code)?;
+        parse_timestamp("processed_at", &self.processed_at)?;
+        Ok(())
+    }
+}
+
+impl ProcessError {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        require_nonempty("code", &self.code)?;
+        require_nonempty("process_id", &self.process_id)?;
+        parse_timestamp("timestamp", &self.timestamp)?;
+        Ok(())
+    }
+
+    pub fn sanitized(mut self) -> Self {
+        self.message = sanitize_error_message(&self.message);
+        self
+    }
+}
+
+impl ArtifactRef {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        require_nonempty("artifact_id", &self.artifact_id)?;
+        require_nonempty("uri", &self.uri)?;
+        require_nonempty("sha256", &self.sha256)?;
+        require_nonempty("media_type", &self.media_type)?;
+        if self.sha256.len() != 64 || !self.sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(ProtocolError(
+                "sha256 must contain exactly 64 hexadecimal characters".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkerCapabilities {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        require_nonempty("worker_id", &self.worker_id)?;
+        require_nonempty("runtime", &self.runtime)?;
+        require_nonempty("os", &self.os)?;
+        require_nonempty("architecture", &self.architecture)?;
+        if self.cpu_cores == 0 {
+            return Err(ProtocolError("cpu_cores must be at least 1".to_string()));
+        }
+        Ok(())
+    }
+}
+
+impl TrainingJob {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        require_nonempty("job_id", &self.job_id)?;
+        require_nonempty("output", &self.output)?;
+        require_nonempty("idempotency_key", &self.idempotency_key)?;
+        self.dataset.validate()?;
+        if let Some(deadline) = &self.deadline {
+            parse_timestamp("deadline", deadline)?;
+        }
+        Ok(())
+    }
+}
+
+impl EvaluationJob {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        require_nonempty("job_id", &self.job_id)?;
+        require_nonempty("output", &self.output)?;
+        require_nonempty("idempotency_key", &self.idempotency_key)?;
+        self.model.validate()?;
+        self.dataset.validate()?;
+        if let Some(deadline) = &self.deadline {
+            parse_timestamp("deadline", deadline)?;
+        }
+        Ok(())
+    }
+}
+
+impl JobProgress {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        require_nonempty("job_id", &self.job_id)?;
+        require_nonempty("phase", &self.phase)?;
+        require_nonempty("status", &self.status)?;
+        parse_timestamp("timestamp", &self.timestamp)?;
+        if !self.progress.is_finite() || !(0.0..=1.0).contains(&self.progress) {
+            return Err(ProtocolError(
+                "progress must be a finite number between 0 and 1".to_string(),
+            ));
+        }
+        if self.step > self.total_steps {
+            return Err(ProtocolError(
+                "step must not exceed total_steps".to_string(),
+            ));
+        }
+        for artifact in &self.artifacts {
+            artifact.validate()?;
+        }
+        Ok(())
+    }
+}
+
+impl WorkerHeartbeat {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        require_nonempty("worker_id", &self.worker_id)?;
+        parse_timestamp("timestamp", &self.timestamp)?;
+        if !self.load.is_finite() || !(0.0..=1.0).contains(&self.load) {
+            return Err(ProtocolError(
+                "load must be a finite number between 0 and 1".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl DistributedJob {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        require_nonempty("job_id", &self.job_id)?;
+        require_nonempty("operation", &self.operation)?;
+        require_nonempty("idempotency_key", &self.idempotency_key)?;
+        if let Some(deadline) = &self.deadline {
+            parse_timestamp("deadline", deadline)?;
+        }
+        Ok(())
+    }
+}
+
+impl JobAssignment {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        require_nonempty("assignment_id", &self.assignment_id)?;
+        require_nonempty("job_id", &self.job_id)?;
+        require_nonempty("worker_id", &self.worker_id)?;
+        if self.attempt == 0 {
+            return Err(ProtocolError("attempt must be at least 1".to_string()));
+        }
+        let assigned_at = parse_timestamp("assigned_at", &self.assigned_at)?;
+        let lease_deadline = parse_timestamp("lease_deadline", &self.lease_deadline)?;
+        if lease_deadline < assigned_at {
+            return Err(ProtocolError(
+                "lease_deadline must not be earlier than assigned_at".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 pub fn utc_now() -> String {
     chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
@@ -341,6 +490,29 @@ pub fn sanitize_error_message(message: impl AsRef<str>) -> String {
         sanitized.truncate(boundary);
     }
     sanitized
+}
+
+/// Map validation text to a stable code used by differential corpus runners.
+pub fn validation_error_code(error: impl Display) -> &'static str {
+    let message = error.to_string().to_lowercase();
+    for (needle, code) in [
+        ("protocol version", "unsupported_version"),
+        ("rfc 3339", "invalid_timestamp"),
+        ("deadline must not", "invalid_deadline"),
+        ("must not be empty", "empty_field"),
+        ("at least", "below_minimum"),
+        ("must not exceed", "above_maximum"),
+        ("nesting depth", "nesting_too_deep"),
+        ("message exceeds", "message_too_large"),
+        ("sha256", "invalid_sha256"),
+        ("between 0 and 1", "invalid_progress"),
+        ("step must not exceed", "invalid_progress"),
+    ] {
+        if message.contains(needle) {
+            return code;
+        }
+    }
+    "invalid_contract"
 }
 
 pub fn json_depth(value: &Value) -> usize {
@@ -508,4 +680,42 @@ pub struct JobProgress {
     pub timestamp: String,
     #[serde(default)]
     pub artifacts: Vec<ArtifactRef>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct WorkerHeartbeat {
+    pub worker_id: String,
+    pub sequence: u64,
+    pub active_jobs: u32,
+    pub load: f64,
+    pub timestamp: String,
+    #[serde(default)]
+    pub metadata: HashMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DistributedJob {
+    pub job_id: String,
+    pub operation: String,
+    pub payload: Value,
+    #[serde(default)]
+    pub requested_capabilities: Vec<String>,
+    pub idempotency_key: String,
+    #[serde(default)]
+    pub deadline: Option<String>,
+    #[serde(default)]
+    pub metadata: HashMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct JobAssignment {
+    pub assignment_id: String,
+    pub job_id: String,
+    pub worker_id: String,
+    pub attempt: u32,
+    pub assigned_at: String,
+    pub lease_deadline: String,
+    pub payload: Value,
+    #[serde(default)]
+    pub metadata: HashMap<String, Value>,
 }

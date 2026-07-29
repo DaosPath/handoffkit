@@ -193,6 +193,27 @@ async fn session_deadline_interrupts_select() {
 }
 
 #[tokio::test]
+async fn session_deadline_never_extends_an_earlier_envelope_deadline() {
+    let mut deadline_config = config("deadline-inheritance");
+    deadline_config.deadline = Some(
+        (chrono::Utc::now() + chrono::Duration::seconds(60))
+            .to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+    );
+    let runtime = CspRuntime::new();
+    let session = runtime.create_session(deadline_config).await.unwrap();
+    session.open_default_channel("work").await.unwrap();
+    let earlier = (chrono::Utc::now() + chrono::Duration::seconds(10))
+        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+    let mut envelope = session.envelope("work", "data", "test", "json", json!({}));
+    envelope.deadline = Some(earlier.clone());
+    session.send("work", envelope).await.unwrap();
+    assert_eq!(
+        session.receive("work").await.unwrap().unwrap().deadline,
+        Some(earlier)
+    );
+}
+
+#[tokio::test]
 async fn ack_completes_delivery() {
     let runtime = CspRuntime::new();
     let session = runtime.create_session(config("ack")).await.unwrap();
@@ -361,7 +382,9 @@ async fn process_emits_progress_with_artifact_reference() {
                         artifacts: vec![ArtifactRef {
                             artifact_id: "report".to_string(),
                             uri: "file:///tmp/report.json".to_string(),
-                            sha256: "abc".to_string(),
+                            sha256:
+                                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                                    .to_string(),
                             size_bytes: 42,
                             media_type: "application/json".to_string(),
                             metadata: HashMap::new(),
