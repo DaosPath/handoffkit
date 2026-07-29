@@ -20,6 +20,9 @@ from handoffkit.csp.models import (
 )
 
 
+from handoffkit.csp.security import SecurityConfig, SecurityProfile, build_ssl_context
+
+
 @dataclass(frozen=True)
 class NetworkConfig:
     """Bounded network transport configuration."""
@@ -28,6 +31,7 @@ class NetworkConfig:
     connect_timeout_ms: int = 5000
     io_timeout_ms: int = 30000
     retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
+    security_config: SecurityConfig = field(default_factory=SecurityConfig)
 
     def __post_init__(self) -> None:
         if not MIN_MESSAGE_BYTES <= self.max_message_bytes <= DEFAULT_MAX_MESSAGE_BYTES:
@@ -239,13 +243,35 @@ class TcpTransport(LengthDelimitedTransport):
         port: int,
         *,
         config: NetworkConfig | None = None,
+        ssl_context: ssl.SSLContext | None = None,
     ) -> TcpTransport:
         resolved = config or NetworkConfig()
+        ssl_ctx = ssl_context or build_ssl_context(resolved.security_config, is_server=False)
         reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port),
+            asyncio.open_connection(host, port, ssl=ssl_ctx),
             timeout=resolved.connect_timeout_ms / 1000,
         )
         return cls(reader, writer, config=resolved)
+
+    @classmethod
+    async def start_server(
+        cls,
+        client_callback: Any,
+        host: str,
+        port: int,
+        *,
+        config: NetworkConfig | None = None,
+        ssl_context: ssl.SSLContext | None = None,
+    ) -> asyncio.Server:
+        resolved = config or NetworkConfig()
+        resolved.security_config.validate_listen_address(host)
+        ssl_ctx = ssl_context or build_ssl_context(resolved.security_config, is_server=True)
+        return await asyncio.start_server(
+            client_callback,
+            host=host,
+            port=port,
+            ssl=ssl_ctx,
+        )
 
     @classmethod
     async def connect_with_retry(

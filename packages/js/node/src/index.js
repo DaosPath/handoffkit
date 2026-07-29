@@ -424,11 +424,27 @@ export class LengthDelimitedTransport extends Transport {
   }
 }
 
+export * from "./security.js";
+import { buildTlsOptions } from "./security.js";
+import tls from "node:tls";
+import net from "node:net";
+
 export class TcpTransport extends LengthDelimitedTransport {
   static async connect(host, port, options = {}) {
     const config = options.config instanceof NetworkConfig ? options.config : new NetworkConfig(options.config);
-    const socket = await connectSocket({ host, port }, config.connectTimeoutMs);
+    const tlsOpts = options.tlsOptions || (config.securityConfig ? buildTlsOptions(config.securityConfig, false) : null);
+    const socket = await connectSocket({ host, port, ...tlsOpts }, config.connectTimeoutMs, Boolean(tlsOpts));
     return new TcpTransport(socket, { config });
+  }
+  static async startServer(clientCallback, host, port, options = {}) {
+    const config = options.config instanceof NetworkConfig ? options.config : new NetworkConfig(options.config);
+    config.securityConfig?.validateListenAddress(host);
+    const tlsOpts = options.tlsOptions || (config.securityConfig ? buildTlsOptions(config.securityConfig, true) : null);
+    const server = tlsOpts
+      ? tls.createServer(tlsOpts, (socket) => clientCallback(socket))
+      : net.createServer((socket) => clientCallback(socket));
+    await new Promise((resolve) => server.listen(port, host, resolve));
+    return server;
   }
   static async connectWithRetry(host, port, options = {}) {
     const config = options.config instanceof NetworkConfig ? options.config : new NetworkConfig(options.config);
@@ -460,14 +476,15 @@ function validateMaxMessageBytes(value) {
   }
 }
 
-function connectSocket(options, timeoutMs) {
+function connectSocket(options, timeoutMs, useTls = false) {
   return new Promise((resolve, reject) => {
-    const socket = createConnection(options);
+    const socket = useTls ? tls.connect(options) : createConnection(options);
+    const connectEvent = useTls ? "secureConnect" : "connect";
     const timer = setTimeout(() => {
       socket.destroy();
       reject(new Error("network connection timed out"));
     }, timeoutMs);
-    socket.once("connect", () => { clearTimeout(timer); socket.removeListener("error", rejectOnce); resolve(socket); });
+    socket.once(connectEvent, () => { clearTimeout(timer); socket.removeListener("error", rejectOnce); resolve(socket); });
     const rejectOnce = (error) => { clearTimeout(timer); reject(error); };
     socket.once("error", rejectOnce);
   });

@@ -79,6 +79,7 @@ def validation_error_code(error: BaseException | str) -> str:
         ("must not exceed", "above_maximum"),
         ("nesting depth", "nesting_too_deep"),
         ("message exceeds", "message_too_large"),
+        ("invalid_profile", "invalid_profile"),
         ("sha256", "invalid_sha256"),
         ("between 0 and 1", "invalid_progress"),
         ("step must not exceed", "invalid_progress"),
@@ -141,6 +142,14 @@ class RetryPolicy:
         )
 
 
+class EdgeProfile(str, Enum):
+    """Preset operational profiles for edge and server environments."""
+
+    EDGE_SMALL = "edge-small"
+    EDGE_STANDARD = "edge-standard"
+    SERVER = "server"
+
+
 @dataclass(frozen=True)
 class SessionConfig:
     """Configuration shared by one CSP session."""
@@ -154,6 +163,38 @@ class SessionConfig:
     retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
     deadline: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def for_profile(
+        cls,
+        session_id: str,
+        profile: EdgeProfile | str = EdgeProfile.EDGE_STANDARD,
+        **kwargs: Any,
+    ) -> SessionConfig:
+        prof = EdgeProfile(profile) if isinstance(profile, str) else profile
+        if prof == EdgeProfile.EDGE_SMALL:
+            defaults = {
+                "channel_capacity": 16,
+                "max_message_bytes": 1048576,
+                "dedup_capacity": 512,
+                "ack_timeout_ms": 10000,
+            }
+        elif prof == EdgeProfile.SERVER:
+            defaults = {
+                "channel_capacity": 256,
+                "max_message_bytes": 8388608,
+                "dedup_capacity": 16384,
+                "ack_timeout_ms": 60000,
+            }
+        else:
+            defaults = {
+                "channel_capacity": 64,
+                "max_message_bytes": 4194304,
+                "dedup_capacity": 2048,
+                "ack_timeout_ms": 30000,
+            }
+        defaults.update(kwargs)
+        return cls(session_id=session_id, **defaults)
 
     def __post_init__(self) -> None:
         _require_nonempty("session_id", self.session_id)

@@ -1,0 +1,8 @@
+{
+  "profile": "standard",
+  "require_mtls": true,
+  "allow_insecure_loopback": false,
+  "trust_domain": "handoffkit.internal",
+  "replay_window_seconds": 300,
+  "max_clock_skew_seconds": 10
+}

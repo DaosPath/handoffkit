@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"fmt"
+	"github.com/DaosPath/handoffkit/go/security"
 	"testing"
 	"testing/quick"
 )
@@ -193,6 +195,24 @@ func validateCorpus(kind string, data []byte) (any, error) {
 			return nil, err
 		}
 		validationErr = typed.Validate()
+		value = typed
+	case "security_config":
+		var typed security.SecurityConfig
+		if err := json.Unmarshal(data, &typed); err != nil {
+			return nil, err
+		}
+		if typed.Profile != security.SecurityProfileLocal &&
+			typed.Profile != security.SecurityProfileStandard &&
+			typed.Profile != security.SecurityProfileHybridPQ &&
+			typed.Profile != security.SecurityProfileResearch {
+			validationErr = fmt.Errorf("invalid_profile: %s", typed.Profile)
+		}
+		value = typed
+	case "peer_identity":
+		var typed security.PeerIdentity
+		if err := json.Unmarshal(data, &typed); err != nil {
+			return nil, err
+		}
 		value = typed
 	default:
 		return nil, json.Unmarshal(data, &value)

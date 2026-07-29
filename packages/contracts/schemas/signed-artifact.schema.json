@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SignedArtifact",
+  "type": "object",
+  "required": [
+    "artifact_id",
+    "content_hash",
+    "signature",
+    "algorithm",
+    "signer_identity"
+  ],
+  "properties": {
+    "artifact_id": {
+      "type": "string"
+    },
+    "content_hash": {
+      "type": "string"
+    },
+    "signature": {
+      "type": "string"
+    },
+    "algorithm": {
+      "type": "string",
+      "enum": [
+        "ed25519",
+        "ecdsa-p256",
+        "ml-dsa-65",
+        "slh-dsa-sha2-128f"
+      ]
+    },
+    "signer_identity": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "integer"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,8 @@
+{
+  "artifact_id": "art-model-weights-v1",
+  "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "signature": "dGVzdC1zaWduYXR1cmUtZGF0YS1iYXNlNjQ=",
+  "algorithm": "ed25519",
+  "signer_identity": "peer-node-01",
+  "created_at": 1774000050
+}

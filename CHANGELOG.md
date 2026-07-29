@@ -9,6 +9,24 @@ release summary.
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-07-29
+
+### Added
+
+- Added HK-CSP production security architecture (`HK_CSP_THREAT_MODEL.md` & `HK_CSP_SECURITY.md`), security profiles (`local`, `standard`, `hybrid-pq`, `research`), `PeerIdentity`, `SecurityConfig`, and `SignedArtifact` schemas and contracts across Python, JavaScript, Rust, Go, and C++.
+- Added TLS 1.3 standard transport security, mTLS node/worker authentication, hybrid post-quantum key exchange (X25519 + ML-KEM-768 where supported), replay window protection with sequence numbers, downgrade protection, and capability-based authorization allowlists.
+- Added KeyStore and CredentialProvider abstractions supporting secure file stores, environment providers, certificate rotation, and revocation checks.
+- Added experimental isolated Crypto Lab (`packages/python/handoffkit/crypto_research`) for education, fuzzing, and research, strictly forbidden from production runtime fallbacks.
+- Added multi-language security test suites, schema validation fixtures, and cross-runtime security parity tests.
+
+### Security
+
+- Enforced mandatory TLS 1.3 for non-loopback remote listeners, strict host/identity verification, capability-based authorization, bounded replay windows, and complete secret redaction from logs and error tracebacks.
+
+### Compatibility
+
+- HK-CSP wire version remains `1.0`. Canonical snake_case contracts remain 100% interoperable across Python, JavaScript, Rust, Go, and C++.
+
 ## [1.18.0] - 2026-07-28
 
 ### Added

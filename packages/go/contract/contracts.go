@@ -574,6 +574,7 @@ func ValidationErrorCode(err error) string {
 		{"deadline must not", "invalid_deadline"}, {"must not be empty", "empty_field"},
 		{"at least", "below_minimum"}, {"must not exceed", "above_maximum"},
 		{"nesting depth", "nesting_too_deep"}, {"message exceeds", "message_too_large"},
+		{"invalid_profile", "invalid_profile"},
 		{"sha256", "invalid_sha256"}, {"between 0 and 1", "invalid_progress"},
 	} {
 		if strings.Contains(message, mapping.needle) {
