@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/job-assignment.schema.json",
+  "title": "JobAssignment",
+  "type": "object",
+  "required": ["assignment_id", "job_id", "worker_id", "attempt", "assigned_at", "lease_deadline", "payload", "metadata"],
+  "properties": {
+    "assignment_id": { "type": "string", "minLength": 1 },
+    "job_id": { "type": "string", "minLength": 1 },
+    "worker_id": { "type": "string", "minLength": 1 },
+    "attempt": { "type": "integer", "minimum": 1 },
+    "assigned_at": { "type": "string", "format": "date-time" },
+    "lease_deadline": { "type": "string", "format": "date-time" },
+    "payload": {},
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

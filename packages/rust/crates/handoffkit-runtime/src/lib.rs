@@ -1,6 +1,8 @@
 //! Executable HK-CSP runtime for Rust.
 
 mod channel;
+mod dedup;
+mod distributed;
 mod error;
 mod session;
 mod tools;
@@ -8,11 +10,16 @@ mod tracing;
 mod workflow;
 
 pub use channel::{select, CspChannel};
+pub use dedup::{DedupStore, FileDedupStore};
+pub use distributed::{
+    heartbeat_now, DistributedScheduler, SchedulerSnapshot, WorkerRecord, WorkerRegistry,
+    WorkerStatus,
+};
 pub use error::{RuntimeError, RuntimeResult};
 pub use handoffkit_protocol::RuntimeMode;
 pub use session::{
     CspRuntime, CspSession, DeliveryReceipt, ProcessContext, ProcessHandle, RuntimeEvent,
-    SessionState,
+    SessionDiagnostics, SessionState,
 };
 pub use tools::{Tool, ToolRegistry};
 pub use tracing::{trace_from_recipe_result, trace_from_team_result, ReplayRunner, ReplaySummary};

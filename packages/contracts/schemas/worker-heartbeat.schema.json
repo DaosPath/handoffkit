@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/worker-heartbeat.schema.json",
+  "title": "WorkerHeartbeat",
+  "type": "object",
+  "required": ["worker_id", "sequence", "active_jobs", "load", "timestamp", "metadata"],
+  "properties": {
+    "worker_id": { "type": "string", "minLength": 1 },
+    "sequence": { "type": "integer", "minimum": 0 },
+    "active_jobs": { "type": "integer", "minimum": 0 },
+    "load": { "type": "number", "minimum": 0, "maximum": 1 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

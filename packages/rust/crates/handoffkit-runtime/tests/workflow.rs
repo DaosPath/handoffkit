@@ -60,6 +60,20 @@ async fn recipe_runs_in_session_mode() {
 }
 
 #[tokio::test]
+async fn team_runs_through_distributed_session_mode() {
+    let result = Team::new("distributed", vec![agent("router"), agent("worker")])
+        .unwrap()
+        .with_runtime_mode(RuntimeMode::Distributed)
+        .run("dispatch task")
+        .await
+        .unwrap();
+    assert_eq!(result.agent_outputs.len(), 2);
+    assert_eq!(result.handoffs.len(), 1);
+    assert_eq!(result.handoffs[0].from_agent, "router");
+    assert_eq!(result.handoffs[0].to_agent, "worker");
+}
+
+#[tokio::test]
 async fn failed_team_run_always_removes_its_session() {
     let runtime = CspRuntime::new();
     let failing = Agent::new("failing", |_task, _handoff| async {

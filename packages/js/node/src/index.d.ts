@@ -71,3 +71,25 @@ export class SubprocessStdioTransport extends NodeStdioTransport {
     options?: { cwd?: string; env?: NodeJS.ProcessEnv; maxMessageBytes?: number },
   ): SubprocessStdioTransport;
 }
+
+export class FileDedupStore {
+  constructor(filePath: string, options?: { capacity?: number; maxLogBytes?: number });
+  claim(key: string): boolean;
+  release(key: string): boolean;
+  contains(key: string): boolean;
+  readonly size: number;
+}
+
+export class NetworkConfig {
+  constructor(init?: { maxMessageBytes?: number; connectTimeoutMs?: number; ioTimeoutMs?: number; maxAttempts?: number; baseDelayMs?: number; maxDelayMs?: number });
+}
+export class LengthDelimitedTransport extends Transport {
+  constructor(socket: import("node:net").Socket, options?: { config?: NetworkConfig });
+}
+export class TcpTransport extends LengthDelimitedTransport {
+  static connect(host: string, port: number, options?: { config?: NetworkConfig }): Promise<TcpTransport>;
+  static connectWithRetry(host: string, port: number, options?: { config?: NetworkConfig }): Promise<TcpTransport>;
+}
+export class UnixSocketTransport extends LengthDelimitedTransport {
+  static connect(path: string, options?: { config?: NetworkConfig }): Promise<UnixSocketTransport>;
+}

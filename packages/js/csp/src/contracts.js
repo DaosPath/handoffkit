@@ -2,6 +2,10 @@ export const HK_CSP_VERSION = "1.0";
 export const HANDOFFKIT_CSP_VERSION = "1.16.0";
 export const DEFAULT_CHANNEL_CAPACITY = 64;
 export const DEFAULT_MAX_MESSAGE_BYTES = 8 * 1024 * 1024;
+export const DEFAULT_MAX_NESTING_DEPTH = 64;
+export const MIN_MESSAGE_BYTES = 1024;
+export const MAX_ERROR_MESSAGE_BYTES = 2048;
+export const MAX_RETRY_ATTEMPTS = 100;
 
 export const RuntimeMode = Object.freeze({
   CLASSIC: "classic",
@@ -27,10 +31,70 @@ function object(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? { ...value } : {};
 }
 
+const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+function requireNonempty(name, value) {
+  if (value == null || String(value).trim() === "") throw new TypeError(`${name} must not be empty`);
+}
+
+function optionalNonempty(name, value) {
+  if (value != null && String(value).trim() === "") throw new TypeError(`${name} must not be empty when set`);
+}
+
+export function validateTimestamp(value, fieldName = "timestamp") {
+  if (typeof value !== "string" || !RFC3339.test(value) || Number.isNaN(Date.parse(value))) {
+    throw new TypeError(`${fieldName} must be an RFC 3339 timestamp`);
+  }
+  return Date.parse(value);
+}
+
+export function jsonDepth(value, seen = new WeakSet()) {
+  if (value === null || typeof value !== "object") return 1;
+  if (seen.has(value)) throw new TypeError("message payload must not contain cycles");
+  seen.add(value);
+  const values = Array.isArray(value) ? value : Object.values(value);
+  const depth = 1 + values.reduce((maximum, item) => Math.max(maximum, jsonDepth(item, seen)), 0);
+  seen.delete(value);
+  return depth;
+}
+
+export function sanitizeErrorMessage(message) {
+  let sanitized = String(message).replace(/[\r\n]/g, " ").replaceAll("\0", "");
+  for (const prefix of ["Bearer ", "sk-", "gsk_", "pypi-"]) {
+    const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    sanitized = sanitized.replace(new RegExp(`${escaped}[^\\s,;\\)\\]\\}]+`, "g"), `${prefix}[REDACTED]`);
+  }
+  const encoded = new TextEncoder().encode(sanitized);
+  if (encoded.byteLength <= MAX_ERROR_MESSAGE_BYTES) return sanitized;
+  return new TextDecoder().decode(encoded.slice(0, MAX_ERROR_MESSAGE_BYTES)).replace(/\uFFFD$/, "");
+}
+
+export function validationErrorCode(error) {
+  const message = String(error?.message ?? error).toLowerCase();
+  const mappings = [
+    ["protocol version", "unsupported_version"],
+    ["rfc 3339", "invalid_timestamp"],
+    ["valid timestamp", "invalid_timestamp"],
+    ["deadline must not", "invalid_deadline"],
+    ["must not be empty", "empty_field"],
+    ["is required", "empty_field"],
+    ["at least", "below_minimum"],
+    ["positive", "below_minimum"],
+    ["must not exceed", "above_maximum"],
+    ["nesting depth", "nesting_too_deep"],
+    ["message exceeds", "message_too_large"],
+    ["sha256", "invalid_sha256"],
+    ["between 0 and 1", "invalid_progress"],
+  ];
+  return mappings.find(([needle]) => message.includes(needle))?.[1] ?? "invalid_contract";
+}
+
 export class RetryPolicy {
   constructor({ maxAttempts = 3, baseDelayMs = 100, maxDelayMs = 2000 } = {}) {
     if (!Number.isInteger(maxAttempts) || maxAttempts < 1) throw new TypeError("maxAttempts must be at least 1");
-    if (baseDelayMs < 0 || maxDelayMs < 0) throw new TypeError("retry delays must not be negative");
+    if (maxAttempts > MAX_RETRY_ATTEMPTS) throw new TypeError(`maxAttempts must not exceed ${MAX_RETRY_ATTEMPTS}`);
+    if (!Number.isInteger(baseDelayMs) || !Number.isInteger(maxDelayMs) || baseDelayMs < 0 || maxDelayMs < 0) throw new TypeError("retry delays must not be negative integers");
+    if (baseDelayMs > maxDelayMs) throw new TypeError("baseDelayMs must not exceed maxDelayMs");
     this.maxAttempts = maxAttempts;
     this.baseDelayMs = baseDelayMs;
     this.maxDelayMs = maxDelayMs;
@@ -59,12 +123,13 @@ export class SessionConfig {
     deadline = null,
     metadata = {},
   } = {}) {
-    if (!sessionId) throw new TypeError("sessionId is required");
+    requireNonempty("sessionId", sessionId);
     if (!Number.isInteger(channelCapacity) || channelCapacity < 1) throw new TypeError("channelCapacity must be at least 1");
     if (!Number.isInteger(maxMessageBytes) || maxMessageBytes < 1024) throw new TypeError("maxMessageBytes must be at least 1024");
     if (!Number.isInteger(ackTimeoutMs) || ackTimeoutMs < 1) throw new TypeError("ackTimeoutMs must be positive");
     if (!Number.isInteger(dedupCapacity) || dedupCapacity < 1) throw new TypeError("dedupCapacity must be positive");
-    if (deadline && Number.isNaN(Date.parse(deadline))) throw new TypeError("deadline must be a valid timestamp");
+    if (deadline) validateTimestamp(deadline, "deadline");
+    if (!Object.values(RuntimeMode).includes(runtimeMode)) throw new TypeError("runtimeMode is invalid");
     this.sessionId = String(sessionId);
     this.runtimeMode = runtimeMode;
     this.channelCapacity = channelCapacity;
@@ -105,8 +170,9 @@ export class SessionConfig {
 
 export class ChannelConfig {
   constructor({ name, capacity = DEFAULT_CHANNEL_CAPACITY, overflowPolicy = OverflowPolicy.BLOCK, requiresAck = false, metadata = {} } = {}) {
-    if (!name) throw new TypeError("channel name is required");
+    requireNonempty("channel.name", name);
     if (!Number.isInteger(capacity) || capacity < 1) throw new TypeError("capacity must be at least 1");
+    if (!Object.values(OverflowPolicy).includes(overflowPolicy)) throw new TypeError("overflowPolicy is invalid");
     this.name = String(name);
     this.capacity = capacity;
     this.overflowPolicy = overflowPolicy;
@@ -152,12 +218,13 @@ export class MessageEnvelope {
       throw new ProtocolVersionError(`Unsupported HK-CSP protocol version ${protocolVersion}.`);
     }
     for (const [name, value] of Object.entries({ messageId, sessionId, channel, kind, source, payloadType })) {
-      if (!value) throw new TypeError(`${name} is required`);
+      requireNonempty(name, value);
     }
+    for (const [name, value] of Object.entries({ target, correlationId, causationId, idempotencyKey })) optionalNonempty(name, value);
     if (!Number.isInteger(Number(sequence)) || Number(sequence) < 0) throw new TypeError("sequence must be a non-negative integer");
     if (!Number.isInteger(Number(attempt)) || Number(attempt) < 1) throw new TypeError("attempt must be a positive integer");
-    if (Number.isNaN(Date.parse(createdAt))) throw new TypeError("createdAt must be a valid timestamp");
-    if (deadline && Number.isNaN(Date.parse(deadline))) throw new TypeError("deadline must be a valid timestamp");
+    validateTimestamp(createdAt, "createdAt");
+    if (deadline) validateTimestamp(deadline, "deadline");
     this.protocolVersion = String(protocolVersion);
     this.messageId = String(messageId);
     this.sessionId = String(sessionId);
@@ -176,6 +243,7 @@ export class MessageEnvelope {
     this.payloadType = String(payloadType);
     this.payload = payload;
     this.metadata = object(metadata);
+    this.validateWithLimits();
   }
   toWire() {
     return {
@@ -202,6 +270,14 @@ export class MessageEnvelope {
   toJSON() { return this.toWire(); }
   toJSONString(space = 0) { return JSON.stringify(this.toWire(), null, space); }
   encodedSize() { return new TextEncoder().encode(this.toJSONString()).byteLength; }
+  validateWithLimits({ maxMessageBytes = DEFAULT_MAX_MESSAGE_BYTES, maxNestingDepth = DEFAULT_MAX_NESTING_DEPTH } = {}) {
+    if (this.encodedSize() > maxMessageBytes) throw new TypeError(`message exceeds limit of ${maxMessageBytes} bytes`);
+    const metadataDepth = 1 + Object.values(this.metadata).reduce((maximum, item) => Math.max(maximum, jsonDepth(item)), 0);
+    if (Math.max(jsonDepth(this.payload), metadataDepth) > maxNestingDepth) {
+      throw new TypeError(`message nesting depth exceeds limit of ${maxNestingDepth}`);
+    }
+    return this;
+  }
   nextAttempt() { return MessageEnvelope.fromWire({ ...this.toWire(), attempt: this.attempt + 1 }); }
   static fromWire(value) {
     return new MessageEnvelope({
@@ -229,12 +305,19 @@ export class MessageEnvelope {
 }
 
 export class DeliveryAck {
-  constructor({ messageId, processedAt = now(), metadata = {} }) { this.messageId = messageId; this.processedAt = processedAt; this.metadata = object(metadata); }
+  constructor({ messageId, processedAt = now(), metadata = {} }) {
+    requireNonempty("messageId", messageId);
+    validateTimestamp(processedAt, "processedAt");
+    this.messageId = String(messageId); this.processedAt = processedAt; this.metadata = object(metadata);
+  }
   toWire() { return { message_id: this.messageId, processed_at: this.processedAt, metadata: { ...this.metadata } }; }
 }
 
 export class DeliveryNack {
   constructor({ messageId, code, message, retryable = false, processedAt = now(), metadata = {} }) {
+    requireNonempty("messageId", messageId);
+    requireNonempty("code", code);
+    validateTimestamp(processedAt, "processedAt");
     Object.assign(this, { messageId, code, message, retryable: Boolean(retryable), processedAt, metadata: object(metadata) });
   }
   toWire() { return { message_id: this.messageId, code: this.code, message: this.message, retryable: this.retryable, processed_at: this.processedAt, metadata: { ...this.metadata } }; }
@@ -242,9 +325,13 @@ export class DeliveryNack {
 
 export class ProcessError {
   constructor({ code, message, processId, retryable = false, details = {}, timestamp = now() }) {
+    requireNonempty("code", code);
+    requireNonempty("processId", processId);
+    validateTimestamp(timestamp, "timestamp");
     Object.assign(this, { code, message, processId, retryable: Boolean(retryable), details: object(details), timestamp });
   }
   toWire() { return { code: this.code, message: this.message, process_id: this.processId, retryable: this.retryable, details: { ...this.details }, timestamp: this.timestamp }; }
+  sanitized() { return new ProcessError({ ...this.toWire(), processId: this.processId, message: sanitizeErrorMessage(this.message) }); }
 }
 
 class WireRecord {
@@ -253,8 +340,82 @@ class WireRecord {
   toJSON() { return this.toWire(); }
 }
 
-export class ArtifactRef extends WireRecord {}
-export class WorkerCapabilities extends WireRecord {}
-export class TrainingJob extends WireRecord {}
-export class EvaluationJob extends WireRecord {}
-export class JobProgress extends WireRecord {}
+export class ArtifactRef extends WireRecord {
+  constructor(value = {}) {
+    super(value);
+    for (const name of ["artifact_id", "uri", "media_type"]) requireNonempty(name, value[name]);
+    if (!/^[0-9a-fA-F]{64}$/.test(String(value.sha256 ?? ""))) throw new TypeError("sha256 must contain exactly 64 hexadecimal characters");
+    if (!Number.isInteger(value.size_bytes) || value.size_bytes < 0) throw new TypeError("size_bytes must be at least 0");
+  }
+}
+export class WorkerCapabilities extends WireRecord {
+  constructor(value = {}) {
+    super(value);
+    for (const name of ["worker_id", "runtime", "os", "architecture"]) requireNonempty(name, value[name]);
+    if (!Number.isInteger(value.cpu_cores) || value.cpu_cores < 1) throw new TypeError("cpu_cores must be at least 1");
+    if (!Number.isInteger(value.memory_bytes) || value.memory_bytes < 0) throw new TypeError("memory_bytes must be at least 0");
+  }
+}
+export class TrainingJob extends WireRecord {
+  constructor(value = {}) {
+    super(value);
+    for (const name of ["job_id", "output", "idempotency_key"]) requireNonempty(name, value[name]);
+    new ArtifactRef(value.dataset);
+    if (value.deadline) validateTimestamp(value.deadline, "deadline");
+  }
+}
+export class EvaluationJob extends WireRecord {
+  constructor(value = {}) {
+    super(value);
+    for (const name of ["job_id", "output", "idempotency_key"]) requireNonempty(name, value[name]);
+    new ArtifactRef(value.model);
+    new ArtifactRef(value.dataset);
+    if (value.deadline) validateTimestamp(value.deadline, "deadline");
+  }
+}
+export class JobProgress extends WireRecord {
+  constructor(value = {}) {
+    super(value);
+    for (const name of ["job_id", "phase", "status"]) requireNonempty(name, value[name]);
+    validateTimestamp(value.timestamp, "timestamp");
+    if (!Number.isFinite(value.progress) || value.progress < 0 || value.progress > 1) throw new TypeError("progress must be between 0 and 1");
+    if (!Number.isInteger(value.step) || !Number.isInteger(value.total_steps) || value.step < 0 || value.step > value.total_steps) {
+      throw new TypeError("step must not exceed total_steps");
+    }
+    for (const artifact of value.artifacts ?? []) new ArtifactRef(artifact);
+  }
+}
+
+export class WorkerHeartbeat extends WireRecord {
+  constructor(value = {}) {
+    super(value);
+    requireNonempty("worker_id", value.worker_id);
+    if (!Number.isInteger(value.sequence) || value.sequence < 0) throw new TypeError("sequence must be at least 0");
+    if (!Number.isInteger(value.active_jobs) || value.active_jobs < 0) throw new TypeError("active_jobs must be at least 0");
+    if (!Number.isFinite(value.load) || value.load < 0 || value.load > 1) throw new TypeError("load must be between 0 and 1");
+    validateTimestamp(value.timestamp, "timestamp");
+  }
+}
+
+export class DistributedJob extends WireRecord {
+  constructor(value = {}) {
+    super(value);
+    for (const name of ["job_id", "operation", "idempotency_key"]) requireNonempty(name, value[name]);
+    if (!Array.isArray(value.requested_capabilities)) throw new TypeError("requested_capabilities must be an array");
+    for (const capability of value.requested_capabilities) requireNonempty("requested_capabilities item", capability);
+    if (value.deadline) validateTimestamp(value.deadline, "deadline");
+  }
+}
+
+export class JobAssignment extends WireRecord {
+  constructor(value = {}) {
+    super(value);
+    for (const name of ["assignment_id", "job_id", "worker_id"]) requireNonempty(name, value[name]);
+    if (!Number.isInteger(value.attempt) || value.attempt < 1) throw new TypeError("attempt must be at least 1");
+    validateTimestamp(value.assigned_at, "assigned_at");
+    validateTimestamp(value.lease_deadline, "lease_deadline");
+    if (Date.parse(value.lease_deadline) < Date.parse(value.assigned_at)) {
+      throw new TypeError("lease_deadline must not be earlier than assigned_at");
+    }
+  }
+}

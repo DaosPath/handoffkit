@@ -127,3 +127,20 @@ async fn rust_starts_javascript_worker_over_stdio() {
     )
     .await;
 }
+
+#[tokio::test]
+async fn rust_starts_go_worker_over_stdio() {
+    if std::env::var("HANDOFFKIT_RUN_INTEROP_TESTS").as_deref() != Ok("1") {
+        return;
+    }
+    let root = repository_root();
+    let default = root.join(".local-tests/bin").join(if cfg!(windows) {
+        "handoffkit-worker.exe"
+    } else {
+        "handoffkit-worker"
+    });
+    let binary = std::env::var_os("HANDOFFKIT_GO_BIN")
+        .map(PathBuf::from)
+        .unwrap_or(default);
+    exercise_worker(&binary, &[], "go", "rust-go-test").await;
+}

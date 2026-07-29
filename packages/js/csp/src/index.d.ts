@@ -2,6 +2,14 @@ export const HK_CSP_VERSION: "1.0";
 export const HANDOFFKIT_CSP_VERSION: string;
 export const DEFAULT_CHANNEL_CAPACITY: number;
 export const DEFAULT_MAX_MESSAGE_BYTES: number;
+export const DEFAULT_MAX_NESTING_DEPTH: number;
+export const MIN_MESSAGE_BYTES: number;
+export const MAX_ERROR_MESSAGE_BYTES: number;
+export const MAX_RETRY_ATTEMPTS: number;
+export function validateTimestamp(value: string, fieldName?: string): number;
+export function jsonDepth(value: unknown): number;
+export function sanitizeErrorMessage(message: unknown): string;
+export function validationErrorCode(error: unknown): string;
 
 export const RuntimeMode: Readonly<{ CLASSIC: "classic"; SESSION: "session"; DISTRIBUTED: "distributed" }>;
 export const OverflowPolicy: Readonly<{ BLOCK: "block"; REJECT: "reject" }>;
@@ -112,6 +120,7 @@ export class MessageEnvelope<T = unknown> implements MessageEnvelopeInit<T> {
   toJSON(): Record<string, unknown>;
   toJSONString(space?: number): string;
   encodedSize(): number;
+  validateWithLimits(options?: { maxMessageBytes?: number; maxNestingDepth?: number }): this;
   nextAttempt(): MessageEnvelope<T>;
   static fromWire<T = unknown>(value: Record<string, unknown>): MessageEnvelope<T>;
   static fromJSON<T = unknown>(value: string | Record<string, unknown>): MessageEnvelope<T>;
@@ -139,6 +148,7 @@ export class DeliveryNack {
 export class ProcessError {
   constructor(init: Record<string, unknown>);
   toWire(): Record<string, unknown>;
+  sanitized(): ProcessError;
 }
 
 export class ArtifactRef { constructor(value?: Record<string, unknown>); toWire(): Record<string, unknown>; toJSON(): Record<string, unknown>; }
@@ -146,6 +156,15 @@ export class WorkerCapabilities extends ArtifactRef {}
 export class TrainingJob extends ArtifactRef {}
 export class EvaluationJob extends ArtifactRef {}
 export class JobProgress extends ArtifactRef {}
+export class WorkerHeartbeat extends ArtifactRef {}
+export class DistributedJob extends ArtifactRef {}
+export class JobAssignment extends ArtifactRef {}
+
+export interface DedupStore {
+  claim(key: string): boolean;
+  release(key: string): boolean;
+  contains(key: string): boolean;
+}
 
 export class CspChannel<T = unknown> {
   config: ChannelConfig;
@@ -185,7 +204,8 @@ export class CspSession {
   readonly sessionId: string;
   cancelled: boolean;
   closed: boolean;
-  constructor(config: SessionConfig | ConstructorParameters<typeof SessionConfig>[0]);
+  constructor(config: SessionConfig | ConstructorParameters<typeof SessionConfig>[0], options?: { dedupStore?: DedupStore | null });
+  diagnostics(): Record<string, number | string | boolean>;
   channel(name: string, options?: { capacity?: number; requiresAck?: boolean }): CspChannel;
   send(channel: string, envelope: MessageEnvelope): Promise<void>;
   receive(channel: string): Promise<MessageEnvelope>;
@@ -201,8 +221,8 @@ export class CspSession {
 
 export class CspRuntime {
   mode: RuntimeModeValue;
-  constructor(init?: { mode?: RuntimeModeValue });
-  createSession(init?: { sessionId?: string; config?: SessionConfig }): CspSession;
+  constructor(init?: { mode?: RuntimeModeValue; dedupStore?: DedupStore | null });
+  createSession(init?: { sessionId?: string; config?: SessionConfig; dedupStore?: DedupStore | null }): CspSession;
   makeEnvelope<T = unknown>(init: MakeEnvelopeInit<T>): MessageEnvelope<T>;
 }
 
@@ -220,3 +240,32 @@ export interface MakeEnvelopeInit<T = unknown> {
 }
 
 export function makeEnvelope<T = unknown>(init: MakeEnvelopeInit<T>): MessageEnvelope<T>;
+
+export class WebSocketTransport extends Transport {
+  constructor(socket: WebSocket, options?: { maxMessageBytes?: number });
+}
+
+export const WorkerStatus: Readonly<{ ONLINE: "online"; SUSPECT: "suspect"; OFFLINE: "offline" }>;
+export class WorkerRecord { readonly workerId: string; constructor(init: Record<string, unknown>); }
+export class WorkerRegistry {
+  constructor(init?: { suspectAfterMs?: number; offlineAfterMs?: number; clock?: () => number });
+  register(capabilities: WorkerCapabilities | Record<string, unknown>): WorkerRecord;
+  heartbeat(heartbeat: WorkerHeartbeat | Record<string, unknown>): boolean;
+  markDisconnected(workerId: string): void;
+  expire(): string[];
+  reserve(requiredCapabilities?: string[]): WorkerRecord | null;
+  release(workerId: string): void;
+  get(workerId: string): WorkerRecord | null;
+  list(): WorkerRecord[];
+}
+export class DistributedScheduler {
+  constructor(registry: WorkerRegistry, init?: { maxAttempts?: number; leaseMs?: number; queueCapacity?: number; dedupCapacity?: number });
+  submit(job: DistributedJob | Record<string, unknown>): boolean;
+  schedule(): JobAssignment | null;
+  complete(assignmentId: string): boolean;
+  fail(assignmentId: string, init?: { retryable?: boolean }): boolean;
+  recoverWorker(workerId: string): number;
+  recoverExpired(init?: { now?: number }): number;
+  snapshot(): { queued: number; assigned: number; completed: number; failed: number; seen_jobs: number };
+}
+export function heartbeatNow(workerId: string, init: { sequence: number; activeJobs: number; load: number; metadata?: Record<string, unknown> }): WorkerHeartbeat;

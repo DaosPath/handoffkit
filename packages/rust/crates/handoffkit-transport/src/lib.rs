@@ -2,8 +2,9 @@
 
 use async_trait::async_trait;
 use handoffkit_protocol::{
-    negotiate_version, sanitize_error_message, utc_now, DeliveryNack, MessageEnvelope,
-    SessionConfig, ValidationLimits, DEFAULT_MAX_MESSAGE_BYTES, PROTOCOL_VERSION,
+    negotiate_version, sanitize_error_message, utc_now, DeliveryNack, MessageEnvelope, RetryPolicy,
+    SessionConfig, ValidationLimits, DEFAULT_MAX_MESSAGE_BYTES, MIN_MESSAGE_BYTES,
+    PROTOCOL_VERSION,
 };
 use handoffkit_runtime::{RuntimeError, RuntimeResult};
 use serde::{Deserialize, Serialize};
@@ -15,8 +16,16 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::net::TcpStream;
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
+
+#[cfg(feature = "websocket")]
+use futures_util::{stream::SplitSink, stream::SplitStream, SinkExt, StreamExt};
+#[cfg(feature = "websocket")]
+use tokio_tungstenite::{
+    tungstenite::Message as WebSocketMessage, MaybeTlsStream, WebSocketStream,
+};
 
 static NEXT_TRANSPORT_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -79,7 +88,6 @@ impl FrameReader {
 
 struct FrameWriter {
     writer: Box<dyn AsyncWrite + Send + Unpin>,
-    max_message_bytes: usize,
 }
 
 pub struct NdjsonTransport {
@@ -125,7 +133,6 @@ impl NdjsonTransport {
             }),
             writer: Mutex::new(FrameWriter {
                 writer: Box::new(writer),
-                max_message_bytes,
             }),
             limits: ValidationLimits {
                 max_message_bytes,
@@ -137,25 +144,525 @@ impl NdjsonTransport {
     }
 }
 
+pub fn encode_ndjson_frame(
+    envelope: &MessageEnvelope,
+    limits: ValidationLimits,
+) -> RuntimeResult<Vec<u8>> {
+    envelope.validate_with_limits(limits)?;
+    let mut data = serde_json::to_vec(envelope)?;
+    data.push(b'\n');
+    if data.len() > limits.max_message_bytes {
+        return Err(RuntimeError::new(
+            "message_too_large",
+            format!(
+                "encoded envelope exceeds {} bytes",
+                limits.max_message_bytes
+            ),
+        ));
+    }
+    Ok(data)
+}
+
+pub fn decode_ndjson_frame(
+    frame: &[u8],
+    limits: ValidationLimits,
+) -> RuntimeResult<MessageEnvelope> {
+    if frame.len() > limits.max_message_bytes {
+        return Err(RuntimeError::new(
+            "message_too_large",
+            format!("NDJSON frame exceeds {} bytes", limits.max_message_bytes),
+        ));
+    }
+    let mut trimmed = frame;
+    if trimmed.last() == Some(&b'\n') {
+        trimmed = &trimmed[..trimmed.len() - 1];
+    }
+    if trimmed.last() == Some(&b'\r') {
+        trimmed = &trimmed[..trimmed.len() - 1];
+    }
+    if trimmed.is_empty() {
+        return Err(RuntimeError::new("invalid_ndjson", "NDJSON frame is empty"));
+    }
+    let envelope: MessageEnvelope = serde_json::from_slice(trimmed).map_err(|error| {
+        RuntimeError::new("invalid_ndjson", format!("invalid envelope JSON: {error}"))
+    })?;
+    envelope.validate_with_limits(limits)?;
+    Ok(envelope)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NetworkConfig {
+    pub max_message_bytes: usize,
+    pub connect_timeout: Duration,
+    pub io_timeout: Duration,
+}
+
+impl Default for NetworkConfig {
+    fn default() -> Self {
+        Self {
+            max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
+            connect_timeout: Duration::from_secs(10),
+            io_timeout: Duration::from_secs(30),
+        }
+    }
+}
+
+impl NetworkConfig {
+    pub fn validate(&self) -> RuntimeResult<()> {
+        if self.max_message_bytes < MIN_MESSAGE_BYTES {
+            return Err(RuntimeError::new(
+                "invalid_limit",
+                format!("max_message_bytes must be at least {MIN_MESSAGE_BYTES}"),
+            ));
+        }
+        if self.connect_timeout.is_zero() || self.io_timeout.is_zero() {
+            return Err(RuntimeError::new(
+                "invalid_timeout",
+                "network timeouts must be greater than zero",
+            ));
+        }
+        Ok(())
+    }
+
+    fn limits(self) -> ValidationLimits {
+        ValidationLimits {
+            max_message_bytes: self.max_message_bytes,
+            ..ValidationLimits::default()
+        }
+    }
+}
+
+pub fn encode_length_delimited_frame(
+    envelope: &MessageEnvelope,
+    limits: ValidationLimits,
+) -> RuntimeResult<Vec<u8>> {
+    envelope.validate_with_limits(limits)?;
+    let payload = serde_json::to_vec(envelope)?;
+    if payload.len() > limits.max_message_bytes || payload.len() > u32::MAX as usize {
+        return Err(RuntimeError::new(
+            "message_too_large",
+            format!("network frame exceeds {} bytes", limits.max_message_bytes),
+        ));
+    }
+    let mut frame = Vec::with_capacity(4 + payload.len());
+    frame.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+    frame.extend_from_slice(&payload);
+    Ok(frame)
+}
+
+pub fn decode_length_delimited_payload(
+    payload: &[u8],
+    limits: ValidationLimits,
+) -> RuntimeResult<MessageEnvelope> {
+    if payload.len() > limits.max_message_bytes {
+        return Err(RuntimeError::new(
+            "message_too_large",
+            format!("network frame exceeds {} bytes", limits.max_message_bytes),
+        ));
+    }
+    let envelope: MessageEnvelope = serde_json::from_slice(payload).map_err(|error| {
+        RuntimeError::new("invalid_frame", format!("invalid envelope JSON: {error}"))
+    })?;
+    envelope.validate_with_limits(limits)?;
+    Ok(envelope)
+}
+
+pub struct LengthDelimitedTransport {
+    reader: Mutex<Box<dyn AsyncRead + Send + Unpin>>,
+    writer: Mutex<Box<dyn AsyncWrite + Send + Unpin>>,
+    config: NetworkConfig,
+    closed: AtomicBool,
+    description: String,
+}
+
+impl std::fmt::Debug for LengthDelimitedTransport {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("LengthDelimitedTransport")
+            .field("description", &self.description)
+            .field("closed", &self.closed.load(Ordering::Acquire))
+            .finish()
+    }
+}
+
+impl LengthDelimitedTransport {
+    pub fn new<R, W>(
+        reader: R,
+        writer: W,
+        config: NetworkConfig,
+        description: impl Into<String>,
+    ) -> RuntimeResult<Self>
+    where
+        R: AsyncRead + Send + Unpin + 'static,
+        W: AsyncWrite + Send + Unpin + 'static,
+    {
+        config.validate()?;
+        Ok(Self {
+            reader: Mutex::new(Box::new(reader)),
+            writer: Mutex::new(Box::new(writer)),
+            config,
+            closed: AtomicBool::new(false),
+            description: description.into(),
+        })
+    }
+
+    async fn read_payload(&self) -> RuntimeResult<Vec<u8>> {
+        let mut reader = self.reader.lock().await;
+        let mut header = [0_u8; 4];
+        tokio::time::timeout(self.config.io_timeout, reader.read_exact(&mut header))
+            .await
+            .map_err(|_| RuntimeError::retryable("transport_timeout", "network read timed out"))?
+            .map_err(|error| {
+                RuntimeError::retryable("transport_read", sanitize_error_message(error.to_string()))
+            })?;
+        let length = u32::from_be_bytes(header) as usize;
+        if length == 0 {
+            return Err(RuntimeError::new("invalid_frame", "network frame is empty"));
+        }
+        if length > self.config.max_message_bytes {
+            return Err(RuntimeError::new(
+                "message_too_large",
+                format!(
+                    "network frame exceeds {} bytes",
+                    self.config.max_message_bytes
+                ),
+            ));
+        }
+        let mut payload = vec![0_u8; length];
+        tokio::time::timeout(self.config.io_timeout, reader.read_exact(&mut payload))
+            .await
+            .map_err(|_| RuntimeError::retryable("transport_timeout", "network read timed out"))?
+            .map_err(|error| {
+                RuntimeError::retryable("transport_read", sanitize_error_message(error.to_string()))
+            })?;
+        Ok(payload)
+    }
+}
+
+#[async_trait]
+impl Transport for LengthDelimitedTransport {
+    async fn send(&self, envelope: &MessageEnvelope) -> RuntimeResult<()> {
+        if self.closed.load(Ordering::Acquire) {
+            return Err(RuntimeError::new("transport_closed", "transport is closed"));
+        }
+        let frame = encode_length_delimited_frame(envelope, self.config.limits())?;
+        let mut writer = self.writer.lock().await;
+        tokio::time::timeout(self.config.io_timeout, writer.write_all(&frame))
+            .await
+            .map_err(|_| RuntimeError::retryable("transport_timeout", "network write timed out"))?
+            .map_err(|error| {
+                RuntimeError::retryable(
+                    "transport_write",
+                    sanitize_error_message(error.to_string()),
+                )
+            })?;
+        tokio::time::timeout(self.config.io_timeout, writer.flush())
+            .await
+            .map_err(|_| RuntimeError::retryable("transport_timeout", "network flush timed out"))?
+            .map_err(|error| {
+                RuntimeError::retryable(
+                    "transport_flush",
+                    sanitize_error_message(error.to_string()),
+                )
+            })
+    }
+
+    async fn receive(&self) -> RuntimeResult<MessageEnvelope> {
+        if self.closed.load(Ordering::Acquire) {
+            return Err(RuntimeError::new("transport_closed", "transport is closed"));
+        }
+        let payload = self.read_payload().await?;
+        decode_length_delimited_payload(&payload, self.config.limits())
+    }
+
+    async fn close(&self) -> RuntimeResult<()> {
+        if self.closed.swap(true, Ordering::AcqRel) {
+            return Ok(());
+        }
+        tokio::time::timeout(self.config.io_timeout, self.writer.lock().await.shutdown())
+            .await
+            .map_err(|_| RuntimeError::new("transport_timeout", "network shutdown timed out"))?
+            .map_err(|error| {
+                RuntimeError::new(
+                    "transport_shutdown",
+                    sanitize_error_message(error.to_string()),
+                )
+            })
+    }
+
+    fn description(&self) -> &str {
+        &self.description
+    }
+}
+
+pub struct TcpTransport {
+    inner: LengthDelimitedTransport,
+}
+
+impl TcpTransport {
+    pub async fn connect(address: &str, config: NetworkConfig) -> RuntimeResult<Self> {
+        config.validate()?;
+        let stream = tokio::time::timeout(config.connect_timeout, TcpStream::connect(address))
+            .await
+            .map_err(|_| RuntimeError::retryable("connect_timeout", "TCP connect timed out"))?
+            .map_err(|error| {
+                RuntimeError::retryable("connect_failed", sanitize_error_message(error.to_string()))
+            })?;
+        Self::from_stream(stream, config)
+    }
+
+    pub async fn connect_with_retry(
+        address: &str,
+        config: NetworkConfig,
+        retry: &RetryPolicy,
+    ) -> RuntimeResult<Self> {
+        retry.validate()?;
+        let mut last_error = None;
+        for attempt in 1..=retry.max_attempts {
+            match Self::connect(address, config).await {
+                Ok(transport) => return Ok(transport),
+                Err(error) => last_error = Some(error),
+            }
+            if attempt < retry.max_attempts {
+                tokio::time::sleep(Duration::from_millis(retry.delay_ms(attempt))).await;
+            }
+        }
+        Err(last_error.unwrap_or_else(|| {
+            RuntimeError::retryable("connect_failed", "TCP connection attempts exhausted")
+        }))
+    }
+
+    pub fn from_stream(stream: TcpStream, config: NetworkConfig) -> RuntimeResult<Self> {
+        stream
+            .set_nodelay(true)
+            .map_err(|error| RuntimeError::new("socket_config", error.to_string()))?;
+        let peer = stream
+            .peer_addr()
+            .map(|value| value.to_string())
+            .unwrap_or_else(|_| "unknown".to_string());
+        let (reader, writer) = tokio::io::split(stream);
+        Ok(Self {
+            inner: LengthDelimitedTransport::new(reader, writer, config, format!("tcp:{peer}"))?,
+        })
+    }
+}
+
+#[async_trait]
+impl Transport for TcpTransport {
+    async fn send(&self, envelope: &MessageEnvelope) -> RuntimeResult<()> {
+        self.inner.send(envelope).await
+    }
+
+    async fn receive(&self) -> RuntimeResult<MessageEnvelope> {
+        self.inner.receive().await
+    }
+
+    async fn close(&self) -> RuntimeResult<()> {
+        self.inner.close().await
+    }
+
+    fn description(&self) -> &str {
+        self.inner.description()
+    }
+}
+
+#[cfg(unix)]
+pub struct UnixTransport {
+    inner: LengthDelimitedTransport,
+}
+
+#[cfg(unix)]
+impl UnixTransport {
+    pub async fn connect(path: impl AsRef<Path>, config: NetworkConfig) -> RuntimeResult<Self> {
+        use tokio::net::UnixStream;
+        config.validate()?;
+        let path = path.as_ref();
+        let stream = tokio::time::timeout(config.connect_timeout, UnixStream::connect(path))
+            .await
+            .map_err(|_| {
+                RuntimeError::retryable("connect_timeout", "Unix socket connect timed out")
+            })?
+            .map_err(|error| {
+                RuntimeError::retryable("connect_failed", sanitize_error_message(error.to_string()))
+            })?;
+        let (reader, writer) = tokio::io::split(stream);
+        Ok(Self {
+            inner: LengthDelimitedTransport::new(
+                reader,
+                writer,
+                config,
+                format!("unix:{}", path.display()),
+            )?,
+        })
+    }
+
+    pub fn from_stream(
+        stream: tokio::net::UnixStream,
+        config: NetworkConfig,
+    ) -> RuntimeResult<Self> {
+        let (reader, writer) = tokio::io::split(stream);
+        Ok(Self {
+            inner: LengthDelimitedTransport::new(reader, writer, config, "unix:accepted")?,
+        })
+    }
+}
+
+#[cfg(unix)]
+#[async_trait]
+impl Transport for UnixTransport {
+    async fn send(&self, envelope: &MessageEnvelope) -> RuntimeResult<()> {
+        self.inner.send(envelope).await
+    }
+
+    async fn receive(&self) -> RuntimeResult<MessageEnvelope> {
+        self.inner.receive().await
+    }
+
+    async fn close(&self) -> RuntimeResult<()> {
+        self.inner.close().await
+    }
+
+    fn description(&self) -> &str {
+        self.inner.description()
+    }
+}
+
+#[cfg(feature = "websocket")]
+type ClientWebSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
+
+#[cfg(feature = "websocket")]
+pub struct WebSocketTransport {
+    writer: Mutex<SplitSink<ClientWebSocket, WebSocketMessage>>,
+    reader: Mutex<SplitStream<ClientWebSocket>>,
+    config: NetworkConfig,
+    closed: AtomicBool,
+    description: String,
+}
+
+#[cfg(feature = "websocket")]
+impl WebSocketTransport {
+    pub async fn connect(url: &str, config: NetworkConfig) -> RuntimeResult<Self> {
+        config.validate()?;
+        let connect = tokio_tungstenite::connect_async(url);
+        let (socket, _) = tokio::time::timeout(config.connect_timeout, connect)
+            .await
+            .map_err(|_| RuntimeError::retryable("connect_timeout", "WebSocket connect timed out"))?
+            .map_err(|error| {
+                RuntimeError::retryable("connect_failed", sanitize_error_message(error.to_string()))
+            })?;
+        let (writer, reader) = socket.split();
+        Ok(Self {
+            writer: Mutex::new(writer),
+            reader: Mutex::new(reader),
+            config,
+            closed: AtomicBool::new(false),
+            description: format!("websocket:{url}"),
+        })
+    }
+}
+
+#[cfg(feature = "websocket")]
+#[async_trait]
+impl Transport for WebSocketTransport {
+    async fn send(&self, envelope: &MessageEnvelope) -> RuntimeResult<()> {
+        if self.closed.load(Ordering::Acquire) {
+            return Err(RuntimeError::new("transport_closed", "transport is closed"));
+        }
+        envelope.validate_with_limits(self.config.limits())?;
+        let payload = serde_json::to_string(envelope)?;
+        if payload.len() > self.config.max_message_bytes {
+            return Err(RuntimeError::new(
+                "message_too_large",
+                format!(
+                    "WebSocket frame exceeds {} bytes",
+                    self.config.max_message_bytes
+                ),
+            ));
+        }
+        tokio::time::timeout(
+            self.config.io_timeout,
+            self.writer
+                .lock()
+                .await
+                .send(WebSocketMessage::Text(payload.into())),
+        )
+        .await
+        .map_err(|_| RuntimeError::retryable("transport_timeout", "WebSocket send timed out"))?
+        .map_err(|error| {
+            RuntimeError::retryable("transport_write", sanitize_error_message(error.to_string()))
+        })
+    }
+
+    async fn receive(&self) -> RuntimeResult<MessageEnvelope> {
+        if self.closed.load(Ordering::Acquire) {
+            return Err(RuntimeError::new("transport_closed", "transport is closed"));
+        }
+        loop {
+            let next =
+                tokio::time::timeout(self.config.io_timeout, self.reader.lock().await.next())
+                    .await
+                    .map_err(|_| {
+                        RuntimeError::retryable("transport_timeout", "WebSocket receive timed out")
+                    })?;
+            match next {
+                Some(Ok(WebSocketMessage::Text(payload))) => {
+                    return decode_length_delimited_payload(
+                        payload.as_bytes(),
+                        self.config.limits(),
+                    );
+                }
+                Some(Ok(WebSocketMessage::Binary(payload))) => {
+                    return decode_length_delimited_payload(&payload, self.config.limits());
+                }
+                Some(Ok(WebSocketMessage::Close(_))) | None => {
+                    self.closed.store(true, Ordering::Release);
+                    return Err(RuntimeError::new(
+                        "transport_closed",
+                        "WebSocket peer closed connection",
+                    ));
+                }
+                Some(Ok(_)) => continue,
+                Some(Err(error)) => {
+                    return Err(RuntimeError::retryable(
+                        "transport_read",
+                        sanitize_error_message(error.to_string()),
+                    ));
+                }
+            }
+        }
+    }
+
+    async fn close(&self) -> RuntimeResult<()> {
+        if self.closed.swap(true, Ordering::AcqRel) {
+            return Ok(());
+        }
+        tokio::time::timeout(
+            self.config.io_timeout,
+            self.writer.lock().await.send(WebSocketMessage::Close(None)),
+        )
+        .await
+        .map_err(|_| RuntimeError::new("transport_timeout", "WebSocket close timed out"))?
+        .map_err(|error| {
+            RuntimeError::new(
+                "transport_shutdown",
+                sanitize_error_message(error.to_string()),
+            )
+        })
+    }
+
+    fn description(&self) -> &str {
+        &self.description
+    }
+}
+
 #[async_trait]
 impl Transport for NdjsonTransport {
     async fn send(&self, envelope: &MessageEnvelope) -> RuntimeResult<()> {
         if self.closed.load(Ordering::Acquire) {
             return Err(RuntimeError::new("transport_closed", "transport is closed"));
         }
-        envelope.validate_with_limits(self.limits)?;
-        let mut data = serde_json::to_vec(envelope)?;
-        data.push(b'\n');
+        let data = encode_ndjson_frame(envelope, self.limits)?;
         let mut writer = self.writer.lock().await;
-        if data.len() > writer.max_message_bytes {
-            return Err(RuntimeError::new(
-                "message_too_large",
-                format!(
-                    "encoded envelope exceeds {} bytes",
-                    writer.max_message_bytes
-                ),
-            ));
-        }
         writer
             .writer
             .write_all(&data)
@@ -173,11 +680,7 @@ impl Transport for NdjsonTransport {
             return Err(RuntimeError::new("transport_closed", "transport is closed"));
         }
         let frame = self.reader.lock().await.read_frame().await?;
-        let envelope: MessageEnvelope = serde_json::from_slice(&frame).map_err(|error| {
-            RuntimeError::new("invalid_ndjson", format!("invalid envelope JSON: {error}"))
-        })?;
-        envelope.validate_with_limits(self.limits)?;
-        Ok(envelope)
+        decode_ndjson_frame(&frame, self.limits)
     }
 
     async fn close(&self) -> RuntimeResult<()> {
@@ -384,6 +887,18 @@ pub struct HandshakeResult {
     pub peer_runtime: String,
     #[serde(default)]
     pub capabilities: Vec<String>,
+}
+
+pub fn validate_handshake_info(info: &HandshakeInfo) -> RuntimeResult<()> {
+    if info.runtime.trim().is_empty() {
+        return Err(RuntimeError::new(
+            "invalid_runtime",
+            "peer runtime name is required",
+        ));
+    }
+    negotiate_version(&info.protocol_version)?;
+    info.session_config.validate()?;
+    Ok(())
 }
 
 pub async fn client_handshake(

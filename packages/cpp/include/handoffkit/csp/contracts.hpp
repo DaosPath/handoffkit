@@ -19,11 +19,13 @@ enum class RuntimeMode { classic, session, distributed };
 enum class OverflowPolicy { block, reject };
 
 std::string negotiate_version(std::string_view remote);
+std::string validation_error_code(std::string_view message);
 
 struct RetryPolicy {
     std::uint32_t max_attempts = 3;
     std::uint64_t base_delay_ms = 100;
     std::uint64_t max_delay_ms = 2000;
+    void validate() const;
     nlohmann::json to_json() const;
     static RetryPolicy from_json(const nlohmann::json& value);
 };
@@ -38,6 +40,7 @@ struct SessionConfig {
     RetryPolicy retry_policy;
     std::optional<std::string> deadline;
     nlohmann::json metadata = nlohmann::json::object();
+    void validate() const;
     nlohmann::json to_json() const;
     static SessionConfig from_json(const nlohmann::json& value);
 };
@@ -48,6 +51,7 @@ struct ChannelConfig {
     OverflowPolicy overflow_policy = OverflowPolicy::block;
     bool requires_ack = false;
     nlohmann::json metadata = nlohmann::json::object();
+    void validate() const;
     nlohmann::json to_json() const;
     static ChannelConfig from_json(const nlohmann::json& value);
 };
@@ -83,6 +87,7 @@ struct DeliveryAck {
     std::string message_id;
     std::string processed_at;
     nlohmann::json metadata = nlohmann::json::object();
+    void validate() const;
     nlohmann::json to_json() const;
     static DeliveryAck from_json(const nlohmann::json& value);
 };
@@ -94,6 +99,7 @@ struct DeliveryNack {
     bool retryable = false;
     std::string processed_at;
     nlohmann::json metadata = nlohmann::json::object();
+    void validate() const;
     nlohmann::json to_json() const;
     static DeliveryNack from_json(const nlohmann::json& value);
 };
@@ -105,6 +111,7 @@ struct ProcessError {
     bool retryable = false;
     nlohmann::json details = nlohmann::json::object();
     std::string timestamp;
+    void validate() const;
     nlohmann::json to_json() const;
     static ProcessError from_json(const nlohmann::json& value);
 };
@@ -121,8 +128,48 @@ struct WorkerCapabilities {
     std::vector<std::string> profiles;
     std::vector<std::string> operations;
     nlohmann::json metadata = nlohmann::json::object();
+    void validate() const;
     nlohmann::json to_json() const;
     static WorkerCapabilities from_json(const nlohmann::json& value);
+};
+
+struct WorkerHeartbeat {
+    std::string worker_id;
+    std::uint64_t sequence = 0;
+    std::uint32_t active_jobs = 0;
+    double load = 0.0;
+    std::string timestamp;
+    nlohmann::json metadata = nlohmann::json::object();
+    void validate() const;
+    nlohmann::json to_json() const;
+    static WorkerHeartbeat from_json(const nlohmann::json& value);
+};
+
+struct DistributedJob {
+    std::string job_id;
+    std::string operation;
+    nlohmann::json payload;
+    std::vector<std::string> requested_capabilities;
+    std::string idempotency_key;
+    std::optional<std::string> deadline;
+    nlohmann::json metadata = nlohmann::json::object();
+    void validate() const;
+    nlohmann::json to_json() const;
+    static DistributedJob from_json(const nlohmann::json& value);
+};
+
+struct JobAssignment {
+    std::string assignment_id;
+    std::string job_id;
+    std::string worker_id;
+    std::uint32_t attempt = 1;
+    std::string assigned_at;
+    std::string lease_deadline;
+    nlohmann::json payload;
+    nlohmann::json metadata = nlohmann::json::object();
+    void validate() const;
+    nlohmann::json to_json() const;
+    static JobAssignment from_json(const nlohmann::json& value);
 };
 
 struct ArtifactRef {
@@ -132,6 +179,7 @@ struct ArtifactRef {
     std::uint64_t size_bytes = 0;
     std::string media_type;
     nlohmann::json metadata = nlohmann::json::object();
+    void validate() const;
     nlohmann::json to_json() const;
     static ArtifactRef from_json(const nlohmann::json& value);
 };
@@ -145,6 +193,7 @@ struct TrainingJob {
     std::optional<std::string> deadline;
     std::string idempotency_key;
     nlohmann::json metadata = nlohmann::json::object();
+    void validate() const;
     nlohmann::json to_json() const;
     static TrainingJob from_json(const nlohmann::json& value);
 };
@@ -159,6 +208,7 @@ struct EvaluationJob {
     std::optional<std::string> deadline;
     std::string idempotency_key;
     nlohmann::json metadata = nlohmann::json::object();
+    void validate() const;
     nlohmann::json to_json() const;
     static EvaluationJob from_json(const nlohmann::json& value);
 };
@@ -175,6 +225,7 @@ struct JobProgress {
     std::string message;
     std::string timestamp;
     std::vector<ArtifactRef> artifacts;
+    void validate() const;
     nlohmann::json to_json() const;
     static JobProgress from_json(const nlohmann::json& value);
 };

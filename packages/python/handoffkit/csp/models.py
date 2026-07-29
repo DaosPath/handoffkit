@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from enum import Enum
@@ -13,6 +14,14 @@ from handoffkit.csp.errors import ProtocolVersionError
 PROTOCOL_VERSION = "1.0"
 DEFAULT_CHANNEL_CAPACITY = 64
 DEFAULT_MAX_MESSAGE_BYTES = 8 * 1024 * 1024
+DEFAULT_MAX_NESTING_DEPTH = 64
+MIN_MESSAGE_BYTES = 1024
+MAX_ERROR_MESSAGE_BYTES = 2048
+MAX_RETRY_ATTEMPTS = 100
+
+_RFC3339_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+)
 
 
 def utc_now() -> str:
@@ -20,14 +29,71 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def validate_timestamp(value: str, *, field_name: str) -> None:
+def validate_timestamp(value: str, *, field_name: str) -> datetime:
     """Validate one RFC 3339-compatible timestamp."""
+    if not isinstance(value, str) or not _RFC3339_RE.fullmatch(value):
+        raise ValueError(f"{field_name} must be an RFC 3339 timestamp")
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
-        raise ValueError(f"{field_name} must be a valid timestamp") from exc
+        raise ValueError(f"{field_name} must be an RFC 3339 timestamp") from exc
     if parsed.tzinfo is None:
         raise ValueError(f"{field_name} must include a timezone")
+    return parsed
+
+
+def json_depth(value: Any) -> int:
+    """Return maximum nesting depth using the HK-CSP counting rule."""
+    if isinstance(value, dict):
+        return 1 + max((json_depth(item) for item in value.values()), default=0)
+    if isinstance(value, (list, tuple)):
+        return 1 + max((json_depth(item) for item in value), default=0)
+    return 1
+
+
+def sanitize_error_message(message: str) -> str:
+    """Redact common credentials and bound wire-safe error text."""
+    sanitized = str(message).replace("\r", " ").replace("\n", " ").replace("\x00", "")
+    for prefix in ("Bearer ", "sk-", "gsk_", "pypi-"):
+        sanitized = re.sub(
+            re.escape(prefix) + r"[^\s,;\)\]\}]+",
+            prefix + "[REDACTED]",
+            sanitized,
+        )
+    return sanitized.encode("utf-8")[:MAX_ERROR_MESSAGE_BYTES].decode("utf-8", "ignore")
+
+
+def validation_error_code(error: BaseException | str) -> str:
+    """Map validation text to a stable cross-runtime differential code."""
+    message = str(error).lower()
+    mappings = (
+        ("protocol version", "unsupported_version"),
+        ("rfc 3339", "invalid_timestamp"),
+        ("valid timestamp", "invalid_timestamp"),
+        ("timezone", "invalid_timestamp"),
+        ("deadline must not", "invalid_deadline"),
+        ("must not be empty", "empty_field"),
+        ("is required", "empty_field"),
+        ("at least", "below_minimum"),
+        ("positive", "below_minimum"),
+        ("must not exceed", "above_maximum"),
+        ("nesting depth", "nesting_too_deep"),
+        ("message exceeds", "message_too_large"),
+        ("sha256", "invalid_sha256"),
+        ("between 0 and 1", "invalid_progress"),
+        ("step must not exceed", "invalid_progress"),
+    )
+    return next((code for needle, code in mappings if needle in message), "invalid_contract")
+
+
+def _require_nonempty(name: str, value: str | None) -> None:
+    if value is None or not str(value).strip():
+        raise ValueError(f"{name} must not be empty")
+
+
+def _validate_optional_nonempty(name: str, value: str | None) -> None:
+    if value is not None and not str(value).strip():
+        raise ValueError(f"{name} must not be empty when set")
 
 
 class RuntimeMode(str, Enum):
@@ -56,8 +122,12 @@ class RetryPolicy:
     def __post_init__(self) -> None:
         if self.max_attempts < 1:
             raise ValueError("max_attempts must be at least 1")
+        if self.max_attempts > MAX_RETRY_ATTEMPTS:
+            raise ValueError(f"max_attempts must not exceed {MAX_RETRY_ATTEMPTS}")
         if self.base_delay_ms < 0 or self.max_delay_ms < 0:
             raise ValueError("retry delays must not be negative")
+        if self.base_delay_ms > self.max_delay_ms:
+            raise ValueError("base_delay_ms must not exceed max_delay_ms")
 
     def to_dict(self) -> dict[str, int]:
         return asdict(self)
@@ -86,10 +156,11 @@ class SessionConfig:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if not self.session_id:
-            raise ValueError("session_id must not be empty")
-        if self.channel_capacity < 1 or self.max_message_bytes < 1024:
-            raise ValueError("channel and message limits must be positive")
+        _require_nonempty("session_id", self.session_id)
+        if self.channel_capacity < 1:
+            raise ValueError("channel_capacity must be at least 1")
+        if self.max_message_bytes < MIN_MESSAGE_BYTES:
+            raise ValueError(f"max_message_bytes must be at least {MIN_MESSAGE_BYTES}")
         if self.ack_timeout_ms < 1 or self.dedup_capacity < 1:
             raise ValueError("ack_timeout_ms and dedup_capacity must be positive")
         if self.deadline:
@@ -134,8 +205,7 @@ class ChannelConfig:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if not self.name:
-            raise ValueError("channel name must not be empty")
+        _require_nonempty("channel.name", self.name)
         if self.capacity < 1:
             raise ValueError("channel capacity must be at least 1")
 
@@ -189,13 +259,28 @@ class MessageEnvelope:
                 f"Unsupported HK-CSP protocol version {self.protocol_version!r}."
             )
         for name in ("message_id", "session_id", "channel", "kind", "source", "payload_type"):
-            if not getattr(self, name):
-                raise ValueError(f"{name} must not be empty")
+            _require_nonempty(name, getattr(self, name))
+        for name in ("target", "correlation_id", "causation_id", "idempotency_key"):
+            _validate_optional_nonempty(name, getattr(self, name))
         if self.sequence < 0 or self.attempt < 1:
             raise ValueError("sequence must be non-negative and attempt must be positive")
         validate_timestamp(self.created_at, field_name="created_at")
         if self.deadline:
             validate_timestamp(self.deadline, field_name="deadline")
+        self.validate_with_limits()
+
+    def validate_with_limits(
+        self,
+        *,
+        max_message_bytes: int = DEFAULT_MAX_MESSAGE_BYTES,
+        max_nesting_depth: int = DEFAULT_MAX_NESTING_DEPTH,
+    ) -> MessageEnvelope:
+        if self.encoded_size() > max_message_bytes:
+            raise ValueError(f"message exceeds limit of {max_message_bytes} bytes")
+        metadata_depth = 1 + max((json_depth(item) for item in self.metadata.values()), default=0)
+        if max(json_depth(self.payload), metadata_depth) > max_nesting_depth:
+            raise ValueError(f"message nesting depth exceeds limit of {max_nesting_depth}")
+        return self
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -270,6 +355,10 @@ class DeliveryAck:
     processed_at: str = field(default_factory=utc_now)
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        _require_nonempty("message_id", self.message_id)
+        validate_timestamp(self.processed_at, field_name="processed_at")
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -282,6 +371,11 @@ class DeliveryNack:
     retryable: bool = False
     processed_at: str = field(default_factory=utc_now)
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        _require_nonempty("message_id", self.message_id)
+        _require_nonempty("code", self.code)
+        validate_timestamp(self.processed_at, field_name="processed_at")
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -296,6 +390,14 @@ class ProcessError:
     details: dict[str, Any] = field(default_factory=dict)
     timestamp: str = field(default_factory=utc_now)
 
+    def __post_init__(self) -> None:
+        _require_nonempty("code", self.code)
+        _require_nonempty("process_id", self.process_id)
+        validate_timestamp(self.timestamp, field_name="timestamp")
+
+    def sanitized(self) -> ProcessError:
+        return replace(self, message=sanitize_error_message(self.message))
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -308,6 +410,15 @@ class ArtifactRef:
     size_bytes: int
     media_type: str
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        _require_nonempty("artifact_id", self.artifact_id)
+        _require_nonempty("uri", self.uri)
+        _require_nonempty("media_type", self.media_type)
+        if not re.fullmatch(r"[0-9a-fA-F]{64}", self.sha256):
+            raise ValueError("sha256 must contain exactly 64 hexadecimal characters")
+        if self.size_bytes < 0:
+            raise ValueError("size_bytes must be at least 0")
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -331,6 +442,14 @@ class WorkerCapabilities:
     operations: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        for name in ("worker_id", "runtime", "os", "architecture"):
+            _require_nonempty(name, getattr(self, name))
+        if self.cpu_cores < 1:
+            raise ValueError("cpu_cores must be at least 1")
+        if self.memory_bytes < 0:
+            raise ValueError("memory_bytes must be at least 0")
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -345,6 +464,12 @@ class TrainingJob:
     idempotency_key: str
     deadline: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name in ("job_id", "output", "idempotency_key"):
+            _require_nonempty(name, getattr(self, name))
+        if self.deadline:
+            validate_timestamp(self.deadline, field_name="deadline")
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)
@@ -363,6 +488,12 @@ class EvaluationJob:
     idempotency_key: str
     deadline: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name in ("job_id", "output", "idempotency_key"):
+            _require_nonempty(name, getattr(self, name))
+        if self.deadline:
+            validate_timestamp(self.deadline, field_name="deadline")
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)
@@ -385,7 +516,107 @@ class JobProgress:
     loss: float | None = None
     artifacts: list[ArtifactRef] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        for name in ("job_id", "phase", "status"):
+            _require_nonempty(name, getattr(self, name))
+        validate_timestamp(self.timestamp, field_name="timestamp")
+        if not 0.0 <= self.progress <= 1.0:
+            raise ValueError("progress must be between 0 and 1")
+        if self.step < 0 or self.total_steps < 0 or self.step > self.total_steps:
+            raise ValueError("step must not exceed total_steps")
+
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)
         value["artifacts"] = [artifact.to_dict() for artifact in self.artifacts]
         return value
+
+
+@dataclass(frozen=True)
+class WorkerHeartbeat:
+    """Liveness and load report emitted by a distributed worker."""
+
+    worker_id: str
+    sequence: int
+    active_jobs: int
+    load: float
+    timestamp: str = field(default_factory=utc_now)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        _require_nonempty("worker_id", self.worker_id)
+        if self.sequence < 0:
+            raise ValueError("sequence must be at least 0")
+        if self.active_jobs < 0:
+            raise ValueError("active_jobs must be at least 0")
+        if not 0.0 <= self.load <= 1.0:
+            raise ValueError("load must be between 0 and 1")
+        validate_timestamp(self.timestamp, field_name="timestamp")
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> WorkerHeartbeat:
+        return cls(**value)
+
+
+@dataclass(frozen=True)
+class DistributedJob:
+    """Portable unit of work accepted by the distributed scheduler."""
+
+    job_id: str
+    operation: str
+    payload: Any
+    requested_capabilities: list[str]
+    idempotency_key: str
+    deadline: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name in ("job_id", "operation", "idempotency_key"):
+            _require_nonempty(name, getattr(self, name))
+        for capability in self.requested_capabilities:
+            _require_nonempty("requested_capabilities item", capability)
+        if self.deadline:
+            validate_timestamp(self.deadline, field_name="deadline")
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> DistributedJob:
+        return cls(**value)
+
+
+@dataclass(frozen=True)
+class JobAssignment:
+    """Leased assignment of one distributed job to one worker."""
+
+    assignment_id: str
+    job_id: str
+    worker_id: str
+    attempt: int
+    assigned_at: str
+    lease_deadline: str
+    payload: Any
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name in ("assignment_id", "job_id", "worker_id"):
+            _require_nonempty(name, getattr(self, name))
+        if self.attempt < 1:
+            raise ValueError("attempt must be at least 1")
+        assigned_at = validate_timestamp(self.assigned_at, field_name="assigned_at")
+        lease_deadline = validate_timestamp(
+            self.lease_deadline,
+            field_name="lease_deadline",
+        )
+        if lease_deadline < assigned_at:
+            raise ValueError("lease_deadline must not be earlier than assigned_at")
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> JobAssignment:
+        return cls(**value)

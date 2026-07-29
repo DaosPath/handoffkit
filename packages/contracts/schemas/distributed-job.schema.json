@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/distributed-job.schema.json",
+  "title": "DistributedJob",
+  "type": "object",
+  "required": ["job_id", "operation", "payload", "requested_capabilities", "idempotency_key", "metadata"],
+  "properties": {
+    "job_id": { "type": "string", "minLength": 1 },
+    "operation": { "type": "string", "minLength": 1 },
+    "payload": {},
+    "requested_capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "idempotency_key": { "type": "string", "minLength": 1 },
+    "deadline": { "type": ["string", "null"], "format": "date-time" },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": true
+}

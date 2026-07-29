@@ -43,6 +43,9 @@ how it moves while a workflow is running.
 - `schemas/training-job.schema.json`
 - `schemas/evaluation-job.schema.json`
 - `schemas/job-progress.schema.json`
+- `schemas/worker-heartbeat.schema.json`
+- `schemas/distributed-job.schema.json`
+- `schemas/job-assignment.schema.json`
 - `fixtures/handoff_state.json`
 - `fixtures/run_trace.json`
 - `fixtures/validation_report.json`
@@ -51,3 +54,4 @@ how it moves while a workflow is running.
 - `fixtures/tool_result.json`
 - `fixtures/provider_tool_schema.json`
 - corresponding CSP and worker fixtures under `fixtures/`
+- `corpus/csp-validation.json`: shared accept/reject and canonicalization corpus

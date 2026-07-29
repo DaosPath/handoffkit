@@ -1,0 +1,8 @@
+{
+  "worker_id": "worker-rust-1",
+  "sequence": 7,
+  "active_jobs": 1,
+  "load": 0.25,
+  "timestamp": "2026-01-01T00:00:07Z",
+  "metadata": {}
+}
