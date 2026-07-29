@@ -46,26 +46,18 @@ type RetryPolicy struct {
 }
 
 func DefaultRetryPolicy() RetryPolicy {
-	return RetryPolicy{MaxAttempts: 3, BaseDelayMS: 100, MaxDelayMS: 2000
-
-}
+	return RetryPolicy{MaxAttempts: 3, BaseDelayMS: 100, MaxDelayMS: 2000}
 }
 
 func (p RetryPolicy) Validate() error {
 	if p.MaxAttempts < 1 {
 		return errors.New("max_attempts must be at least 1")
-	
-	
 	}
 	if p.MaxAttempts > MaxRetryAttempts {
 		return fmt.Errorf("max_attempts must not exceed %d", MaxRetryAttempts)
-	
-	
 	}
 	if p.BaseDelayMS < 0 || p.MaxDelayMS < 0 || p.BaseDelayMS > p.MaxDelayMS {
 		return errors.New("retry delays are invalid")
-	
-	
 	}
 	return nil
 }
@@ -84,55 +76,41 @@ type SessionConfig struct {
 
 func NewSessionConfig(sessionID string) SessionConfig {
 	return SessionConfig{
-		SessionID: sessionID, RuntimeMode: RuntimeSession,
-		ChannelCapacity: DefaultChannelCapacity, MaxMessageBytes: DefaultMaxMessageBytes,
-		AckTimeoutMS: 30000, DedupCapacity: 4096, RetryPolicy: DefaultRetryPolicy(),
-		Metadata: map[string]any{
-
-},
+		SessionID:       sessionID,
+		RuntimeMode:     RuntimeSession,
+		ChannelCapacity: DefaultChannelCapacity,
+		MaxMessageBytes: DefaultMaxMessageBytes,
+		AckTimeoutMS:    30000,
+		DedupCapacity:   4096,
+		RetryPolicy:     DefaultRetryPolicy(),
+		Metadata:        map[string]any{},
 	}
 }
 
 func (c SessionConfig) Validate() error {
 	if err := nonempty("session_id", c.SessionID); err != nil {
 		return err
-	
-	
 	}
 	if c.RuntimeMode != RuntimeClassic && c.RuntimeMode != RuntimeSession && c.RuntimeMode != RuntimeDistributed {
 		return errors.New("runtime_mode is invalid")
-	
-	
 	}
 	if c.ChannelCapacity < 1 {
 		return errors.New("channel_capacity must be at least 1")
-	
-	
 	}
 	if c.MaxMessageBytes < MinMessageBytes {
 		return fmt.Errorf("max_message_bytes must be at least %d", MinMessageBytes)
-	
-	
 	}
 	if c.MaxMessageBytes > DefaultMaxMessageBytes {
 		return fmt.Errorf("max_message_bytes must not exceed %d", DefaultMaxMessageBytes)
-	
-	
 	}
 	if c.AckTimeoutMS < 1 || c.DedupCapacity < 1 {
 		return errors.New("ack_timeout_ms and dedup_capacity must be at least 1")
-	
-	
 	}
 	if err := c.RetryPolicy.Validate(); err != nil {
 		return err
-	
-	
 	}
 	if c.Deadline != nil {
 		return ValidateTimestamp("deadline", *c.Deadline)
-	
-	
 	}
 	return nil
 }
@@ -148,18 +126,12 @@ type ChannelConfig struct {
 func (c ChannelConfig) Validate() error {
 	if err := nonempty("name", c.Name); err != nil {
 		return err
-	
-	
 	}
 	if c.Capacity < 1 {
 		return errors.New("capacity must be at least 1")
-	
-	
 	}
 	if c.OverflowPolicy != OverflowBlock && c.OverflowPolicy != OverflowReject {
 		return errors.New("overflow_policy is invalid")
-	
-	
 	}
 	return nil
 }
@@ -188,8 +160,6 @@ type MessageEnvelope struct {
 func (e MessageEnvelope) Validate() error {
 	if e.ProtocolVersion != ProtocolVersion {
 		return fmt.Errorf("unsupported protocol version %q", e.ProtocolVersion)
-	
-	
 	}
 	for name, value := range map[string]string{
 		"message_id": e.MessageID, "session_id": e.SessionID, "channel": e.Channel,
@@ -197,25 +167,17 @@ func (e MessageEnvelope) Validate() error {
 	} {
 		if err := nonempty(name, value); err != nil {
 			return err
-		
-		
 		}
 	}
 	if e.Attempt < 1 {
 		return errors.New("attempt must be at least 1")
-	
-	
 	}
 	if err := ValidateTimestamp("created_at", e.CreatedAt); err != nil {
 		return err
-	
-	
 	}
 	if e.Deadline != nil {
 		if err := ValidateTimestamp("deadline", *e.Deadline); err != nil {
 			return err
-		
-		
 		}
 	}
 	for name, value := range map[string]*string{
@@ -224,25 +186,17 @@ func (e MessageEnvelope) Validate() error {
 	} {
 		if value != nil && strings.TrimSpace(*value) == "" {
 			return fmt.Errorf("%s must not be empty when set", name)
-		
-		
 		}
 	}
 	if JSONDepth(e.Payload) > DefaultMaxDepth || JSONDepth(e.Metadata) > DefaultMaxDepth {
 		return errors.New("JSON nesting depth must not exceed 64")
-	
-	
 	}
 	encoded, err := json.Marshal(e)
 	if err != nil {
 		return fmt.Errorf("encode message: %w", err)
-	
-	
 	}
 	if len(encoded) > DefaultMaxMessageBytes {
 		return fmt.Errorf("message exceeds %d bytes", DefaultMaxMessageBytes)
-	
-	
 	}
 	return nil
 }
@@ -255,39 +209,29 @@ func (e MessageEnvelope) NextAttempt() MessageEnvelope {
 func (e MessageEnvelope) Encode() ([]byte, error) {
 	if err := e.Validate(); err != nil {
 		return nil, err
-	
-	
 	}
 	return json.Marshal(e)
 }
 
 func DecodeEnvelope(data []byte) (MessageEnvelope, error) {
 	if len(data) > DefaultMaxMessageBytes {
-		return MessageEnvelope{
-	
-	}, fmt.Errorf("message exceeds %d bytes", DefaultMaxMessageBytes)
+		return MessageEnvelope{}, fmt.Errorf("message exceeds %d bytes", DefaultMaxMessageBytes)
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
 	var envelope MessageEnvelope
 	if err := decoder.Decode(&envelope); err != nil {
-		return MessageEnvelope{
-	
-	}, fmt.Errorf("invalid envelope JSON: %w", err)
+		return MessageEnvelope{}, fmt.Errorf("invalid envelope JSON: %w", err)
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		if err == nil {
-			return MessageEnvelope{
-		
-		}, errors.New("invalid envelope JSON: trailing value")
+			return MessageEnvelope{}, errors.New("invalid envelope JSON: trailing value")
 		}
 		return MessageEnvelope{}, fmt.Errorf("invalid envelope JSON: %w", err)
 	}
 	if err := envelope.Validate(); err != nil {
-		return MessageEnvelope{
-	
-	}, err
+		return MessageEnvelope{}, err
 	}
 	return envelope, nil
 }
@@ -301,8 +245,6 @@ type DeliveryAck struct {
 func (a DeliveryAck) Validate() error {
 	if err := nonempty("message_id", a.MessageID); err != nil {
 		return err
-	
-	
 	}
 	return ValidateTimestamp("processed_at", a.ProcessedAt)
 }
@@ -319,13 +261,9 @@ type DeliveryNack struct {
 func (n DeliveryNack) Validate() error {
 	if err := nonempty("message_id", n.MessageID); err != nil {
 		return err
-	
-	
 	}
 	if err := nonempty("code", n.Code); err != nil {
 		return err
-	
-	
 	}
 	return ValidateTimestamp("processed_at", n.ProcessedAt)
 }
@@ -342,13 +280,9 @@ type ProcessError struct {
 func (e ProcessError) Validate() error {
 	if err := nonempty("code", e.Code); err != nil {
 		return err
-	
-	
 	}
 	if err := nonempty("process_id", e.ProcessID); err != nil {
 		return err
-	
-	
 	}
 	return ValidateTimestamp("timestamp", e.Timestamp)
 }
@@ -382,19 +316,13 @@ func (j TrainingJob) Validate() error {
 	for name, value := range map[string]string{"job_id": j.JobID, "output": j.Output, "idempotency_key": j.IdempotencyKey} {
 		if err := nonempty(name, value); err != nil {
 			return err
-		
-		
 		}
 	}
 	if err := j.Dataset.Validate(); err != nil {
 		return err
-	
-	
 	}
 	if j.Deadline != nil {
 		return ValidateTimestamp("deadline", *j.Deadline)
-	
-	
 	}
 	return nil
 }
@@ -415,24 +343,16 @@ func (j EvaluationJob) Validate() error {
 	for name, value := range map[string]string{"job_id": j.JobID, "output": j.Output, "idempotency_key": j.IdempotencyKey} {
 		if err := nonempty(name, value); err != nil {
 			return err
-		
-		
 		}
 	}
 	if err := j.Model.Validate(); err != nil {
 		return err
-	
-	
 	}
 	if err := j.Dataset.Validate(); err != nil {
 		return err
-	
-	
 	}
 	if j.Deadline != nil {
 		return ValidateTimestamp("deadline", *j.Deadline)
-	
-	
 	}
 	return nil
 }
@@ -455,30 +375,20 @@ func (p JobProgress) Validate() error {
 	for name, value := range map[string]string{"job_id": p.JobID, "phase": p.Phase, "status": p.Status} {
 		if err := nonempty(name, value); err != nil {
 			return err
-		
-		
 		}
 	}
 	if math.IsNaN(p.Progress) || math.IsInf(p.Progress, 0) || p.Progress < 0 || p.Progress > 1 {
 		return errors.New("progress must be between 0 and 1")
-	
-	
 	}
 	if p.Step > p.TotalSteps {
 		return errors.New("step must not exceed total_steps")
-	
-	
 	}
 	if err := ValidateTimestamp("timestamp", p.Timestamp); err != nil {
 		return err
-	
-	
 	}
 	for _, artifact := range p.Artifacts {
 		if err := artifact.Validate(); err != nil {
 			return err
-		
-		
 		}
 	}
 	return nil
@@ -488,15 +398,11 @@ func (a ArtifactRef) Validate() error {
 	for name, value := range map[string]string{"artifact_id": a.ArtifactID, "uri": a.URI, "media_type": a.MediaType} {
 		if err := nonempty(name, value); err != nil {
 			return err
-		
-		
 		}
 	}
 	decoded, err := hex.DecodeString(a.SHA256)
 	if err != nil || len(decoded) != 32 {
 		return errors.New("sha256 must contain exactly 64 hexadecimal characters")
-	
-	
 	}
 	return nil
 }
@@ -519,14 +425,10 @@ func (w WorkerCapabilities) Validate() error {
 	for name, value := range map[string]string{"worker_id": w.WorkerID, "runtime": w.Runtime, "os": w.OS, "architecture": w.Architecture} {
 		if err := nonempty(name, value); err != nil {
 			return err
-		
-		
 		}
 	}
 	if w.CPUCores < 1 {
 		return errors.New("cpu_cores must be at least 1")
-	
-	
 	}
 	return nil
 }
@@ -543,13 +445,9 @@ type WorkerHeartbeat struct {
 func (h WorkerHeartbeat) Validate() error {
 	if err := nonempty("worker_id", h.WorkerID); err != nil {
 		return err
-	
-	
 	}
 	if math.IsNaN(h.Load) || math.IsInf(h.Load, 0) || h.Load < 0 || h.Load > 1 {
 		return errors.New("load must be between 0 and 1")
-	
-	
 	}
 	return ValidateTimestamp("timestamp", h.Timestamp)
 }
@@ -568,14 +466,10 @@ func (j DistributedJob) Validate() error {
 	for name, value := range map[string]string{"job_id": j.JobID, "operation": j.Operation, "idempotency_key": j.IdempotencyKey} {
 		if err := nonempty(name, value); err != nil {
 			return err
-		
-		
 		}
 	}
 	if j.Deadline != nil {
 		return ValidateTimestamp("deadline", *j.Deadline)
-	
-	
 	}
 	return nil
 }
@@ -595,31 +489,21 @@ func (a JobAssignment) Validate() error {
 	for name, value := range map[string]string{"assignment_id": a.AssignmentID, "job_id": a.JobID, "worker_id": a.WorkerID} {
 		if err := nonempty(name, value); err != nil {
 			return err
-		
-		
 		}
 	}
 	if a.Attempt < 1 {
 		return errors.New("attempt must be at least 1")
-	
-	
 	}
 	assigned, err := time.Parse(time.RFC3339Nano, a.AssignedAt)
 	if err != nil {
 		return errors.New("assigned_at must be an RFC 3339 timestamp")
-	
-	
 	}
 	lease, err := time.Parse(time.RFC3339Nano, a.LeaseDeadline)
 	if err != nil {
 		return errors.New("lease_deadline must be an RFC 3339 timestamp")
-	
-	
 	}
 	if lease.Before(assigned) {
 		return errors.New("lease_deadline must not be earlier than assigned_at")
-	
-	
 	}
 	return nil
 }
@@ -627,15 +511,12 @@ func (a JobAssignment) Validate() error {
 func ValidateTimestamp(name, value string) error {
 	if _, err := time.Parse(time.RFC3339Nano, value); err != nil {
 		return fmt.Errorf("%s must be an RFC 3339 timestamp", name)
-	
-	
 	}
 	return nil
 }
 
 func UTCNow() string {
-	return time.Now().UTC().Format(time.RFC3339Nano) 
-
+	return time.Now().UTC().Format(time.RFC3339Nano)
 }
 
 func JSONDepth(value any) int {
@@ -669,16 +550,12 @@ func SanitizeError(value string) string {
 		for _, prefix := range []string{"Bearer ", "sk-", "gsk_", "pypi-"} {
 			if strings.HasPrefix(strings.ToLower(token), strings.ToLower(prefix)) {
 				return token[:len(prefix)] + "[REDACTED]"
-			
-			
 			}
 		}
 		return "[REDACTED]"
 	})
 	if len(cleaned) <= MaxErrorMessageBytes {
 		return cleaned
-	
-	
 	}
 	cut := MaxErrorMessageBytes
 	for cut > 0 && !utf8.ValidString(cleaned[:cut]) {
@@ -690,8 +567,6 @@ func SanitizeError(value string) string {
 func ValidationErrorCode(err error) string {
 	if err == nil {
 		return ""
-	
-	
 	}
 	message := strings.ToLower(err.Error())
 	for _, mapping := range []struct{ needle, code string }{
@@ -703,8 +578,6 @@ func ValidationErrorCode(err error) string {
 	} {
 		if strings.Contains(message, mapping.needle) {
 			return mapping.code
-		
-		
 		}
 	}
 	return "invalid_contract"
@@ -713,8 +586,6 @@ func ValidationErrorCode(err error) string {
 func nonempty(name, value string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("%s must not be empty", name)
-	
-	
 	}
 	return nil
 }

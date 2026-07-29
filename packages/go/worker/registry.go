@@ -38,17 +38,13 @@ type Registry struct {
 func NewRegistry(suspectAfter, offlineAfter time.Duration) (*Registry, error) {
 	if suspectAfter <= 0 || offlineAfter < suspectAfter {
 		return nil, errors.New("heartbeat thresholds are invalid")
-	
-	
 	}
 	return &Registry{records: map[string]Record{}, suspectAfter: suspectAfter, offlineAfter: offlineAfter, now: time.Now}, nil
 }
 
 func (r *Registry) Register(capabilities contract.WorkerCapabilities) (Record, error) {
 	if err := capabilities.Validate(); err != nil {
-		return Record{
-	
-	}, err
+		return Record{}, err
 	}
 	record := Record{Capabilities: capabilities, Status: Online, LastSeen: r.now(), Metadata: map[string]any{}}
 	r.mu.Lock()
@@ -60,21 +56,15 @@ func (r *Registry) Register(capabilities contract.WorkerCapabilities) (Record, e
 func (r *Registry) Heartbeat(heartbeat contract.WorkerHeartbeat) (bool, error) {
 	if err := heartbeat.Validate(); err != nil {
 		return false, err
-	
-	
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	record, ok := r.records[heartbeat.WorkerID]
 	if !ok {
 		return false, errors.New("unknown worker")
-	
-	
 	}
 	if heartbeat.Sequence <= record.HeartbeatSequence {
 		return false, nil
-	
-	
 	}
 	record.Status = Online
 	record.HeartbeatSequence = heartbeat.Sequence
@@ -92,8 +82,6 @@ func (r *Registry) MarkDisconnected(workerID string) error {
 	record, ok := r.records[workerID]
 	if !ok {
 		return errors.New("unknown worker")
-	
-	
 	}
 	record.Status = Offline
 	r.records[workerID] = record
@@ -133,20 +121,14 @@ func (r *Registry) Reserve(required []string) (Record, bool) {
 		}
 	}
 	if len(candidates) == 0 {
-		return Record{
-	
-	}, false
+		return Record{}, false
 	}
 	sort.Slice(candidates, func(i, j int) bool {
 		if candidates[i].Load != candidates[j].Load {
 			return candidates[i].Load < candidates[j].Load
-		
-		
 		}
 		if candidates[i].ActiveJobs != candidates[j].ActiveJobs {
 			return candidates[i].ActiveJobs < candidates[j].ActiveJobs
-		
-		
 		}
 		return candidates[i].Capabilities.WorkerID < candidates[j].Capabilities.WorkerID
 	})
@@ -162,8 +144,6 @@ func (r *Registry) Release(workerID string) error {
 	record, ok := r.records[workerID]
 	if !ok {
 		return errors.New("unknown worker")
-	
-	
 	}
 	if record.ActiveJobs > 0 {
 		record.ActiveJobs--
@@ -198,8 +178,6 @@ func supports(available, required []string) bool {
 	for _, item := range required {
 		if _, ok := set[item]; !ok {
 			return false
-		
-		
 		}
 	}
 	return true

@@ -49,8 +49,6 @@ type Session struct {
 func NewSession(parent context.Context, config contract.SessionConfig, store DedupStore) (*Session, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
-	
-	
 	}
 	var ctx context.Context
 	var cancel context.CancelFunc
@@ -69,13 +67,11 @@ func NewSession(parent context.Context, config contract.SessionConfig, store Ded
 }
 
 func (s *Session) ID() string {
-	return s.config.SessionID 
-
+	return s.config.SessionID
 }
 
 func (s *Session) Context() context.Context {
-	return s.ctx 
-
+	return s.ctx
 }
 
 func (s *Session) Channel(name string, capacity int, requiresAck bool) (*Channel, error) {
@@ -83,13 +79,9 @@ func (s *Session) Channel(name string, capacity int, requiresAck bool) (*Channel
 	defer s.mu.Unlock()
 	if s.closed.Load() {
 		return nil, runtimeError("session_closed", "session is closed", false)
-	
-	
 	}
 	if existing := s.channels[name]; existing != nil {
 		return existing, nil
-	
-	
 	}
 	if capacity == 0 {
 		capacity = s.config.ChannelCapacity
@@ -100,8 +92,6 @@ func (s *Session) Channel(name string, capacity int, requiresAck bool) (*Channel
 	}, s.config.MaxMessageBytes)
 	if err != nil {
 		return nil, err
-	
-	
 	}
 	s.channels[name] = channel
 	return channel, nil
@@ -110,20 +100,14 @@ func (s *Session) Channel(name string, capacity int, requiresAck bool) (*Channel
 func (s *Session) Send(ctx context.Context, channelName string, envelope contract.MessageEnvelope) error {
 	if envelope.SessionID != s.ID() {
 		return errors.New("envelope belongs to a different session")
-	
-	
 	}
 	if err := s.ctx.Err(); err != nil {
 		return err
-	
-	
 	}
 	clampDeadline(&envelope, s.config.Deadline)
 	channel, err := s.Channel(channelName, 0, envelope.RequiresAck)
 	if err != nil {
 		return err
-	
-	
 	}
 	merged, cancel := mergeContexts(ctx, s.ctx)
 	defer cancel()
@@ -133,18 +117,14 @@ func (s *Session) Send(ctx context.Context, channelName string, envelope contrac
 func (s *Session) Receive(ctx context.Context, channelName string) (contract.MessageEnvelope, error) {
 	channel, err := s.Channel(channelName, 0, false)
 	if err != nil {
-		return contract.MessageEnvelope{
-	
-	}, err
+		return contract.MessageEnvelope{}, err
 	}
 	for {
 		merged, cancel := mergeContexts(ctx, s.ctx)
 		envelope, receiveErr := channel.Receive(merged)
 		cancel()
 		if receiveErr != nil {
-			return contract.MessageEnvelope{
-		
-		}, receiveErr
+			return contract.MessageEnvelope{}, receiveErr
 		}
 		key := envelope.MessageID
 		if envelope.IdempotencyKey != nil {
@@ -152,9 +132,7 @@ func (s *Session) Receive(ctx context.Context, channelName string) (contract.Mes
 		}
 		fresh, err := s.claim(key)
 		if err != nil {
-			return contract.MessageEnvelope{
-		
-		}, err
+			return contract.MessageEnvelope{}, err
 		}
 		if !fresh {
 			s.Ack(envelope, map[string]any{"duplicate": true})
@@ -198,8 +176,6 @@ func (s *Session) Nack(envelope contract.MessageEnvelope, code, message string, 
 		}
 		if err := s.release(key); err != nil {
 			return nack, err
-		
-		
 		}
 	}
 	if pending != nil {
@@ -213,9 +189,7 @@ func (s *Session) Nack(envelope contract.MessageEnvelope, code, message string, 
 
 func (s *Session) SendWithAck(ctx context.Context, channelName string, original contract.MessageEnvelope) (contract.DeliveryAck, error) {
 	if !original.RequiresAck {
-		return contract.DeliveryAck{
-	
-	}, errors.New("SendWithAck requires requires_ack=true")
+		return contract.DeliveryAck{}, errors.New("SendWithAck requires requires_ack=true")
 	}
 	current := original
 	policy := s.config.RetryPolicy
@@ -251,13 +225,9 @@ func (s *Session) SendWithAck(ctx context.Context, channelName string, original 
 		s.removePendingAck(current.MessageID)
 		if result.ack != nil {
 			return *result.ack, nil
-		
-		
 		}
 		if result.nack == nil || !result.nack.Retryable || attempt >= policy.MaxAttempts {
-			return contract.DeliveryAck{
-		
-		}, errors.New("message was not acknowledged")
+			return contract.DeliveryAck{}, errors.New("message was not acknowledged")
 		}
 		delay := policy.BaseDelayMS << (attempt - 1)
 		if delay > policy.MaxDelayMS {
@@ -278,8 +248,6 @@ func (s *Session) SendWithAck(ctx context.Context, channelName string, original 
 func (s *Session) Spawn(name string, handler func(ProcessContext) error) (*ProcessHandle, error) {
 	if name == "" {
 		return nil, errors.New("process name must not be empty")
-	
-	
 	}
 	s.mu.Lock()
 	if _, exists := s.processes[name]; exists {
@@ -302,13 +270,13 @@ func (s *Session) Spawn(name string, handler func(ProcessContext) error) (*Proce
 	return handle, nil
 }
 
-func (s *Session) Cancel() { s.cancel() }
+func (s *Session) Cancel() {
+	s.cancel()
+}
 
 func (s *Session) Close() error {
 	if !s.closed.CompareAndSwap(false, true) {
 		return nil
-	
-	
 	}
 	s.cancel()
 	s.mu.Lock()
@@ -385,8 +353,6 @@ func (s *Session) claim(key string) (bool, error) {
 		fresh, err := s.store.Claim(key)
 		if err != nil || !fresh {
 			return fresh, err
-		
-		
 		}
 	}
 	s.mu.Lock()
@@ -435,7 +401,9 @@ type ProcessHandle struct {
 	err    error
 }
 
-func (h *ProcessHandle) Cancel() { h.cancel() }
+func (h *ProcessHandle) Cancel() {
+	h.cancel()
+}
 
 func (h *ProcessHandle) Wait(ctx context.Context) error {
 	select {
@@ -464,33 +432,27 @@ type ProcessContext struct {
 }
 
 func (p ProcessContext) Context() context.Context {
-	return p.ctx 
-
+	return p.ctx
 }
 func (p ProcessContext) ProcessID() string {
-	return p.processID 
-
+	return p.processID
 }
 func (p ProcessContext) Send(channel string, envelope contract.MessageEnvelope) error {
-	return p.session.Send(p.ctx, channel, envelope) 
-
+	return p.session.Send(p.ctx, channel, envelope)
 }
 func (p ProcessContext) Receive(channel string) (contract.MessageEnvelope, error) {
-	return p.session.Receive(p.ctx, channel) 
-
+	return p.session.Receive(p.ctx, channel)
 }
 func (p ProcessContext) Ack(envelope contract.MessageEnvelope, metadata map[string]any) contract.DeliveryAck {
-	return p.session.Ack(envelope, metadata) 
-
+	return p.session.Ack(envelope, metadata)
 }
 func (p ProcessContext) Nack(envelope contract.MessageEnvelope, code, message string, retryable bool, metadata map[string]any) (contract.DeliveryNack, error) {
-	return p.session.Nack(envelope, code, message, retryable, metadata) 
-
+	return p.session.Nack(envelope, code, message, retryable, metadata)
 }
 
 func clampDeadline(envelope *contract.MessageEnvelope, sessionDeadline *string) {
 	if sessionDeadline == nil {
-		return 	
+		return
 	}
 	if envelope.Deadline == nil {
 		value := *sessionDeadline

@@ -29,21 +29,15 @@ func DefaultConfig() Config {
 		ConnectTimeout: 5 * time.Second,
 		IOTimeout: 30 * time.Second,
 		RetryPolicy: contract.DefaultRetryPolicy(),
-	
-
-}
+	}
 }
 
 func (c Config) Validate() error {
 	if c.MaxMessageBytes < contract.MinMessageBytes || c.MaxMessageBytes > contract.DefaultMaxMessageBytes {
 		return errors.New("max message bytes is outside protocol limits")
-	
-	
 	}
 	if c.ConnectTimeout <= 0 || c.IOTimeout <= 0 {
 		return errors.New("network timeouts must be positive")
-	
-	
 	}
 	return c.RetryPolicy.Validate()
 }
@@ -61,8 +55,6 @@ type NDJSON struct {
 func NewNDJSON(reader io.Reader, writer io.Writer, closer io.Closer, maxMessageBytes int) (*NDJSON, error) {
 	if maxMessageBytes < contract.MinMessageBytes || maxMessageBytes > contract.DefaultMaxMessageBytes {
 		return nil, errors.New("max message bytes is outside protocol limits")
-	
-	
 	}
 	return &NDJSON{reader: bufio.NewReaderSize(reader, 64*1024), writer: writer, closer: closer, max: maxMessageBytes}, nil
 }
@@ -70,20 +62,14 @@ func NewNDJSON(reader io.Reader, writer io.Writer, closer io.Closer, maxMessageB
 func (t *NDJSON) Send(ctx context.Context, envelope contract.MessageEnvelope) error {
 	if t.closed.Load() {
 		return errors.New("transport is closed")
-	
-	
 	}
 	data, err := envelope.Encode()
 	if err != nil {
 		return err
-	
-	
 	}
 	data = append(data, '\n')
 	if len(data) > t.max {
 		return fmt.Errorf("NDJSON frame exceeds %d bytes", t.max)
-	
-	
 	}
 	t.sendMu.Lock()
 	defer t.sendMu.Unlock()
@@ -96,13 +82,9 @@ func (t *NDJSON) Send(ctx context.Context, envelope contract.MessageEnvelope) er
 		written, writeErr := t.writer.Write(data)
 		if writeErr != nil {
 			return writeErr
-		
-		
 		}
 		if written == 0 {
 			return io.ErrShortWrite
-		
-		
 		}
 		data = data[written:]
 	}
@@ -111,9 +93,7 @@ func (t *NDJSON) Send(ctx context.Context, envelope contract.MessageEnvelope) er
 
 func (t *NDJSON) Receive(ctx context.Context) (contract.MessageEnvelope, error) {
 	if t.closed.Load() {
-		return contract.MessageEnvelope{
-	
-	}, errors.New("transport is closed")
+		return contract.MessageEnvelope{}, errors.New("transport is closed")
 	}
 	t.recvMu.Lock()
 	defer t.recvMu.Unlock()
@@ -124,9 +104,7 @@ func (t *NDJSON) Receive(ctx context.Context) (contract.MessageEnvelope, error) 
 	}
 	data, err := readLineBounded(t.reader, t.max)
 	if err != nil {
-		return contract.MessageEnvelope{
-	
-	}, err
+		return contract.MessageEnvelope{}, err
 	}
 	return contract.DecodeEnvelope(data)
 }
@@ -134,8 +112,6 @@ func (t *NDJSON) Receive(ctx context.Context) (contract.MessageEnvelope, error) 
 func (t *NDJSON) Close() error {
 	if !t.closed.CompareAndSwap(false, true) || t.closer == nil {
 		return nil
-	
-	
 	}
 	return t.closer.Close()
 }
@@ -151,8 +127,6 @@ type LengthDelimited struct {
 func NewLengthDelimited(connection net.Conn, config Config) (*LengthDelimited, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
-	
-	
 	}
 	return &LengthDelimited{connection: connection, config: config}, nil
 }
@@ -160,19 +134,13 @@ func NewLengthDelimited(connection net.Conn, config Config) (*LengthDelimited, e
 func (t *LengthDelimited) Send(ctx context.Context, envelope contract.MessageEnvelope) error {
 	if t.closed.Load() {
 		return errors.New("transport is closed")
-	
-	
 	}
 	payload, err := envelope.Encode()
 	if err != nil {
 		return err
-	
-	
 	}
 	if len(payload) > t.config.MaxMessageBytes {
 		return fmt.Errorf("network frame exceeds %d bytes", t.config.MaxMessageBytes)
-	
-	
 	}
 	frame := make([]byte, 4+len(payload))
 	binary.BigEndian.PutUint32(frame[:4], uint32(len(payload)))
@@ -184,29 +152,21 @@ func (t *LengthDelimited) Send(ctx context.Context, envelope contract.MessageEnv
 
 func (t *LengthDelimited) Receive(ctx context.Context) (contract.MessageEnvelope, error) {
 	if t.closed.Load() {
-		return contract.MessageEnvelope{
-	
-	}, errors.New("transport is closed")
+		return contract.MessageEnvelope{}, errors.New("transport is closed")
 	}
 	t.recvMu.Lock()
 	defer t.recvMu.Unlock()
 	header := make([]byte, 4)
 	if err := t.readContext(ctx, header); err != nil {
-		return contract.MessageEnvelope{
-	
-	}, err
+		return contract.MessageEnvelope{}, err
 	}
 	size := int(binary.BigEndian.Uint32(header))
 	if size > t.config.MaxMessageBytes {
-		return contract.MessageEnvelope{
-	
-	}, fmt.Errorf("network frame exceeds %d bytes", t.config.MaxMessageBytes)
+		return contract.MessageEnvelope{}, fmt.Errorf("network frame exceeds %d bytes", t.config.MaxMessageBytes)
 	}
 	payload := make([]byte, size)
 	if err := t.readContext(ctx, payload); err != nil {
-		return contract.MessageEnvelope{
-	
-	}, err
+		return contract.MessageEnvelope{}, err
 	}
 	return contract.DecodeEnvelope(payload)
 }
@@ -218,15 +178,11 @@ func (t *LengthDelimited) writeContext(ctx context.Context, payload []byte) erro
 	}
 	if err := t.connection.SetWriteDeadline(deadline); err != nil {
 		return err
-	
-	
 	}
 	for len(payload) > 0 {
 		written, err := t.connection.Write(payload)
 		if err != nil {
 			return err
-		
-		
 		}
 		payload = payload[written:]
 	}
@@ -240,8 +196,6 @@ func (t *LengthDelimited) readContext(ctx context.Context, payload []byte) error
 	}
 	if err := t.connection.SetReadDeadline(deadline); err != nil {
 		return err
-	
-	
 	}
 	_, err := io.ReadFull(t.connection, payload)
 	return err
@@ -250,37 +204,27 @@ func (t *LengthDelimited) readContext(ctx context.Context, payload []byte) error
 func (t *LengthDelimited) Close() error {
 	if !t.closed.CompareAndSwap(false, true) {
 		return nil
-	
-	
 	}
 	return t.connection.Close()
 }
 
 func DialTCP(ctx context.Context, address string, config Config) (*LengthDelimited, error) {
 	return dial(ctx, "tcp", address, config)
-
-
 }
 
 func DialUnix(ctx context.Context, path string, config Config) (*LengthDelimited, error) {
 	return dial(ctx, "unix", path, config)
-
-
 }
 
 func DialTCPWithRetry(ctx context.Context, address string, config Config) (*LengthDelimited, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
-	
-	
 	}
 	var last error
 	for attempt := 1; attempt <= config.RetryPolicy.MaxAttempts; attempt++ {
 		transport, err := DialTCP(ctx, address, config)
 		if err == nil {
 			return transport, nil
-		
-		
 		}
 		last = err
 		if attempt == config.RetryPolicy.MaxAttempts {
@@ -304,15 +248,11 @@ func DialTCPWithRetry(ctx context.Context, address string, config Config) (*Leng
 func dial(ctx context.Context, network, address string, config Config) (*LengthDelimited, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
-	
-	
 	}
 	dialer := net.Dialer{Timeout: config.ConnectTimeout}
 	connection, err := dialer.DialContext(ctx, network, address)
 	if err != nil {
 		return nil, err
-	
-	
 	}
 	transport, err := NewLengthDelimited(connection, config)
 	if err != nil {
@@ -331,27 +271,19 @@ type Subprocess struct {
 func Spawn(ctx context.Context, argv []string, maxMessageBytes int) (*Subprocess, error) {
 	if len(argv) == 0 {
 		return nil, errors.New("argv must not be empty")
-	
-	
 	}
 	command := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	stdin, err := command.StdinPipe()
 	if err != nil {
 		return nil, err
-	
-	
 	}
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		return nil, err
-	
-	
 	}
 	command.Stderr = io.Discard
 	if err := command.Start(); err != nil {
 		return nil, err
-	
-	
 	}
 	ndjson, err := NewNDJSON(stdout, stdin, stdin, maxMessageBytes)
 	if err != nil {
@@ -381,8 +313,6 @@ func readLineBounded(reader *bufio.Reader, maximum int) ([]byte, error) {
 		chunk, err := reader.ReadSlice('\n')
 		if len(line)+len(chunk) > maximum {
 			return nil, fmt.Errorf("NDJSON frame exceeds %d bytes", maximum)
-		
-		
 		}
 		line = append(line, chunk...)
 		if err == nil {
@@ -400,8 +330,6 @@ func readLineBounded(reader *bufio.Reader, maximum int) ([]byte, error) {
 		}
 		if errors.Is(err, io.EOF) {
 			return nil, io.EOF
-		
-		
 		}
 		return nil, err
 	}

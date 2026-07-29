@@ -20,13 +20,9 @@ type Channel struct {
 func NewChannel(config contract.ChannelConfig, maxMessageBytes int) (*Channel, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
-	
-	
 	}
 	if maxMessageBytes < contract.MinMessageBytes || maxMessageBytes > contract.DefaultMaxMessageBytes {
 		return nil, errors.New("max message bytes is outside protocol limits")
-	
-	
 	}
 	return &Channel{config: config, max: maxMessageBytes, queue: make([]contract.MessageEnvelope, 0, config.Capacity), change: make(chan struct{})}, nil
 }
@@ -34,19 +30,13 @@ func NewChannel(config contract.ChannelConfig, maxMessageBytes int) (*Channel, e
 func (c *Channel) Send(ctx context.Context, envelope contract.MessageEnvelope) error {
 	if envelope.Channel != c.config.Name {
 		return errors.New("envelope channel does not match channel")
-	
-	
 	}
 	encoded, err := envelope.Encode()
 	if err != nil {
 		return err
-	
-	
 	}
 	if len(encoded) > c.max {
 		return errors.New("message exceeds channel limit")
-	
-	
 	}
 	for {
 		c.mu.Lock()
@@ -103,7 +93,7 @@ func (c *Channel) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed {
-		return 	
+		return
 	}
 	c.closed = true
 	c.signalLocked()

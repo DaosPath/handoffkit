@@ -70,14 +70,10 @@ func TestEnvelopeProperties(t *testing.T) {
 		encoded, err := envelope.Encode()
 		if err != nil {
 			return false
-		
-		
 		}
 		decoded, err := DecodeEnvelope(encoded)
 		if err != nil || decoded.MessageID != envelope.MessageID || decoded.Attempt != envelope.Attempt {
 			return false
-		
-		
 		}
 		next := decoded.NextAttempt()
 		return next.MessageID == decoded.MessageID && next.Attempt == decoded.Attempt+1
@@ -138,79 +134,75 @@ func validateCorpus(kind string, data []byte) (any, error) {
 	case "message_envelope":
 		var typed MessageEnvelope
 		if err := json.Unmarshal(data, &typed); err != nil {
-			return nil, err 
-		
+			return nil, err
 		}
-		validationErr = typed.Validate(); value = typed
+		validationErr = typed.Validate()
+		value = typed
 	case "session_config":
 		var typed SessionConfig
 		if err := json.Unmarshal(data, &typed); err != nil {
-			return nil, err 
-		
+			return nil, err
 		}
-		validationErr = typed.Validate(); value = typed
+		validationErr = typed.Validate()
+		value = typed
 	case "channel_config":
 		var typed ChannelConfig
 		if err := json.Unmarshal(data, &typed); err != nil {
-			return nil, err 
-		
+			return nil, err
 		}
-		validationErr = typed.Validate(); value = typed
+		validationErr = typed.Validate()
+		value = typed
 	case "delivery_ack":
 		var typed DeliveryAck
 		if err := json.Unmarshal(data, &typed); err != nil {
-			return nil, err 
-		
+			return nil, err
 		}
-		validationErr = typed.Validate(); value = typed
+		validationErr = typed.Validate()
+		value = typed
 	case "delivery_nack":
 		var typed DeliveryNack
 		if err := json.Unmarshal(data, &typed); err != nil {
-			return nil, err 
-		
+			return nil, err
 		}
-		validationErr = typed.Validate(); value = typed
+		validationErr = typed.Validate()
+		value = typed
 	case "process_error":
 		var typed ProcessError
 		if err := json.Unmarshal(data, &typed); err != nil {
-			return nil, err 
-		
+			return nil, err
 		}
-		validationErr = typed.Validate(); value = typed
+		validationErr = typed.Validate()
+		value = typed
 	case "artifact_ref":
 		var typed ArtifactRef
 		if err := json.Unmarshal(data, &typed); err != nil {
-			return nil, err 
-		
+			return nil, err
 		}
-		validationErr = typed.Validate(); value = typed
+		validationErr = typed.Validate()
+		value = typed
 	case "worker_capabilities":
 		var typed WorkerCapabilities
 		if err := json.Unmarshal(data, &typed); err != nil {
-			return nil, err 
-		
+			return nil, err
 		}
-		validationErr = typed.Validate(); value = typed
+		validationErr = typed.Validate()
+		value = typed
 	case "job_progress":
 		var typed JobProgress
 		if err := json.Unmarshal(data, &typed); err != nil {
-			return nil, err 
-		
+			return nil, err
 		}
-		validationErr = typed.Validate(); value = typed
+		validationErr = typed.Validate()
+		value = typed
 	default:
 		return nil, json.Unmarshal(data, &value)
 	}
 	if validationErr != nil {
 		return nil, validationErr
-	
-	
 	}
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		return nil, err
-	
-	
 	}
 	var canonical any
 	err = json.Unmarshal(encoded, &canonical)

@@ -44,8 +44,6 @@ type Scheduler struct {
 func NewScheduler(registry *Registry, maxAttempts uint32, lease time.Duration, queueCapacity, dedupCapacity int) (*Scheduler, error) {
 	if registry == nil || maxAttempts < 1 || lease <= 0 || queueCapacity < 1 || dedupCapacity < 1 {
 		return nil, errors.New("scheduler configuration is invalid")
-	
-	
 	}
 	return &Scheduler{
 		registry: registry, maxAttempts: maxAttempts, lease: lease,
@@ -57,20 +55,14 @@ func NewScheduler(registry *Registry, maxAttempts uint32, lease time.Duration, q
 func (s *Scheduler) Submit(job contract.DistributedJob) (bool, error) {
 	if err := job.Validate(); err != nil {
 		return false, err
-	
-	
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, exists := s.seen[job.IdempotencyKey]; exists {
 		return false, nil
-	
-	
 	}
 	if len(s.queue) >= s.queueCapacity {
 		return false, errors.New("distributed scheduler queue is at capacity")
-	
-	
 	}
 	s.seen[job.IdempotencyKey] = job.JobID
 	s.seenOrder = append(s.seenOrder, job.IdempotencyKey)
@@ -117,8 +109,6 @@ func (s *Scheduler) Complete(assignmentID string) bool {
 	state, exists := s.assignments[assignmentID]
 	if !exists {
 		return false
-	
-	
 	}
 	delete(s.assignments, assignmentID)
 	_ = s.registry.Release(state.assignment.WorkerID)
@@ -136,8 +126,6 @@ func (s *Scheduler) failLocked(assignmentID string, retryable bool) bool {
 	state, exists := s.assignments[assignmentID]
 	if !exists {
 		return false
-	
-	
 	}
 	delete(s.assignments, assignmentID)
 	_ = s.registry.Release(state.assignment.WorkerID)

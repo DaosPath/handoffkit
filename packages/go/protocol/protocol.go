@@ -33,8 +33,6 @@ type HandshakeResult struct {
 func NegotiateVersion(remote string) (string, error) {
 	if strings.SplitN(remote, ".", 2)[0] != strings.SplitN(contract.ProtocolVersion, ".", 2)[0] {
 		return "", fmt.Errorf("unsupported protocol version %q", remote)
-	
-	
 	}
 	return contract.ProtocolVersion, nil
 }
@@ -42,13 +40,9 @@ func NegotiateVersion(remote string) (string, error) {
 func (h HandshakeInfo) Validate() error {
 	if strings.TrimSpace(h.Runtime) == "" {
 		return errors.New("peer runtime name is required")
-	
-	
 	}
 	if _, err := NegotiateVersion(h.ProtocolVersion); err != nil {
 		return err
-	
-	
 	}
 	return h.SessionConfig.Validate()
 }
@@ -56,52 +50,34 @@ func (h HandshakeInfo) Validate() error {
 func ClientHandshake(ctx context.Context, transport EnvelopeTransport, config contract.SessionConfig, runtime string, capabilities []string) (HandshakeResult, error) {
 	info := HandshakeInfo{ProtocolVersion: contract.ProtocolVersion, Runtime: runtime, SessionConfig: config, Capabilities: capabilities}
 	if err := info.Validate(); err != nil {
-		return HandshakeResult{
-	
-	}, err
+		return HandshakeResult{}, err
 	}
 	request, err := controlEnvelope(config.SessionID, "session_open", runtime, info, nil)
 	if err != nil {
-		return HandshakeResult{
-	
-	}, err
+		return HandshakeResult{}, err
 	}
 	if err := transport.Send(ctx, request); err != nil {
-		return HandshakeResult{
-	
-	}, err
+		return HandshakeResult{}, err
 	}
 	response, err := transport.Receive(ctx)
 	if err != nil {
-		return HandshakeResult{
-	
-	}, err
+		return HandshakeResult{}, err
 	}
 	if response.SessionID != config.SessionID || response.CorrelationID == nil || *response.CorrelationID != request.MessageID {
-		return HandshakeResult{
-	
-	}, errors.New("handshake response does not match request")
+		return HandshakeResult{}, errors.New("handshake response does not match request")
 	}
 	if response.Kind == "session_reject" {
-		return HandshakeResult{
-	
-	}, errors.New("peer rejected session")
+		return HandshakeResult{}, errors.New("peer rejected session")
 	}
 	if response.Kind != "session_ready" {
-		return HandshakeResult{
-	
-	}, fmt.Errorf("expected session_ready, got %q", response.Kind)
+		return HandshakeResult{}, fmt.Errorf("expected session_ready, got %q", response.Kind)
 	}
 	var result HandshakeResult
 	if err := remarshal(response.Payload, &result); err != nil {
-		return HandshakeResult{
-	
-	}, err
+		return HandshakeResult{}, err
 	}
 	if _, err := NegotiateVersion(result.ProtocolVersion); err != nil {
-		return HandshakeResult{
-	
-	}, err
+		return HandshakeResult{}, err
 	}
 	return result, nil
 }
@@ -109,9 +85,7 @@ func ClientHandshake(ctx context.Context, transport EnvelopeTransport, config co
 func ServerHandshake(ctx context.Context, transport EnvelopeTransport, runtime string, capabilities []string) (HandshakeInfo, error) {
 	request, err := transport.Receive(ctx)
 	if err != nil {
-		return HandshakeInfo{
-	
-	}, err
+		return HandshakeInfo{}, err
 	}
 	if request.Kind != "session_open" {
 		_ = reject(ctx, transport, request, runtime, "handshake_required", "first message must be session_open")
@@ -133,14 +107,10 @@ func ServerHandshake(ctx context.Context, transport EnvelopeTransport, runtime s
 	result := HandshakeResult{ProtocolVersion: contract.ProtocolVersion, SessionID: request.SessionID, PeerRuntime: runtime, Capabilities: capabilities}
 	response, err := controlEnvelope(request.SessionID, "session_ready", runtime, result, &request.MessageID)
 	if err != nil {
-		return HandshakeInfo{
-	
-	}, err
+		return HandshakeInfo{}, err
 	}
 	if err := transport.Send(ctx, response); err != nil {
-		return HandshakeInfo{
-	
-	}, err
+		return HandshakeInfo{}, err
 	}
 	return info, nil
 }
@@ -160,24 +130,18 @@ func NackFor(request contract.MessageEnvelope, source, code, message string, ret
 	return ResponseFor(request, source, "nack", "delivery_nack", map[string]any{
 		"message_id": request.MessageID, "code": code,
 		"message": contract.SanitizeError(message), "retryable": retryable,
-		"processed_at": contract.UTCNow(), "metadata": map[string]any{
-
-},
+		"processed_at": contract.UTCNow(), "metadata": map[string]any{},
 	})
 }
 
 func controlEnvelope(sessionID, kind, source string, payload any, correlationID *string) (contract.MessageEnvelope, error) {
 	encoded, err := json.Marshal(payload)
 	if err != nil {
-		return contract.MessageEnvelope{
-	
-	}, err
+		return contract.MessageEnvelope{}, err
 	}
 	var wire any
 	if err := json.Unmarshal(encoded, &wire); err != nil {
-		return contract.MessageEnvelope{
-	
-	}, err
+		return contract.MessageEnvelope{}, err
 	}
 	return contract.MessageEnvelope{
 		ProtocolVersion: contract.ProtocolVersion, MessageID: kind + "-go", SessionID: sessionID,
@@ -190,8 +154,6 @@ func reject(ctx context.Context, transport EnvelopeTransport, request contract.M
 	response, err := controlEnvelope(request.SessionID, "session_reject", runtime, map[string]any{"code": code, "message": contract.SanitizeError(message)}, &request.MessageID)
 	if err != nil {
 		return err
-	
-	
 	}
 	return transport.Send(ctx, response)
 }
@@ -200,8 +162,6 @@ func remarshal(value any, target any) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
-	
-	
 	}
 	return json.Unmarshal(data, target)
 }
