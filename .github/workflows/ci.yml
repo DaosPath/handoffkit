@@ -258,7 +258,9 @@ jobs:
         run: go test -race ./...
 
       - name: Build Go worker binary
-        run: go build -o ../../.local-tests/bin/handoffkit-worker ./cmd/handoffkit-worker
+        run: |
+          mkdir -p ../../.local-tests/bin
+          go build -o ../../.local-tests/bin/handoffkit-worker ./cmd/handoffkit-worker
 
   csp-interop:
     name: HK-CSP Python / JavaScript / Rust / Go stdio
@@ -301,7 +303,9 @@ jobs:
         run: cargo build --manifest-path packages/rust/Cargo.toml -p handoffkit-cli
 
       - name: Build Go worker
-        run: go build -o .local-tests/bin/handoffkit-worker ./packages/go/cmd/handoffkit-worker
+        run: |
+          mkdir -p .local-tests/bin
+          go build -o .local-tests/bin/handoffkit-worker ./packages/go/cmd/handoffkit-worker
 
       - name: Rust starts Python, JavaScript, and Go workers
         env:

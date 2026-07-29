@@ -37,17 +37,25 @@ type FileDedupStore struct {
 func NewFileDedupStore(path string, capacity int, maxLogBytes int64) (*FileDedupStore, error) {
 	if capacity < 1 || maxLogBytes < 1024 {
 		return nil, errors.New("dedup store limits are invalid")
+	
+	
 	}
 	absolute, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
+	
+	
 	}
 	if err := os.MkdirAll(filepath.Dir(absolute), 0o700); err != nil {
 		return nil, err
+	
+	
 	}
 	file, err := os.OpenFile(absolute, os.O_CREATE|os.O_RDONLY, 0o600)
 	if err != nil {
 		return nil, err
+	
+	
 	}
 	defer file.Close()
 	store := &FileDedupStore{path: absolute, capacity: capacity, maxLogBytes: maxLogBytes, keys: map[string]struct{}{}}
@@ -57,10 +65,14 @@ func NewFileDedupStore(path string, capacity int, maxLogBytes int64) (*FileDedup
 		var record dedupRecord
 		if err := json.Unmarshal(scanner.Bytes(), &record); err != nil {
 			return nil, errors.New("invalid dedup log")
+		
+		
 		}
 		key, err := validateDedupKey(record.Key)
 		if err != nil {
 			return nil, err
+		
+		
 		}
 		if record.Operation == "claim" {
 			store.removeOrder(key)
@@ -75,6 +87,8 @@ func NewFileDedupStore(path string, capacity int, maxLogBytes int64) (*FileDedup
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
+	
+	
 	}
 	store.trim()
 	return store, nil
@@ -84,11 +98,15 @@ func (s *FileDedupStore) Claim(value string) (bool, error) {
 	key, err := validateDedupKey(value)
 	if err != nil {
 		return false, err
+	
+	
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, exists := s.keys[key]; exists {
 		return false, nil
+	
+	
 	}
 	s.keys[key] = struct{}{}
 	s.order = append(s.order, key)
@@ -105,11 +123,15 @@ func (s *FileDedupStore) Release(value string) (bool, error) {
 	key, err := validateDedupKey(value)
 	if err != nil {
 		return false, err
+	
+	
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, exists := s.keys[key]; !exists {
 		return false, nil
+	
+	
 	}
 	delete(s.keys, key)
 	s.removeOrder(key)
@@ -125,6 +147,8 @@ func (s *FileDedupStore) Contains(value string) bool {
 	key, err := validateDedupKey(value)
 	if err != nil {
 		return false
+	
+	
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -136,6 +160,8 @@ func (s *FileDedupStore) append(record dedupRecord) error {
 	file, err := os.OpenFile(s.path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
 	if err != nil {
 		return err
+	
+	
 	}
 	encoded, err := json.Marshal(record)
 	if err == nil {
@@ -149,10 +175,14 @@ func (s *FileDedupStore) append(record dedupRecord) error {
 	}
 	if err != nil {
 		return err
+	
+	
 	}
 	info, err := os.Stat(s.path)
 	if err == nil && info.Size() > s.maxLogBytes {
 		return s.compact()
+	
+	
 	}
 	return err
 }
@@ -162,6 +192,8 @@ func (s *FileDedupStore) compact() error {
 	file, err := os.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
+	
+	
 	}
 	encoder := json.NewEncoder(file)
 	for _, key := range s.order {
@@ -204,9 +236,13 @@ func validateDedupKey(value string) (string, error) {
 	key := strings.TrimSpace(value)
 	if key == "" {
 		return "", errors.New("idempotency key must not be empty")
+	
+	
 	}
 	if len([]byte(key)) > 1024 {
 		return "", errors.New("idempotency key must not exceed 1024 bytes")
+	
+	
 	}
 	return key, nil
 }
