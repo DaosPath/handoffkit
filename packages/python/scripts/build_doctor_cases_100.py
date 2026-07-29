@@ -85,7 +85,7 @@ def write_fixture(cases: list[dict[str, str]]) -> None:
         '"""One hundred curated real open-access diagnostic cases.\n\n'
         "Source: zou-lab/MedCaseReasoning public test split on Hugging Face.\n"
         "Derived from PMC Open Access case reports. Dataset card lists MIT license.\n"
-        'This fixture is for educational benchmark demos, not medical advice.\n'
+        "This fixture is for educational benchmark demos, not medical advice.\n"
         '"""\n\n'
         "from __future__ import annotations\n\n"
         f"DOCTOR_CASES_100 = {json.dumps(cases, ensure_ascii=False, indent=2)}\n",

@@ -466,11 +466,7 @@ def run_clinical_mimo_benchmark(
             print(f"{offset}/{cases} {case.case_id}: RERUN")
         result = panel.run_case(case)
         all_handoffs.extend(result["handoffs"])
-        public_row = {
-            key: value
-            for key, value in result.items()
-            if key not in {"handoffs"}
-        }
+        public_row = {key: value for key, value in result.items() if key not in {"handoffs"}}
         rows.append(public_row)
         status = "OK" if result["correct"] else "MISS"
         print(
@@ -576,8 +572,7 @@ def _handoff(
 ) -> HandoffState:
     parsed = stage.get("parsed") if isinstance(stage.get("parsed"), dict) else {}
     decisions = [
-        f"{field}: {str(parsed.get(field, 'not provided'))[:140]}"
-        for field in expected_fields[:4]
+        f"{field}: {str(parsed.get(field, 'not provided'))[:140]}" for field in expected_fields[:4]
     ]
     errors = [stage["error"]] if stage.get("error") else []
     if not parsed:

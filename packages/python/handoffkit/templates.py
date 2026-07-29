@@ -177,14 +177,7 @@ def builtin_templates() -> list[ProjectTemplate]:
 
 
 def _readme(title: str, description: str, command: str) -> str:
-    return (
-        f"# {title}\n\n"
-        f"{description}\n\n"
-        "## Run\n\n"
-        "```powershell\n"
-        f"{command}\n"
-        "```\n"
-    )
+    return f"# {title}\n\n{description}\n\n## Run\n\n```powershell\n{command}\n```\n"
 
 
 def _basic_agent_template() -> ProjectTemplate:

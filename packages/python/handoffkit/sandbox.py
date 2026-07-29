@@ -40,9 +40,7 @@ class ToolSandbox:
         try:
             resolved.relative_to(root)
         except ValueError as exc:
-            raise SandboxError(
-                f"path {resolved} is outside workspace {root}"
-            ) from exc
+            raise SandboxError(f"path {resolved} is outside workspace {root}") from exc
         return resolved
 
     def assert_cwd(self, cwd: str | Path | None) -> Path | None:
@@ -88,12 +86,8 @@ def set_sandbox(
         workspace=Path(workspace).expanduser().resolve()
         if workspace is not None
         else current.workspace,
-        require_approval=current.require_approval
-        if require_approval is None
-        else require_approval,
-        sandbox_enabled=current.sandbox_enabled
-        if sandbox_enabled is None
-        else sandbox_enabled,
+        require_approval=current.require_approval if require_approval is None else require_approval,
+        sandbox_enabled=current.sandbox_enabled if sandbox_enabled is None else sandbox_enabled,
     )
     return _POLICY
 

@@ -2,6 +2,7 @@
 
 IS_EXPERIMENTAL_RESEARCH_ONLY = True
 
+
 class ResearchSecurityError(RuntimeError):
     """Raised when an attempt is made to use research crypto in production."""
 
@@ -9,5 +10,6 @@ class ResearchSecurityError(RuntimeError):
 def assert_research_enabled(explicit_ack: bool = False) -> None:
     if not explicit_ack:
         raise ResearchSecurityError(
-            "Crypto Lab research primitives require explicit_ack=True and must never be run in production."
+            "Crypto Lab research primitives require explicit_ack=True "
+            "and must never be run in production."
         )

@@ -227,9 +227,7 @@ def methodology_manifest() -> dict[str, Any]:
                 "task_id": t.task_id,
                 "title": t.title,
                 "roles": list(t.roles),
-                "description_sha256": hashlib.sha256(
-                    t.description.encode("utf-8")
-                ).hexdigest(),
+                "description_sha256": hashlib.sha256(t.description.encode("utf-8")).hexdigest(),
             }
             for t in PROTOCOL_TASKS_V1
         ],
@@ -239,9 +237,7 @@ def methodology_manifest() -> dict[str, Any]:
 
 def _run_protocol_task(task: ProtocolTask) -> ProtocolTaskResult:
     """Run one multi-agent offline protocol task with Echo providers."""
-    agents = [
-        Agent(name, f"{name} for {task.title}.", model="echo") for name in task.roles
-    ]
+    agents = [Agent(name, f"{name} for {task.title}.", model="echo") for name in task.roles]
     team = Team(agents, protocol=HandoffProtocol())
     t0 = time.perf_counter()
     result = team.run(task.description)
@@ -255,11 +251,7 @@ def _run_protocol_task(task: ProtocolTask) -> ProtocolTaskResult:
     val_ok = all(validator.validate(h).success for h in handoffs) if handoffs else False
     if not handoffs:
         notes.append("no handoffs produced")
-    quality = (
-        HandoffQualityEvaluator(min_score=0.0).evaluate_many(handoffs)
-        if handoffs
-        else None
-    )
+    quality = HandoffQualityEvaluator(min_score=0.0).evaluate_many(handoffs) if handoffs else None
     q_score = float(quality.score) if quality else 0.0
     success = val_ok and len(handoffs) == expected and q_score >= 0.5
     return ProtocolTaskResult(
@@ -298,8 +290,7 @@ def build_independent_benchmark(
     for h in all_handoffs:
         issues.extend(validator.validate(h).issues)
     validation = ValidationReport(
-        success=bool(all_handoffs)
-        and not any(i.severity == "error" for i in issues),
+        success=bool(all_handoffs) and not any(i.severity == "error" for i in issues),
         issues=issues,
         metadata={
             "validator": "IndependentProtocolBenchmark",
@@ -307,9 +298,7 @@ def build_independent_benchmark(
         },
     )
     quality = (
-        HandoffQualityEvaluator(min_score=0.6).evaluate_many(all_handoffs)
-        if all_handoffs
-        else None
+        HandoffQualityEvaluator(min_score=0.6).evaluate_many(all_handoffs) if all_handoffs else None
     )
     metrics = build_workflow_metrics(
         durations_ms=[t.duration_ms for t in task_results],

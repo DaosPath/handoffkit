@@ -92,9 +92,7 @@ class TraceStep:
             "success": self.success,
             "output": self.output,
             "handoff": (
-                self.handoff.to_dict()
-                if hasattr(self.handoff, "to_dict")
-                else self.handoff
+                self.handoff.to_dict() if hasattr(self.handoff, "to_dict") else self.handoff
             ),
             "tool_results": [
                 result.to_dict() if hasattr(result, "to_dict") else result
@@ -178,9 +176,7 @@ class RunTrace:
             if step.output:
                 cleaned_output = step.output.replace("\n", " ")
                 preview = (
-                    cleaned_output[:60] + "..."
-                    if len(cleaned_output) > 60
-                    else cleaned_output
+                    cleaned_output[:60] + "..." if len(cleaned_output) > 60 else cleaned_output
                 )
                 lines.append(f"   - Output Preview: {preview}")
             if step.handoff:
@@ -193,22 +189,28 @@ class RunTrace:
 
     def to_markdown(self) -> str:
         """Serialize this trace as Markdown."""
-        steps = "\n".join(
-            (
-                f"- `{step.name}` agent={step.agent or 'n/a'} "
-                f"mode={step.mode or 'n/a'} success={step.success}"
+        steps = (
+            "\n".join(
+                (
+                    f"- `{step.name}` agent={step.agent or 'n/a'} "
+                    f"mode={step.mode or 'n/a'} success={step.success}"
+                )
+                for step in self.steps
             )
-            for step in self.steps
-        ) or "- none"
-        handoffs = "\n".join(
-            (
-                f"- `{handoff.from_agent}` -> `{handoff.to_agent}`: {handoff.task}"
-                if isinstance(handoff, HandoffState)
-                else f"- `{handoff.get('from_agent', '')}` -> "
-                f"`{handoff.get('to_agent', '')}`: {handoff.get('task', '')}"
+            or "- none"
+        )
+        handoffs = (
+            "\n".join(
+                (
+                    f"- `{handoff.from_agent}` -> `{handoff.to_agent}`: {handoff.task}"
+                    if isinstance(handoff, HandoffState)
+                    else f"- `{handoff.get('from_agent', '')}` -> "
+                    f"`{handoff.get('to_agent', '')}`: {handoff.get('task', '')}"
+                )
+                for handoff in self.handoffs
             )
-            for handoff in self.handoffs
-        ) or "- none"
+            or "- none"
+        )
         return (
             f"# Run Trace: {self.name}\n\n"
             f"## Run ID\n\n{self.run_id}\n\n"

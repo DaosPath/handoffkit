@@ -186,9 +186,10 @@ class DoctorBenchmarkReport:
             )
             for result in self.cases
         )
-        artifacts = "\n".join(
-            f"- `{name}`: `{path}`" for name, path in sorted(self.artifacts.items())
-        ) or "- generated when written"
+        artifacts = (
+            "\n".join(f"- `{name}`: `{path}`" for name, path in sorted(self.artifacts.items()))
+            or "- generated when written"
+        )
         return (
             f"# {self.name}\n\n"
             f"> {SAFETY_NOTE}\n\n"
@@ -245,6 +246,7 @@ def build_doctor_benchmark(limit: int = 30) -> DoctorBenchmarkReport:
         quality=quality,
     )
 
+
 def _validate_handoffs(handoffs: list[HandoffState]) -> ValidationReport:
     validator = HandoffStateValidator()
     reports = [validator.validate(handoff) for handoff in handoffs]
@@ -253,6 +255,7 @@ def _validate_handoffs(handoffs: list[HandoffState]) -> ValidationReport:
         issues=[issue for report in reports for issue in report.issues],
         metadata={"validator": "DoctorBenchmark", "handoffs": len(handoffs)},
     )
+
 
 def run_doctor_benchmark(
     limit: int = 30,
@@ -410,5 +413,3 @@ def _make_trace(results: list[DoctorBenchmarkCaseResult]) -> RunTrace:
             "safety_note": SAFETY_NOTE,
         },
     )
-
-

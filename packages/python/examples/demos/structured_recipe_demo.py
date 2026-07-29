@@ -57,7 +57,7 @@ def main() -> None:
                 name="review",
                 agent=reviewer,
                 task="Review the structured summary from the previous step.",
-            )
+            ),
         ],
     )
     recipe_result = RecipeRunner(recipe).run(initial_task="Review structured output.")

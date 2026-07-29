@@ -204,9 +204,10 @@ class MAIStyleBenchmarkReport:
             )
             for result in self.results
         )
-        artifacts = "\n".join(
-            f"- `{name}`: `{path}`" for name, path in sorted(self.artifacts.items())
-        ) or "- generated when written"
+        artifacts = (
+            "\n".join(f"- `{name}`: `{path}`" for name, path in sorted(self.artifacts.items()))
+            or "- generated when written"
+        )
         return (
             f"# {self.name}\n\n"
             f"> {SAFETY_NOTE}\n\n"

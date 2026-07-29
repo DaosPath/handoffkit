@@ -62,9 +62,7 @@ def pubmed_search(query: str, max_results: int = 5) -> dict[str, Any]:
     ids = search.get("esearchresult", {}).get("idlist", [])
     if not ids:
         return {"query": query, "count": 0, "results": []}
-    summary = _get_json(
-        f"{NCBI_EUTILS}/esummary.fcgi?db=pubmed&id={','.join(ids)}&retmode=json"
-    )
+    summary = _get_json(f"{NCBI_EUTILS}/esummary.fcgi?db=pubmed&id={','.join(ids)}&retmode=json")
     result_map = summary.get("result", {})
     rows = []
     for pmid in ids:
@@ -94,23 +92,18 @@ def pubmed_abstract_search(query: str, max_results: int = 3) -> dict[str, Any]:
     ids = search.get("esearchresult", {}).get("idlist", [])
     if not ids:
         return {"query": query, "count": 0, "results": []}
-    xml_text = _get_text(
-        f"{NCBI_EUTILS}/efetch.fcgi?db=pubmed&id={','.join(ids)}&retmode=xml"
-    )
+    xml_text = _get_text(f"{NCBI_EUTILS}/efetch.fcgi?db=pubmed&id={','.join(ids)}&retmode=xml")
     root = ET.fromstring(xml_text)
     rows = []
     for article in root.findall(".//PubmedArticle"):
         pmid = article.findtext(".//PMID") or ""
         title = "".join(article.findtext(".//ArticleTitle") or "").strip()
         abstract_parts = [
-            "".join(node.itertext()).strip()
-            for node in article.findall(".//Abstract/AbstractText")
+            "".join(node.itertext()).strip() for node in article.findall(".//Abstract/AbstractText")
         ]
         abstract = _clip(" ".join(part for part in abstract_parts if part), 900)
         journal = (
-            article.findtext(".//Journal/Title")
-            or article.findtext(".//ISOAbbreviation")
-            or ""
+            article.findtext(".//Journal/Title") or article.findtext(".//ISOAbbreviation") or ""
         )
         rows.append(
             {
@@ -135,9 +128,7 @@ def pmc_search(query: str, max_results: int = 5) -> dict[str, Any]:
     ids = search.get("esearchresult", {}).get("idlist", [])
     if not ids:
         return {"query": query, "count": 0, "results": []}
-    summary = _get_json(
-        f"{NCBI_EUTILS}/esummary.fcgi?db=pmc&id={','.join(ids)}&retmode=json"
-    )
+    summary = _get_json(f"{NCBI_EUTILS}/esummary.fcgi?db=pmc&id={','.join(ids)}&retmode=json")
     result_map = summary.get("result", {})
     rows = []
     for pmcid in ids:
@@ -188,9 +179,7 @@ def clinical_trials_search(condition: str, max_results: int = 5) -> dict[str, An
 def dailymed_drug_search(drug_name: str, max_results: int = 5) -> dict[str, Any]:
     """Search DailyMed drug labels by drug name."""
     max_results = max(1, min(max_results, 10))
-    params = urllib.parse.urlencode(
-        {"drug_name": drug_name, "page": 1, "pageSize": max_results}
-    )
+    params = urllib.parse.urlencode({"drug_name": drug_name, "page": 1, "pageSize": max_results})
     payload = _get_json(f"{DAILYMED_API}/spls.json?{params}")
     rows = []
     for item in payload.get("data", [])[:max_results]:

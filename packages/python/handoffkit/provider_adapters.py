@@ -76,9 +76,7 @@ class ToolCallParser:
 
     def _normalize_format(self, provider_format: str) -> ProviderToolFormat:
         if provider_format not in SUPPORTED_PROVIDER_FORMATS:
-            raise ValueError(
-                "provider_format must be 'handoffkit', 'openai', or 'anthropic'"
-            )
+            raise ValueError("provider_format must be 'handoffkit', 'openai', or 'anthropic'")
         return provider_format  # type: ignore[return-value]
 
     def _payload(self, value: str | dict[str, Any]) -> dict[str, Any]:
@@ -206,9 +204,7 @@ class ProviderToolAdapter:
 
     def _normalize_format(self, provider_format: str) -> ProviderToolFormat:
         if provider_format not in SUPPORTED_PROVIDER_FORMATS:
-            raise ValueError(
-                "provider_format must be 'handoffkit', 'openai', or 'anthropic'"
-            )
+            raise ValueError("provider_format must be 'handoffkit', 'openai', or 'anthropic'")
         return provider_format  # type: ignore[return-value]
 
     def tools_to_provider_format(

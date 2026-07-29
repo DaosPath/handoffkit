@@ -193,7 +193,6 @@ def test_agent_run_with_tools_deterministic_mode_still_works() -> None:
     assert report.tool_results[0].result == "read:README.md"
 
 
-
 def test_provider_tool_adapter_openai_tool_format() -> None:
     schema = ProviderToolAdapter(provider_format="openai").tools_to_provider_format([read_file])[0]
 

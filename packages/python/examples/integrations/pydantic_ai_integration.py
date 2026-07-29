@@ -30,9 +30,7 @@ def pydantic_ai_result_to_handoff(decision: ReleaseDecision) -> HandoffState:
         from_agent="TypedReviewer",
         to_agent="Publisher",
         summary=(
-            "Release approved with packaging checks."
-            if decision.approved
-            else "Release blocked."
+            "Release approved with packaging checks." if decision.approved else "Release blocked."
         ),
         decisions=decision.notes,
         important_files=decision.important_files,

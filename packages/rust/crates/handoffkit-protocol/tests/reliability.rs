@@ -72,14 +72,16 @@ fn shared_differential_validation_corpus() {
             }
             "job_progress" => validate_case::<JobProgress, _, _>(value, JobProgress::validate),
             "security_config" => {
-                let decoded: Result<handoffkit_protocol::security::SecurityConfig, _> = serde_json::from_value(value.clone());
+                let decoded: Result<handoffkit_protocol::security::SecurityConfig, _> =
+                    serde_json::from_value(value.clone());
                 match decoded {
                     Ok(cfg) => serde_json::to_value(cfg).map_err(|e| e.to_string()),
                     Err(_) => Err("invalid_profile".to_string()),
                 }
             }
             "peer_identity" => {
-                let decoded: Result<handoffkit_protocol::security::PeerIdentity, _> = serde_json::from_value(value.clone());
+                let decoded: Result<handoffkit_protocol::security::PeerIdentity, _> =
+                    serde_json::from_value(value.clone());
                 match decoded {
                     Ok(peer) => serde_json::to_value(peer).map_err(|e| e.to_string()),
                     Err(e) => Err(e.to_string()),

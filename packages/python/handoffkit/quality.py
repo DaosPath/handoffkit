@@ -94,9 +94,7 @@ class HandoffQualityReport:
             grade=str(data.get("grade", "")),
             metrics=metrics,
             recommendations=(
-                data.get("recommendations")
-                if isinstance(data.get("recommendations"), list)
-                else []
+                data.get("recommendations") if isinstance(data.get("recommendations"), list) else []
             ),
             validation=validation,
             metadata=data.get("metadata") if isinstance(data.get("metadata"), dict) else {},
@@ -112,11 +110,14 @@ class HandoffQualityReport:
 
     def to_markdown(self) -> str:
         """Serialize this quality report as Markdown."""
-        metrics = "\n".join(
-            f"- `{metric.name}` score={metric.score:.2f} weight={metric.weight}: "
-            f"{'; '.join(metric.notes) or 'ok'}"
-            for metric in self.metrics
-        ) or "- none"
+        metrics = (
+            "\n".join(
+                f"- `{metric.name}` score={metric.score:.2f} weight={metric.weight}: "
+                f"{'; '.join(metric.notes) or 'ok'}"
+                for metric in self.metrics
+            )
+            or "- none"
+        )
         recommendations = "\n".join(f"- {item}" for item in self.recommendations) or "- none"
         return (
             "# Handoff Quality Report\n\n"
@@ -200,10 +201,7 @@ class HandoffQualityEvaluator:
         metrics: list[HandoffQualityMetric] = []
         for name in names:
             matching = [
-                metric
-                for report in reports
-                for metric in report.metrics
-                if metric.name == name
+                metric for report in reports for metric in report.metrics if metric.name == name
             ]
             if not matching:
                 continue

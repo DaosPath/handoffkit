@@ -19,9 +19,7 @@ MIN_MESSAGE_BYTES = 1024
 MAX_ERROR_MESSAGE_BYTES = 2048
 MAX_RETRY_ATTEMPTS = 100
 
-_RFC3339_RE = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
-)
+_RFC3339_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$")
 
 
 def utc_now() -> str:

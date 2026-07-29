@@ -250,8 +250,10 @@ def list_native_provider_models(
         with urllib.request.urlopen(request, timeout=timeout) as response:
             body = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace").replace(
-            resolved_api_key, "[redacted-api-key]"
+        detail = (
+            exc.read()
+            .decode("utf-8", errors="replace")
+            .replace(resolved_api_key, "[redacted-api-key]")
         )
         raise ProviderExecutionError(
             f"{config.display_name} models request failed with HTTP {exc.code}: {detail}"

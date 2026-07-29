@@ -117,7 +117,6 @@ def test_run_media_demo_writes_report_and_subtitles(tmp_path, monkeypatch) -> No
     assert (tmp_path / "examples" / "output" / "media_dubbing_demo" / "subtitles_es.srt").exists()
 
 
-
 def test_run_quality_demo_reports_score() -> None:
     output = run_quality_demo()
 
@@ -268,6 +267,7 @@ def test_doctor_showcase_cli_command_runs(tmp_path, monkeypatch, capsys) -> None
     assert "not medical advice" in captured.out
     assert (tmp_path / "runs" / "latest" / "report.json").exists()
 
+
 def test_doctor_benchmark_cli_command_runs(tmp_path, monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.chdir(tmp_path)
 
@@ -361,6 +361,7 @@ def test_keys_management_cli(tmp_path, monkeypatch, capsys) -> None:  # type: ig
 # Extension scaffolding & dynamic loading tests (v1.14.0)
 # ---------------------------------------------------------------------------
 
+
 def test_create_extension_scaffolds_files(tmp_path) -> None:  # type: ignore[no-untyped-def]
     """create_extension writes __init__.py, tools.py, and recipes.py."""
     result = create_extension("my_plugin", output=str(tmp_path))
@@ -397,6 +398,7 @@ def test_load_dynamic_extensions_no_config(tmp_path, monkeypatch) -> None:  # ty
     """load_dynamic_extensions silently returns when handoff.config.json is absent."""
     monkeypatch.chdir(tmp_path)
     from handoffkit.extensions import ExtensionRegistry
+
     registry = ExtensionRegistry()
     load_dynamic_extensions(registry)  # should not raise
     assert registry.list() == []
@@ -416,6 +418,7 @@ def test_load_dynamic_extensions_with_valid_config(tmp_path, monkeypatch) -> Non
     (tmp_path / "handoff.config.json").write_text(json.dumps(config), encoding="utf-8")
 
     from handoffkit.extensions import ExtensionRegistry
+
     registry = ExtensionRegistry()
     load_dynamic_extensions(registry)
     # The scaffolded extension declares an `extension` object; it should be registered

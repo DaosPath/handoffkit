@@ -64,4 +64,3 @@ def test_showcase_examples_run_without_api_key(tmp_path: Path) -> None:
         )
         assert completed.returncode == 0, completed.stdout + completed.stderr
         assert "Handoff" in completed.stdout or "Free-text Summary Loses" in completed.stdout
-

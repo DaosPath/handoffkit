@@ -18,8 +18,11 @@ from handoffkit.csp import (
 
 def go_binary() -> Path:
     root = Path(__file__).resolve().parents[3]
-    default = root / ".local-tests" / "bin" / (
-        "handoffkit-worker.exe" if os.name == "nt" else "handoffkit-worker"
+    default = (
+        root
+        / ".local-tests"
+        / "bin"
+        / ("handoffkit-worker.exe" if os.name == "nt" else "handoffkit-worker")
     )
     return Path(os.environ.get("HANDOFFKIT_GO_BIN", default)).resolve()
 

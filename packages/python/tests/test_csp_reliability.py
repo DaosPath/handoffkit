@@ -20,10 +20,10 @@ from handoffkit.csp import (
     JobProgress,
     MessageEnvelope,
     OverflowPolicy,
+    PeerIdentity,
     ProcessError,
     RetryPolicy,
     SecurityConfig,
-    PeerIdentity,
     SessionConfig,
     WorkerCapabilities,
     make_envelope,
@@ -52,8 +52,10 @@ secret_text = st.text(
 )
 json_values = st.recursive(
     st.none() | st.booleans() | st.integers(-10_000, 10_000) | st.text(max_size=32),
-    lambda children: st.lists(children, max_size=4)
-    | st.dictionaries(st.text(min_size=1, max_size=8), children, max_size=4),
+    lambda children: (
+        st.lists(children, max_size=4)
+        | st.dictionaries(st.text(min_size=1, max_size=8), children, max_size=4)
+    ),
     max_leaves=20,
 )
 

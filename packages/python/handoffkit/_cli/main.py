@@ -184,10 +184,7 @@ def main(argv: list[str] | None = None) -> int:
     independent_parser = subparsers.add_parser(
         "benchmark-independent",
         aliases=["independent-benchmark", "benchmark-protocol"],
-        help=(
-            "Run published independent protocol benchmark "
-            "(offline, no public leaderboard)."
-        ),
+        help=("Run published independent protocol benchmark (offline, no public leaderboard)."),
     )
     independent_parser.add_argument(
         "--seed",
@@ -258,14 +255,14 @@ def main(argv: list[str] | None = None) -> int:
 
     keys_parser = subparsers.add_parser("keys", help="Manage local API keys in .env.")
     keys_subparsers = keys_parser.add_subparsers(dest="keys_command")
-    
+
     keys_set_parser = keys_subparsers.add_parser("set", help="Set a local key.")
     keys_set_parser.add_argument("name", help="Key name.")
     keys_set_parser.add_argument("value", help="Key value.")
-    
+
     keys_delete_parser = keys_subparsers.add_parser("delete", help="Delete a local key.")
     keys_delete_parser.add_argument("name", help="Key name.")
-    
+
     keys_subparsers.add_parser("list", help="List configured keys.")
 
     args = parser.parse_args(argv)
@@ -477,6 +474,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-

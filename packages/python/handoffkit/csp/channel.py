@@ -50,17 +50,13 @@ class CspChannel:
         if self._closed:
             raise ChannelClosedError(f"Channel {self.name!r} is closed.")
         if envelope.channel != self.name:
-            raise ValueError(
-                f"Envelope channel {envelope.channel!r} does not match {self.name!r}."
-            )
+            raise ValueError(f"Envelope channel {envelope.channel!r} does not match {self.name!r}.")
         if envelope.encoded_size() > self.max_message_bytes:
             raise MessageTooLargeError(
                 f"Envelope {envelope.message_id!r} exceeds {self.max_message_bytes} bytes."
             )
         if _deadline_elapsed(envelope.deadline):
-            raise DeadlineExceededError(
-                f"Envelope {envelope.message_id!r} deadline has elapsed."
-            )
+            raise DeadlineExceededError(f"Envelope {envelope.message_id!r} deadline has elapsed.")
         if self.config.overflow_policy is OverflowPolicy.REJECT and self._queue.full():
             raise BackpressureError(f"Channel {self.name!r} is at capacity.")
         if not self._queue.full():

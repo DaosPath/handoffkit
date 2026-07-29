@@ -1,24 +1,20 @@
-"""Tests for Python HK-CSP security profiles, TLS 1.3, mTLS, capability authorization and replay protection."""
+"""Tests for Python HK-CSP security profiles, TLS 1.3, mTLS, and capability authorization."""
 
 import time
+
 import pytest
 
-from handoffkit.csp.errors import CspError
 from handoffkit.csp.security import (
     ArtifactVerifier,
-    AuthenticationError,
     AuthorizationError,
     CapabilityPolicy,
-    FileKeyStore,
     PeerIdentity,
     ReplayDetectedError,
     ReplayProtection,
     SecurityConfig,
     SecurityProfile,
-    build_ssl_context,
     get_supported_crypto_capabilities,
 )
-from handoffkit.csp.transport import NetworkConfig, TcpTransport
 
 
 def test_security_profile_enum():

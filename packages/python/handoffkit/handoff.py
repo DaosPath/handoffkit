@@ -155,15 +155,15 @@ class HandoffState:
                 continue
 
             if line_str.startswith("Task:"):
-                task = line_str[len("Task:"):].strip()
+                task = line_str[len("Task:") :].strip()
                 continue
             if line_str.startswith("From:"):
-                from_agent = line_str[len("From:"):].strip()
+                from_agent = line_str[len("From:") :].strip()
                 if from_agent == "-":
                     from_agent = ""
                 continue
             if line_str.startswith("To:"):
-                to_agent = line_str[len("To:"):].strip()
+                to_agent = line_str[len("To:") :].strip()
                 if to_agent == "-":
                     to_agent = ""
                 continue

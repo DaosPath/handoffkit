@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> None:
     if not api_key:
         print("OPENCODE_API_KEY is not set.")
         print('Set it with: $env:OPENCODE_API_KEY="..."')
-        print(f"Optional model: $env:OPENCODE_GO_MODEL=\"{DEFAULT_OPENCODE_GO_MODEL}\"")
+        print(f'Optional model: $env:OPENCODE_GO_MODEL="{DEFAULT_OPENCODE_GO_MODEL}"')
         return
 
     try:

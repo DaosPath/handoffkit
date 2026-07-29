@@ -282,5 +282,3 @@ def run_media_context_demo() -> str:
         f"Report JSON: {json_path}\n"
         f"Report Markdown: {markdown_path}\n"
     )
-
-

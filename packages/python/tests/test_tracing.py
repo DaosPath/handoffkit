@@ -166,4 +166,3 @@ def test_run_trace_to_timeline() -> None:
 
     assert "Execution Timeline: my-timeline-test" in timeline
     assert "1. [Planner] -> Task:" in timeline
-

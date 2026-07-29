@@ -1,16 +1,16 @@
-"""Security profiles, TLS 1.3 configuration, mTLS, peer identity, authorization & replay protection for HK-CSP."""
+"""Security profiles, TLS 1.3 config, mTLS, peer identity, authorization & replay for HK-CSP."""
 
 from __future__ import annotations
 
 import hashlib
-import os
 import ssl
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from handoffkit.csp.errors import CspError
 
@@ -33,25 +33,24 @@ class SecurityProfileMismatchError(SecurityError):
 
 
 class AuthenticationError(SecurityError):
-    """Raised when mTLS, token, or peer identity verification fails."""
+    """Raised when peer identity or certificate validation fails."""
 
 
 class AuthorizationError(SecurityError):
-    """Raised when a peer or worker attempts an unauthorized operation."""
+    """Raised when an operation or path exceeds granted capabilities."""
 
 
 class ReplayDetectedError(SecurityError):
-    """Raised when a replayed or stale message is detected."""
+    """Raised when message timestamp or sequence violates replay protection rules."""
 
 
 @dataclass(frozen=True)
 class SecurityConfig:
-    """Security configuration for HK-CSP transports."""
+    """Configuration governing transport and node security."""
 
-    profile: SecurityProfile = SecurityProfile.LOCAL
-    require_mtls: bool = False
+    profile: SecurityProfile | str = SecurityProfile.LOCAL
     allow_insecure_loopback: bool = False
-    trust_domain: str = "handoffkit.internal"
+    require_mtls: bool = False
     ca_cert_path: str | None = None
     cert_path: str | None = None
     key_path: str | None = None
@@ -62,8 +61,8 @@ class SecurityConfig:
         if isinstance(self.profile, str):
             try:
                 object.__setattr__(self, "profile", SecurityProfile(self.profile))
-            except ValueError:
-                raise ValueError(f"invalid_profile: {self.profile}")
+            except ValueError as err:
+                raise ValueError(f"invalid_profile: {self.profile}") from err
 
         if self.profile == SecurityProfile.RESEARCH:
             # Research profile is strictly for isolated laboratory testing
@@ -180,7 +179,9 @@ class CapabilityPolicy:
     def authorize_job(self, job_type: str, peer: PeerIdentity) -> None:
         if not peer.is_valid_at():
             raise AuthenticationError(f"Peer identity '{peer.peer_id}' has expired or is invalid.")
-        if not self.is_operation_authorized(f"job:{job_type}", peer) and not self.is_operation_authorized(job_type, peer):
+        if not self.is_operation_authorized(
+            f"job:{job_type}", peer
+        ) and not self.is_operation_authorized(job_type, peer):
             raise AuthorizationError(
                 f"Peer '{peer.peer_id}' is not authorized to execute job type '{job_type}'."
             )
@@ -216,14 +217,14 @@ class ReplayProtection:
                 )
             if created_at_ts > (now + self.max_skew_seconds):
                 raise ReplayDetectedError(
-                    f"Message timestamp is in the future beyond max clock skew ({self.max_skew_seconds}s)."
+                    f"Message timestamp in future beyond clock skew ({self.max_skew_seconds}s)."
                 )
 
         if session_id in self._last_sequences:
             last_seq = self._last_sequences[session_id]
             if sequence <= last_seq:
                 raise ReplayDetectedError(
-                    f"Sequence {sequence} is not strictly monotonic for session {session_id} (last: {last_seq})."
+                    f"Seq {sequence} not monotonic for session {session_id} (last: {last_seq})."
                 )
         self._last_sequences[session_id] = sequence
 
@@ -331,7 +332,9 @@ def build_ssl_context(
         if is_server:
             context.verify_mode = ssl.CERT_REQUIRED
             if not config.ca_cert_path:
-                raise ValueError("require_mtls=True on server requires ca_cert_path to verify client certificates.")
+                raise ValueError(
+                    "require_mtls=True on server requires ca_cert_path to verify client certs."
+                )
         else:
             if not (config.cert_path and config.key_path):
                 raise ValueError("require_mtls=True on client requires cert_path and key_path.")

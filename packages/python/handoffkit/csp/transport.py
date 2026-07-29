@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import ssl
 import struct
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
@@ -18,9 +19,7 @@ from handoffkit.csp.models import (
     RetryPolicy,
     sanitize_error_message,
 )
-
-
-from handoffkit.csp.security import SecurityConfig, SecurityProfile, build_ssl_context
+from handoffkit.csp.security import SecurityConfig, build_ssl_context
 
 
 @dataclass(frozen=True)
@@ -76,9 +75,7 @@ class StdioTransport(Transport):
     async def send(self, envelope: MessageEnvelope) -> None:
         data = envelope.to_json().encode("utf-8") + b"\n"
         if len(data) > self.max_message_bytes:
-            raise MessageTooLargeError(
-                f"Encoded envelope exceeds {self.max_message_bytes} bytes."
-            )
+            raise MessageTooLargeError(f"Encoded envelope exceeds {self.max_message_bytes} bytes.")
         self.writer.write(data)
         await self.writer.drain()
 
@@ -87,9 +84,7 @@ class StdioTransport(Transport):
         if not data:
             raise ChannelClosedError("stdio peer closed the protocol stream")
         if len(data) > self.max_message_bytes:
-            raise MessageTooLargeError(
-                f"Encoded envelope exceeds {self.max_message_bytes} bytes."
-            )
+            raise MessageTooLargeError(f"Encoded envelope exceeds {self.max_message_bytes} bytes.")
         return MessageEnvelope.from_json(data.decode("utf-8"))
 
     async def close(self) -> None:
@@ -135,9 +130,7 @@ class SubprocessStdioTransport(Transport):
     async def send(self, envelope: MessageEnvelope) -> None:
         data = envelope.to_json().encode("utf-8") + b"\n"
         if len(data) > self.max_message_bytes:
-            raise MessageTooLargeError(
-                f"Encoded envelope exceeds {self.max_message_bytes} bytes."
-            )
+            raise MessageTooLargeError(f"Encoded envelope exceeds {self.max_message_bytes} bytes.")
         self.writer.write(data)
         await self.writer.drain()
 
@@ -146,9 +139,7 @@ class SubprocessStdioTransport(Transport):
         if not data:
             raise ChannelClosedError("child process closed stdout")
         if len(data) > self.max_message_bytes:
-            raise MessageTooLargeError(
-                f"Encoded envelope exceeds {self.max_message_bytes} bytes."
-            )
+            raise MessageTooLargeError(f"Encoded envelope exceeds {self.max_message_bytes} bytes.")
         return MessageEnvelope.from_json(data.decode("utf-8"))
 
     async def close(self) -> None:
@@ -346,9 +337,7 @@ class WebSocketTransport(Transport):
     async def send(self, envelope: MessageEnvelope) -> None:
         payload = envelope.to_json()
         if len(payload.encode("utf-8")) > self.max_message_bytes:
-            raise MessageTooLargeError(
-                f"WebSocket frame exceeds {self.max_message_bytes} bytes."
-            )
+            raise MessageTooLargeError(f"WebSocket frame exceeds {self.max_message_bytes} bytes.")
         await self._resolve(self.socket.send(payload))
 
     async def receive(self) -> MessageEnvelope:
@@ -360,9 +349,7 @@ class WebSocketTransport(Transport):
             text = str(payload)
             encoded = text.encode("utf-8")
         if len(encoded) > self.max_message_bytes:
-            raise MessageTooLargeError(
-                f"WebSocket frame exceeds {self.max_message_bytes} bytes."
-            )
+            raise MessageTooLargeError(f"WebSocket frame exceeds {self.max_message_bytes} bytes.")
         return MessageEnvelope.from_json(text)
 
     async def close(self) -> None:

@@ -60,9 +60,7 @@ class FileDedupStore(DedupStore):
         if not normalized:
             raise ValueError("idempotency key must not be empty")
         if len(normalized.encode("utf-8")) > MAX_IDEMPOTENCY_KEY_BYTES:
-            raise ValueError(
-                f"idempotency key must not exceed {MAX_IDEMPOTENCY_KEY_BYTES} bytes"
-            )
+            raise ValueError(f"idempotency key must not exceed {MAX_IDEMPOTENCY_KEY_BYTES} bytes")
         return normalized
 
     def _load(self) -> None:
@@ -81,9 +79,7 @@ class FileDedupStore(DedupStore):
                     else:
                         raise ValueError(f"unknown operation at line {line_number}")
         except (OSError, ValueError, json.JSONDecodeError) as exc:
-            raise ValueError(
-                f"invalid dedup log: {sanitize_error_message(str(exc))}"
-            ) from exc
+            raise ValueError(f"invalid dedup log: {sanitize_error_message(str(exc))}") from exc
         while len(self._keys) > self.capacity:
             self._keys.popitem(last=False)
 

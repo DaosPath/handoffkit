@@ -81,9 +81,9 @@ def _handoff_timeline(handoffs: Any) -> str:
         rows.append(
             '<div class="timeline-item">'
             f'<div class="timeline-index">{index}</div>'
-            '<div>'
-            f'<h3>{from_agent} <span>&rarr;</span> {to_agent}</h3>'
-            f'<p>{decisions} decisions / {files} files / {errors} errors</p>'
+            "<div>"
+            f"<h3>{from_agent} <span>&rarr;</span> {to_agent}</h3>"
+            f"<p>{decisions} decisions / {files} files / {errors} errors</p>"
             "</div>"
             "</div>"
         )
@@ -96,7 +96,10 @@ def render_report_html(report: Any) -> str:
     title = str(payload.get("title") or payload.get("name") or "HandoffKit Report")
     command = str(payload.get("command") or "handoffkit report runs/latest")
     pain = str(payload.get("pain") or "Structured handoff report with replayable state transfer.")
-    free_text = str(payload.get("free_text_summary") or "Free-text summaries lose decisions, files, risks, and next steps.")
+    free_text = str(
+        payload.get("free_text_summary")
+        or "Free-text summaries lose decisions, files, risks, and next steps."
+    )
     lost_context = payload.get("lost_context", [])
     preserved_context = payload.get("preserved_context", [])
     handoffs = payload.get("handoffs", [])
@@ -120,7 +123,9 @@ def render_report_html(report: Any) -> str:
     if isinstance(handoffs, list):
         for handoff in handoffs:
             if isinstance(handoff, dict):
-                all_files.extend(handoff.get("important_files", []) or handoff.get("files", []) or [])
+                all_files.extend(
+                    handoff.get("important_files", []) or handoff.get("files", []) or []
+                )
     if isinstance(artifacts, dict):
         all_files.extend(str(value) for value in artifacts.values())
 

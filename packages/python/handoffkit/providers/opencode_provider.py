@@ -68,6 +68,7 @@ class RetryPolicy:
         if delay > 0:
             time.sleep(delay)
 
+
 _GO_ANTHROPIC_MODELS = {
     "minimax-m3",
     "minimax-m2.7",
@@ -97,8 +98,7 @@ def infer_opencode_api_style(
     normalized_model = _strip_opencode_prefix(model, resolved_catalog)
     if api_style not in _VALID_API_STYLES:
         raise ProviderConfigurationError(
-            "api_style must be one of: auto, openai_chat, openai_responses, "
-            "anthropic_messages."
+            "api_style must be one of: auto, openai_chat, openai_responses, anthropic_messages."
         )
     if api_style != "auto":
         return api_style
@@ -160,11 +160,7 @@ def list_opencode_models(
             f"{resolved_base_url}: {exc.reason}"
         ) from exc
     data = (
-        body.get("data", [])
-        if isinstance(body, dict)
-        else body
-        if isinstance(body, list)
-        else []
+        body.get("data", []) if isinstance(body, dict) else body if isinstance(body, list) else []
     )
     models: list[str] = []
     if isinstance(data, list):
@@ -318,9 +314,7 @@ class OpenCodeProvider(BaseProvider):
         else:  # pragma: no cover - defensive fallback.
             raise ProviderExecutionError(f"OpenCode {self.catalog} request failed.")
         if not isinstance(body, dict):
-            raise ProviderExecutionError(
-                f"OpenCode {self.catalog} response was not a JSON object."
-            )
+            raise ProviderExecutionError(f"OpenCode {self.catalog} response was not a JSON object.")
         return body
 
 
@@ -346,9 +340,7 @@ def _resolve_model(catalog: OpenCodeCatalog) -> str:
             or DEFAULT_OPENCODE_GO_MODEL
         )
     return (
-        os.getenv("OPENCODE_ZEN_MODEL")
-        or os.getenv("OPENCODE_MODEL")
-        or DEFAULT_OPENCODE_ZEN_MODEL
+        os.getenv("OPENCODE_ZEN_MODEL") or os.getenv("OPENCODE_MODEL") or DEFAULT_OPENCODE_ZEN_MODEL
     )
 
 
