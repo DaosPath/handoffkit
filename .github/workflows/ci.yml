@@ -299,7 +299,7 @@ jobs:
       - name: Build Go worker
         run: |
           mkdir -p .local-tests/bin
-          go build -o .local-tests/bin/handoffkit-worker ./packages/go/cmd/handoffkit-worker
+          (cd packages/go && go build -o ../../.local-tests/bin/handoffkit-worker ./cmd/handoffkit-worker)
 
       - name: Rust starts Python, JavaScript, and Go workers
         env:
@@ -312,7 +312,7 @@ jobs:
         env:
           HANDOFFKIT_RUN_INTEROP_TESTS: "1"
         run: >
-          go test -v ./packages/go/interop/...
+          (cd packages/go && go test -v ./interop/...)
 
       - name: Python starts JavaScript worker
         run: python packages/python/examples/csp_python_js_stdio_demo.py
