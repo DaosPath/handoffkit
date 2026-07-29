@@ -51,6 +51,7 @@ class SecurityConfig:
     profile: SecurityProfile | str = SecurityProfile.LOCAL
     allow_insecure_loopback: bool = False
     require_mtls: bool = False
+    trust_domain: str = "handoffkit.internal"
     ca_cert_path: str | None = None
     cert_path: str | None = None
     key_path: str | None = None

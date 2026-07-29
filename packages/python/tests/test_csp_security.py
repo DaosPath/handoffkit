@@ -108,7 +108,7 @@ def test_replay_protection_monotonic_sequences():
     rp.check_and_record("sess-1", sequence=1, nonce="nonce-1")
     rp.check_and_record("sess-1", sequence=2, nonce="nonce-2")
 
-    with pytest.raises(ReplayDetectedError, match="not strictly monotonic"):
+    with pytest.raises(ReplayDetectedError, match="not monotonic"):
         rp.check_and_record("sess-1", sequence=2, nonce="nonce-3")
 
     with pytest.raises(ReplayDetectedError, match="Duplicate nonce"):
@@ -124,7 +124,7 @@ def test_replay_protection_timestamp_tolerance():
         rp.check_and_record("sess-3", sequence=1, created_at_ts=now - 200)
 
     # Future timestamp beyond skew
-    with pytest.raises(ReplayDetectedError, match="in the future"):
+    with pytest.raises(ReplayDetectedError, match="in future"):
         rp.check_and_record("sess-3", sequence=1, created_at_ts=now + 50)
 
 
