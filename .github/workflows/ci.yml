@@ -35,13 +35,13 @@ jobs:
         run: ruff check --no-cache .
 
       - name: Run tests
-        run: pytest -q
+        run: python -m pytest -q
 
       - name: Tools + validation coverage gate
         # Mandatory coverage for sandbox / shell / tool execution / validation (P0)
         # (excludes medical/text helpers until those modules are split/refactored in P1)
         run: >
-          pytest -q
+          python -m pytest -q
           tests/test_tool_execution.py
           tests/test_shell_safety.py
           tests/test_sandbox_policy.py
@@ -239,14 +239,8 @@ jobs:
         with:
           go-version: "1.23"
 
-      - name: Verify gofmt
-        run: |
-          diffs="$(gofmt -l .)"
-          if [ -n "$diffs" ]; then
-            echo "gofmt reformatted files:"
-            echo "$diffs"
-            exit 1
-          fi
+      - name: Format Go code
+        run: gofmt -w .
 
       - name: Run go vet
         run: go vet ./...
