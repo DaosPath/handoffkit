@@ -392,6 +392,14 @@ jobs:
       - name: Install TLS fixture generator dependency
         run: python -m pip install "cryptography>=46,<50"
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
+      - name: Install JavaScript workspace
+        run: pnpm install --frozen-lockfile
+
       - name: Prove X25519MLKEM768 negotiation, downgrade rejection, and Node interoperability
         env:
           GODEBUG: tlsmlkem=1
