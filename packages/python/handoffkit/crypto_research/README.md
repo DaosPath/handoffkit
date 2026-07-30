@@ -9,4 +9,4 @@
 > - **DO NOT USE FOR REAL SECRETS OR SENSITIVE DATA.**
 > - **THIS CODE IS NOT AUDITED OR CERTIFIED.**
 > 
-> Standard HandoffKit production security (`packages/python/handoffkit/csp/security.py`) relies on TLS 1.3, standard OpenSSL/PySSL primitives, and standard providers. Production profiles (`local`, `standard`, `hybrid-pq`) **CANNOT** import or select any components from this research lab.
+> HandoffKit runtime security integrations (`packages/python/handoffkit/csp/security.py`) rely on TLS 1.3 and maintained provider primitives. They are experimental. `hybrid-pq` is provider-dependent and currently unavailable in Python. No runtime profile may import or select components from this research lab.

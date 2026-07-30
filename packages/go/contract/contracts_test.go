@@ -2,12 +2,12 @@ package contract
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/DaosPath/handoffkit/go/security"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
-	"fmt"
-	"github.com/DaosPath/handoffkit/go/security"
 	"testing"
 	"testing/quick"
 )
@@ -213,6 +213,13 @@ func validateCorpus(kind string, data []byte) (any, error) {
 		if err := json.Unmarshal(data, &typed); err != nil {
 			return nil, err
 		}
+		value = typed
+	case "signed_artifact":
+		var typed security.SignedArtifact
+		if err := json.Unmarshal(data, &typed); err != nil {
+			return nil, err
+		}
+		validationErr = typed.Validate()
 		value = typed
 	default:
 		return nil, json.Unmarshal(data, &value)

@@ -31,19 +31,19 @@ type Diagnostics struct {
 }
 
 type Session struct {
-	config contract.SessionConfig
-	ctx    context.Context
-	cancel context.CancelFunc
-	store  DedupStore
-	mu     sync.Mutex
-	channels map[string]*Channel
-	processes map[string]*ProcessHandle
-	pendingAcks map[string]chan deliveryResult
+	config           contract.SessionConfig
+	ctx              context.Context
+	cancel           context.CancelFunc
+	store            DedupStore
+	mu               sync.Mutex
+	channels         map[string]*Channel
+	processes        map[string]*ProcessHandle
+	pendingAcks      map[string]chan deliveryResult
 	pendingEnvelopes map[string]contract.MessageEnvelope
-	dedup map[string]struct{}
-	dedupOrder []string
-	closed atomic.Bool
-	sequence atomic.Uint64
+	dedup            map[string]struct{}
+	dedupOrder       []string
+	closed           atomic.Bool
+	sequence         atomic.Uint64
 }
 
 func NewSession(parent context.Context, config contract.SessionConfig, store DedupStore) (*Session, error) {

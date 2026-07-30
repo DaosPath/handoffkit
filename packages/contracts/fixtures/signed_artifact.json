@@ -1,8 +1,9 @@
 {
-  "artifact_id": "art-model-weights-v1",
-  "content_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "signature": "dGVzdC1zaWduYXR1cmUtZGF0YS1iYXNlNjQ=",
+  "artifact_id": "artifact-1",
+  "content_hash": "8416cac54bfdbe4faec6d73fdb57ae7cfa81703b311b66de3639e826a185f1e4",
+  "signature": "7wMcS/BkK4l9UZesVqawf1qfuYPInh5oNQMcRcdauKrhA4yW83EIxEG+xUHGkqJdIZCc8N2cNeyGwVEo6TnbAg==",
   "algorithm": "ed25519",
-  "signer_identity": "peer-node-01",
-  "created_at": 1774000050
+  "signer_identity": "spiffe://handoffkit.internal/producer/build-1",
+  "key_fingerprint": "sha256:a6b5df2969959ff5ce26aea82bb88678604b0d0f07200e7845755f4b9af5bba6",
+  "created_at": 1800000000
 }

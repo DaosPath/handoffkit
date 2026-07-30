@@ -19,6 +19,7 @@ import {
   WorkerCapabilities,
   SecurityConfig,
   PeerIdentity,
+  SignedArtifact,
   makeEnvelope,
   sanitizeErrorMessage,
   validationErrorCode,
@@ -45,6 +46,7 @@ function validateCorpusCase(kind, value) {
     return SecurityConfig.fromWire(value).toWire();
   }
   if (kind === "peer_identity") return PeerIdentity.fromWire(value).toWire();
+  if (kind === "signed_artifact") return SignedArtifact.fromWire(value).toWire();
   throw new Error(`unsupported corpus kind: ${kind}`);
 }
 

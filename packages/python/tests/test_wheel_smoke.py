@@ -30,7 +30,6 @@ def test_local_wheel_installs_and_imports_offline(tmp_path: Path) -> None:
             "pip",
             "wheel",
             ".",
-            "--no-deps",
             "--no-build-isolation",
             "--wheel-dir",
             str(wheelhouse),

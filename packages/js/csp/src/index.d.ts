@@ -269,3 +269,151 @@ export class DistributedScheduler {
   snapshot(): { queued: number; assigned: number; completed: number; failed: number; seen_jobs: number };
 }
 export function heartbeatNow(workerId: string, init: { sequence: number; activeJobs: number; load: number; metadata?: Record<string, unknown> }): WorkerHeartbeat;
+
+export const SecurityProfile: Readonly<{
+  LOCAL: "local";
+  STANDARD: "standard";
+  HYBRID_PQ: "hybrid-pq";
+  RESEARCH: "research";
+}>;
+export type SecurityProfileValue = typeof SecurityProfile[keyof typeof SecurityProfile];
+
+export interface StructuredSecurityError {
+  code: string;
+  message: string;
+  details: Record<string, unknown>;
+}
+
+export class SecurityError extends CspError {
+  code: string;
+  details: Record<string, unknown>;
+  constructor(message: string, init?: { code?: string; details?: Record<string, unknown> });
+  toWire(): StructuredSecurityError;
+}
+
+export class SecurityProfileUnavailableError extends SecurityError {
+  constructor(message: string, details?: Record<string, unknown>);
+}
+export class SecurityProfileMismatchError extends SecurityError {
+  constructor(message: string, details?: Record<string, unknown>);
+}
+export class AuthenticationError extends SecurityError {
+  constructor(message: string, init?: { code?: string; details?: Record<string, unknown> });
+}
+export class AuthorizationError extends SecurityError {
+  constructor(message: string, init?: { code?: string; details?: Record<string, unknown> });
+}
+export class ReplayDetectedError extends SecurityError {
+  constructor(message: string, details?: Record<string, unknown>);
+}
+export class ArtifactSignatureError extends SecurityError {
+  constructor(message: string, init?: { code?: string; details?: Record<string, unknown> });
+}
+
+export class SecurityConfig {
+  profile: SecurityProfileValue;
+  requireMtls: boolean;
+  allowInsecureLoopback: boolean;
+  trustDomain: string;
+  caCertPath: string | null;
+  certPath: string | null;
+  keyPath: string | null;
+  replayWindowSeconds: number;
+  maxClockSkewSeconds: number;
+  constructor(init?: Record<string, unknown>);
+  toWire(): Record<string, unknown>;
+  static fromWire(value?: Record<string, unknown>): SecurityConfig;
+  validateListenAddress(host: string): void;
+}
+
+export class PeerIdentity {
+  peerId: string;
+  nodeId: string;
+  workerId: string | null;
+  trustDomain: string;
+  credentialFingerprint: string;
+  capabilities: string[];
+  issuedAt: number;
+  expiresAt: number;
+  constructor(init?: Record<string, unknown>);
+  isValidAt(timestampSeconds?: number): boolean;
+  toWire(): Record<string, unknown>;
+  static fromWire(value?: Record<string, unknown>): PeerIdentity;
+}
+
+export interface SignedArtifactWire {
+  artifact_id: string;
+  content_hash: string;
+  signature: string;
+  algorithm: "ed25519";
+  signer_identity: string;
+  key_fingerprint: string;
+  created_at: number;
+}
+
+export class SignedArtifact {
+  artifactId: string;
+  contentHash: string;
+  signature: string;
+  algorithm: "ed25519";
+  signerIdentity: string;
+  keyFingerprint: string;
+  createdAt: number;
+  constructor(init: Record<string, unknown>);
+  toWire(): SignedArtifactWire;
+  canonicalPayload(): Uint8Array;
+  static fromWire(value: Record<string, unknown>): SignedArtifact;
+}
+
+export class CertificateIdentityPolicy {
+  trustDomain: string;
+  capabilitiesByFingerprint: Map<string, readonly string[]>;
+  revokedFingerprints: Set<string>;
+  expectedPeerId: string | null;
+  expectedNodeId: string | null;
+  expectedWorkerId: string | null;
+  allowedIssuerNames: readonly string[];
+  requireAuthorizedFingerprint: boolean;
+  constructor(init?: Record<string, unknown>);
+}
+
+export function normalizeFingerprint(value: string): string;
+export function validateDeclaredPeerIdentity(
+  authenticated: PeerIdentity,
+  declared: PeerIdentity | Record<string, unknown>,
+): void;
+
+export class CapabilityPolicy {
+  constructor(init?: { allowedOperations?: string[] });
+  isOperationAuthorized(operation: string, peer?: PeerIdentity | null): boolean;
+  authorizeJob(jobType: string, peer: PeerIdentity): void;
+}
+
+export class ReplayProtection {
+  constructor(init?: { windowSeconds?: number; maxSkewSeconds?: number; maxSeenNonces?: number });
+  checkAndRecord(sessionId: string, sequence: number, nonce?: string | null, createdAtTs?: number | null): void;
+  pruneOldNonces(now?: number): void;
+}
+
+export interface CryptoCapabilities {
+  runtime: string;
+  contracts_only: boolean;
+  tls13_supported: boolean;
+  profiles_supported: SecurityProfileValue[];
+  profiles_recognized: SecurityProfileValue[];
+  digest_algorithms: string[];
+  signature_algorithms: string[];
+  hybrid_pq_group: string | null;
+  hybrid_pq_supported: boolean;
+}
+
+export function getSupportedCryptoCapabilities(): CryptoCapabilities;
+export function negotiateSecurityProfile(
+  required: SecurityProfileValue,
+  offered: SecurityProfileValue,
+  supportedProfiles: SecurityProfileValue[],
+): SecurityProfileValue;
+export function assertSecurityProfileSupported(
+  profile: SecurityProfileValue,
+  capabilities?: CryptoCapabilities,
+): void;

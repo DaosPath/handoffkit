@@ -6,6 +6,10 @@ __pycache__/
 .ruff_cache/
 .cache/
 .local-tests/
+packages/contracts/test-fixtures/**/*.pem
+packages/contracts/test-fixtures/**/*.key
+packages/contracts/test-fixtures/**/*.p12
+packages/contracts/test-fixtures/**/*.pfx
 .build-tmp/
 .build-artifacts/
 .build-noiso/

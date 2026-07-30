@@ -28,6 +28,40 @@ impl SecurityProfile {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SecurityProfileNegotiationError {
+    pub code: &'static str,
+    pub message: String,
+}
+
+impl std::fmt::Display for SecurityProfileNegotiationError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for SecurityProfileNegotiationError {}
+
+pub fn negotiate_security_profile(
+    required: SecurityProfile,
+    offered: SecurityProfile,
+    supported: &[SecurityProfile],
+) -> Result<SecurityProfile, SecurityProfileNegotiationError> {
+    if required != offered {
+        return Err(SecurityProfileNegotiationError {
+            code: "security_profile_mismatch",
+            message: "required and offered security profiles do not match".to_string(),
+        });
+    }
+    if !supported.contains(&required) {
+        return Err(SecurityProfileNegotiationError {
+            code: "security_profile_unavailable",
+            message: "the exact security profile has no active provider".to_string(),
+        });
+    }
+    Ok(required)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SecurityConfig {
     #[serde(default)]
@@ -80,15 +114,15 @@ impl Default for SecurityConfig {
 
 impl SecurityConfig {
     pub fn validate_listen_address(&self, host: &str) -> Result<(), ProtocolError> {
-        if (host == "0.0.0.0" || host == "::") && self.allow_insecure_loopback {
-            return Err(ProtocolError(
-                "allow_insecure_loopback cannot be used with public bind (0.0.0.0)".to_string(),
-            ));
-        }
         let is_loopback = host == "127.0.0.1" || host == "localhost" || host == "::1";
-        if self.profile == SecurityProfile::Local && !is_loopback && !self.allow_insecure_loopback {
+        if matches!(
+            self.profile,
+            SecurityProfile::Local | SecurityProfile::Research
+        ) && !is_loopback
+        {
             return Err(ProtocolError(format!(
-                "Profile 'local' cannot listen on non-loopback interface '{host}' without allow_insecure_loopback=true"
+                "Profile '{}' cannot listen on non-loopback interface '{host}'",
+                self.profile.as_str()
             )));
         }
         Ok(())
@@ -125,6 +159,75 @@ impl PeerIdentity {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SignedArtifact {
+    pub artifact_id: String,
+    pub content_hash: String,
+    pub signature: String,
+    pub algorithm: String,
+    pub signer_identity: String,
+    pub key_fingerprint: String,
+    pub created_at: u64,
+}
+
+impl SignedArtifact {
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        if self.artifact_id.is_empty() || self.signer_identity.is_empty() {
+            return Err(ProtocolError(
+                "artifact_id and signer_identity must not be empty".to_string(),
+            ));
+        }
+        if self.algorithm != "ed25519" {
+            return Err(ProtocolError(format!(
+                "unsupported artifact signature algorithm: {}",
+                self.algorithm
+            )));
+        }
+        if !is_lower_sha256(&self.content_hash) {
+            return Err(ProtocolError(
+                "content_hash must be a lowercase SHA-256 digest".to_string(),
+            ));
+        }
+        if !self.key_fingerprint.starts_with("sha256:")
+            || !is_lower_sha256(&self.key_fingerprint["sha256:".len()..])
+        {
+            return Err(ProtocolError(
+                "key_fingerprint must be a canonical SHA-256 fingerprint".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn canonical_payload(&self) -> Result<Vec<u8>, ProtocolError> {
+        self.validate()?;
+        #[derive(Serialize)]
+        struct Canonical<'a> {
+            algorithm: &'a str,
+            artifact_id: &'a str,
+            content_hash: &'a str,
+            created_at: u64,
+            key_fingerprint: &'a str,
+            signer_identity: &'a str,
+        }
+        serde_json::to_vec(&Canonical {
+            algorithm: &self.algorithm,
+            artifact_id: &self.artifact_id,
+            content_hash: &self.content_hash,
+            created_at: self.created_at,
+            key_fingerprint: &self.key_fingerprint,
+            signer_identity: &self.signer_identity,
+        })
+        .map_err(|error| ProtocolError(error.to_string()))
+    }
+}
+
+fn is_lower_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
 #[derive(Debug, Clone)]
 pub struct CapabilityPolicy {
     pub allowed_operations: Option<HashSet<String>>,
@@ -149,43 +252,51 @@ impl CapabilityPolicy {
             }
         }
         if let Some(p) = peer {
-            if !p.capabilities.is_empty() {
-                if p.capabilities.iter().any(|c| c == "*" || c == operation) {
+            if p.capabilities.iter().any(|c| c == "*" || c == operation) {
+                return true;
+            }
+            if let Some(prefix) = operation.split(':').next() {
+                let star_prefix = format!("{prefix}:*");
+                if p.capabilities.iter().any(|c| c == &star_prefix) {
                     return true;
                 }
-                if let Some(prefix) = operation.split(':').next() {
-                    let star_prefix = format!("{prefix}:*");
-                    if p.capabilities.iter().any(|c| c == &star_prefix) {
-                        return true;
-                    }
-                }
-                return false;
             }
+            return false;
         }
         true
     }
 
-    pub fn authorize_job(&self, job_type: &str, peer: &PeerIdentity) -> Result<(), ProtocolError> {
+    pub fn authorize_job(
+        &self,
+        job_type: &str,
+        peer: &PeerIdentity,
+    ) -> Result<(), SecurityPolicyError> {
         let now_ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
 
         if !peer.is_valid_at(now_ts) {
-            return Err(ProtocolError(format!(
-                "Peer identity '{}' has expired or is invalid.",
-                peer.peer_id
-            )));
+            return Err(SecurityPolicyError {
+                code: "authentication_failed",
+                message: format!(
+                    "Peer identity '{}' has expired or is invalid.",
+                    peer.peer_id
+                ),
+            });
         }
 
         let op = format!("job:{job_type}");
         if !self.is_operation_authorized(&op, Some(peer))
             && !self.is_operation_authorized(job_type, Some(peer))
         {
-            return Err(ProtocolError(format!(
-                "Peer '{}' is not authorized to execute job type '{job_type}'.",
-                peer.peer_id
-            )));
+            return Err(SecurityPolicyError {
+                code: "authorization_denied",
+                message: format!(
+                    "Peer '{}' is not authorized to execute job type '{job_type}'.",
+                    peer.peer_id
+                ),
+            });
         }
         Ok(())
     }
@@ -200,6 +311,20 @@ pub struct ReplayProtection {
     last_sequences: HashMap<String, u64>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SecurityPolicyError {
+    pub code: &'static str,
+    pub message: String,
+}
+
+impl std::fmt::Display for SecurityPolicyError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for SecurityPolicyError {}
+
 impl ReplayProtection {
     pub fn new(window_seconds: u64, max_clock_skew_seconds: u64, max_seen_nonces: usize) -> Self {
         Self {
@@ -213,11 +338,11 @@ impl ReplayProtection {
 
     pub fn check_and_record(
         &mut self,
-        session_id: &str,
+        session_scope: &str,
         sequence: u64,
         nonce: Option<&str>,
         created_at_ts: Option<u64>,
-    ) -> Result<(), ProtocolError> {
+    ) -> Result<(), SecurityPolicyError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs())
@@ -225,39 +350,58 @@ impl ReplayProtection {
 
         if let Some(ts) = created_at_ts {
             if ts < now.saturating_sub(self.window_seconds) {
-                return Err(ProtocolError(format!(
-                    "Message timestamp is older than replay window ({}s).",
-                    self.window_seconds
-                )));
+                return Err(SecurityPolicyError {
+                    code: "replay_timestamp_stale",
+                    message: format!(
+                        "Message timestamp is older than replay window ({}s).",
+                        self.window_seconds
+                    ),
+                });
             }
             if ts > now + self.max_clock_skew_seconds {
-                return Err(ProtocolError(format!(
-                    "Message timestamp is in the future beyond max clock skew ({}s).",
-                    self.max_clock_skew_seconds
-                )));
+                return Err(SecurityPolicyError {
+                    code: "replay_timestamp_future",
+                    message: format!(
+                        "Message timestamp is in the future beyond max clock skew ({}s).",
+                        self.max_clock_skew_seconds
+                    ),
+                });
             }
         }
 
-        if let Some(&last) = self.last_sequences.get(session_id) {
+        if let Some(&last) = self.last_sequences.get(session_scope) {
             if sequence <= last {
-                return Err(ProtocolError(format!(
-                    "Sequence {sequence} is not strictly monotonic for session {session_id} (last: {last})."
-                )));
+                return Err(SecurityPolicyError {
+                    code: "replay_sequence",
+                    message: format!(
+                        "Sequence {sequence} is not strictly monotonic for session {session_scope} (last: {last})."
+                    ),
+                });
             }
         }
-        self.last_sequences.insert(session_id.to_string(), sequence);
 
         if let Some(n) = nonce {
             self.prune_old_nonces(now);
-            if self.seen_nonces.contains_key(n) {
-                return Err(ProtocolError(format!("Duplicate nonce detected: {n}")));
+            let nonce_key = format!("{session_scope}\0{n}");
+            if self.seen_nonces.contains_key(&nonce_key) {
+                return Err(SecurityPolicyError {
+                    code: "replay_nonce",
+                    message: "Duplicate nonce detected.".to_string(),
+                });
             }
+        }
+
+        // Only successful messages advance process-local anti-replay state.
+        self.last_sequences
+            .insert(session_scope.to_string(), sequence);
+        if let Some(n) = nonce {
+            let nonce_key = format!("{session_scope}\0{n}");
             if self.seen_nonces.len() >= self.max_seen_nonces {
                 if let Some(oldest_key) = self.seen_nonces.keys().next().cloned() {
                     self.seen_nonces.remove(&oldest_key);
                 }
             }
-            self.seen_nonces.insert(n.to_string(), now);
+            self.seen_nonces.insert(nonce_key, now);
         }
 
         Ok(())

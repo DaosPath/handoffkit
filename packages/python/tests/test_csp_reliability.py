@@ -25,6 +25,7 @@ from handoffkit.csp import (
     RetryPolicy,
     SecurityConfig,
     SessionConfig,
+    SignedArtifact,
     WorkerCapabilities,
     make_envelope,
     sanitize_error_message,
@@ -91,6 +92,8 @@ def _validate_corpus_case(kind: str, value: dict[str, Any]) -> dict[str, Any]:
         }
     if kind == "peer_identity":
         return PeerIdentity.from_dict(value).to_dict()
+    if kind == "signed_artifact":
+        return SignedArtifact.from_dict(value).to_dict()
     raise AssertionError(f"unsupported corpus kind: {kind}")
 
 

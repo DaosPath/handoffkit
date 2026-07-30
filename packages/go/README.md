@@ -1,6 +1,6 @@
 # HandoffKit Go Runtime
 
-Experimental Go implementation of HK-CSP 1.0 for HandoffKit Core 1.18.0.
+Experimental Go implementation of HK-CSP 1.0 for HandoffKit 1.19 development.
 
 ## Implemented
 
@@ -9,6 +9,13 @@ Experimental Go implementation of HK-CSP 1.0 for HandoffKit Core 1.18.0.
 - sessions, ACK/NACK, retries, deadlines, cancellation, and deduplication;
 - persistent file-backed deduplication;
 - in-process, stdio NDJSON, Unix socket, and length-delimited TCP transports;
+- real TLS 1.3 TCP client/listener with configured/system roots, hostname
+  verification, mTLS, certificate-derived identity, replay, and local
+  authorization before dispatch;
+- maintained-provider Ed25519 artifact signing and verification;
+- provider-dependent `X25519MLKEM768` in compatible Go builds, with fail-closed
+  capability detection, negotiated-group checks on wrapped sockets, and no
+  profile fallback;
 - subprocess workers without shell invocation;
 - worker registry, capability routing, heartbeats, leases, and initial scheduler;
 - real stdio interoperability with Python, JavaScript, and Rust;
@@ -16,10 +23,11 @@ Experimental Go implementation of HK-CSP 1.0 for HandoffKit Core 1.18.0.
 
 ## Status
 
-The wire contract remains HK-CSP 1.0. Go runtime APIs are experimental in 1.18.0.
-This is an initial distributed runtime, not a global cluster scheduler. Authentication,
-multi-host consensus, Kubernetes orchestration, and durable distributed queues are out
-of scope for this release.
+The wire contract remains HK-CSP 1.0. Go runtime and security APIs remain
+experimental. Real-socket integration and race tests cover the secure path,
+but this is not a global cluster scheduler. Certificate rotation, CRL/OCSP,
+durable secure replay/session recovery, multi-host consensus, Kubernetes
+orchestration, and durable distributed queues are unavailable.
 
 ## Commands
 

@@ -7,14 +7,17 @@
     "content_hash",
     "signature",
     "algorithm",
-    "signer_identity"
+    "signer_identity",
+    "key_fingerprint",
+    "created_at"
   ],
   "properties": {
     "artifact_id": {
       "type": "string"
     },
     "content_hash": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     },
     "signature": {
       "type": "string"
@@ -22,17 +25,19 @@
     "algorithm": {
       "type": "string",
       "enum": [
-        "ed25519",
-        "ecdsa-p256",
-        "ml-dsa-65",
-        "slh-dsa-sha2-128f"
+        "ed25519"
       ]
     },
     "signer_identity": {
       "type": "string"
     },
+    "key_fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "created_at": {
-      "type": "integer"
+      "type": "integer",
+      "minimum": 0
     }
   },
   "additionalProperties": false

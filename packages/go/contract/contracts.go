@@ -480,7 +480,7 @@ type JobAssignment struct {
 	WorkerID      string         `json:"worker_id"`
 	Attempt       uint32         `json:"attempt"`
 	AssignedAt    string         `json:"assigned_at"`
-	LeaseDeadline string        `json:"lease_deadline"`
+	LeaseDeadline string         `json:"lease_deadline"`
 	Payload       any            `json:"payload"`
 	Metadata      map[string]any `json:"metadata"`
 }

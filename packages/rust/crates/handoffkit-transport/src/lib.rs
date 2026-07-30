@@ -20,6 +20,18 @@ use tokio::net::TcpStream;
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
+mod artifact_security;
+pub use artifact_security::{
+    artifact_public_key_fingerprint, verify_signed_artifact, ArtifactSigner,
+    ArtifactSigningCredential, ArtifactTrustPolicy,
+};
+mod tls_security;
+pub use tls_security::{
+    certificate_fingerprint, supported_crypto_capabilities, CertificateIdentityPolicy,
+    SecureNetworkConfig, TlsTcpListener,
+};
+use tls_security::{validate_secure_envelope, SecureSession};
+
 #[cfg(feature = "websocket")]
 use futures_util::{stream::SplitSink, stream::SplitStream, SinkExt, StreamExt};
 #[cfg(feature = "websocket")]
@@ -273,6 +285,7 @@ pub struct LengthDelimitedTransport {
     config: NetworkConfig,
     closed: AtomicBool,
     description: String,
+    secure_session: Option<SecureSession>,
 }
 
 impl std::fmt::Debug for LengthDelimitedTransport {
@@ -303,7 +316,28 @@ impl LengthDelimitedTransport {
             config,
             closed: AtomicBool::new(false),
             description: description.into(),
+            secure_session: None,
         })
+    }
+
+    fn new_secure<R, W>(
+        reader: R,
+        writer: W,
+        config: NetworkConfig,
+        description: impl Into<String>,
+        secure_session: SecureSession,
+    ) -> RuntimeResult<Self>
+    where
+        R: AsyncRead + Send + Unpin + 'static,
+        W: AsyncWrite + Send + Unpin + 'static,
+    {
+        let mut transport = Self::new(reader, writer, config, description)?;
+        transport.secure_session = Some(secure_session);
+        Ok(transport)
+    }
+
+    pub fn authenticated_peer(&self) -> Option<&handoffkit_protocol::security::PeerIdentity> {
+        self.secure_session.as_ref().map(|session| &session.peer)
     }
 
     async fn read_payload(&self) -> RuntimeResult<Vec<u8>> {
@@ -372,7 +406,11 @@ impl Transport for LengthDelimitedTransport {
             return Err(RuntimeError::new("transport_closed", "transport is closed"));
         }
         let payload = self.read_payload().await?;
-        decode_length_delimited_payload(&payload, self.config.limits())
+        let envelope = decode_length_delimited_payload(&payload, self.config.limits())?;
+        if let Some(session) = &self.secure_session {
+            validate_secure_envelope(&envelope, session)?;
+        }
+        Ok(envelope)
     }
 
     async fn close(&self) -> RuntimeResult<()> {
@@ -444,6 +482,21 @@ impl TcpTransport {
         Ok(Self {
             inner: LengthDelimitedTransport::new(reader, writer, config, format!("tcp:{peer}"))?,
         })
+    }
+
+    pub fn authenticated_peer(&self) -> Option<&handoffkit_protocol::security::PeerIdentity> {
+        self.inner.authenticated_peer()
+    }
+
+    pub fn is_tls(&self) -> bool {
+        self.inner.secure_session.is_some()
+    }
+
+    pub fn tls_version(&self) -> Option<&'static str> {
+        self.inner
+            .secure_session
+            .as_ref()
+            .map(|session| session.tls_version)
     }
 }
 

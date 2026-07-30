@@ -1,3 +1,4 @@
+use handoffkit_protocol::security::SignedArtifact;
 use handoffkit_protocol::{
     sanitize_error_message, validation_error_code, ArtifactRef, ChannelConfig, DeliveryAck,
     DeliveryNack, JobProgress, MessageEnvelope, ProcessError, RetryPolicy, RuntimeMode,
@@ -86,6 +87,9 @@ fn shared_differential_validation_corpus() {
                     Ok(peer) => serde_json::to_value(peer).map_err(|e| e.to_string()),
                     Err(e) => Err(e.to_string()),
                 }
+            }
+            "signed_artifact" => {
+                validate_case::<SignedArtifact, _, _>(value, SignedArtifact::validate)
             }
             unsupported => panic!("unsupported corpus kind: {unsupported}"),
         };
