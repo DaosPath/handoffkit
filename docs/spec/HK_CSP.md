@@ -17,6 +17,10 @@ Applications may use the contract layer without using the CSP runtime. Existing
 `Agent`, `Team`, `RecipeRunner`, and `HandoffState` behavior remains available
 through classic mode.
 
+Transport names in this protocol document are contracts, not security support
+claims. The runtime-by-runtime implementation ledger and unavailable controls
+are maintained in [HK_CSP_SECURITY.md](./HK_CSP_SECURITY.md).
+
 ## Runtime modes
 
 - `classic`: existing direct sequential execution.

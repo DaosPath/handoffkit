@@ -1,94 +1,60 @@
-# HK-CSP Formal Threat Model & Security Specification (HandoffKit 1.19)
+# HK-CSP threat model and implementation boundary (HandoffKit 1.19 development)
 
-This document formalizes the threat model, assets, trust boundaries, adversary profiles, attack vectors, and non-goals for HandoffKit 1.19 ("Secure Production, Native Compute & Edge").
+This document separates implemented controls from remaining release work. The
+authoritative runtime-by-runtime status is `HK_CSP_SECURITY.md`.
 
----
+## Assets and adversaries
 
-## 1. Trust Boundaries & Architecture Audit
+Protected assets include in-flight envelopes, jobs, tool requests, artifacts,
+model checkpoints, peer identities, authorization grants, durable state, and
+private credentials. Relevant adversaries include network attackers,
+unauthenticated clients, compromised authenticated workers, stale/revoked
+credentials, malicious artifact producers, and local processes able to modify
+weakly protected files.
 
-HandoffKit 1.19 operates across ten explicit trust boundaries:
+## Trust boundaries
 
-1. **Trust Boundary 1: Network Transport Layer**  
-   Remote TCP, Unix Domain Sockets, and WebSockets. Untrusted inputs arrive over raw network sockets. Transport Security (TLS 1.3, mTLS) isolates this boundary.
-
-2. **Trust Boundary 2: Protocol Framing & Handshake**  
-   Length-delimited binary/NDJSON frames. Unauthenticated data parsed prior to envelope validation. Bounds checking and memory cap validation enforce safety before heap allocation.
-
-3. **Trust Boundary 3: Peer Identity & Security Profile Negotiation**  
-   Negotiation of `SecurityProfile` (`local`, `standard`, `hybrid-pq`, `research`). Transcript binding prevents downgrade attacks. Identity claims (`peer_id`, `node_id`, `worker_id`) are validated against mTLS certificates or cryptographic tokens.
-
-4. **Trust Boundary 4: Capability Authorization Engine**  
-   Authentication $\neq$ Authorization. Capability-based authorization policies control worker registrations, job assignments, tool execution, and filesystem workspace access.
-
-5. **Trust Boundary 5: Replay & Message Integrity Layer**  
-   Cryptographic nonces, monotonic sequence numbers, bounded replay windows, and timestamp tolerances protect against replay and reordering attacks.
-
-6. **Trust Boundary 6: Durable State & Persistent Deduplication**  
-   Deduplication storage, session logs, and recovery databases. Atomic file operations, checksums, and corruption quarantines protect state on disk.
-
-7. **Trust Boundary 7: Subprocess & Native Worker Execution**  
-   Subprocess execution without shell invocation (`execve` / `create_subprocess_exec`). Standard input/output isolation. C++ native compute workers isolated via `std::jthread` and bounded memory limits.
-
-8. **Trust Boundary 8: Artifact Storage & Provenance**  
-   Content hashing (SHA-256), cryptographic artifact signatures (Ed25519 / ML-DSA), and workspace path sandboxing prevent path traversal and artifact poisoning.
-
-9. **Trust Boundary 9: Key & Credential Management**  
-   Isolated `KeyStore` / `CredentialStore` abstractions. Private keys and certificates are kept out of trace logs, error messages, and version control.
-
-10. **Trust Boundary 10: Experimental Crypto Lab Isolation**  
-    Experimental/un-audited cryptographic algorithms (`packages/crypto-research`) are isolated in a sandbox. They cannot be selected in `standard` or `hybrid-pq` profiles and cannot listening publicly.
-
----
-
-## 2. Protected Assets
-
-- **In-Flight Messages & Envelopes**: Payload data, command arguments, HK-CSP envelopes.
-- **Jobs & Tasks**: `DistributedJob`, `TrainingJob`, `EvaluationJob` specifications.
-- **Execution Results & Metrics**: Job completion outputs, evaluation scores, logs.
-- **Node & Worker Identities**: `peer_id`, `node_id`, `worker_id`, mTLS certificates, public keys.
-- **Capabilities & Permissions**: `WorkerCapabilities`, tool allowlists, path access rules.
-- **Durable State & Deduplication Logs**: Persisted session sequence numbers, deduplication databases.
-- **Artifacts & Model Weights**: Checkpoints, GGUF files, dataset exports, media files.
-- **Cryptographic Credentials**: Private keys, trust anchors, CA certificates, authentication tokens.
-
----
-
-## 3. Adversary Profiles
-
-1. **Unauthenticated External Attacker**: Connects to open network ports without valid certificates or credentials.
-2. **Malicious / Compromised Worker**: Authenticates successfully but attempts capability escalation, path traversal, or resource exhaustion.
-3. **Revoked Peer / Stale Node**: Possesses expired or revoked certificates and attempts to re-register or intercept job assignments.
-4. **Active Network Attacker (Man-in-the-Middle)**: Intercepts network traffic, attempts TLS downgrade, replay attacks, or frame injection.
-5. **Passive Network Eavesdropper**: Monitors network connections attempting to read cleartext payloads or extract credentials.
-6. **Malicious Artifact Producer**: Submits modified or poisoned artifacts with matching basenames but altered content hashes.
-7. **Local Non-Privileged Process**: Attempts to corrupt shared deduplication logs or inject shell commands.
-
----
-
-## 4. Mitigated Attack Vectors
-
-| Attack Vector | Defense Mechanism |
+| Boundary | Implemented control and residual risk |
 |---|---|
-| **Eavesdropping / Wiretapping** | TLS 1.3 encryption (AES-256-GCM / ChaCha20-Poly1305). |
-| **Tampering & Frame Bombing** | Strict frame length limits (`DEFAULT_MAX_MESSAGE_BYTES`), framing validation before buffer allocation. |
-| **Impersonation & Rogue Nodes** | Mandatory mTLS or short-lived signed tokens; SAN identity matching. |
-| **Replay Attacks** | Bounded replay window (nonces, timestamps, monotonic session sequence numbers). |
-| **Downgrade Attacks** | Protocol transcript binding, typed allowlist profile selection; fail closed if `hybrid-pq` required but unavailable. |
-| **Capability Escalation / Confused Deputy** | Capability authorization engine verifying worker capabilities against job specs. |
-| **Path Traversal & Shell Injection** | Workspace path sandboxing, explicit `argv` array execution without shell wrappers. |
-| **Quantum Harvest-Now-Decrypt-Later** | Hybrid Post-Quantum key exchange (`X25519 + ML-KEM-768`). |
-| **Credential Leakage** | Redaction of tokens and private keys from logs, errors, and Studio UI. |
-| **State & Dedup Poisoning** | Atomic write-replace storage, SHA-256 checksum validation, corruption quarantine. |
+| Python/Node/Go/Rust TCP | Real TLS 1.3 and mTLS paths authenticate certificates and hostnames. The profiles remain experimental; C++ has no TLS backend. |
+| Framing/decoding | Stable size/depth/version validation precedes authentication-sensitive dispatch. |
+| Profile selection | Exact, fail-closed selection is conformance-tested. The peer handshake has no authenticated profile-negotiation transcript, so full downgrade defense remains planned. |
+| Peer identity | Four secure runtimes derive identity from verified certificate SAN/fingerprint and compare all declared claims. Local policy supplies capabilities. |
+| Authorization | Four secure receive paths authorize locally after authentication and replay checks. |
+| Replay | Peer/session nonce, sequence, and timestamp checks are mandatory on secure framed paths, but their state is process-local. |
+| Durable state | Business deduplication exists. Secure replay persistence, session/job recovery, migrations, and corruption quarantine do not. |
+| Native execution | The C++ bounded jthread worker and cpp-ml job path are real and concurrently tested. They are not themselves remote TLS transports. |
+| Artifact provenance | Maintained Ed25519 providers verify a shared vector in Python, Node, Go, Rust, and optional C++ Crypto. Universal artifact ingestion enforcement is incomplete. |
+| Keys/credentials | Python/Node development file stores check lifecycle/path/POSIX permissions. OS keystores, live rotation/reload, CRL/OCSP, and zeroization guarantees are absent. |
+| Hybrid TLS | Compatible Node and Go providers prove X25519MLKEM768 handshakes, including Node 24 to Go 1.26 mTLS interoperability. Other providers fail closed and report unavailable. |
 
----
+## Threat/control ledger
 
-## 5. Non-Goals & Out-of-Scope (1.19)
+| Threat | Required control | Current status |
+|---|---|---|
+| Eavesdropping | TLS 1.3 on public remote transport | experimental in Python/Node/Go/Rust; unavailable in C++ |
+| Frame bombing | Bounds before allocation | stable baseline |
+| Server impersonation | Trusted roots and hostname/SAN verification | integration-tested in four TLS runtimes |
+| Client/node/worker impersonation | mTLS plus certificate-derived identity | integration-tested in four TLS runtimes |
+| Capability escalation | Local authorized grants, never JSON claims | integrated on four secure receive paths |
+| Replay/reordering | Peer/session nonce, sequence, timestamp | integrated but process-local; restart durability unavailable |
+| Security-profile downgrade | Exact selection plus authenticated transcript | exact local selection implemented; authenticated transcript planned |
+| Artifact tampering/forgery | SHA-256 plus trusted Ed25519 signer policy | implemented APIs/shared vectors; universal ingestion gate incomplete |
+| Revoked/stale credentials | Expiry, revocation, reload | expiry/local denylist implemented; CRL/OCSP/reload/rotation unavailable |
+| State poisoning | Authenticated/checksummed state, migration, quarantine | unavailable |
+| Harvest-now-decrypt-later | Provider-backed hybrid group with proof | provider-dependent in compatible Node/Go environments |
 
-HandoffKit 1.19 explicitly does **NOT** guarantee or cover:
+## Non-goals
 
-- **Fully Compromised Host OS / Kernel**: If the underlying host kernel or hardware is compromised, local memory and keys can be extracted.
-- **Physical Side-Channel Attacks**: Power analysis, EM emissions, or physical memory probe attacks.
-- **Global Network Anonymity**: Network metadata (IP addresses, packet timing, connection volume) is not anonymized (no Tor/mixnets).
-- **Absolute DDoS Immunity**: While rate limits and bounded queues mitigate exhaustion, a massive volumetric network flood at layer 3/4 must be filtered by perimeter firewalls.
-- **Un-audited / Custom Production Cryptography**: Custom/experimental algorithms in the `Crypto Lab` are strictly for research and must **NEVER** be used in production.
-- **"Impossible to Break / Quantum-Proof" Marketing Claims**: Security relies on standard cryptography and hybrid post-quantum algorithms as implemented by verified underlying providers.
+- Protection after full host OS/kernel compromise.
+- Physical side-channel resistance.
+- Network anonymity or traffic-analysis resistance.
+- Volumetric layer-3/layer-4 DDoS absorption.
+- Claims of absolute security or "quantum proof" operation.
+- Treating custom/research cryptography as a production provider.
+
+## Release rule
+
+A threat moves to implemented only when a maintained backend is connected to a
+real execution path and positive, negative, and interoperability tests prove
+the behavior. Data types and helper-only tests are insufficient.
