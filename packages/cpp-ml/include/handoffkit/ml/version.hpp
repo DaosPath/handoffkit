@@ -2,9 +2,9 @@
 
 // Independent experimental versioning — not the core handoffkit 1.x line.
 #define HANDOFFKIT_ML_VERSION_MAJOR 0
-#define HANDOFFKIT_ML_VERSION_MINOR 4
+#define HANDOFFKIT_ML_VERSION_MINOR 5
 #define HANDOFFKIT_ML_VERSION_PATCH 0
-#define HANDOFFKIT_ML_VERSION_STRING "0.4.0"
+#define HANDOFFKIT_ML_VERSION_STRING "0.5.0"
 #define HANDOFFKIT_ML_PHASE "cuda-own-kernels"
 
 namespace handoffkit {

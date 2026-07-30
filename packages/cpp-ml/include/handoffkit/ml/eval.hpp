@@ -12,6 +12,7 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -28,6 +29,9 @@ struct EvalConfig {
     std::string report_path;
     /// If set and report_path empty, write report_path = out_dir/eval_report.json
     std::string out_dir;
+    /// Runtime-only cooperative controls. They are not serialized into reports.
+    std::function<bool()> stop_requested;
+    std::function<void(int examples, int total_examples, float mean_loss)> progress_callback;
 };
 
 struct EvalResult {
@@ -69,8 +73,15 @@ inline EvalResult eval_ckpt_on_jsonl(const std::string& ckpt_path, const std::st
     r.ckpt_path = ckpt_path;
     r.dataset_path = dataset_path;
     try {
+        const auto check_stop = [&cfg] {
+            if (cfg.stop_requested && cfg.stop_requested()) {
+                throw std::runtime_error("evaluation interrupted by runtime control");
+            }
+        };
+        check_stop();
         GPT model = load_gpt(ckpt_path);
         auto examples = load_sft_jsonl(dataset_path);
+        check_stop();
         ByteTokenizer byte_tok;
         BpeTokenizer bpe_tok;
         if (cfg.tokenizer == TokenizerKind::Bpe) {
@@ -90,6 +101,7 @@ inline EvalResult eval_ckpt_on_jsonl(const std::string& ckpt_path, const std::st
         int tok_n = 0;
         int n_ex = 0;
         for (const auto& ex : examples) {
+            check_stop();
             auto ids = encode_pair(ex.prompt, ex.completion);
             if (static_cast<int>(ids.size()) < 3) continue;
             if (static_cast<int>(ids.size()) > cfg.block_size)
@@ -110,6 +122,12 @@ inline EvalResult eval_ckpt_on_jsonl(const std::string& ckpt_path, const std::st
                 ++tok_n;
             }
             ++n_ex;
+            if (cfg.progress_callback) {
+                const auto running_mean = tok_n == 0
+                                              ? 0.0f
+                                              : static_cast<float>(loss_sum / static_cast<double>(tok_n));
+                cfg.progress_callback(n_ex, static_cast<int>(examples.size()), running_mean);
+            }
         }
         if (n_ex == 0 || tok_n == 0) {
             if (cfg.allow_empty) {
@@ -123,6 +141,7 @@ inline EvalResult eval_ckpt_on_jsonl(const std::string& ckpt_path, const std::st
         r.mean_loss = static_cast<float>(loss_sum / static_cast<double>(tok_n));
         r.perplexity = std::exp(r.mean_loss);
         r.success = true;
+        check_stop();
         std::string rep = cfg.report_path;
         if (rep.empty() && !cfg.out_dir.empty()) {
             namespace fs = std::filesystem;

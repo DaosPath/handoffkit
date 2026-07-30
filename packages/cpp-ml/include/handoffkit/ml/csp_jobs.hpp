@@ -6,6 +6,7 @@
 
 #include <string>
 #include <string_view>
+#include <stdexcept>
 #include <utility>
 
 namespace handoffkit::ml {
@@ -22,18 +23,26 @@ struct EvaluationJobAdapter {
     std::string dataset_path;
 };
 
-inline std::string artifact_path(const csp::ArtifactRef& artifact) {
+inline std::string local_uri_path(const std::string& uri) {
     constexpr std::string_view file_prefix = "file://";
-    if (artifact.uri.starts_with(file_prefix)) {
-        return artifact.uri.substr(file_prefix.size());
+    if (uri.starts_with(file_prefix)) {
+        auto path = uri.substr(file_prefix.size());
+#ifdef _WIN32
+        if (path.size() >= 3 && path[0] == '/' && path[2] == ':') path.erase(path.begin());
+#endif
+        return path;
     }
-    return artifact.uri;
+    return uri;
+}
+
+inline std::string artifact_path(const csp::ArtifactRef& artifact) {
+    return local_uri_path(artifact.uri);
 }
 
 inline TrainingJobAdapter adapt_training_job(const csp::TrainingJob& job) {
     TrainingJobAdapter adapted;
     adapted.dataset_path = artifact_path(job.dataset);
-    adapted.output_dir = job.output.starts_with("file://") ? job.output.substr(7) : job.output;
+    adapted.output_dir = local_uri_path(job.output);
     const auto& config = job.config;
     adapted.config.epochs = config.value("epochs", adapted.config.epochs);
     adapted.config.block_size = config.value("block_size", adapted.config.block_size);
@@ -46,6 +55,13 @@ inline TrainingJobAdapter adapt_training_job(const csp::TrainingJob& job) {
     adapted.config.profile = config.value("profile", adapted.config.profile);
     adapted.config.use_lora = config.value("use_lora", adapted.config.use_lora);
     adapted.config.use_qlora = config.value("use_qlora", adapted.config.use_qlora);
+    adapted.config.allow_tiny = config.value("allow_tiny", adapted.config.allow_tiny);
+    adapted.config.require_loss_drop =
+        config.value("require_loss_drop", adapted.config.require_loss_drop);
+    adapted.config.log_every = config.value("log_every", adapted.config.log_every);
+    const auto tokenizer = config.value("tokenizer", std::string{"bpe"});
+    if (tokenizer == "byte") adapted.config.tokenizer = TokenizerKind::Byte;
+    else if (tokenizer != "bpe") throw std::invalid_argument("unsupported tokenizer: " + tokenizer);
     return adapted;
 }
 
@@ -55,7 +71,11 @@ inline EvaluationJobAdapter adapt_evaluation_job(const csp::EvaluationJob& job) 
     adapted.dataset_path = artifact_path(job.dataset);
     adapted.config.block_size = job.config.value("block_size", adapted.config.block_size);
     adapted.config.allow_empty = job.config.value("allow_empty", adapted.config.allow_empty);
-    adapted.config.out_dir = job.output.starts_with("file://") ? job.output.substr(7) : job.output;
+    const auto tokenizer = job.config.value("tokenizer", std::string{"byte"});
+    if (tokenizer == "bpe") adapted.config.tokenizer = TokenizerKind::Bpe;
+    else if (tokenizer != "byte") throw std::invalid_argument("unsupported tokenizer: " + tokenizer);
+    adapted.config.bpe_path = job.config.value("bpe_path", adapted.config.bpe_path);
+    adapted.config.out_dir = local_uri_path(job.output);
     return adapted;
 }
 

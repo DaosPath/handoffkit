@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <random>
 #include <sstream>
@@ -61,6 +62,9 @@ struct SftConfig {
     std::string profile{"standard"};
     /// If true (default), success requires final_loss < initial_loss. Multi-stage recipes may disable.
     bool require_loss_drop = true;
+    /// Runtime-only cooperative controls. They are not serialized into training metadata.
+    std::function<bool()> stop_requested;
+    std::function<void(int step, int total_steps, float loss)> progress_callback;
 };
 
 /// Apply a named comfort / size profile. Does not clear base_ckpt / device / dataset paths.
@@ -275,6 +279,12 @@ inline SftResult sft_train(const std::string& dataset_path,
     std::error_code ec;
     fs::create_directories(out_dir, ec);
     try {
+        const auto check_stop = [&cfg] {
+            if (cfg.stop_requested && cfg.stop_requested()) {
+                throw std::runtime_error("SFT interrupted by runtime control");
+            }
+        };
+        check_stop();
         enforce_non_tiny(cfg.n_embd, cfg.n_layer, cfg.n_head, cfg.block_size, cfg.allow_tiny);
         if (!is_allowed_arch(cfg.arch)) {
             throw std::runtime_error("unsupported arch: " + cfg.arch);
@@ -304,6 +314,8 @@ inline SftResult sft_train(const std::string& dataset_path,
             handoffkit_ml_set_prefer_cuda_matmul(false);
         }
         auto examples = load_sft_jsonl(dataset_path);
+        const int expected_steps = cfg.epochs * static_cast<int>(examples.size());
+        check_stop();
 
 #if defined(HANDOFFKIT_ML_WITH_CUDA) && HANDOFFKIT_ML_WITH_CUDA
         // Full device-resident GPT path (weights + activations on GPU)
@@ -339,6 +351,7 @@ inline SftResult sft_train(const std::string& dataset_path,
             bool have_i = false;
             for (int ep = 0; ep < cfg.epochs; ++ep) {
                 for (const auto& ex : examples) {
+                    check_stop();
                     auto ids = encode_pair(ex.prompt, ex.completion);
                     if (static_cast<int>(ids.size()) < 3) continue;
                     if (static_cast<int>(ids.size()) > cfg.block_size)
@@ -354,11 +367,15 @@ inline SftResult sft_train(const std::string& dataset_path,
                         throw std::runtime_error("weights left CUDA during resident SFT");
                     ++steps;
                     r.loss_curve.push_back(last);
+                    if (cfg.progress_callback) {
+                        cfg.progress_callback(steps, expected_steps, last);
+                    }
                 }
             }
             r.final_loss = last;
             r.steps = steps;
             r.success = steps > 0 && r.final_loss < r.initial_loss;
+            check_stop();
             // End-of-train only: download weights once → loadable model.hkckpt
             if (!gpt.weights_on_cuda())
                 throw std::runtime_error("weights left CUDA before ckpt export");
@@ -523,6 +540,7 @@ inline SftResult sft_train(const std::string& dataset_path,
         bool have_initial = false;
         for (int ep = 0; ep < cfg.epochs; ++ep) {
             for (const auto& ex : examples) {
+                check_stop();
                 std::string full;
                 std::vector<float> mask;
                 std::vector<int> ids;
@@ -624,6 +642,9 @@ inline SftResult sft_train(const std::string& dataset_path,
 
                 ++steps;
                 r.loss_curve.push_back(last);
+                if (cfg.progress_callback) {
+                    cfg.progress_callback(steps, expected_steps, last);
+                }
                 if (cfg.log_every > 0 && (steps == 1 || steps % cfg.log_every == 0)) {
                     std::cout << "sft step=" << steps << " epoch=" << (ep + 1) << "/" << cfg.epochs
                               << " loss=" << last
@@ -640,6 +661,7 @@ inline SftResult sft_train(const std::string& dataset_path,
         r.steps = steps;
         const bool dropped = r.final_loss < r.initial_loss;
         r.success = steps > 0 && (!cfg.require_loss_drop || dropped);
+        check_stop();
         r.ckpt_path = (fs::path(out_dir) / "model.hkckpt").string();
         save_gpt(r.ckpt_path, model);
         r.report_path = (fs::path(out_dir) / "train_report.json").string();

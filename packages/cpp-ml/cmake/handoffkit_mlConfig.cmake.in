@@ -1,0 +1,24 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(Threads)
+
+if(@HANDOFFKIT_ML_CUDA@)
+  find_dependency(CUDAToolkit)
+endif()
+
+if(@HANDOFFKIT_ML_LINK_CORE@)
+  find_dependency(OpenSSL COMPONENTS Crypto)
+  find_dependency(HandoffKit CONFIG)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/handoffkit_mlTargets.cmake")
+
+if(@HANDOFFKIT_ML_LINK_CORE@)
+  set_property(
+    TARGET handoffkit::ml
+    APPEND PROPERTY INTERFACE_LINK_LIBRARIES handoffkit::core
+  )
+endif()
+
+check_required_components(handoffkit_ml)

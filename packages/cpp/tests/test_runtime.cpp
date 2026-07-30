@@ -4,6 +4,7 @@
 #include <atomic>
 #include <cassert>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -13,7 +14,9 @@ using namespace handoffkit;
 namespace {
 
 void test_version_string() {
-    assert(std::string(version()) == "1.14.2");
+    if (std::string(version()) != "1.19.0") {
+        throw std::runtime_error("C++ package version metadata mismatch");
+    }
     std::cout << "test_version_string passed!" << std::endl;
 }
 
