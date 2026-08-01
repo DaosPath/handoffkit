@@ -59,4 +59,3 @@ def test_handoff_markdown_roundtrip() -> None:
     assert loaded.errors == ["None"]
     assert loaded.next_steps == ["Implement"]
     assert loaded.context_refs == ["README.md"]
-

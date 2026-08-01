@@ -96,9 +96,7 @@ class HttpJsonTool(DeclarativeTool):
         super().__init__(spec, self._run_http)
 
     def _run_http(self, **kwargs: Any) -> Any:
-        quoted_kwargs = {
-            key: urllib.parse.quote(str(value)) for key, value in kwargs.items()
-        }
+        quoted_kwargs = {key: urllib.parse.quote(str(value)) for key, value in kwargs.items()}
         url = self.url.format(**quoted_kwargs)
         query = {
             target: kwargs[source]

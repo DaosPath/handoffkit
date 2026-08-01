@@ -1,12 +1,20 @@
 #include <handoffkit/csp/contracts.hpp>
+#include <handoffkit/csp/security.hpp>
 
 #include <cassert>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
 
 namespace {
+
+#undef assert
+#define assert(condition)           \
+    do {                            \
+        if (!(condition)) abort();  \
+    } while (false)
 
 std::filesystem::path contracts_root() {
 #ifdef HANDOFFKIT_CONTRACTS_DIR
@@ -39,6 +47,9 @@ nlohmann::json parse_contract(const std::string& kind, const nlohmann::json& val
     if (kind == "artifact_ref") return ArtifactRef::from_json(value).to_json();
     if (kind == "worker_capabilities") return WorkerCapabilities::from_json(value).to_json();
     if (kind == "job_progress") return JobProgress::from_json(value).to_json();
+    if (kind == "security_config") return SecurityConfig::from_json(value).to_json();
+    if (kind == "peer_identity") return PeerIdentity::from_json(value).to_json();
+    if (kind == "signed_artifact") return SignedArtifact::from_json(value).to_json();
     throw std::invalid_argument("unknown corpus contract kind: " + kind);
 }
 
@@ -67,6 +78,9 @@ int main() {
     assert_roundtrip<TrainingJob>("training_job.json");
     assert_roundtrip<EvaluationJob>("evaluation_job.json");
     assert_roundtrip<JobProgress>("job_progress.json");
+    assert_roundtrip<SecurityConfig>("security_config.json");
+    assert_roundtrip<PeerIdentity>("peer_identity.json");
+    assert_roundtrip<SignedArtifact>("signed_artifact.json");
 
     auto envelope = MessageEnvelope::from_json(fixture("message_envelope.json"));
     envelope.validate();

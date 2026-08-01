@@ -20,7 +20,9 @@ def main(argv: list[str] | None = None) -> int:
         default="Explain structured agent handoffs in one paragraph.",
     )
     parser.add_argument("--model", default=os.getenv("OLLAMA_MODEL", "llama3.1"))
-    parser.add_argument("--base-url", default=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"))
+    parser.add_argument(
+        "--base-url", default=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    )
     parser.add_argument("--timeout", type=float, default=30.0)
     args = parser.parse_args(argv)
 

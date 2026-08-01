@@ -1,16 +1,16 @@
 # handoffkit-ml — package status
 
-## Freeze (current)
+## Current state
 
 | Field | Value |
 |-------|--------|
-| **State** | **FROZEN** |
-| **Since** | 2026-07 (post native v0.5) |
-| **Reason** | Monorepo focus moves to other work; native student train suite is usable as-is |
-| **In scope while frozen** | Critical bugfixes only |
-| **Out of scope while frozen** | New features, 4B/external trainer integration *inside this package*, large refactors, SOTA scale claims |
+| **State** | **ACTIVE FOR HK-CSP INTEGRATION** |
+| **Since** | 2026-07 (HandoffKit 1.19 development) |
+| **In scope** | Local TrainingJob/EvaluationJob execution, progress/artifacts, cancellation/deadlines, truthful device metadata, fixes |
+| **Out of scope** | 4B/external trainer integration *inside this package*, SOTA scale claims, remote TLS transport |
 
-Unfreeze: update this file to `ACTIVE`, remove the freeze banner from [README.md](./README.md), and note the decision in the next commit message.
+The previous freeze was lifted for the explicitly requested HK-CSP worker
+integration. Native model scope and product boundaries remain unchanged.
 
 ## What is considered “done” (do not reopen casually)
 

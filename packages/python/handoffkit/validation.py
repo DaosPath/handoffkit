@@ -82,9 +82,7 @@ class ValidationReport:
         """Create a validation report from a dictionary."""
         issues_data = data.get("issues", [])
         issues = [
-            ValidationIssue.from_dict(issue)
-            for issue in issues_data
-            if isinstance(issue, dict)
+            ValidationIssue.from_dict(issue) for issue in issues_data if isinstance(issue, dict)
         ]
         return cls(
             success=bool(data.get("success", True)),
@@ -102,18 +100,17 @@ class ValidationReport:
 
     def to_markdown(self) -> str:
         """Serialize this report as Markdown."""
-        issues = "\n".join(
-            (
-                f"- `{issue.severity}` `{issue.code}`"
-                f"{f' `{issue.field}`' if issue.field else ''}: {issue.message}"
+        issues = (
+            "\n".join(
+                (
+                    f"- `{issue.severity}` `{issue.code}`"
+                    f"{f' `{issue.field}`' if issue.field else ''}: {issue.message}"
+                )
+                for issue in self.issues
             )
-            for issue in self.issues
-        ) or "- none"
-        return (
-            "# Validation Report\n\n"
-            f"## Success\n\n{self.success}\n\n"
-            f"## Issues\n\n{issues}\n"
+            or "- none"
         )
+        return f"# Validation Report\n\n## Success\n\n{self.success}\n\n## Issues\n\n{issues}\n"
 
     def raise_if_failed(self) -> ValidationReport:
         """Raise ValueError when the report has validation errors."""

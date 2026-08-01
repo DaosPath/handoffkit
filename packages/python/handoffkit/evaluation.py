@@ -93,21 +93,27 @@ class WorkflowEvaluationReport:
 
     def to_markdown(self) -> str:
         """Serialize this report as Markdown."""
-        results = "\n".join(
-            (
-                f"- `{result.target}` success={result.success} "
-                f"score={result.score:.2f} checks={len(result.checks)}"
+        results = (
+            "\n".join(
+                (
+                    f"- `{result.target}` success={result.success} "
+                    f"score={result.score:.2f} checks={len(result.checks)}"
+                )
+                for result in self.results
             )
-            for result in self.results
-        ) or "- none"
-        checks = "\n".join(
-            (
-                f"- `{check.name}` passed={check.passed} "
-                f"severity={check.severity}: {check.message}"
+            or "- none"
+        )
+        checks = (
+            "\n".join(
+                (
+                    f"- `{check.name}` passed={check.passed} "
+                    f"severity={check.severity}: {check.message}"
+                )
+                for result in self.results
+                for check in result.checks
             )
-            for result in self.results
-            for check in result.checks
-        ) or "- none"
+            or "- none"
+        )
         recommendations = "\n".join(f"- {item}" for item in self.recommendations) or "- none"
         return (
             "# Workflow Evaluation Report\n\n"
@@ -370,9 +376,7 @@ class WorkflowEvaluator:
     def _report(self, results: list[EvaluationResult]) -> WorkflowEvaluationReport:
         score = sum(result.score for result in results) / len(results) if results else 0.0
         success = (
-            bool(results)
-            and all(result.success for result in results)
-            and score >= self.min_score
+            bool(results) and all(result.success for result in results) and score >= self.min_score
         )
         recommendations = self._recommendations(results)
         return WorkflowEvaluationReport(

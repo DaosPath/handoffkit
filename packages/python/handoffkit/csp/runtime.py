@@ -213,9 +213,7 @@ class CspSession:
             return await asyncio.wait_for(operation, timeout=remaining)
         except TimeoutError as exc:
             self.cancel()
-            raise DeadlineExceededError(
-                f"Session {self.session_id!r} deadline elapsed."
-            ) from exc
+            raise DeadlineExceededError(f"Session {self.session_id!r} deadline elapsed.") from exc
 
     async def send(self, channel: str, envelope: MessageEnvelope) -> None:
         if envelope.session_id != self.session_id:
@@ -227,9 +225,7 @@ class CspSession:
             self.cancel()
             raise DeadlineExceededError(f"Session {self.session_id!r} deadline elapsed.")
         if self.config.deadline:
-            session_deadline = datetime.fromisoformat(
-                self.config.deadline.replace("Z", "+00:00")
-            )
+            session_deadline = datetime.fromisoformat(self.config.deadline.replace("Z", "+00:00"))
             envelope_deadline = (
                 datetime.fromisoformat(envelope.deadline.replace("Z", "+00:00"))
                 if envelope.deadline

@@ -185,9 +185,7 @@ def classify_specialist_domains(
     for domain, profile in DOMAIN_PROFILES.items():
         scores[domain] = sum(1 for keyword in profile["keywords"] if keyword in text)
     ranked = [
-        domain
-        for domain, score in sorted(scores.items(), key=lambda item: -item[1])
-        if score
+        domain for domain, score in sorted(scores.items(), key=lambda item: -item[1]) if score
     ]
     if not ranked:
         ranked = ["tumor_pathology"]
@@ -487,10 +485,7 @@ def run_targeted_rescue(
             max_tokens=max_tokens,
             cache_dir=cache_path,
         )
-        final_prediction = (
-            judge.diagnosis
-            or _best_final_prediction(row)
-        )
+        final_prediction = judge.diagnosis or _best_final_prediction(row)
         final_correct = _is_match(final_prediction, case.case.final_diagnosis, case.aliases)
         merged = {
             **row,

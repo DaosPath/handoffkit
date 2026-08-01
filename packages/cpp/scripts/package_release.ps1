@@ -1,6 +1,6 @@
 # Build a self-contained handoffkit-cpp-<version> tarball for GitHub Releases.
 param(
-    [string]$Version = "1.14.2",
+    [string]$Version = "1.19.0",
     [string]$OutDir = ""
 )
 

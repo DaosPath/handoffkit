@@ -1,7 +1,16 @@
 # handoffkit-ml roadmap
 
-> **FROZEN:** no new roadmap phases while the monorepo works on other areas.  
-> See [STATUS.md](./STATUS.md). Critical bugfixes only.
+> Native model scope remains bounded. The package is active only for the
+> HandoffKit 1.19 HK-CSP worker integration and fixes; see [STATUS.md](./STATUS.md).
+
+## HK-CSP integration
+
+| Item | Status |
+|---|---|
+| Real TrainingJob/EvaluationJob dispatch through bounded native worker | experimental, tested |
+| Progress and hashed checkpoint/report ArtifactRef output | experimental, tested |
+| Cancellation, deadlines, failure reporting, CPU/CUDA metadata | experimental, tested |
+| Remote C++ TLS worker | unavailable |
 
 ## Implemented (0.3.x roadmap complete)
 

@@ -264,9 +264,7 @@ def run_ensemble_rescue(
             print(f"{index}/{case_count} {case.case_id}: CACHED")
             continue
         prior_success = row.get("final_correct", row.get("correct")) is True
-        should_rescue = not prior_success or (
-            include_doubtful and _row_is_doubtful(row)
-        )
+        should_rescue = not prior_success or (include_doubtful and _row_is_doubtful(row))
         if not should_rescue:
             rows.append({**row, "ensemble_attempted": False, "final_correct": True})
             _write_partial_report(

@@ -279,6 +279,58 @@
         "timestamp": "2026-01-01T00:00:01Z",
         "artifacts": []
       }
+    },
+    {
+      "id": "security_config_valid",
+      "kind": "security_config",
+      "valid": true,
+      "value": {
+        "profile": "hybrid-pq",
+        "require_mtls": true,
+        "allow_insecure_loopback": false,
+        "trust_domain": "handoffkit.internal",
+        "replay_window_seconds": 300,
+        "max_clock_skew_seconds": 10
+      }
+    },
+    {
+      "id": "security_config_invalid_profile",
+      "kind": "security_config",
+      "valid": false,
+      "error_code": "invalid_profile",
+      "value": {
+        "profile": "custom-unsupported-profile",
+        "require_mtls": false
+      }
+    },
+    {
+      "id": "peer_identity_valid",
+      "kind": "peer_identity",
+      "valid": true,
+      "value": {
+        "peer_id": "peer-node-01",
+        "node_id": "node-us-east-1a",
+        "worker_id": "worker-gpu-4090-0",
+        "trust_domain": "handoffkit.internal",
+        "credential_fingerprint": "sha256:abc",
+        "capabilities": ["compute:gpu"],
+        "issued_at": 1774000000,
+        "expires_at": 1774086400
+      }
+    },
+    {
+      "id": "signed_artifact_valid",
+      "kind": "signed_artifact",
+      "valid": true,
+      "value": {
+        "artifact_id": "artifact-1",
+        "content_hash": "8416cac54bfdbe4faec6d73fdb57ae7cfa81703b311b66de3639e826a185f1e4",
+        "signature": "7wMcS/BkK4l9UZesVqawf1qfuYPInh5oNQMcRcdauKrhA4yW83EIxEG+xUHGkqJdIZCc8N2cNeyGwVEo6TnbAg==",
+        "algorithm": "ed25519",
+        "signer_identity": "spiffe://handoffkit.internal/producer/build-1",
+        "key_fingerprint": "sha256:a6b5df2969959ff5ce26aea82bb88678604b0d0f07200e7845755f4b9af5bba6",
+        "created_at": 1800000000
+      }
     }
   ]
 }

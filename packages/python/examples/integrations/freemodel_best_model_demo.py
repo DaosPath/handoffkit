@@ -19,9 +19,7 @@ def main() -> None:
             provider=provider,
         )
         print("Model used: echo")
-        print(
-            agent.run("Create a concise architecture plan for a Python CLI calculator.")
-        )
+        print(agent.run("Create a concise architecture plan for a Python CLI calculator."))
         return
 
     base_url = os.getenv("OPENAI_BASE_URL", "https://api.freemodel.dev/v1")

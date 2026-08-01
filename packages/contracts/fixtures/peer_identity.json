@@ -1,0 +1,14 @@
+{
+  "peer_id": "peer-node-01",
+  "node_id": "node-us-east-1a",
+  "worker_id": "worker-gpu-4090-0",
+  "trust_domain": "handoffkit.internal",
+  "credential_fingerprint": "sha256:a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef",
+  "capabilities": [
+    "compute:gpu",
+    "job:training",
+    "job:evaluation"
+  ],
+  "issued_at": 1774000000,
+  "expires_at": 1774086400
+}

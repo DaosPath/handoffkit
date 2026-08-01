@@ -99,8 +99,7 @@ class StructuredOutputSchema:
             "description": self.description,
             "type": "object",
             "properties": {
-                name: {"type": _schema_type(kind)}
-                for name, kind in self.fields.items()
+                name: {"type": _schema_type(kind)} for name, kind in self.fields.items()
             },
             "required": list(self.required),
             "additionalProperties": True,
@@ -126,8 +125,7 @@ class StructuredOutputSchema:
                 continue
             if not _matches_type(value, expected):
                 errors.append(
-                    f"field {name!r} expected {_type_name(expected)}, "
-                    f"got {type(value).__name__}"
+                    f"field {name!r} expected {_type_name(expected)}, got {type(value).__name__}"
                 )
         if errors:
             raise OutputValidationError("; ".join(errors))
@@ -204,8 +202,7 @@ class OutputRepairer:
         except (SyntaxError, ValueError):
             pass
         raise OutputValidationError(
-            "could not repair structured output"
-            + (f": {errors[-1]}" if errors else "")
+            "could not repair structured output" + (f": {errors[-1]}" if errors else "")
         )
 
     def _candidates(self, text: str) -> list[str]:
@@ -265,8 +262,7 @@ class JsonOutputParser:
                 raise OutputValidationError("structured output must be a JSON object")
             return parsed
         raise OutputValidationError(
-            "could not parse JSON object"
-            + (f": {errors[-1]}" if errors else "")
+            "could not parse JSON object" + (f": {errors[-1]}" if errors else "")
         )
 
     def _candidates(self, text: str) -> list[str]:

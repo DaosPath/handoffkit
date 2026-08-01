@@ -54,3 +54,19 @@ await transport.close();
 stdio uses one canonical JSON envelope per line. Protocol frames go through
 stdout/stdin; worker logs must use stderr. Process spawning always uses
 `shell: false`.
+
+## HK-CSP network security (experimental)
+
+The Node package has a real TLS 1.3 TCP client/server path with explicit SNI,
+hostname and CA verification, mTLS, certificate-derived URI SAN identity,
+local capability grants, and mandatory replay checks before dispatch. Invalid
+or unauthorized peers fail closed. `hybrid-pq` is exposed only when the active
+OpenSSL provider accepts `X25519MLKEM768`; unsupported providers report false
+and never fall back to `standard`. Secure `tlsOptions` overrides and direct
+wrapping outside the validated TCP factories are rejected.
+
+Ed25519 artifact sign/verify uses `node:crypto`. The file keystore is a
+development backend, not an OS keystore. Rotation, CRL/OCSP, trust-store live
+reload, durable replay state, and zeroization guarantees are unavailable. See
+[`HK_CSP_SECURITY.md`](../../../docs/spec/HK_CSP_SECURITY.md) for the exact
+status ledger.

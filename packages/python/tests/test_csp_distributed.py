@@ -61,12 +61,8 @@ def test_registry_heartbeat_expiry_and_routing() -> None:
     registry.register(worker())
     assert registry.reserve(["evaluate"]).active_jobs == 1  # type: ignore[union-attr]
     registry.release("worker-1")
-    assert registry.heartbeat(
-        WorkerHeartbeat("worker-1", 1, 0, 0.25, "2026-01-01T00:00:00Z")
-    )
-    assert not registry.heartbeat(
-        WorkerHeartbeat("worker-1", 1, 0, 0.5, "2026-01-01T00:00:01Z")
-    )
+    assert registry.heartbeat(WorkerHeartbeat("worker-1", 1, 0, 0.25, "2026-01-01T00:00:00Z"))
+    assert not registry.heartbeat(WorkerHeartbeat("worker-1", 1, 0, 0.5, "2026-01-01T00:00:01Z"))
     now[0] = 6
     registry.expire()
     assert registry.get("worker-1").status is WorkerStatus.SUSPECT  # type: ignore[union-attr]
@@ -95,14 +91,10 @@ def test_scheduler_retry_never_exceeds_queue_capacity() -> None:
     registry = WorkerRegistry()
     registry.register(worker())
     scheduler = DistributedScheduler(registry, queue_capacity=1)
-    assert scheduler.submit(
-        DistributedJob("job-1", "evaluate", {}, ["evaluate"], "key-1")
-    )
+    assert scheduler.submit(DistributedJob("job-1", "evaluate", {}, ["evaluate"], "key-1"))
     assignment = scheduler.schedule()
     assert assignment is not None
-    assert scheduler.submit(
-        DistributedJob("job-2", "evaluate", {}, ["evaluate"], "key-2")
-    )
+    assert scheduler.submit(DistributedJob("job-2", "evaluate", {}, ["evaluate"], "key-2"))
     assert scheduler.fail(assignment.assignment_id)
     snapshot = scheduler.snapshot()
     assert snapshot.queued == 1

@@ -20,9 +20,12 @@ from handoffkit.csp import (
     JobProgress,
     MessageEnvelope,
     OverflowPolicy,
+    PeerIdentity,
     ProcessError,
     RetryPolicy,
+    SecurityConfig,
     SessionConfig,
+    SignedArtifact,
     WorkerCapabilities,
     make_envelope,
     sanitize_error_message,
@@ -50,8 +53,10 @@ secret_text = st.text(
 )
 json_values = st.recursive(
     st.none() | st.booleans() | st.integers(-10_000, 10_000) | st.text(max_size=32),
-    lambda children: st.lists(children, max_size=4)
-    | st.dictionaries(st.text(min_size=1, max_size=8), children, max_size=4),
+    lambda children: (
+        st.lists(children, max_size=4)
+        | st.dictionaries(st.text(min_size=1, max_size=8), children, max_size=4)
+    ),
     max_leaves=20,
 )
 
@@ -75,6 +80,20 @@ def _validate_corpus_case(kind: str, value: dict[str, Any]) -> dict[str, Any]:
         return WorkerCapabilities(**value).to_dict()
     if kind == "job_progress":
         return JobProgress(**value).to_dict()
+    if kind == "security_config":
+        cfg = SecurityConfig(**value)
+        return {
+            "profile": cfg.profile.value if hasattr(cfg.profile, "value") else str(cfg.profile),
+            "require_mtls": cfg.require_mtls,
+            "allow_insecure_loopback": cfg.allow_insecure_loopback,
+            "trust_domain": cfg.trust_domain,
+            "replay_window_seconds": cfg.replay_window_seconds,
+            "max_clock_skew_seconds": cfg.max_clock_skew_seconds,
+        }
+    if kind == "peer_identity":
+        return PeerIdentity.from_dict(value).to_dict()
+    if kind == "signed_artifact":
+        return SignedArtifact.from_dict(value).to_dict()
     raise AssertionError(f"unsupported corpus kind: {kind}")
 
 

@@ -9,6 +9,70 @@ release summary.
 
 ## [Unreleased]
 
+The current 1.19 development branch is a security contract and hardening
+baseline. It is not yet a complete or publishable 1.19 release.
+
+### Added
+
+- Added real TLS 1.3 client/server transports for Python, Node, Go, and Rust,
+  including configured/system roots, hostname verification, mTLS, structured
+  failures, timeouts, and real-socket positive and negative tests. C++ TLS is
+  unavailable.
+- Added certificate-derived peer identity for those four secure transports.
+  URI SAN claims and locally calculated fingerprints are checked against every
+  declared identity field; capabilities come from local fingerprint policy.
+- Integrated peer/session-scoped nonce, sequence, and timestamp replay checks
+  and local capability authorization into secure receive paths before
+  dispatch. Cryptographic replay state remains process-local.
+- Added maintained-provider Ed25519 artifact signing and verification in
+  Python, Node, Go, Rust, and optional C++ Crypto, with one canonical shared
+  vector and negative trust/tamper/expiry/revocation tests.
+- Added provider-detected, fail-closed `X25519MLKEM768` TLS in compatible Node
+  and Go environments, including a Node 24 to Go 1.26 mTLS interoperability
+  gate that checks the negotiated curve and certificate-bound client identity.
+  Python, Rust, C++, browser-safe JS, and incompatible providers report it
+  unavailable; no fallback to `standard` occurs.
+- Added a C++20 bounded native worker using `std::jthread`/`std::stop_token`,
+  backpressure, cancellation, deadlines, progress, artifact results,
+  ACK/NACK adaptation, and graceful shutdown.
+- Added real local cpp-ml `TrainingJob` and `EvaluationJob` execution through
+  the native worker, including progress, checkpoint/report artifacts,
+  cancellation, deadlines, failures, and CPU/CUDA metadata.
+- Added shared five-runtime security conformance vectors and live security
+  benchmarks for TLS/reconnect/throughput/signatures and C++ workers.
+- Added development file-backed credential stores in Python and Node with
+  lifecycle/path/POSIX private-key permission checks.
+- Added experimental isolated Crypto Lab (`packages/python/handoffkit/crypto_research`) for education, fuzzing, and research, strictly forbidden from production runtime fallbacks.
+
+### Security
+
+- Public security status is now classified as stable, experimental,
+  provider-dependent, local-only, partially integrated, planned, or
+  unavailable in `HK_CSP_SECURITY.md`.
+- Algorithm names, signature fields, JSON identity claims, and profile enums no
+  longer count as support. Runtime capability reports are provider-derived and
+  unsupported profile selection fails closed.
+- Secure Python and Node sockets must originate from their validated transport
+  factories; Go verifies the negotiated group when a TLS socket is wrapped as
+  `hybrid-pq`. External contexts cannot silently bypass profile requirements.
+- CRL/OCSP, trust-store live reload, certificate rotation/reconnect lifecycle,
+  OS keystores, zeroization guarantees, durable secure recovery, ARM64/edge
+  qualification, and Studio security visibility remain unavailable.
+- TLS integration certificates and private keys are generated into temporary
+  directories for each test process. No reusable TLS or artifact-signing
+  private key is committed as a test fixture.
+
+### Compatibility
+
+- HK-CSP wire version remains `1.0`. Shared snake_case security conformance now
+  covers Python, JavaScript, Go, Rust, and C++; TLS implementations use the
+  same ephemeral certificate-generation profile, not pairwise interoperability
+  across every runtime.
+- Python package metadata marks this development baseline as Beta rather than
+  Production/Stable.
+- Rust dependency resolution is locked to the declared Rust 1.82 MSRV and CI
+  checks the complete workspace with that toolchain.
+
 ## [1.18.0] - 2026-07-28
 
 ### Added

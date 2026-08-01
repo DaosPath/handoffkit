@@ -496,8 +496,7 @@ class Agent:
                 steps.append({**step, "mode": "final"})
                 break
             step_results = [
-                registry.execute(call, require_approval=require_approval)
-                for call in step_calls
+                registry.execute(call, require_approval=require_approval) for call in step_calls
             ]
             calls.extend(step_calls)
             results.extend(step_results)
@@ -601,8 +600,7 @@ class Agent:
 
     def _build_prompt(self, task: str, *, handoff_state: HandoffState | None) -> str:
         tool_lines = "\n".join(
-            f"- {tool.name}: {tool.description or 'No description'}"
-            for tool in self.tools
+            f"- {tool.name}: {tool.description or 'No description'}" for tool in self.tools
         )
         if not tool_lines:
             tool_lines = "- No tools registered"

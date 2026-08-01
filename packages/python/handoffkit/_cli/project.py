@@ -86,11 +86,11 @@ def init_project_interactive(
     if api_key:
         env_name = f"{provider.upper()}_API_KEY"
         env_lines.append(f"{env_name}={api_key}")
-    
+
     if env_lines:
         env_path = target_dir / ".env"
         env_path.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
-        
+
         gitignore_path = target_dir / ".gitignore"
         if gitignore_path.exists():
             try:
@@ -100,7 +100,6 @@ def init_project_interactive(
                     gitignore_path.write_text(git_content, encoding="utf-8")
             except Exception:
                 pass
-
 
     if provider == "openai":
         model = "gpt-4o-mini"
@@ -112,11 +111,8 @@ def init_project_interactive(
     config_path = target_dir / "handoff.config.json"
     config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
-    rendered += (
-        f"\n## Next Commands\n\n"
-        f"cd {name}\n"
-        f"Configured provider: {provider}\n"
-        + ("Saved API Key to .env\n" if api_key else "No API Key saved\n")
+    rendered += f"\n## Next Commands\n\ncd {name}\nConfigured provider: {provider}\n" + (
+        "Saved API Key to .env\n" if api_key else "No API Key saved\n"
     )
     return rendered
 
@@ -127,7 +123,7 @@ def set_key(name: str, value: str) -> str:
     content = ""
     if env_path.exists():
         content = env_path.read_text(encoding="utf-8")
-    
+
     lines = [line.strip() for line in content.splitlines() if line.strip()]
     updated = False
     new_lines = []
@@ -138,10 +134,10 @@ def set_key(name: str, value: str) -> str:
             new_lines.append(f"{name}={value}")
         else:
             new_lines.append(line)
-            
+
     if not updated:
         new_lines.append(f"{name}={value}")
-        
+
     env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
     return f"Set key {name} successfully in .env"
 
@@ -151,7 +147,7 @@ def delete_key(name: str) -> str:
     env_path = Path(".env")
     if not env_path.exists():
         return "No .env file found."
-        
+
     content = env_path.read_text(encoding="utf-8")
     lines = [line.strip() for line in content.splitlines() if line.strip()]
     new_lines = []
@@ -159,7 +155,7 @@ def delete_key(name: str) -> str:
         parts = line.split("=", 1)
         if parts[0].strip() != name:
             new_lines.append(line)
-            
+
     env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
     return f"Deleted key {name} successfully from .env"
 
@@ -169,12 +165,12 @@ def list_keys() -> str:
     env_path = Path(".env")
     if not env_path.exists():
         return "No keys configured (.env not found)."
-        
+
     content = env_path.read_text(encoding="utf-8")
     lines = [line.strip() for line in content.splitlines() if line.strip()]
     if not lines:
         return "No keys configured (.env is empty)."
-        
+
     rows = []
     for line in lines:
         parts = line.split("=", 1)
@@ -182,7 +178,7 @@ def list_keys() -> str:
         val = parts[1].strip() if len(parts) > 1 else ""
         redacted = f"{val[:4]}...{val[-4:]} (redacted)" if len(val) > 8 else "[redacted]"
         rows.append(f"- {key}={redacted}")
-        
+
     return "Configured Keys:\n" + "\n".join(rows)
 
 
@@ -213,33 +209,28 @@ def write_project_report(
                 "query": query,
                 "document_count": len(docs),
                 "documents": [
-                    doc.to_json() if hasattr(doc, "to_json") else vars(doc)
-                    for doc in docs[:20]
+                    doc.to_json() if hasattr(doc, "to_json") else vars(doc) for doc in docs[:20]
                 ],
             }
 
         def to_markdown(self) -> str:
-            rows = "\n".join(
-                f"- `{doc.path}`: {doc.summary}" for doc in docs[:20]
-            ) or "- none"
-            return "\n".join([
-                "# HandoffKit Project Report",
-                "",
-                f"Root: {root}",
-                f"Documents: {len(docs)}",
-                "",
-                "## Documents",
-                "",
-                rows,
-            ])
+            rows = "\n".join(f"- `{doc.path}`: {doc.summary}" for doc in docs[:20]) or "- none"
+            return "\n".join(
+                [
+                    "# HandoffKit Project Report",
+                    "",
+                    f"Root: {root}",
+                    f"Documents: {len(docs)}",
+                    "",
+                    "## Documents",
+                    "",
+                    rows,
+                ]
+            )
 
     report = _Report()
     json_path, markdown_path = write_report_files(report, "project-report", output_dir)
-    return (
-        f"HandoffKit project report\n"
-        f"JSON: {json_path}\n"
-        f"Markdown: {markdown_path}"
-    )
+    return f"HandoffKit project report\nJSON: {json_path}\nMarkdown: {markdown_path}"
 
 
 def create_extension(name: str, output: str = ".", force: bool = False) -> str:
@@ -251,7 +242,7 @@ def create_extension(name: str, output: str = ".", force: bool = False) -> str:
         )
 
     ext_dir.mkdir(parents=True, exist_ok=True)
-    
+
     init_content = f'''from handoffkit.extensions import Extension
 from .tools import mi_herramienta
 from .recipes import mi_receta
@@ -273,19 +264,19 @@ def mi_herramienta(param: str) -> str:
     return f"Procesado parametro: {param}"
 '''
 
-    recipes_content = '''from handoffkit.recipes import Recipe
+    recipes_content = """from handoffkit.recipes import Recipe
 
 mi_receta = Recipe(
     name="mi_receta_ejemplo",
     description="Una receta de ejemplo",
     steps=[]
 )
-'''
+"""
 
     (ext_dir / "__init__.py").write_text(init_content, encoding="utf-8")
     (ext_dir / "tools.py").write_text(tools_content, encoding="utf-8")
     (ext_dir / "recipes.py").write_text(recipes_content, encoding="utf-8")
-    
+
     return f"Scaffolded extension {name} successfully in {ext_dir}."
 
 
@@ -294,30 +285,30 @@ def load_dynamic_extensions(registry: ExtensionRegistry) -> None:
     config_path = Path("handoff.config.json")
     if not config_path.exists():
         return
-        
+
     try:
         import json
+
         config = json.loads(config_path.read_text(encoding="utf-8"))
     except Exception as exc:
         print(f"Warning: Failed to parse handoff.config.json: {exc}")
         return
-        
+
     extensions = config.get("extensions", [])
     if not isinstance(extensions, list):
         return
-        
-    
+
     for ext_path_str in extensions:
         p = Path(ext_path_str)
         try:
             if p.is_dir() or ext_path_str.endswith(".py"):
                 ext_dir = p.resolve()
                 module_name = ext_dir.name
-                
+
                 parent_dir = str(ext_dir.parent)
                 if parent_dir not in sys.path:
                     sys.path.insert(0, parent_dir)
-                    
+
                 if (ext_dir / "__init__.py").exists():
                     init_path = str(ext_dir / "__init__.py")
                     spec = importlib.util.spec_from_file_location(module_name, init_path)
@@ -336,5 +327,3 @@ def load_dynamic_extensions(registry: ExtensionRegistry) -> None:
                     registry.register(mod.extension)
         except Exception as exc:
             print(f"Warning: Failed to load extension '{ext_path_str}': {exc}")
-
-

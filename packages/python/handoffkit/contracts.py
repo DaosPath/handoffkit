@@ -125,15 +125,9 @@ def build_contract_parity_report(
             missing_schemas=[],
             metadata={"contracts_root": str(root), "source": "embedded_inventory"},
         )
-    missing_fixtures = [
-        name for name in fixtures if not (root / "fixtures" / name).exists()
-    ]
+    missing_fixtures = [name for name in fixtures if not (root / "fixtures" / name).exists()]
     missing_schemas = [name for name in schemas if not (root / "schemas" / name).exists()]
-    supported = [
-        name.removesuffix(".json")
-        for name in fixtures
-        if name not in missing_fixtures
-    ]
+    supported = [name.removesuffix(".json") for name in fixtures if name not in missing_fixtures]
     return ContractParityReport(
         runtime=runtime,
         version=version,

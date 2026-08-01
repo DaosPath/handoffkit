@@ -35,15 +35,24 @@ control-plane work instead of creating a premature second wire layer.
 
 ## 1.18 - Go distributed runtime
 
-Planned: Go control plane, worker pools, capability routing, TCP/WebSocket and
-Unix-socket transports, connection recovery, remote workers, Rust local daemon,
-ARM64 release validation, callback-based Tauri adapter, and activation of
-distributed mode across supported runtimes.
+The released 1.18 baseline added the Go control plane, distributed scheduling,
+bounded TCP/Unix transports, workers, and cross-runtime stdio coverage. It did
+not establish ARM64 release validation, a Tauri security adapter, or secure
+durable recovery.
 
-## 1.19 - Native compute and edge
+## 1.19 development - security and native compute
 
-Planned: C++ `std::jthread` runtime, bounded queues, embedded Linux profiles,
-ML workers, progress/checkpoint streams, and Studio session visibility.
+Implemented on the development branch: real TLS 1.3 paths in Python, Node, Go,
+and Rust; certificate-bound identity/authorization/replay; maintained Ed25519
+providers; provider-dependent hybrid TLS in compatible Node/Go environments;
+five-runtime security conformance; a bounded C++ `std::jthread` worker; and a
+real cpp-ml TrainingJob/EvaluationJob path with progress and checkpoint/report
+artifacts.
 
-Future entries describe intent, not shipped functionality. Runtime APIs remain
-experimental until cross-language testing supports stabilization in 1.19.
+Not implemented and excluded from current public scope: C++ TLS, ARM64/edge
+validation, low-memory/unstable-network qualification, Studio security
+visibility, durable session/job/replay recovery, OS keystores, trust-store live
+reload, certificate rotation, CRL/OCSP, and zeroization guarantees.
+
+These entries describe development status, not a released 1.19 product.
+Runtime security APIs remain experimental until the documented gaps close.

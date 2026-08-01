@@ -17,6 +17,9 @@ import {
   RetryPolicy,
   SessionConfig,
   WorkerCapabilities,
+  SecurityConfig,
+  PeerIdentity,
+  SignedArtifact,
   makeEnvelope,
   sanitizeErrorMessage,
   validationErrorCode,
@@ -35,6 +38,15 @@ function validateCorpusCase(kind, value) {
   if (kind === "artifact_ref") return new ArtifactRef(value).toWire();
   if (kind === "worker_capabilities") return new WorkerCapabilities(value).toWire();
   if (kind === "job_progress") return new JobProgress(value).toWire();
+  if (kind === "security_config") {
+    const validProfiles = ["local", "standard", "hybrid-pq", "research"];
+    if (!validProfiles.includes(value.profile)) {
+      throw new Error(`invalid_profile: ${value.profile}`);
+    }
+    return SecurityConfig.fromWire(value).toWire();
+  }
+  if (kind === "peer_identity") return PeerIdentity.fromWire(value).toWire();
+  if (kind === "signed_artifact") return SignedArtifact.fromWire(value).toWire();
   throw new Error(`unsupported corpus kind: ${kind}`);
 }
 

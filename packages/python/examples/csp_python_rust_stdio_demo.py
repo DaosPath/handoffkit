@@ -18,8 +18,13 @@ from handoffkit.csp import (
 
 def rust_binary() -> Path:
     root = Path(__file__).resolve().parents[3]
-    default = root / "packages" / "rust" / "target" / "debug" / (
-        "handoffkit-rs.exe" if os.name == "nt" else "handoffkit-rs"
+    default = (
+        root
+        / "packages"
+        / "rust"
+        / "target"
+        / "debug"
+        / ("handoffkit-rs.exe" if os.name == "nt" else "handoffkit-rs")
     )
     return Path(os.environ.get("HANDOFFKIT_RUST_BIN", default)).resolve()
 

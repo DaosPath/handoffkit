@@ -1,0 +1,123 @@
+{
+  "profile_negotiation": [
+    {
+      "id": "local_exact",
+      "required": "local",
+      "offered": "local",
+      "supported": ["local"],
+      "selected": "local"
+    },
+    {
+      "id": "standard_exact",
+      "required": "standard",
+      "offered": "standard",
+      "supported": ["local", "standard"],
+      "selected": "standard"
+    },
+    {
+      "id": "downgrade_rejected",
+      "required": "standard",
+      "offered": "local",
+      "supported": ["local", "standard"],
+      "error_code": "security_profile_mismatch"
+    },
+    {
+      "id": "hybrid_no_fallback",
+      "required": "hybrid-pq",
+      "offered": "hybrid-pq",
+      "supported": ["local", "standard"],
+      "error_code": "security_profile_unavailable"
+    }
+  ],
+  "authorization": [
+    {
+      "id": "exact_capability",
+      "allowed_operations": ["job:training"],
+      "peer_capabilities": ["job:training"],
+      "operation": "job:training",
+      "authorized": true
+    },
+    {
+      "id": "prefix_capability",
+      "allowed_operations": ["job:evaluation"],
+      "peer_capabilities": ["job:*"],
+      "operation": "job:evaluation",
+      "authorized": true
+    },
+    {
+      "id": "empty_peer_grants_fail_closed",
+      "allowed_operations": ["job:training"],
+      "peer_capabilities": [],
+      "operation": "job:training",
+      "authorized": false
+    },
+    {
+      "id": "local_allowlist_still_applies",
+      "allowed_operations": ["job:evaluation"],
+      "peer_capabilities": ["*"],
+      "operation": "job:training",
+      "authorized": false
+    },
+    {
+      "id": "ungranted_operation_denied",
+      "allowed_operations": ["job:training", "job:evaluation"],
+      "peer_capabilities": ["job:training"],
+      "operation": "job:evaluation",
+      "authorized": false
+    }
+  ],
+  "replay": [
+    {
+      "id": "monotonic",
+      "operations": [
+        {"peer": "peer-a", "session": "s1", "sequence": 1, "nonce": "n1", "timestamp_offset": 0, "result": "ok"},
+        {"peer": "peer-a", "session": "s1", "sequence": 2, "nonce": "n2", "timestamp_offset": 0, "result": "ok"}
+      ]
+    },
+    {
+      "id": "sequence_replay",
+      "operations": [
+        {"peer": "peer-a", "session": "s1", "sequence": 1, "nonce": "n1", "timestamp_offset": 0, "result": "ok"},
+        {"peer": "peer-a", "session": "s1", "sequence": 1, "nonce": "n2", "timestamp_offset": 0, "error_code": "replay_sequence"}
+      ]
+    },
+    {
+      "id": "nonce_replay_does_not_advance_sequence",
+      "operations": [
+        {"peer": "peer-a", "session": "s1", "sequence": 1, "nonce": "n1", "timestamp_offset": 0, "result": "ok"},
+        {"peer": "peer-a", "session": "s1", "sequence": 2, "nonce": "n1", "timestamp_offset": 0, "error_code": "replay_nonce"},
+        {"peer": "peer-a", "session": "s1", "sequence": 2, "nonce": "n2", "timestamp_offset": 0, "result": "ok"}
+      ]
+    },
+    {
+      "id": "same_nonce_different_session",
+      "operations": [
+        {"peer": "peer-a", "session": "s1", "sequence": 1, "nonce": "same", "timestamp_offset": 0, "result": "ok"},
+        {"peer": "peer-a", "session": "s2", "sequence": 1, "nonce": "same", "timestamp_offset": 0, "result": "ok"}
+      ]
+    },
+    {
+      "id": "same_nonce_different_peer",
+      "operations": [
+        {"peer": "peer-a", "session": "shared", "sequence": 1, "nonce": "same", "timestamp_offset": 0, "result": "ok"},
+        {"peer": "peer-b", "session": "shared", "sequence": 1, "nonce": "same", "timestamp_offset": 0, "result": "ok"}
+      ]
+    },
+    {
+      "id": "stale_timestamp",
+      "operations": [
+        {"peer": "peer-a", "session": "old", "sequence": 1, "nonce": "old", "timestamp_offset": -60, "error_code": "replay_timestamp_stale"}
+      ]
+    },
+    {
+      "id": "future_timestamp",
+      "operations": [
+        {"peer": "peer-a", "session": "future", "sequence": 1, "nonce": "future", "timestamp_offset": 10, "error_code": "replay_timestamp_future"}
+      ]
+    }
+  ],
+  "signed_artifact": {
+    "fixture": "test-fixtures/artifact-signing/vector.json",
+    "canonical_payload": "{\"algorithm\":\"ed25519\",\"artifact_id\":\"artifact-1\",\"content_hash\":\"8416cac54bfdbe4faec6d73fdb57ae7cfa81703b311b66de3639e826a185f1e4\",\"created_at\":1800000000,\"key_fingerprint\":\"sha256:a6b5df2969959ff5ce26aea82bb88678604b0d0f07200e7845755f4b9af5bba6\",\"signer_identity\":\"spiffe://handoffkit.internal/producer/build-1\"}"
+  }
+}

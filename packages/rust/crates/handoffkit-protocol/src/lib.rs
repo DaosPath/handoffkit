@@ -7,6 +7,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
+pub mod security;
+
 pub const PROTOCOL_VERSION: &str = "1.0";
 pub const DEFAULT_CHANNEL_CAPACITY: usize = 64;
 pub const DEFAULT_MAX_MESSAGE_BYTES: usize = 8 * 1024 * 1024;
@@ -504,6 +506,7 @@ pub fn validation_error_code(error: impl Display) -> &'static str {
         ("must not exceed", "above_maximum"),
         ("nesting depth", "nesting_too_deep"),
         ("message exceeds", "message_too_large"),
+        ("invalid_profile", "invalid_profile"),
         ("sha256", "invalid_sha256"),
         ("between 0 and 1", "invalid_progress"),
         ("step must not exceed", "invalid_progress"),

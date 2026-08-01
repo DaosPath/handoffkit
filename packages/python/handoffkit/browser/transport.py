@@ -132,10 +132,12 @@ class HttpTransport:
         last = TransportResponse(final_url=url, error="no attempt")
         for attempt in range(self._retries + 1):
             last = self._once(url, timeout_ms, headers, max_body_bytes)
-            retryable = (
-                "timeout" in (last.error or "").lower()
-                or last.status in {429, 502, 503, 504}
-            )
+            retryable = "timeout" in (last.error or "").lower() or last.status in {
+                429,
+                502,
+                503,
+                504,
+            }
             if not retryable or attempt >= self._retries:
                 return last
             delay = self._base_delay_ms * (2**attempt) / 1000.0

@@ -46,7 +46,8 @@ def build_state(
         decisions=decisions or [f"{from_agent} completed its current role output."],
         important_files=important_files or [],
         errors=errors or [],
-        next_steps=next_steps or [
+        next_steps=next_steps
+        or [
             f"{to_agent} should inspect the structured handoff.",
             "Continue the task while preserving decisions and constraints.",
         ],

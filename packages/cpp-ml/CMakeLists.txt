@@ -5,9 +5,9 @@ cmake_minimum_required(VERSION 3.18)
 option(HANDOFFKIT_ML_CUDA "Build own CUDA kernels (cudart only, no cuBLAS)" OFF)
 
 if(HANDOFFKIT_ML_CUDA)
-  project(handoffkit_ml VERSION 0.4.0 LANGUAGES CXX CUDA)
+  project(handoffkit_ml VERSION 0.5.0 LANGUAGES CXX CUDA)
 else()
-  project(handoffkit_ml VERSION 0.4.0 LANGUAGES CXX)
+  project(handoffkit_ml VERSION 0.5.0 LANGUAGES CXX)
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -21,6 +21,7 @@ set(HANDOFFKIT_CORE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cpp"
     CACHE PATH "In-tree path to packages/cpp (core)")
 
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 set(HANDOFFKIT_ML_SOURCES
   src/version.cpp
@@ -28,6 +29,10 @@ set(HANDOFFKIT_ML_SOURCES
   src/cuda/runtime.cpp
   src/cuda_kernels.cpp
 )
+
+if(HANDOFFKIT_ML_LINK_CORE)
+  list(APPEND HANDOFFKIT_ML_SOURCES src/csp_worker.cpp)
+endif()
 
 if(HANDOFFKIT_ML_CUDA)
   list(APPEND HANDOFFKIT_ML_SOURCES
@@ -41,6 +46,7 @@ endif()
 
 add_library(handoffkit_ml STATIC ${HANDOFFKIT_ML_SOURCES})
 add_library(handoffkit::ml ALIAS handoffkit_ml)
+set_target_properties(handoffkit_ml PROPERTIES EXPORT_NAME ml)
 
 target_include_directories(handoffkit_ml
   PUBLIC
@@ -66,6 +72,7 @@ find_package(Threads REQUIRED)
 target_link_libraries(handoffkit_ml PUBLIC Threads::Threads)
 
 if(HANDOFFKIT_ML_LINK_CORE)
+  find_package(OpenSSL REQUIRED COMPONENTS Crypto)
   if(NOT TARGET handoffkit_core)
     add_subdirectory(
       "${HANDOFFKIT_CORE_SOURCE_DIR}"
@@ -75,6 +82,14 @@ if(HANDOFFKIT_ML_LINK_CORE)
   endif()
   target_include_directories(handoffkit_ml PUBLIC
     $<BUILD_INTERFACE:${HANDOFFKIT_CORE_SOURCE_DIR}/include>
+  )
+  target_compile_definitions(handoffkit_ml PUBLIC HANDOFFKIT_ML_WITH_CSP=1)
+  # CSP tests link the in-tree core target explicitly. Installed consumers get
+  # the namespaced dependency without exporting the nested core target twice.
+  target_link_libraries(handoffkit_ml
+    PUBLIC
+      OpenSSL::Crypto
+    PRIVATE $<BUILD_INTERFACE:nlohmann_json::nlohmann_json>
   )
 endif()
 
@@ -132,6 +147,8 @@ if(HANDOFFKIT_ML_BUILD_TESTS)
   if(HANDOFFKIT_ML_LINK_CORE)
     hk_ml_test(test_ml_csp_jobs tests/test_ml_csp_jobs.cpp)
     target_link_libraries(test_ml_csp_jobs PRIVATE handoffkit_core)
+    hk_ml_test(test_ml_csp_worker tests/test_ml_csp_worker.cpp)
+    target_link_libraries(test_ml_csp_worker PRIVATE handoffkit_core)
   endif()
 endif()
 
@@ -148,5 +165,21 @@ endif()
 install(EXPORT handoffkit_mlTargets
   FILE handoffkit_mlTargets.cmake
   NAMESPACE handoffkit::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit_ml
+)
+
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/handoffkit_mlConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/handoffkit_mlConfig.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit_ml
+)
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/handoffkit_mlConfigVersion.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/handoffkit_mlConfig.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/handoffkit_mlConfigVersion.cmake
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit_ml
 )

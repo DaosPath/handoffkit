@@ -7,6 +7,10 @@
 #include <handoffkit/version.hpp>
 #include <handoffkit/core/quality.hpp>
 #include <handoffkit/core/validation.hpp>
+#include <handoffkit/csp/contracts.hpp>
+#include <handoffkit/csp/artifact_security.hpp>
+#include <handoffkit/csp/native_compute.hpp>
+#include <handoffkit/csp/security.hpp>
 #include <handoffkit/evaluation/workflow_eval.hpp>
 #include <handoffkit/io/html_report.hpp>
 #include <handoffkit/io/reports.hpp>

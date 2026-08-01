@@ -12,10 +12,10 @@ foreach(item IN ITEMS
   cmake
   include
   src
+  benchmarks
   examples
   tests
   scripts
-  test_package
   LICENSE
   README.md
   RELEASE.md
@@ -29,11 +29,37 @@ foreach(item IN ITEMS
   endif()
 endforeach()
 
-# Optional: include contracts fixtures for offline consumers that want them
-if(EXISTS "${SOURCE_DIR}/../contracts/fixtures")
-  file(COPY "${SOURCE_DIR}/../contracts/fixtures" DESTINATION "${STAGE}/contracts")
-  file(COPY "${SOURCE_DIR}/../contracts/schemas" DESTINATION "${STAGE}/contracts")
-endif()
+# Copy only the source files from the Conan consumer smoke. Ignored local
+# presets and build directories must never enter a release archive.
+file(MAKE_DIRECTORY "${STAGE}/test_package/src")
+foreach(item IN ITEMS CMakeLists.txt conanfile.py)
+  file(COPY "${SOURCE_DIR}/test_package/${item}" DESTINATION "${STAGE}/test_package")
+endforeach()
+file(COPY "${SOURCE_DIR}/test_package/src/example.cpp"
+  DESTINATION "${STAGE}/test_package/src")
+
+# Include the complete small contract corpus so extracted source packages can
+# run fixture, security-conformance, and artifact-provider tests offline. Use a
+# whitelist so ignored/generated credentials can never leak into the tarball.
+set(CONTRACTS_SOURCE "${SOURCE_DIR}/../contracts")
+file(MAKE_DIRECTORY "${STAGE}/contracts")
+foreach(item IN ITEMS corpus fixtures schemas conformance)
+  if(EXISTS "${CONTRACTS_SOURCE}/${item}")
+    file(COPY "${CONTRACTS_SOURCE}/${item}" DESTINATION "${STAGE}/contracts")
+  endif()
+endforeach()
+foreach(item IN ITEMS
+  test-fixtures/artifact-signing/README.md
+  test-fixtures/artifact-signing/generate.py
+  test-fixtures/artifact-signing/vector.json
+  test-fixtures/tls/README.md
+  test-fixtures/tls/generate.py
+)
+  get_filename_component(item_dir "${item}" DIRECTORY)
+  file(MAKE_DIRECTORY "${STAGE}/contracts/${item_dir}")
+  file(COPY "${CONTRACTS_SOURCE}/${item}"
+    DESTINATION "${STAGE}/contracts/${item_dir}")
+endforeach()
 
 set(ARCHIVE "${OUT_DIR}/handoffkit-cpp-${VERSION}.tar.gz")
 execute_process(

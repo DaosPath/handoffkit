@@ -29,7 +29,7 @@ def main() -> None:
                 "function": {
                     "name": "label",
                     "arguments": '{"value":"provider-adapter"}',
-                }
+                },
             }
         ],
         "final": None,

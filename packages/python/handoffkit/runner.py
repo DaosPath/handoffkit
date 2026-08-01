@@ -114,9 +114,7 @@ class Team:
                 payload = incoming.payload if isinstance(incoming.payload, dict) else {}
                 handoff_data = payload.get("handoff_state")
                 handoff_state = (
-                    HandoffState.from_dict(handoff_data)
-                    if isinstance(handoff_data, dict)
-                    else None
+                    HandoffState.from_dict(handoff_data) if isinstance(handoff_data, dict) else None
                 )
                 current_output = await agent.arun(task, handoff_state=handoff_state)
                 outputs[index] = AgentOutput(agent=agent.name, output=current_output)

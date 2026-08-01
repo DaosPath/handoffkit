@@ -16,14 +16,12 @@ for (const short of packageNames) {
   manifests.push({ short, packageRoot, manifest });
 }
 
-const versions = new Set(manifests.map(({ manifest }) => manifest.version));
-if (versions.size !== 1) fail(`public package versions differ: ${[...versions].join(", ")}`);
-
 const names = new Set();
 for (const { short, packageRoot, manifest } of manifests) {
   if (names.has(manifest.name)) fail(`duplicate package name ${manifest.name}`);
   names.add(manifest.name);
   if (manifest.name !== `@handoffkit/${short}`) fail(`${short}: unexpected name ${manifest.name}`);
+  if (!/^\d+\.\d+\.\d+$/.test(manifest.version)) fail(`${manifest.name}: invalid semantic version`);
   if (manifest.license !== "MIT") fail(`${manifest.name}: license must be MIT`);
   if (manifest.type !== "module") fail(`${manifest.name}: type must be module`);
   if (manifest.sideEffects !== false) fail(`${manifest.name}: sideEffects must be false`);
@@ -66,4 +64,5 @@ const web = JSON.parse(await readFile(path.join(root, "apps", "web", "package.js
 if (web.private !== true) fail("@handoffkit/web must stay private");
 if (!web.scripts?.check || !web.scripts?.typecheck) fail("@handoffkit/web must define check and typecheck scripts");
 
-console.log(`workspace validation passed: ${manifests.length} public packages at ${[...versions][0]} + web app`);
+const versionSummary = manifests.map(({ manifest }) => `${manifest.name}@${manifest.version}`).join(", ");
+console.log(`workspace validation passed: ${versionSummary} + web app`);

@@ -305,9 +305,7 @@ class DistributedScheduler:
             expired = [
                 assignment_id
                 for assignment_id, state in self._assigned.items()
-                if datetime.fromisoformat(
-                    state.assignment.lease_deadline.replace("Z", "+00:00")
-                )
+                if datetime.fromisoformat(state.assignment.lease_deadline.replace("Z", "+00:00"))
                 <= current
             ]
             for assignment_id in expired:

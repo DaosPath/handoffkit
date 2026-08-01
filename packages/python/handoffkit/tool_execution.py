@@ -230,14 +230,20 @@ class ToolExecutionReport:
 
     def to_markdown(self) -> str:
         """Serialize the report as Markdown."""
-        calls = "\n".join(
-            f"- `{call.tool_name}` `{json.dumps(call.arguments, default=_json_default)}`"
-            for call in self.tool_calls
-        ) or "- none"
-        results = "\n".join(
-            f"- `{result.tool_name}` success={result.success} error={result.error or ''}"
-            for result in self.tool_results
-        ) or "- none"
+        calls = (
+            "\n".join(
+                f"- `{call.tool_name}` `{json.dumps(call.arguments, default=_json_default)}`"
+                for call in self.tool_calls
+            )
+            or "- none"
+        )
+        results = (
+            "\n".join(
+                f"- `{result.tool_name}` success={result.success} error={result.error or ''}"
+                for result in self.tool_results
+            )
+            or "- none"
+        )
         return (
             f"# Tool Execution Report\n\n"
             f"## Task\n\n{self.task}\n\n"

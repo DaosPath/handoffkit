@@ -367,12 +367,7 @@ def run_replay_demo() -> str:
 def validate_report(path: str) -> str:
     """Validate that a report file is JSON object shaped."""
     payload = load_report_json(Path(path))
-    return (
-        "HandoffKit report validation\n"
-        f"Path: {path}\n"
-        f"Keys: {sorted(payload)}\n"
-        "Status: OK"
-    )
+    return f"HandoffKit report validation\nPath: {path}\nKeys: {sorted(payload)}\nStatus: OK"
 
 
 def evaluate_report(path: str) -> str:
@@ -447,10 +442,8 @@ def list_provider_models(provider: str, *, real: bool = False, json_output: bool
     if json_output:
         return json.dumps(payload, indent=2, sort_keys=True)
     mode = "real" if real else "offline"
-    return (
-        f"HandoffKit provider models ({mode})\n"
-        f"Provider: {provider}\n"
-        + "\n".join(f"- {model}" for model in models)
+    return f"HandoffKit provider models ({mode})\nProvider: {provider}\n" + "\n".join(
+        f"- {model}" for model in models
     )
 
 
@@ -522,7 +515,6 @@ def run_research_workflow_demo() -> str:
     return run_named_showcase("research-workflow")
 
 
-
 def run_doctor_benchmark_demo(limit: int = 30) -> str:
     """Run the real-case offline doctor benchmark harness."""
     return execute_doctor_benchmark(limit).to_markdown()
@@ -543,10 +535,7 @@ def run_independent_benchmark_demo(
         return json.dumps(methodology_manifest(), ensure_ascii=False, indent=2) + "\n"
     report = run_independent_benchmark(seed=seed)
     arts = "\n".join(f"- {k}: {v}" for k, v in report.artifacts.items())
-    return (
-        f"{report.to_markdown()}\n"
-        f"## Written artifacts\n\n{arts}\n"
-    )
+    return f"{report.to_markdown()}\n## Written artifacts\n\n{arts}\n"
 
 
 def run_doctor_orchestrator_demo() -> str:
@@ -565,5 +554,3 @@ def run_fusion_style_demo() -> str:
         f"JSON report: {json_path}\n\n"
         f"{report.to_markdown()}"
     )
-
-

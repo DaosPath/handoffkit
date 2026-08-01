@@ -91,7 +91,7 @@ func (s *Scheduler) Schedule() (*contract.JobAssignment, error) {
 		now := time.Now().UTC()
 		assignment := contract.JobAssignment{
 			AssignmentID: fmt.Sprintf("assignment-%d", assignmentSequence.Add(1)),
-			JobID: job.JobID, WorkerID: worker.Capabilities.WorkerID, Attempt: attempt,
+			JobID:        job.JobID, WorkerID: worker.Capabilities.WorkerID, Attempt: attempt,
 			AssignedAt: now.Format(time.RFC3339Nano), LeaseDeadline: now.Add(s.lease).Format(time.RFC3339Nano),
 			Payload: job.Payload, Metadata: cloneMap(job.Metadata),
 		}

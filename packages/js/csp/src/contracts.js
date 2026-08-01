@@ -1,5 +1,5 @@
 export const HK_CSP_VERSION = "1.0";
-export const HANDOFFKIT_CSP_VERSION = "1.16.0";
+export const HANDOFFKIT_CSP_VERSION = "1.19.0";
 export const DEFAULT_CHANNEL_CAPACITY = 64;
 export const DEFAULT_MAX_MESSAGE_BYTES = 8 * 1024 * 1024;
 export const DEFAULT_MAX_NESTING_DEPTH = 64;
@@ -83,6 +83,7 @@ export function validationErrorCode(error) {
     ["must not exceed", "above_maximum"],
     ["nesting depth", "nesting_too_deep"],
     ["message exceeds", "message_too_large"],
+    ["invalid_profile", "invalid_profile"],
     ["sha256", "invalid_sha256"],
     ["between 0 and 1", "invalid_progress"],
   ];

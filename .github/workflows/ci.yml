@@ -37,6 +37,13 @@ jobs:
       - name: Run tests
         run: python -m pytest -q
 
+      - name: Run TLS, mTLS, replay, and artifact security integration
+        run: >
+          python -m pytest -q
+          tests/test_csp_tls_integration.py
+          tests/test_artifact_signatures.py
+          tests/test_security_conformance.py
+
       - name: Tools + validation coverage gate
         # Mandatory coverage for sandbox / shell / tool execution / validation (P0)
         # (excludes medical/text helpers until those modules are split/refactored in P1)
@@ -78,6 +85,14 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Set up Python for ephemeral TLS fixtures
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install TLS fixture generator dependency
+        run: python -m pip install "cryptography>=46,<50"
+
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -86,11 +101,8 @@ jobs:
       - name: Install web dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check JavaScript package
-        run: pnpm js:check
-
-      - name: Test JavaScript package
-        run: pnpm js:test
+      - name: Check, test, and package JavaScript workspace
+        run: pnpm ci:js
 
       - name: Lint web app
         run: pnpm web:lint
@@ -104,6 +116,50 @@ jobs:
       - name: Build web app
         run: pnpm web:build
 
+  node-pq:
+    name: Node 24 hybrid-PQ provider
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js with the compatible OpenSSL provider
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Set up Python for ephemeral TLS fixtures
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install TLS fixture generator dependency
+        run: python -m pip install "cryptography>=46,<50"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
+      - name: Install JavaScript workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Prove X25519MLKEM768 negotiation and fail-closed profile handling
+        env:
+          HANDOFFKIT_REQUIRE_HYBRID_PQ: "1"
+        run: node --test packages/js/node/test/tls.integration.test.js
+
+      - name: Benchmark standard and hybrid-PQ TLS on the active provider
+        env:
+          HANDOFFKIT_REQUIRE_HYBRID_PQ: "1"
+        run: |
+          mkdir -p .local-tests
+          node benchmarks/security/node-security-benchmark.mjs \
+            --iterations=10 --warmup=3 --bytes=1048576 \
+            | tee .local-tests/node-security-benchmark.json
+          node -e "JSON.parse(require('fs').readFileSync('.local-tests/node-security-benchmark.json'))"
+
   rust:
     name: Rust
     runs-on: ubuntu-latest
@@ -115,14 +171,28 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up Python for ephemeral TLS fixtures
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install TLS fixture generator dependency
+        run: python -m pip install "cryptography>=46,<50"
+
+      - name: Check declared Rust 1.82 MSRV
+        run: |
+          rustup toolchain install 1.82.0 --profile minimal
+          cargo +1.82.0 check --manifest-path packages/rust/Cargo.toml \
+            --workspace --all-targets --locked
+
       - name: Check Rust formatting
         run: cargo fmt --manifest-path packages/rust/Cargo.toml --all --check
 
       - name: Lint Rust workspace
-        run: cargo clippy --manifest-path packages/rust/Cargo.toml --workspace --all-targets -- -D warnings
+        run: cargo clippy --manifest-path packages/rust/Cargo.toml --workspace --all-targets --locked -- -D warnings
 
       - name: Test Rust workspace
-        run: cargo test --manifest-path packages/rust/Cargo.toml --workspace
+        run: cargo test --manifest-path packages/rust/Cargo.toml --workspace --locked
 
       - name: Validate publishable Rust crates
         shell: bash
@@ -144,9 +214,7 @@ jobs:
               --list >/dev/null
           done
           cargo package --manifest-path packages/rust/Cargo.toml \
-            --package handoffkit-contracts --locked --allow-dirty --no-verify
-          cargo package --manifest-path packages/rust/Cargo.toml \
-            --package handoffkit-protocol --locked --allow-dirty --no-verify
+            --workspace --locked --allow-dirty --no-verify
 
   cpp:
     name: C++
@@ -161,12 +229,45 @@ jobs:
           cmake -S packages/cpp -B packages/cpp/build
           -DCMAKE_BUILD_TYPE=Release
           -DHANDOFFKIT_WITH_HTTP=OFF
+          -DHANDOFFKIT_WITH_CRYPTO=ON
+          -DHANDOFFKIT_BUILD_BENCHMARKS=ON
 
       - name: Build C++ package
         run: cmake --build packages/cpp/build --config Release
 
       - name: Test C++ package
         run: ctest --test-dir packages/cpp/build -C Release --output-on-failure
+
+      - name: Configure C++ security sanitizers
+        run: >
+          cmake -S packages/cpp -B packages/cpp/build-sanitizers
+          -DCMAKE_BUILD_TYPE=Debug
+          -DHANDOFFKIT_WITH_HTTP=OFF
+          -DHANDOFFKIT_WITH_CRYPTO=ON
+          -DHANDOFFKIT_BUILD_EXAMPLES=OFF
+          -DHANDOFFKIT_BUILD_DEMOS=OFF
+          -DHANDOFFKIT_BUILD_CLI=OFF
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Run C++ security tests with ASan and UBSan
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: |
+          cmake --build packages/cpp/build-sanitizers --config Debug --parallel 2 \
+            --target test_csp_security test_security_conformance \
+              test_artifact_signatures test_native_compute
+          ctest --test-dir packages/cpp/build-sanitizers -C Debug \
+            -R '^(test_csp_security|test_security_conformance|test_artifact_signatures|test_native_compute)$' \
+            --output-on-failure
+
+      - name: Benchmark C++ native compute worker
+        run: |
+          mkdir -p .local-tests
+          packages/cpp/build/native_compute_benchmark 500 \
+            > .local-tests/cpp-native-compute-benchmark.json
+          python3 -m json.tool .local-tests/cpp-native-compute-benchmark.json >/dev/null
 
       - name: Configure cpp-ml CSP adapters
         run: >
@@ -180,11 +281,11 @@ jobs:
           -DHANDOFFKIT_BUILD_CLI=OFF
           -DHANDOFFKIT_BUILD_DEMOS=OFF
 
-      - name: Build cpp-ml CSP adapters
-        run: cmake --build packages/cpp-ml/build-csp --target test_ml_csp_jobs --config Release
+      - name: Build cpp-ml CSP workers
+        run: cmake --build packages/cpp-ml/build-csp --config Release
 
-      - name: Test cpp-ml CSP adapters
-        run: ctest --test-dir packages/cpp-ml/build-csp -C Release -R test_ml_csp_jobs --output-on-failure
+      - name: Test complete cpp-ml suite including CSP workers
+        run: ctest --test-dir packages/cpp-ml/build-csp -C Release --output-on-failure
 
       - name: Fusion roles --file smoke (offline)
         run: |
@@ -239,8 +340,17 @@ jobs:
         with:
           go-version: "1.23"
 
+      - name: Set up Python for ephemeral TLS fixtures
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install TLS fixture generator dependency
+        run: python -m pip install "cryptography>=46,<50"
+
       - name: Format Go code
-        run: gofmt -w .
+        shell: bash
+        run: test -z "$(gofmt -l .)"
 
       - name: Run go vet
         run: go vet ./...
@@ -255,6 +365,51 @@ jobs:
         run: |
           mkdir -p ../../.local-tests/bin
           go build -o ../../.local-tests/bin/handoffkit-worker ./cmd/handoffkit-worker
+
+  go-pq:
+    name: Go 1.26 hybrid-PQ provider and Node interoperability
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up provider-compatible Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.x"
+
+      - name: Set up provider-compatible Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Set up Python for ephemeral TLS fixtures
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install TLS fixture generator dependency
+        run: python -m pip install "cryptography>=46,<50"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
+      - name: Install JavaScript workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Prove X25519MLKEM768 negotiation, downgrade rejection, and Node interoperability
+        env:
+          GODEBUG: tlsmlkem=1
+          HANDOFFKIT_REQUIRE_HYBRID_PQ: "1"
+          HANDOFFKIT_RUN_HYBRID_INTEROP: "1"
+        run: >
+          go test -count=1
+          -run "TestGoHybridPQNegotiatesX25519MLKEM768|TestGoHybridPQRejectsDirectStandardTLSWrapping|TestGoNodeHybridPQMTLSInteroperability"
+          ./transport
+        working-directory: packages/go
 
   csp-interop:
     name: HK-CSP Python / JavaScript / Rust / Go stdio

@@ -1,4 +1,4 @@
-"""Stable release metadata tests."""
+"""Release metadata tests."""
 
 from __future__ import annotations
 
@@ -20,14 +20,14 @@ def _require_repo() -> None:
         pytest.skip("monorepo paths not available (sdist-safe)")
 
 
-def test_pyproject_is_188_stable() -> None:
+def test_pyproject_marks_119_as_development_baseline() -> None:
     data = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = data["project"]
     classifiers = project["classifiers"]
 
-    assert project["version"] == "1.18.0"
-    assert "Development Status :: 5 - Production/Stable" in classifiers
-    assert not any("Alpha" in item or "Beta" in item for item in classifiers)
+    assert project["version"] == "1.19.0"
+    assert "Development Status :: 4 - Beta" in classifiers
+    assert "Development Status :: 5 - Production/Stable" not in classifiers
 
 
 def test_ci_python_matrix_includes_310_to_314() -> None:

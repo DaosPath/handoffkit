@@ -61,9 +61,7 @@ class RecipeStep:
             "use_context": self.use_context,
             "use_memory": self.use_memory,
             "structured_schema": (
-                self.structured_schema.to_dict()
-                if self.structured_schema is not None
-                else None
+                self.structured_schema.to_dict() if self.structured_schema is not None else None
             ),
             "metadata": self.metadata,
         }
@@ -310,8 +308,7 @@ class RecipeRunner:
                     decisions=[f"Step {step.name} completed with success={step_success}."],
                     next_steps=[next_step.task],
                     context_refs=[
-                        doc.path
-                        for doc in (context.documents if context is not None else [])
+                        doc.path for doc in (context.documents if context is not None else [])
                     ],
                     metadata={
                         "recipe": self.recipe.name,
@@ -432,8 +429,7 @@ class RecipeRunner:
                     decisions=[f"Step {step.name} completed with success={step_success}."],
                     next_steps=[next_step.task],
                     context_refs=[
-                        doc.path
-                        for doc in (context.documents if context is not None else [])
+                        doc.path for doc in (context.documents if context is not None else [])
                     ],
                     metadata={
                         "recipe": self.recipe.name,

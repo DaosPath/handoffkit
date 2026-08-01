@@ -161,7 +161,7 @@ def test_require_approval_blocks_write_and_shell() -> None:
         ToolCall("write_file", {"path": str(output / "x.txt"), "content": "x"}),
     )
     shell_result = registry.execute(
-        ToolCall("run_command", {"command": f"{__import__('sys').executable} -c \"print(1)\""}),
+        ToolCall("run_command", {"command": f'{__import__("sys").executable} -c "print(1)"'}),
     )
     assert write_result.error == "approval_required"
     assert shell_result.error == "approval_required"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import ssl
 import struct
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
@@ -17,7 +18,24 @@ from handoffkit.csp.models import (
     MessageEnvelope,
     RetryPolicy,
     sanitize_error_message,
+    validate_timestamp,
 )
+from handoffkit.csp.security import (
+    AuthenticationError,
+    AuthorizationError,
+    CapabilityPolicy,
+    CertificateIdentityPolicy,
+    PeerIdentity,
+    ReplayProtection,
+    SecurityConfig,
+    SecurityError,
+    SecurityProfile,
+    authenticate_ssl_peer,
+    build_ssl_context,
+    validate_declared_peer_identity,
+)
+
+_SECURE_TRANSPORT_FACTORY_TOKEN = object()
 
 
 @dataclass(frozen=True)
@@ -28,6 +46,10 @@ class NetworkConfig:
     connect_timeout_ms: int = 5000
     io_timeout_ms: int = 30000
     retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
+    security_config: SecurityConfig = field(default_factory=SecurityConfig)
+    identity_policy: CertificateIdentityPolicy | None = None
+    capability_policy: CapabilityPolicy | None = None
+    replay_protection: ReplayProtection = field(default_factory=ReplayProtection)
 
     def __post_init__(self) -> None:
         if not MIN_MESSAGE_BYTES <= self.max_message_bytes <= DEFAULT_MAX_MESSAGE_BYTES:
@@ -37,6 +59,16 @@ class NetworkConfig:
             )
         if self.connect_timeout_ms < 1 or self.io_timeout_ms < 1:
             raise ValueError("network timeouts must be at least 1 ms")
+        if self.security_config.profile in (
+            SecurityProfile.STANDARD,
+            SecurityProfile.HYBRID_PQ,
+        ):
+            if self.identity_policy is None:
+                raise ValueError("secure network transport requires identity_policy")
+            if self.capability_policy is None:
+                raise ValueError("secure network transport requires capability_policy")
+            if self.identity_policy.trust_domain != self.security_config.trust_domain:
+                raise ValueError("identity_policy trust_domain must match security_config")
 
 
 class Transport(ABC):
@@ -72,9 +104,7 @@ class StdioTransport(Transport):
     async def send(self, envelope: MessageEnvelope) -> None:
         data = envelope.to_json().encode("utf-8") + b"\n"
         if len(data) > self.max_message_bytes:
-            raise MessageTooLargeError(
-                f"Encoded envelope exceeds {self.max_message_bytes} bytes."
-            )
+            raise MessageTooLargeError(f"Encoded envelope exceeds {self.max_message_bytes} bytes.")
         self.writer.write(data)
         await self.writer.drain()
 
@@ -83,9 +113,7 @@ class StdioTransport(Transport):
         if not data:
             raise ChannelClosedError("stdio peer closed the protocol stream")
         if len(data) > self.max_message_bytes:
-            raise MessageTooLargeError(
-                f"Encoded envelope exceeds {self.max_message_bytes} bytes."
-            )
+            raise MessageTooLargeError(f"Encoded envelope exceeds {self.max_message_bytes} bytes.")
         return MessageEnvelope.from_json(data.decode("utf-8"))
 
     async def close(self) -> None:
@@ -131,9 +159,7 @@ class SubprocessStdioTransport(Transport):
     async def send(self, envelope: MessageEnvelope) -> None:
         data = envelope.to_json().encode("utf-8") + b"\n"
         if len(data) > self.max_message_bytes:
-            raise MessageTooLargeError(
-                f"Encoded envelope exceeds {self.max_message_bytes} bytes."
-            )
+            raise MessageTooLargeError(f"Encoded envelope exceeds {self.max_message_bytes} bytes.")
         self.writer.write(data)
         await self.writer.drain()
 
@@ -142,9 +168,7 @@ class SubprocessStdioTransport(Transport):
         if not data:
             raise ChannelClosedError("child process closed stdout")
         if len(data) > self.max_message_bytes:
-            raise MessageTooLargeError(
-                f"Encoded envelope exceeds {self.max_message_bytes} bytes."
-            )
+            raise MessageTooLargeError(f"Encoded envelope exceeds {self.max_message_bytes} bytes.")
         return MessageEnvelope.from_json(data.decode("utf-8"))
 
     async def close(self) -> None:
@@ -172,6 +196,7 @@ class LengthDelimitedTransport(Transport):
         writer: asyncio.StreamWriter,
         *,
         config: NetworkConfig | None = None,
+        _secure_factory_token: object | None = None,
     ) -> None:
         self.reader = reader
         self.writer = writer
@@ -179,6 +204,39 @@ class LengthDelimitedTransport(Transport):
         self._send_lock = asyncio.Lock()
         self._receive_lock = asyncio.Lock()
         self._closed = False
+        self.authenticated_peer: PeerIdentity | None = None
+        profile = self.config.security_config.profile
+        if profile in (SecurityProfile.HYBRID_PQ, SecurityProfile.RESEARCH):
+            # Keep unavailable/provider-dependent profiles fail-closed even if
+            # a caller tries to wrap a socket constructed outside this module.
+            build_ssl_context(self.config.security_config, is_server=False)
+        if profile in (SecurityProfile.STANDARD, SecurityProfile.HYBRID_PQ):
+            if _secure_factory_token is not _SECURE_TRANSPORT_FACTORY_TOKEN:
+                raise SecurityError(
+                    "Secure transports must be created by TcpTransport.connect() "
+                    "or TcpTransport.start_server().",
+                    code="secure_transport_factory_required",
+                    details={"profile": profile.value},
+                )
+        if profile in (
+            SecurityProfile.STANDARD,
+            SecurityProfile.HYBRID_PQ,
+        ):
+            ssl_object = writer.get_extra_info("ssl_object")
+            if ssl_object is None:
+                raise AuthenticationError(
+                    "Secure network transport requires an authenticated TLS socket.",
+                    code="tls_required",
+                )
+            if self.config.identity_policy is None:
+                raise AuthenticationError(
+                    "Secure network transport has no certificate identity policy.",
+                    code="identity_policy_missing",
+                )
+            self.authenticated_peer = authenticate_ssl_peer(
+                ssl_object,
+                self.config.identity_policy,
+            )
 
     async def _io(self, operation: Any) -> Any:
         return await asyncio.wait_for(
@@ -216,7 +274,64 @@ class LengthDelimitedTransport(Transport):
                 payload = await self._io(self.reader.readexactly(size))
             except asyncio.IncompleteReadError as exc:
                 raise ChannelClosedError("network peer sent an incomplete frame") from exc
-        return MessageEnvelope.from_json(payload.decode("utf-8"))
+        envelope = MessageEnvelope.from_json(payload.decode("utf-8"))
+        self._validate_secure_envelope(envelope)
+        return envelope
+
+    def _validate_secure_envelope(self, envelope: MessageEnvelope) -> None:
+        if self.config.security_config.profile not in (
+            SecurityProfile.STANDARD,
+            SecurityProfile.HYBRID_PQ,
+        ):
+            return
+        peer = self.authenticated_peer
+        if peer is None:
+            raise AuthenticationError(
+                "Secure envelope has no authenticated transport peer.",
+                code="authenticated_peer_missing",
+            )
+        declared_value = envelope.metadata.get("peer_identity")
+        if not isinstance(declared_value, dict):
+            raise AuthenticationError(
+                "Secure envelope requires a declared peer_identity object.",
+                code="declared_identity_missing",
+            )
+        declared = PeerIdentity.from_dict(declared_value)
+        validate_declared_peer_identity(peer, declared)
+        if envelope.source != peer.peer_id:
+            raise AuthenticationError(
+                "Envelope source does not match the authenticated peer_id.",
+                code="declared_identity_mismatch",
+                details={"fields": ["peer_id"]},
+            )
+
+        nonce = envelope.metadata.get("security_nonce")
+        if not isinstance(nonce, str) or not nonce or len(nonce) > 256:
+            raise AuthenticationError(
+                "Secure envelope requires a bounded non-empty security_nonce.",
+                code="security_nonce_missing",
+            )
+        created_at = validate_timestamp(envelope.created_at, field_name="created_at").timestamp()
+        replay_scope = f"{peer.credential_fingerprint}|{envelope.session_id}"
+        self.config.replay_protection.check_and_record(
+            replay_scope,
+            envelope.sequence,
+            nonce=nonce,
+            created_at_ts=created_at,
+        )
+
+        operation = envelope.metadata.get("operation")
+        if not isinstance(operation, str) or not operation:
+            raise AuthorizationError(
+                "Secure envelope requires an explicit operation for authorization.",
+                code="operation_missing",
+            )
+        policy = self.config.capability_policy
+        if policy is None or not policy.is_operation_authorized(operation, peer):
+            raise AuthorizationError(
+                f"Peer '{peer.peer_id}' is not authorized for operation '{operation}'.",
+                details={"peer_id": peer.peer_id, "operation": operation},
+            )
 
     async def close(self) -> None:
         if self._closed:
@@ -225,12 +340,38 @@ class LengthDelimitedTransport(Transport):
         self.writer.close()
         try:
             await self.writer.wait_closed()
-        except (BrokenPipeError, ConnectionError):
+        except (BrokenPipeError, ConnectionError, ssl.SSLError):
             pass
 
 
 class TcpTransport(LengthDelimitedTransport):
     """Safe TCP client transport with bounded connection retry."""
+
+    @staticmethod
+    def _resolve_ssl_context(
+        config: NetworkConfig,
+        *,
+        is_server: bool,
+        supplied: ssl.SSLContext | None,
+    ) -> ssl.SSLContext | None:
+        profile = config.security_config.profile
+        if supplied is not None and profile in (
+            SecurityProfile.STANDARD,
+            SecurityProfile.HYBRID_PQ,
+            SecurityProfile.RESEARCH,
+        ):
+            if profile in (SecurityProfile.HYBRID_PQ, SecurityProfile.RESEARCH):
+                # Preserve the provider/profile-specific structured error. In
+                # particular, an externally supplied standard context must not
+                # make hybrid-pq appear usable.
+                build_ssl_context(config.security_config, is_server=is_server)
+            raise SecurityError(
+                "Secure profiles reject external SSLContext overrides; configure "
+                "trust and credentials through SecurityConfig.",
+                code="tls_context_override_forbidden",
+                details={"profile": profile.value},
+            )
+        return supplied or build_ssl_context(config.security_config, is_server=is_server)
 
     @classmethod
     async def connect(
@@ -239,13 +380,72 @@ class TcpTransport(LengthDelimitedTransport):
         port: int,
         *,
         config: NetworkConfig | None = None,
+        ssl_context: ssl.SSLContext | None = None,
+        server_hostname: str | None = None,
     ) -> TcpTransport:
         resolved = config or NetworkConfig()
+        ssl_ctx = cls._resolve_ssl_context(
+            resolved,
+            is_server=False,
+            supplied=ssl_context,
+        )
         reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port),
+            asyncio.open_connection(
+                host,
+                port,
+                ssl=ssl_ctx,
+                server_hostname=(server_hostname or host) if ssl_ctx is not None else None,
+            ),
             timeout=resolved.connect_timeout_ms / 1000,
         )
-        return cls(reader, writer, config=resolved)
+        return cls(
+            reader,
+            writer,
+            config=resolved,
+            _secure_factory_token=_SECURE_TRANSPORT_FACTORY_TOKEN,
+        )
+
+    @classmethod
+    async def start_server(
+        cls,
+        client_callback: Any,
+        host: str,
+        port: int,
+        *,
+        config: NetworkConfig | None = None,
+        ssl_context: ssl.SSLContext | None = None,
+    ) -> asyncio.Server:
+        resolved = config or NetworkConfig()
+        resolved.security_config.validate_listen_address(host)
+        ssl_ctx = cls._resolve_ssl_context(
+            resolved,
+            is_server=True,
+            supplied=ssl_context,
+        )
+        async def on_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            try:
+                transport = cls(
+                    reader,
+                    writer,
+                    config=resolved,
+                    _secure_factory_token=_SECURE_TRANSPORT_FACTORY_TOKEN,
+                )
+                result = client_callback(transport)
+                if inspect.isawaitable(result):
+                    await result
+            except SecurityError:
+                writer.close()
+                try:
+                    await writer.wait_closed()
+                except (BrokenPipeError, ConnectionError, ssl.SSLError):
+                    pass
+
+        return await asyncio.start_server(
+            on_client,
+            host=host,
+            port=port,
+            ssl=ssl_ctx,
+        )
 
     @classmethod
     async def connect_with_retry(
@@ -261,7 +461,7 @@ class TcpTransport(LengthDelimitedTransport):
         for attempt in range(1, policy.max_attempts + 1):
             try:
                 return await cls.connect(host, port, config=resolved)
-            except (OSError, TimeoutError) as exc:
+            except (OSError, asyncio.TimeoutError) as exc:
                 last_error = exc
                 if attempt >= policy.max_attempts:
                     break
@@ -320,9 +520,7 @@ class WebSocketTransport(Transport):
     async def send(self, envelope: MessageEnvelope) -> None:
         payload = envelope.to_json()
         if len(payload.encode("utf-8")) > self.max_message_bytes:
-            raise MessageTooLargeError(
-                f"WebSocket frame exceeds {self.max_message_bytes} bytes."
-            )
+            raise MessageTooLargeError(f"WebSocket frame exceeds {self.max_message_bytes} bytes.")
         await self._resolve(self.socket.send(payload))
 
     async def receive(self) -> MessageEnvelope:
@@ -334,9 +532,7 @@ class WebSocketTransport(Transport):
             text = str(payload)
             encoded = text.encode("utf-8")
         if len(encoded) > self.max_message_bytes:
-            raise MessageTooLargeError(
-                f"WebSocket frame exceeds {self.max_message_bytes} bytes."
-            )
+            raise MessageTooLargeError(f"WebSocket frame exceeds {self.max_message_bytes} bytes.")
         return MessageEnvelope.from_json(text)
 
     async def close(self) -> None:

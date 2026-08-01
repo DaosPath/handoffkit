@@ -121,8 +121,7 @@ def make_web_explore_tool(default_transport_ref: Any = None) -> Tool:
         run,
         name="web_explore",
         description=(
-            "Bounded BFS crawl from a start URL. "
-            "Use for docs sites when one page is not enough."
+            "Bounded BFS crawl from a start URL. Use for docs sites when one page is not enough."
         ),
     )
 
@@ -177,8 +176,7 @@ def make_html_to_markdown_tool(default_transport_ref: Any = None) -> Tool:
         run,
         name="html_to_markdown",
         description=(
-            "Convert an HTML string (or fetch a URL) into compact Markdown "
-            "for agent context."
+            "Convert an HTML string (or fetch a URL) into compact Markdown for agent context."
         ),
     )
 

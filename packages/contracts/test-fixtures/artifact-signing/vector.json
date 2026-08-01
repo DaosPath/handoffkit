@@ -1,0 +1,14 @@
+{
+  "data_base64": "aGFuZG9mZmtpdCBzaWduZWQgYXJ0aWZhY3QK",
+  "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAiqUbCIcL0RRPZXyNuPMiqI6/H4QIJMjmZKJkGOP26Fc=\n-----END PUBLIC KEY-----\n",
+  "canonical_payload": "{\"algorithm\":\"ed25519\",\"artifact_id\":\"artifact-1\",\"content_hash\":\"8416cac54bfdbe4faec6d73fdb57ae7cfa81703b311b66de3639e826a185f1e4\",\"created_at\":1800000000,\"key_fingerprint\":\"sha256:fc438a92c55be5d5d765cae8e29d0c8870857f962abb9642236f6a72518875ec\",\"signer_identity\":\"spiffe://handoffkit.internal/producer/build-1\"}",
+  "signed_artifact": {
+    "artifact_id": "artifact-1",
+    "content_hash": "8416cac54bfdbe4faec6d73fdb57ae7cfa81703b311b66de3639e826a185f1e4",
+    "signature": "y+V/NsUqj0myhzK72K0L6CaJ2TiUFLeNMZ93zPC7yRyT8BDvv3gk7RRMJ+FKDFhuOB5I5B0uiE4QxFPOsVlUAA==",
+    "algorithm": "ed25519",
+    "signer_identity": "spiffe://handoffkit.internal/producer/build-1",
+    "key_fingerprint": "sha256:fc438a92c55be5d5d765cae8e29d0c8870857f962abb9642236f6a72518875ec",
+    "created_at": 1800000000
+  }
+}

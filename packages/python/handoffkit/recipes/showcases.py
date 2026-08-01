@@ -78,9 +78,10 @@ class ShowcaseResult:
             )
             for handoff in self.handoffs
         )
-        artifacts = "\n".join(
-            f"- `{name}`: `{path}`" for name, path in sorted(self.artifacts.items())
-        ) or "- generated when written"
+        artifacts = (
+            "\n".join(f"- `{name}`: `{path}`" for name, path in sorted(self.artifacts.items()))
+            or "- generated when written"
+        )
         return (
             f"# {self.title}\n\n"
             f"## 5 Minute Command\n\n```bash\n{self.command}\n```\n\n"
@@ -326,8 +327,7 @@ def _coding_review_showcase() -> ShowcaseResult:
         ),
         pain="Free-text agent summaries drop files, edge cases, review fixes, and test evidence.",
         free_text_summary=(
-            "Calculator is basically done. Reviewer found one small issue. "
-            "Tester should run it."
+            "Calculator is basically done. Reviewer found one small issue. Tester should run it."
         ),
         lost_context=[
             "which files changed",
@@ -375,8 +375,7 @@ def _support_escalation_showcase() -> ShowcaseResult:
             from_agent="Billing",
             to_agent="Refund",
             summary=(
-                "Two captures found within 3 minutes; second capture matches "
-                "duplicate renewal."
+                "Two captures found within 3 minutes; second capture matches duplicate renewal."
             ),
             decisions=[
                 "Refund second capture only.",
@@ -432,8 +431,7 @@ def _support_escalation_showcase() -> ShowcaseResult:
             "promised to the customer."
         ),
         free_text_summary=(
-            "Looks like duplicate billing. Refund team should handle it and "
-            "maybe tell customer."
+            "Looks like duplicate billing. Refund team should handle it and maybe tell customer."
         ),
         lost_context=[
             "exact charge IDs",
@@ -538,8 +536,7 @@ def _research_workflow_showcase() -> ShowcaseResult:
             "final writing constraints."
         ),
         free_text_summary=(
-            "Sources look good. Fact checker removed something. Writer can make "
-            "the brief."
+            "Sources look good. Fact checker removed something. Writer can make the brief."
         ),
         lost_context=[
             "which source backs which claim",
@@ -661,9 +658,7 @@ def _doctor_orchestrator_showcase() -> ShowcaseResult:
                 "Record cost/utility reasoning beside each proposed test.",
             ],
             important_files=["case/test_plan.md", "case/cost_utility.md"],
-            errors=[
-                "No local prevalence, exposure history, exam findings, or availability data."
-            ],
+            errors=["No local prevalence, exposure history, exam findings, or availability data."],
             next_steps=[
                 "Validate that no recommendation outruns available evidence.",
                 "Check that uncertainty, missing data, and safety boundaries remain visible.",

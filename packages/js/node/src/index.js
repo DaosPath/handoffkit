@@ -9,10 +9,25 @@ import path, { join } from "node:path";
 import {
   DEFAULT_MAX_MESSAGE_BYTES,
   MIN_MESSAGE_BYTES,
+  AuthenticationError,
+  AuthorizationError,
+  CapabilityPolicy,
+  CertificateIdentityPolicy,
   MessageEnvelope,
   MessageTooLargeError,
+  PeerIdentity,
+  ReplayProtection,
+  SecurityConfig,
+  SecurityError,
+  SecurityProfile,
   Transport,
+  validateDeclaredPeerIdentity,
 } from "@handoffkit/csp";
+import {
+  authenticateTlsSocket,
+  buildTlsOptions,
+  detectHybridPqSupport,
+} from "./security.js";
 
 export * from "@handoffkit/core";
 import {
@@ -39,6 +54,7 @@ const IGNORED_DIRS = new Set([
   ".turbo",
   "coverage",
 ]);
+const SECURE_TRANSPORT_FACTORY_TOKEN = Symbol("secure transport factory");
 
 export class FileTraceStore {
   constructor({ root = "traces" } = {}) {
@@ -345,27 +361,96 @@ export class FileDedupStore {
 }
 
 export class NetworkConfig {
-  constructor({ maxMessageBytes = DEFAULT_MAX_MESSAGE_BYTES, connectTimeoutMs = 5000, ioTimeoutMs = 30000, maxAttempts = 3, baseDelayMs = 100, maxDelayMs = 2000 } = {}) {
+  constructor({
+    maxMessageBytes = DEFAULT_MAX_MESSAGE_BYTES,
+    connectTimeoutMs = 5000,
+    ioTimeoutMs = 30000,
+    maxAttempts = 3,
+    baseDelayMs = 100,
+    maxDelayMs = 2000,
+    securityConfig = new SecurityConfig(),
+    identityPolicy = null,
+    capabilityPolicy = null,
+    replayProtection = new ReplayProtection(),
+  } = {}) {
     validateMaxMessageBytes(maxMessageBytes);
     for (const [name, value] of Object.entries({ connectTimeoutMs, ioTimeoutMs, maxAttempts })) {
       if (!Number.isInteger(value) || value < 1) throw new TypeError(`${name} must be at least 1`);
     }
     if (baseDelayMs < 0 || maxDelayMs < baseDelayMs) throw new TypeError("retry delays are invalid");
-    Object.assign(this, { maxMessageBytes, connectTimeoutMs, ioTimeoutMs, maxAttempts, baseDelayMs, maxDelayMs });
+    if (!(securityConfig instanceof SecurityConfig)) {
+      securityConfig = new SecurityConfig(securityConfig);
+    }
+    if (identityPolicy && !(identityPolicy instanceof CertificateIdentityPolicy)) {
+      identityPolicy = new CertificateIdentityPolicy(identityPolicy);
+    }
+    if (capabilityPolicy && !(capabilityPolicy instanceof CapabilityPolicy)) {
+      capabilityPolicy = new CapabilityPolicy(capabilityPolicy);
+    }
+    if (!(replayProtection instanceof ReplayProtection)) {
+      replayProtection = new ReplayProtection(replayProtection);
+    }
+    if ([SecurityProfile.STANDARD, SecurityProfile.HYBRID_PQ].includes(securityConfig.profile)) {
+      if (!identityPolicy) throw new TypeError("secure network transport requires identityPolicy");
+      if (!capabilityPolicy) throw new TypeError("secure network transport requires capabilityPolicy");
+      if (identityPolicy.trustDomain !== securityConfig.trustDomain) {
+        throw new TypeError("identityPolicy trustDomain must match securityConfig");
+      }
+    }
+    Object.assign(this, {
+      maxMessageBytes,
+      connectTimeoutMs,
+      ioTimeoutMs,
+      maxAttempts,
+      baseDelayMs,
+      maxDelayMs,
+      securityConfig,
+      identityPolicy,
+      capabilityPolicy,
+      replayProtection,
+    });
   }
 }
 
 export class LengthDelimitedTransport extends Transport {
-  constructor(socket, { config = new NetworkConfig() } = {}) {
+  constructor(socket, {
+    config = new NetworkConfig(),
+    secureFactoryToken = null,
+  } = {}) {
     super();
+    this.config = config instanceof NetworkConfig ? config : new NetworkConfig(config);
+    const profile = this.config.securityConfig.profile;
+    if (profile === SecurityProfile.RESEARCH) {
+      throw new SecurityError(
+        "The research security profile has no production TLS provider.",
+        { code: "security_profile_unavailable", details: { profile } },
+      );
+    }
+    if (profile === SecurityProfile.HYBRID_PQ && !detectHybridPqSupport()) {
+      throw new SecurityError(
+        "The hybrid-pq security profile is unavailable in the active Node TLS provider.",
+        { code: "security_profile_unavailable", details: { profile } },
+      );
+    }
+    if ([SecurityProfile.STANDARD, SecurityProfile.HYBRID_PQ].includes(profile)
+      && secureFactoryToken !== SECURE_TRANSPORT_FACTORY_TOKEN) {
+      throw new SecurityError(
+        "Secure transports must be created by TcpTransport.connect() or TcpTransport.startServer().",
+        { code: "secure_transport_factory_required", details: { profile } },
+      );
+    }
     if (!socket || typeof socket.write !== "function") throw new TypeError("socket is required");
     this.socket = socket;
-    this.config = config instanceof NetworkConfig ? config : new NetworkConfig(config);
     this.buffer = Buffer.alloc(0);
     this.frames = [];
     this.waiters = [];
     this.ended = false;
     this.failure = null;
+    this.authenticatedPeer = null;
+    if ([SecurityProfile.STANDARD, SecurityProfile.HYBRID_PQ]
+      .includes(this.config.securityConfig.profile)) {
+      this.authenticatedPeer = authenticateTlsSocket(socket, this.config.identityPolicy);
+    }
     socket.on("data", (chunk) => this.accept(Buffer.from(chunk)));
     socket.on("end", () => this.finish());
     socket.on("close", () => this.finish());
@@ -406,10 +491,69 @@ export class LengthDelimitedTransport extends Transport {
   }
   async receive() {
     const frame = this.frames.shift();
-    if (frame) return MessageEnvelope.fromJSON(frame.toString("utf8"));
+    if (frame) {
+      const envelope = MessageEnvelope.fromJSON(frame.toString("utf8"));
+      this.validateSecureEnvelope(envelope);
+      return envelope;
+    }
     if (this.ended) throw this.failure ?? new Error("network peer closed the protocol stream");
     const pending = new Promise((resolve, reject) => this.waiters.push({ resolve, reject }));
-    return MessageEnvelope.fromJSON((await pending).toString("utf8"));
+    const envelope = MessageEnvelope.fromJSON((await pending).toString("utf8"));
+    this.validateSecureEnvelope(envelope);
+    return envelope;
+  }
+  validateSecureEnvelope(envelope) {
+    if (![SecurityProfile.STANDARD, SecurityProfile.HYBRID_PQ]
+      .includes(this.config.securityConfig.profile)) return;
+    const peer = this.authenticatedPeer;
+    if (!peer) {
+      throw new AuthenticationError(
+        "Secure envelope has no authenticated transport peer.",
+        { code: "authenticated_peer_missing" },
+      );
+    }
+    const declared = envelope.metadata?.peer_identity;
+    if (!declared || typeof declared !== "object" || Array.isArray(declared)) {
+      throw new AuthenticationError(
+        "Secure envelope requires a declared peer_identity object.",
+        { code: "declared_identity_missing" },
+      );
+    }
+    validateDeclaredPeerIdentity(peer, new PeerIdentity(declared));
+    if (envelope.source !== peer.peerId) {
+      throw new AuthenticationError(
+        "Envelope source does not match the authenticated peer_id.",
+        { code: "declared_identity_mismatch", details: { fields: ["peer_id"] } },
+      );
+    }
+    const nonce = envelope.metadata?.security_nonce;
+    if (typeof nonce !== "string" || nonce.length === 0 || nonce.length > 256) {
+      throw new AuthenticationError(
+        "Secure envelope requires a bounded non-empty security_nonce.",
+        { code: "security_nonce_missing" },
+      );
+    }
+    const createdAt = Date.parse(envelope.createdAt) / 1000;
+    const replayScope = `${peer.credentialFingerprint}|${envelope.sessionId}`;
+    this.config.replayProtection.checkAndRecord(
+      replayScope,
+      envelope.sequence,
+      nonce,
+      createdAt,
+    );
+    const operation = envelope.metadata?.operation;
+    if (typeof operation !== "string" || operation.length === 0) {
+      throw new AuthorizationError(
+        "Secure envelope requires an explicit operation for authorization.",
+        { code: "operation_missing" },
+      );
+    }
+    if (!this.config.capabilityPolicy?.isOperationAuthorized(operation, peer)) {
+      throw new AuthorizationError(
+        `Peer '${peer.peerId}' is not authorized for operation '${operation}'.`,
+        { details: { peer_id: peer.peerId, operation } },
+      );
+    }
   }
   async close() {
     if (this.ended) return;
@@ -424,11 +568,34 @@ export class LengthDelimitedTransport extends Transport {
   }
 }
 
+export * from "./security.js";
+import tls from "node:tls";
+import net from "node:net";
+
 export class TcpTransport extends LengthDelimitedTransport {
   static async connect(host, port, options = {}) {
     const config = options.config instanceof NetworkConfig ? options.config : new NetworkConfig(options.config);
-    const socket = await connectSocket({ host, port }, config.connectTimeoutMs);
-    return new TcpTransport(socket, { config });
+    const tlsOpts = resolveTlsOptions(
+      config,
+      options.tlsOptions,
+      false,
+      options.servername || host,
+    );
+    const socket = await connectSocket({ host, port, ...tlsOpts }, config.connectTimeoutMs, Boolean(tlsOpts));
+    return new TcpTransport(socket, {
+      config,
+      secureFactoryToken: SECURE_TRANSPORT_FACTORY_TOKEN,
+    });
+  }
+  static async startServer(clientCallback, host, port, options = {}) {
+    const config = options.config instanceof NetworkConfig ? options.config : new NetworkConfig(options.config);
+    config.securityConfig?.validateListenAddress(host);
+    const tlsOpts = resolveTlsOptions(config, options.tlsOptions, true);
+    const server = tlsOpts
+      ? tls.createServer(tlsOpts, (socket) => invokeClientCallback(clientCallback, socket, config))
+      : net.createServer((socket) => invokeClientCallback(clientCallback, socket, config));
+    await new Promise((resolve) => server.listen(port, host, resolve));
+    return server;
   }
   static async connectWithRetry(host, port, options = {}) {
     const config = options.config instanceof NetworkConfig ? options.config : new NetworkConfig(options.config);
@@ -460,16 +627,71 @@ function validateMaxMessageBytes(value) {
   }
 }
 
-function connectSocket(options, timeoutMs) {
+function connectSocket(options, timeoutMs, useTls = false) {
   return new Promise((resolve, reject) => {
-    const socket = createConnection(options);
+    const socket = useTls ? tls.connect(options) : createConnection(options);
+    const connectEvent = useTls ? "secureConnect" : "connect";
     const timer = setTimeout(() => {
       socket.destroy();
       reject(new Error("network connection timed out"));
     }, timeoutMs);
-    socket.once("connect", () => { clearTimeout(timer); socket.removeListener("error", rejectOnce); resolve(socket); });
+    socket.once(connectEvent, () => {
+      clearTimeout(timer);
+      socket.removeListener("error", rejectOnce);
+      if (useTls && !socket.authorized) {
+        const error = new AuthenticationError(
+          "TLS peer certificate was not authorized by the active trust store.",
+          {
+            code: "peer_certificate_untrusted",
+            details: { authorization_error: socket.authorizationError || null },
+          },
+        );
+        socket.destroy(error);
+        reject(error);
+        return;
+      }
+      resolve(socket);
+    });
     const rejectOnce = (error) => { clearTimeout(timer); reject(error); };
     socket.once("error", rejectOnce);
+  });
+}
+
+function resolveTlsOptions(config, supplied, isServer, servername) {
+  const profile = config.securityConfig?.profile;
+  if (supplied && [
+    SecurityProfile.STANDARD,
+    SecurityProfile.HYBRID_PQ,
+    SecurityProfile.RESEARCH,
+  ].includes(profile)) {
+    if ([SecurityProfile.HYBRID_PQ, SecurityProfile.RESEARCH].includes(profile)) {
+      // Preserve provider/profile errors. A caller-supplied standard context
+      // must never make hybrid-pq appear supported.
+      buildTlsOptions(config.securityConfig, isServer, { servername });
+    }
+    throw new SecurityError(
+      "Secure profiles reject tlsOptions overrides; configure trust and credentials through SecurityConfig.",
+      { code: "tls_context_override_forbidden", details: { profile } },
+    );
+  }
+  return supplied || (config.securityConfig
+    ? buildTlsOptions(config.securityConfig, isServer, { servername })
+    : null);
+}
+
+function invokeClientCallback(clientCallback, socket, config) {
+  let transport;
+  try {
+    transport = new TcpTransport(socket, {
+      config,
+      secureFactoryToken: SECURE_TRANSPORT_FACTORY_TOKEN,
+    });
+  } catch (error) {
+    socket.destroy(error);
+    return;
+  }
+  Promise.resolve(clientCallback(transport)).catch((error) => {
+    socket.destroy(error);
   });
 }
 

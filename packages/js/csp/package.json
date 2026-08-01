@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/csp",
-  "version": "1.18.0",
+  "version": "1.19.0",
   "description": "Browser-safe Communicating Sequential Processes runtime for HandoffKit.",
   "repository": {
     "type": "git",

@@ -773,9 +773,7 @@ class MediaContext:
         if self.source and self.source.path:
             files.append(self.source.path)
         files.extend(a.path for a in self.assets if a.path)
-        next_steps = list(self.next_operations) or (
-            list(spec.outputs) if spec else []
-        )
+        next_steps = list(self.next_operations) or (list(spec.outputs) if spec else [])
         return HandoffState(
             task=default_task,
             from_agent=from_agent or role,

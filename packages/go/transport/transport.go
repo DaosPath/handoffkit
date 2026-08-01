@@ -3,32 +3,42 @@ package transport
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os/exec"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/DaosPath/handoffkit/go/contract"
+	"github.com/DaosPath/handoffkit/go/security"
 )
 
 type Config struct {
-	MaxMessageBytes int
-	ConnectTimeout  time.Duration
-	IOTimeout       time.Duration
-	RetryPolicy     contract.RetryPolicy
+	MaxMessageBytes  int
+	ConnectTimeout   time.Duration
+	IOTimeout        time.Duration
+	RetryPolicy      contract.RetryPolicy
+	SecurityConfig   *security.SecurityConfig
+	IdentityPolicy   *security.CertificateIdentityPolicy
+	CapabilityPolicy *security.CapabilityPolicy
+	ReplayProtection *security.ReplayProtection
+	ServerName       string
 }
 
 func DefaultConfig() Config {
 	return Config{
 		MaxMessageBytes: contract.DefaultMaxMessageBytes,
-		ConnectTimeout: 5 * time.Second,
-		IOTimeout: 30 * time.Second,
-		RetryPolicy: contract.DefaultRetryPolicy(),
+		ConnectTimeout:  5 * time.Second,
+		IOTimeout:       30 * time.Second,
+		RetryPolicy:     contract.DefaultRetryPolicy(),
+		SecurityConfig:  security.NewDefaultSecurityConfig(),
 	}
 }
 
@@ -39,7 +49,47 @@ func (c Config) Validate() error {
 	if c.ConnectTimeout <= 0 || c.IOTimeout <= 0 {
 		return errors.New("network timeouts must be positive")
 	}
+	if c.SecurityConfig != nil {
+		switch c.SecurityConfig.Profile {
+		case security.SecurityProfileLocal, security.SecurityProfileStandard:
+		case security.SecurityProfileHybridPQ:
+			if !security.DetectHybridPQSupport() {
+				return &security.SecurityError{
+					Code:    "security_profile_unavailable",
+					Message: "hybrid-pq is unavailable in the active Go crypto/tls provider",
+					Details: map[string]any{
+						"profile":        c.SecurityConfig.Profile,
+						"required_group": "X25519MLKEM768",
+					},
+				}
+			}
+		case security.SecurityProfileResearch:
+			return &security.SecurityError{
+				Code:    "security_profile_unavailable",
+				Message: "research security profile has no production TLS provider",
+				Details: map[string]any{"profile": c.SecurityConfig.Profile},
+			}
+		default:
+			return &security.SecurityError{
+				Code:    "security_profile_unavailable",
+				Message: "security profile is not recognized by this runtime",
+				Details: map[string]any{"profile": c.SecurityConfig.Profile},
+			}
+		}
+	}
+	if c.secure() {
+		if c.IdentityPolicy == nil || c.CapabilityPolicy == nil || c.ReplayProtection == nil {
+			return errors.New("secure network transport requires identity, capability, and replay policies")
+		}
+		if c.IdentityPolicy.TrustDomain != c.SecurityConfig.TrustDomain {
+			return errors.New("identity policy trust domain must match security config")
+		}
+	}
 	return c.RetryPolicy.Validate()
+}
+
+func (c Config) secure() bool {
+	return c.SecurityConfig != nil && (c.SecurityConfig.Profile == security.SecurityProfileStandard || c.SecurityConfig.Profile == security.SecurityProfileHybridPQ)
 }
 
 type NDJSON struct {
@@ -117,18 +167,44 @@ func (t *NDJSON) Close() error {
 }
 
 type LengthDelimited struct {
-	connection net.Conn
-	config     Config
-	sendMu     sync.Mutex
-	recvMu     sync.Mutex
-	closed     atomic.Bool
+	connection        net.Conn
+	config            Config
+	AuthenticatedPeer *security.PeerIdentity
+	sendMu            sync.Mutex
+	recvMu            sync.Mutex
+	closed            atomic.Bool
 }
 
 func NewLengthDelimited(connection net.Conn, config Config) (*LengthDelimited, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
-	return &LengthDelimited{connection: connection, config: config}, nil
+	transport := &LengthDelimited{connection: connection, config: config}
+	if config.secure() {
+		tlsConnection, ok := connection.(*tls.Conn)
+		if !ok {
+			return nil, &security.SecurityError{Code: "tls_required", Message: "secure network transport requires a TLS connection", Details: map[string]any{}}
+		}
+		if err := tlsConnection.SetDeadline(time.Now().Add(config.ConnectTimeout)); err != nil {
+			return nil, err
+		}
+		peer, err := security.AuthenticateTLSConnection(tlsConnection, config.IdentityPolicy)
+		if clearErr := tlsConnection.SetDeadline(time.Time{}); err == nil && clearErr != nil {
+			err = clearErr
+		}
+		if err != nil {
+			return nil, err
+		}
+		if config.SecurityConfig.Profile == security.SecurityProfileHybridPQ && !hybridPQNegotiated(tlsConnection) {
+			return nil, &security.SecurityError{
+				Code:    "security_profile_mismatch",
+				Message: "TLS connection did not negotiate the required hybrid-pq group",
+				Details: map[string]any{"required_group": "X25519MLKEM768"},
+			}
+		}
+		transport.AuthenticatedPeer = peer
+	}
+	return transport, nil
 }
 
 func (t *LengthDelimited) Send(ctx context.Context, envelope contract.MessageEnvelope) error {
@@ -168,7 +244,61 @@ func (t *LengthDelimited) Receive(ctx context.Context) (contract.MessageEnvelope
 	if err := t.readContext(ctx, payload); err != nil {
 		return contract.MessageEnvelope{}, err
 	}
-	return contract.DecodeEnvelope(payload)
+	envelope, err := contract.DecodeEnvelope(payload)
+	if err != nil {
+		return contract.MessageEnvelope{}, err
+	}
+	if err := t.validateSecureEnvelope(envelope); err != nil {
+		return contract.MessageEnvelope{}, err
+	}
+	return envelope, nil
+}
+
+func (t *LengthDelimited) validateSecureEnvelope(envelope contract.MessageEnvelope) error {
+	if !t.config.secure() {
+		return nil
+	}
+	if t.AuthenticatedPeer == nil {
+		return &security.SecurityError{Code: "authenticated_peer_missing", Message: "secure envelope has no authenticated transport peer", Details: map[string]any{}}
+	}
+	declaredValue, ok := envelope.Metadata["peer_identity"]
+	if !ok {
+		return &security.SecurityError{Code: "declared_identity_missing", Message: "secure envelope requires peer_identity", Details: map[string]any{}}
+	}
+	encoded, err := json.Marshal(declaredValue)
+	if err != nil {
+		return &security.SecurityError{Code: "declared_identity_invalid", Message: "declared peer_identity is invalid", Details: map[string]any{}}
+	}
+	var declared security.PeerIdentity
+	if err := json.Unmarshal(encoded, &declared); err != nil {
+		return &security.SecurityError{Code: "declared_identity_invalid", Message: "declared peer_identity is invalid", Details: map[string]any{}}
+	}
+	if err := security.ValidateDeclaredPeerIdentity(t.AuthenticatedPeer, &declared); err != nil {
+		return err
+	}
+	if envelope.Source != t.AuthenticatedPeer.PeerID {
+		return &security.SecurityError{Code: "declared_identity_mismatch", Message: "envelope source does not match authenticated peer_id", Details: map[string]any{"fields": []string{"peer_id"}}}
+	}
+	nonce, ok := envelope.Metadata["security_nonce"].(string)
+	if !ok || nonce == "" || len(nonce) > 256 {
+		return &security.SecurityError{Code: "security_nonce_missing", Message: "secure envelope requires a bounded non-empty security_nonce", Details: map[string]any{}}
+	}
+	createdAt, err := time.Parse(time.RFC3339Nano, envelope.CreatedAt)
+	if err != nil {
+		return err
+	}
+	scope := t.AuthenticatedPeer.CredentialFingerprint + "|" + envelope.SessionID
+	if err := t.config.ReplayProtection.CheckAndRecord(scope, envelope.Sequence, nonce, createdAt.Unix()); err != nil {
+		return err
+	}
+	operation, ok := envelope.Metadata["operation"].(string)
+	if !ok || strings.TrimSpace(operation) == "" {
+		return &security.SecurityError{Code: "operation_missing", Message: "secure envelope requires an explicit operation", Details: map[string]any{}}
+	}
+	if !t.config.CapabilityPolicy.IsOperationAuthorized(operation, t.AuthenticatedPeer) {
+		return &security.SecurityError{Code: "authorization_denied", Message: "authenticated peer is not authorized for operation", Details: map[string]any{"peer_id": t.AuthenticatedPeer.PeerID, "operation": operation}}
+	}
+	return nil
 }
 
 func (t *LengthDelimited) writeContext(ctx context.Context, payload []byte) error {
@@ -208,8 +338,46 @@ func (t *LengthDelimited) Close() error {
 	return t.connection.Close()
 }
 
+func (t *LengthDelimited) TLSState() (tls.ConnectionState, bool) {
+	connection, ok := t.connection.(*tls.Conn)
+	if !ok {
+		return tls.ConnectionState{}, false
+	}
+	return connection.ConnectionState(), true
+}
+
 func DialTCP(ctx context.Context, address string, config Config) (*LengthDelimited, error) {
 	return dial(ctx, "tcp", address, config)
+}
+
+func ListenTCP(address string, config Config) (net.Listener, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+	securityConfig := config.SecurityConfig
+	if securityConfig == nil {
+		securityConfig = security.NewDefaultSecurityConfig()
+	}
+	if err := securityConfig.ValidateListenAddress(host); err != nil {
+		return nil, err
+	}
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return nil, err
+	}
+	tlsConfig, err := security.BuildTLSConfig(securityConfig, true)
+	if err != nil {
+		_ = listener.Close()
+		return nil, err
+	}
+	if tlsConfig != nil {
+		return tls.NewListener(listener, tlsConfig), nil
+	}
+	return listener, nil
 }
 
 func DialUnix(ctx context.Context, path string, config Config) (*LengthDelimited, error) {
@@ -249,10 +417,35 @@ func dial(ctx context.Context, network, address string, config Config) (*LengthD
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
+	if network != "tcp" && config.secure() {
+		return nil, errors.New("secure profiles are supported only by the TCP transport")
+	}
 	dialer := net.Dialer{Timeout: config.ConnectTimeout}
 	connection, err := dialer.DialContext(ctx, network, address)
 	if err != nil {
 		return nil, err
+	}
+	if network == "tcp" {
+		securityConfig := config.SecurityConfig
+		if securityConfig == nil {
+			securityConfig = security.NewDefaultSecurityConfig()
+		}
+		serverName := config.ServerName
+		if serverName == "" {
+			serverName, _, err = net.SplitHostPort(address)
+			if err != nil {
+				_ = connection.Close()
+				return nil, err
+			}
+		}
+		tlsConfig, tlsErr := security.BuildTLSConfig(securityConfig, false, serverName)
+		if tlsErr != nil {
+			_ = connection.Close()
+			return nil, tlsErr
+		}
+		if tlsConfig != nil {
+			connection = tls.Client(connection, tlsConfig)
+		}
 	}
 	transport, err := NewLengthDelimited(connection, config)
 	if err != nil {

@@ -151,9 +151,7 @@ class ContextPack:
     def to_markdown(self) -> str:
         """Serialize context pack as Markdown."""
         docs = "\n".join(f"- `{doc.path}`: {doc.summary}" for doc in self.documents)
-        memories = "\n".join(
-            f"- `{memory.kind}` {memory.content}" for memory in self.memories
-        )
+        memories = "\n".join(f"- `{memory.kind}` {memory.content}" for memory in self.memories)
         return (
             "# Context Pack\n\n"
             f"## Query\n\n{self.query}\n\n"

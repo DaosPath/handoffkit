@@ -36,10 +36,7 @@ def audit_report(path: str | Path) -> dict[str, Any]:
     data = json.loads(report_path.read_text(encoding="utf-8"))
     rows = [row for row in data.get("rows", []) if isinstance(row, dict)]
     source_case_count = int(data.get("source_case_count", data.get("case_count", len(rows))))
-    cases = {
-        case.case.case_id: case
-        for case in build_sequential_doctor_cases(source_case_count)
-    }
+    cases = {case.case.case_id: case for case in build_sequential_doctor_cases(source_case_count)}
     audited_rows = [_audit_row(row, cases) for row in rows]
     final_correct = sum(1 for row in audited_rows if row["final_correct"])
     base_correct = sum(1 for row in audited_rows if row["base_correct"])

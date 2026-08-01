@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(handoffkit VERSION 1.16.0 LANGUAGES CXX)
+project(handoffkit VERSION 1.19.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,6 +11,8 @@ option(HANDOFFKIT_BUILD_CLI "Build handoffkit-cli offline binary" ON)
 option(HANDOFFKIT_BUILD_DEMOS "Build demos/fusion catalog as handoffkit_demos (ON=default monorepo)" ON)
 option(HANDOFFKIT_FETCH_JSON "Fetch nlohmann_json via FetchContent when not found" ON)
 option(HANDOFFKIT_WITH_HTTP "Build optional OpenAI-compatible HTTP provider (cpp-httplib)" OFF)
+option(HANDOFFKIT_WITH_CRYPTO "Enable OpenSSL-backed Ed25519 artifact signatures" OFF)
+option(HANDOFFKIT_BUILD_BENCHMARKS "Build executable runtime benchmarks" OFF)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -56,10 +58,16 @@ if(HANDOFFKIT_WITH_HTTP)
   FetchContent_MakeAvailable(httplib)
 endif()
 
+if(HANDOFFKIT_WITH_CRYPTO)
+  find_package(OpenSSL REQUIRED COMPONENTS Crypto)
+endif()
+
 # --- core runtime sources (no demos/fusion) ---
 set(HANDOFFKIT_CORE_SOURCES
   src/handoff.cpp
   src/csp/contracts.cpp
+  src/csp/artifact_security.cpp
+  src/csp/native_compute.cpp
   src/core/validation.cpp
   src/core/quality.cpp
   src/runtime/protocol.cpp
@@ -134,6 +142,10 @@ function(handoffkit_apply_common target_name)
     if(WIN32)
       target_link_libraries(${target_name} PUBLIC ws2_32 crypt32)
     endif()
+  endif()
+  if(HANDOFFKIT_WITH_CRYPTO)
+    target_compile_definitions(${target_name} PUBLIC HANDOFFKIT_WITH_CRYPTO=1)
+    target_link_libraries(${target_name} PUBLIC OpenSSL::Crypto)
   endif()
   target_compile_features(${target_name} PUBLIC cxx_std_20)
   if(MSVC)
@@ -220,10 +232,13 @@ if(HANDOFFKIT_BUILD_TESTS)
   enable_testing()
 
   set(_default_contracts "${CMAKE_CURRENT_SOURCE_DIR}/../contracts")
+  set(_packaged_contracts "${CMAKE_CURRENT_SOURCE_DIR}/contracts")
   if(DEFINED ENV{HANDOFFKIT_CONTRACTS_DIR})
     set(HANDOFFKIT_CONTRACTS_DIR "$ENV{HANDOFFKIT_CONTRACTS_DIR}")
   elseif(EXISTS "${_default_contracts}/fixtures")
     set(HANDOFFKIT_CONTRACTS_DIR "${_default_contracts}")
+  elseif(EXISTS "${_packaged_contracts}/fixtures")
+    set(HANDOFFKIT_CONTRACTS_DIR "${_packaged_contracts}")
   else()
     set(HANDOFFKIT_CONTRACTS_DIR "")
   endif()
@@ -253,6 +268,10 @@ if(HANDOFFKIT_BUILD_TESTS)
   # Core-only tests (must not require demos/fusion)
   handoffkit_add_test(test_handoff tests/test_handoff.cpp LINK handoffkit_core)
   handoffkit_add_test(test_csp_contracts tests/test_csp_contracts.cpp LINK handoffkit_core)
+  handoffkit_add_test(test_csp_security tests/test_csp_security.cpp LINK handoffkit_core)
+  handoffkit_add_test(test_security_conformance tests/test_security_conformance.cpp LINK handoffkit_core)
+  handoffkit_add_test(test_artifact_signatures tests/test_artifact_signatures.cpp LINK handoffkit_core)
+  handoffkit_add_test(test_native_compute tests/test_native_compute.cpp LINK handoffkit_core)
   handoffkit_add_test(test_runtime tests/test_runtime.cpp LINK handoffkit_core)
   handoffkit_add_test(test_validation_quality tests/test_validation_quality.cpp LINK handoffkit_core)
   handoffkit_add_test(test_memory_trace_reports tests/test_memory_trace_reports.cpp LINK handoffkit_core)
@@ -290,6 +309,11 @@ if(HANDOFFKIT_BUILD_TESTS)
     target_compile_definitions(test_fusion_roles PRIVATE
       "HANDOFFKIT_EXAMPLE_ROLE_PACK=\"${_hk_example_role_pack}\"")
   endif()
+endif()
+
+if(HANDOFFKIT_BUILD_BENCHMARKS)
+  add_executable(native_compute_benchmark benchmarks/native_compute_benchmark.cpp)
+  target_link_libraries(native_compute_benchmark PRIVATE handoffkit_core)
 endif()
 
 # --- CLI ---
