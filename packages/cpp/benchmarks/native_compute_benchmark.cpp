@@ -265,7 +265,7 @@ int main(int argc, char** argv) {
 
     std::cout << std::fixed << std::setprecision(6)
               << "{\n"
-              << "  \"notice\": \"environmental measurement \\u2014 not a performance guarantee\",\n"
+              << "  \"notice\": \"Environmental measurement \\u2014 not a performance guarantee.\",\n"
               << "  \"runtime\": \"cpp\",\n"
               << "  \"benchmark\": \"native_compute\",\n"
               << "  \"environment\": {\n"

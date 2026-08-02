@@ -23,8 +23,8 @@ const trustItems = [
   },
   {
     icon: ShieldCheck,
-    label: "Production-ready workflows",
-    detail: "Audit-friendly",
+    label: "Audit-friendly workflows",
+    detail: "Evidence-first status",
   },
 ] as const;
 

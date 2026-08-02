@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Handoff Kit",
     description:
-      "Structured handoffs for reliable multi-agent AI systems. Open source. Production ready.",
+      "Structured handoffs for reliable multi-agent AI systems. Open source. HandoffKit 1.19 remains an experimental security baseline.",
     type: "website",
   },
 };

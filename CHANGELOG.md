@@ -23,7 +23,15 @@ baseline. It is not yet a complete or publishable 1.19 release.
   declared identity field; capabilities come from local fingerprint policy.
 - Integrated peer/session-scoped nonce, sequence, and timestamp replay checks
   and local capability authorization into secure receive paths before
-  dispatch. Cryptographic replay state remains process-local.
+  dispatch. Added optional durable replay backends in Python, Node, Go, and
+  Rust with bounded versioned state, checksums, atomic replacement,
+  expiry/compaction, corruption quarantine, and real listener-restart tests.
+- Added atomic certificate/trust reload and transition-window rotation in the
+  four TLS runtimes, plus a durable local revocation policy for certificate,
+  signer, peer, issuer, and trust-domain subjects. CRL/OCSP remains unavailable.
+- Added an additive HK-CSP 1.0 security transcript on Python, Node, Go, and Rust
+  TLS framed paths. It binds profile, certificate endpoints, TLS negotiation,
+  session, nonce, capabilities, and timestamp and rejects replay/tamper/downgrade.
 - Added maintained-provider Ed25519 artifact signing and verification in
   Python, Node, Go, Rust, and optional C++ Crypto, with one canonical shared
   vector and negative trust/tamper/expiry/revocation tests.
@@ -38,6 +46,29 @@ baseline. It is not yet a complete or publishable 1.19 release.
 - Added real local cpp-ml `TrainingJob` and `EvaluationJob` execution through
   the native worker, including progress, checkpoint/report artifacts,
   cancellation, deadlines, failures, and CPU/CUDA metadata.
+- Added mandatory Go/C++ artifact ingestion gates with root/media/size/hash,
+  Ed25519 producer/signer policy, quarantine records, and immutable snapshots.
+  cpp-ml consumes verified snapshots rather than reopening unverified inputs.
+- Added an optional Go TLS/mTLS gateway to the local cpp-ml process. Real-process
+  CI covers certificate identity and authorization, durable replay/idempotency,
+  signed input and output artifacts, progress/checkpoints, cancellation,
+  deadlines, worker crash/restart, and reconnect. C++ TLS remains unavailable.
+- Added shared `edge-small`, `edge-standard`, and `server` profiles that apply
+  concrete session/frame/retry limits in Python, JavaScript, Go, Rust, and the
+  C++ local queue. A native Linux ARM64 CI qualification job is configured, but
+  has not yet produced a remote result for this branch.
+- Added optional read-only Studio runtime security visibility for the Go ML
+  gateway. Its bounded atomic event sink records certificate-authenticated
+  sessions, profile/TLS state, replay and authorization rejections, jobs,
+  artifacts, reconnects, and sanitized runtime status. Studio rejects unsafe,
+  corrupt, or unconfigured sources and shows no mock session data.
+- Added live Go secure-frame checks for certificate expiry, durable revocation,
+  and rotation-window expiry on existing TLS connections, plus real-process
+  Studio event coverage for mTLS, progress, artifacts, reconnect, replay, and
+  authorization rejection.
+- Added bounded Go fuzz executions and property checks for durable state,
+  transcript parsing/canonicalization, artifact metadata, edge configuration,
+  Studio events, replay restart, revocation windows, and rotation windows.
 - Added shared five-runtime security conformance vectors and live security
   benchmarks for TLS/reconnect/throughput/signatures and C++ workers.
 - Added development file-backed credential stores in Python and Node with
@@ -55,9 +86,12 @@ baseline. It is not yet a complete or publishable 1.19 release.
 - Secure Python and Node sockets must originate from their validated transport
   factories; Go verifies the negotiated group when a TLS socket is wrapped as
   `hybrid-pq`. External contexts cannot silently bypass profile requirements.
-- CRL/OCSP, trust-store live reload, certificate rotation/reconnect lifecycle,
-  OS keystores, zeroization guarantees, durable secure recovery, ARM64/edge
-  qualification, and Studio security visibility remain unavailable.
+- CRL/OCSP, OS keystores, zeroization guarantees, and general durable
+  session/queue recovery remain unavailable. ARM64/edge is partially integrated
+  pending a green native remote runner result; Studio visibility is experimental
+  and limited to the optional Go gateway event source. Reload/rotation and
+  durable replay are experimental per-runtime controls, not claims of universal
+  production readiness.
 - TLS integration certificates and private keys are generated into temporary
   directories for each test process. No reusable TLS or artifact-signing
   private key is committed as a test fixture.

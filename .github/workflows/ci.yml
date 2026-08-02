@@ -110,11 +110,14 @@ jobs:
       - name: Typecheck web app
         run: pnpm --dir apps/web exec tsc --noEmit
 
-      - name: Studio unit tests (parse-rankings)
+      - name: Studio unit tests (rankings and runtime security)
         run: pnpm --dir apps/web run test:studio
 
       - name: Build web app
         run: pnpm web:build
+
+      - name: Studio runtime security accessibility and redaction smoke
+        run: pnpm --dir apps/web run test:studio:e2e
 
   node-pq:
     name: Node 24 hybrid-PQ provider
@@ -158,7 +161,7 @@ jobs:
           node benchmarks/security/node-security-benchmark.mjs \
             --iterations=10 --warmup=3 --bytes=1048576 \
             | tee .local-tests/node-security-benchmark.json
-          node -e "JSON.parse(require('fs').readFileSync('.local-tests/node-security-benchmark.json'))"
+          node -e "const value=JSON.parse(require('fs').readFileSync('.local-tests/node-security-benchmark.json')); if (value.notice !== 'Environmental measurement — not a performance guarantee.') throw new Error('benchmark notice mismatch'); if (!value.hybrid_pq?.available) throw new Error('hybrid-pq benchmark unavailable')"
 
   rust:
     name: Rust
@@ -224,6 +227,19 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Go for secure cpp-ml gateway integration
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Set up Python for ephemeral TLS fixtures
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install TLS fixture generator dependency
+        run: python -m pip install "cryptography>=46,<50"
+
       - name: Configure C++ package
         run: >
           cmake -S packages/cpp -B packages/cpp/build
@@ -257,9 +273,9 @@ jobs:
         run: |
           cmake --build packages/cpp/build-sanitizers --config Debug --parallel 2 \
             --target test_csp_security test_security_conformance \
-              test_artifact_signatures test_native_compute
+              test_artifact_signatures test_artifact_gate test_native_compute test_edge_profiles
           ctest --test-dir packages/cpp/build-sanitizers -C Debug \
-            -R '^(test_csp_security|test_security_conformance|test_artifact_signatures|test_native_compute)$' \
+            -R '^(test_csp_security|test_security_conformance|test_artifact_signatures|test_artifact_gate|test_native_compute|test_edge_profiles)$' \
             --output-on-failure
 
       - name: Benchmark C++ native compute worker
@@ -267,7 +283,7 @@ jobs:
           mkdir -p .local-tests
           packages/cpp/build/native_compute_benchmark 500 \
             > .local-tests/cpp-native-compute-benchmark.json
-          python3 -m json.tool .local-tests/cpp-native-compute-benchmark.json >/dev/null
+          python3 -c "import json; value=json.load(open('.local-tests/cpp-native-compute-benchmark.json')); assert value['notice'] == 'Environmental measurement — not a performance guarantee.'; assert value['latency_ms']['p99'] >= value['latency_ms']['p50']"
 
       - name: Configure cpp-ml CSP adapters
         run: >
@@ -286,6 +302,12 @@ jobs:
 
       - name: Test complete cpp-ml suite including CSP workers
         run: ctest --test-dir packages/cpp-ml/build-csp -C Release --output-on-failure
+
+      - name: Test mTLS Go gateway to real cpp-ml worker process
+        env:
+          HANDOFFKIT_CPP_ML_WORKER: ${{ github.workspace }}/packages/cpp-ml/build-csp/handoffkit-cpp-ml-worker
+        run: go test -tags=cppmlintegration -race ./mlgateway
+        working-directory: packages/go
 
       - name: Fusion roles --file smoke (offline)
         run: |
@@ -361,10 +383,154 @@ jobs:
       - name: Run go test -race
         run: go test -race ./...
 
+      - name: Fuzz finalization parsers with bounded real executions
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test ./security -run='^$' -fuzz='^FuzzSecurityTranscriptParser$' -fuzztime=3s
+          go test ./security -run='^$' -fuzz='^FuzzDurableReplayStateParser$' -fuzztime=3s
+          go test ./security -run='^$' -fuzz='^FuzzDurableRevocationStateParser$' -fuzztime=3s
+          go test ./artifactgate -run='^$' -fuzz='^FuzzArtifactSignatureMetadata$' -fuzztime=3s
+          go test ./edgeprofile -run='^$' -fuzz='^FuzzEdgeProfileJSON$' -fuzztime=3s
+          go test ./studioevents -run='^$' -fuzz='^FuzzStudioEventParser$' -fuzztime=3s
+
+      - name: Measure Go finalization security paths
+        run: |
+          mkdir -p ../../.local-tests
+          go run ./cmd/handoffkit-security-benchmark --iterations=10 --warmup=2 \
+            > ../../.local-tests/go-security-finalization-benchmark.json
+          python -c "import json; value=json.load(open('../../.local-tests/go-security-finalization-benchmark.json')); assert value['notice'] == 'Environmental measurement — not a performance guarantee.'; assert 'durable_replay_write' in value['measurements']; assert 'studio_event_emit' in value['measurements']"
+
       - name: Build Go worker binary
         run: |
           mkdir -p ../../.local-tests/bin
           go build -o ../../.local-tests/bin/handoffkit-worker ./cmd/handoffkit-worker
+
+  arm64-edge:
+    name: Linux ARM64 edge qualification
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Prove execution is native ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -s)" = Linux
+          test "$(uname -m)" = aarch64
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "packages/python[dev]"
+          pnpm install --frozen-lockfile
+
+      - name: Test Python edge profile and real TLS state routes
+        run: >
+          python -m pytest -q
+          packages/python/tests/test_edge_profiles.py
+          packages/python/tests/test_durable_replay.py
+          packages/python/tests/test_durable_revocation.py
+          packages/python/tests/test_security_transcript.py
+          packages/python/tests/test_csp_tls_integration.py
+
+      - name: Test JavaScript edge profile and real Node TLS routes
+        run: |
+          pnpm --dir packages/js/csp test
+          pnpm --dir packages/js/node test
+
+      - name: Test Go edge, recovery, artifact, and TLS routes with race detector
+        working-directory: packages/go
+        run: go test -race ./edgeprofile ./security ./artifactgate ./transport ./mlgateway ./studioevents
+
+      - name: Measure native ARM64 Go finalization paths
+        working-directory: packages/go
+        run: |
+          mkdir -p ../../.local-tests
+          go run ./cmd/handoffkit-security-benchmark --iterations=10 --warmup=2 \
+            > ../../.local-tests/go-security-finalization-arm64.json
+          python -c "import json; value=json.load(open('../../.local-tests/go-security-finalization-arm64.json')); assert value['environment']['architecture'] == 'arm64'; assert value['notice'] == 'Environmental measurement — not a performance guarantee.'"
+
+      - name: Enforce edge-small resident-memory budget
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .local-tests
+          (cd packages/go && go test -c -o ../../.local-tests/edgeprofile-arm64.test ./edgeprofile)
+          /usr/bin/time -v -o .local-tests/edge-small-memory.txt \
+            .local-tests/edgeprofile-arm64.test \
+            -test.run 'TestProfilesMatchSharedFixtureAndApplyRealLimits|TestProfileAppliesTransportWithoutTLSDowngrade|TestEdgeSmallReadOnlyDurableStateFailsClosed'
+          rss_kb="$(awk -F: '/Maximum resident set size/ {gsub(/[[:space:]]/, "", $2); print $2}' .local-tests/edge-small-memory.txt)"
+          test -n "$rss_kb"
+          test "$rss_kb" -le 262144
+
+      - name: Test Rust edge profiles and real TLS transport
+        run: >
+          cargo test --manifest-path packages/rust/Cargo.toml --locked
+          -p handoffkit-protocol -p handoffkit-transport
+
+      - name: Configure native ARM64 C++ edge and security tests
+        run: >
+          cmake -S packages/cpp -B packages/cpp/build-arm64
+          -DCMAKE_BUILD_TYPE=Release
+          -DHANDOFFKIT_WITH_HTTP=OFF
+          -DHANDOFFKIT_WITH_CRYPTO=ON
+          -DHANDOFFKIT_BUILD_EXAMPLES=OFF
+          -DHANDOFFKIT_BUILD_DEMOS=OFF
+          -DHANDOFFKIT_BUILD_CLI=OFF
+
+      - name: Build and test native ARM64 C++ edge and security routes
+        run: |
+          cmake --build packages/cpp/build-arm64 --parallel 2 \
+            --target test_edge_profiles test_csp_security test_security_conformance \
+              test_artifact_signatures test_artifact_gate test_native_compute
+          ctest --test-dir packages/cpp/build-arm64 --output-on-failure \
+            -R '^(test_edge_profiles|test_csp_security|test_security_conformance|test_artifact_signatures|test_artifact_gate|test_native_compute)$'
+
+      - name: Configure native ARM64 cpp-ml CPU worker
+        run: >
+          cmake -S packages/cpp-ml -B packages/cpp-ml/build-arm64
+          -DCMAKE_BUILD_TYPE=Release
+          -DHANDOFFKIT_ML_LINK_CORE=ON
+          -DHANDOFFKIT_ML_BUILD_TESTS=ON
+          -DHANDOFFKIT_ML_BUILD_CLI=OFF
+          -DHANDOFFKIT_BUILD_TESTS=OFF
+          -DHANDOFFKIT_BUILD_EXAMPLES=OFF
+          -DHANDOFFKIT_BUILD_CLI=OFF
+          -DHANDOFFKIT_BUILD_DEMOS=OFF
+
+      - name: Test native ARM64 cpp-ml CPU worker and secure gateway
+        env:
+          HANDOFFKIT_CPP_ML_WORKER: ${{ github.workspace }}/packages/cpp-ml/build-arm64/handoffkit-cpp-ml-worker
+        run: |
+          cmake --build packages/cpp-ml/build-arm64 --parallel 2
+          ctest --test-dir packages/cpp-ml/build-arm64 --output-on-failure
+          (cd packages/go && go test -tags=cppmlintegration -race ./mlgateway)
 
   go-pq:
     name: Go 1.26 hybrid-PQ provider and Node interoperability

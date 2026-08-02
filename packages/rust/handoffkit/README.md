@@ -13,5 +13,7 @@ HandoffKit 1.19 development re-exports:
   from `handoffkit-transport`.
 
 Contracts and wire semantics are stable. Runtime and transport APIs remain
-experimental. Hybrid-PQ, certificate rotation, CRL/OCSP, OS keystores, and
-durable secure recovery are unavailable in the Rust provider.
+experimental. Optional durable replay/local revocation and atomic
+certificate/trust reload with transition-window rotation are integration-
+tested. Hybrid-PQ, CRL/OCSP, OS keystores, zeroization guarantees, and general
+durable session/job recovery are unavailable in the Rust provider.

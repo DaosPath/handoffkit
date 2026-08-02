@@ -190,7 +190,7 @@ function benchmarkSignatures() {
 
 const capabilities = getSupportedNodeCryptoCapabilities();
 const result = {
-  notice: "environmental measurement — not a performance guarantee",
+  notice: "Environmental measurement — not a performance guarantee.",
   runtime: "node",
   provider: capabilities.provider,
   generated_at: new Date().toISOString(),

@@ -7,8 +7,8 @@ import { easeOut, fadeRight, fadeUp } from "@/lib/motion";
 
 const chips = [
   "Open source / MIT licensed",
-  "Production ready / Battle tested",
-  "Developer first / Built for speed",
+  "Contract tested / Cross-runtime",
+  "Developer first / Built for iteration",
 ];
 
 export function Hero() {
@@ -44,7 +44,7 @@ export function Hero() {
           <p className="mt-5 max-w-xl text-base leading-relaxed text-[var(--navy-muted)] sm:text-lg">
             Handoff Kit gives your agents a shared state, clear routing, and
             verifiable handoffs. Build complex workflows that are observable,
-            debuggable, and production-ready.
+            debuggable, and easier to validate.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">

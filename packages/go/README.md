@@ -25,9 +25,12 @@ Experimental Go implementation of HK-CSP 1.0 for HandoffKit 1.19 development.
 
 The wire contract remains HK-CSP 1.0. Go runtime and security APIs remain
 experimental. Real-socket integration and race tests cover the secure path,
-but this is not a global cluster scheduler. Certificate rotation, CRL/OCSP,
-durable secure replay/session recovery, multi-host consensus, Kubernetes
-orchestration, and durable distributed queues are unavailable.
+but this is not a global cluster scheduler. The secure TCP path has optional
+durable replay, durable local revocation, and atomic certificate/trust reload.
+The optional cpp-ml gateway adds a durable idempotency/result ledger and a
+signed snapshot gate around a same-host C++ worker process. CRL/OCSP, general
+durable session/queue recovery, multi-host consensus, Kubernetes orchestration,
+and durable distributed queues remain unavailable.
 
 ## Commands
 

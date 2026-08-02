@@ -44,11 +44,13 @@ pip install handoffkit
 
 > **1.19 development security status:** Python has an experimental real TLS
 > 1.3/mTLS TCP path with configured/system roots, hostname checks,
-> certificate-derived identity, local authorization, process-local replay
-> protection, and Ed25519 artifact verification. Secure contexts and directly
-> wrapped sockets cannot bypass `SecurityConfig`. Hybrid-PQ, certificate
-> rotation, CRL/OCSP, OS keystores, durable secure replay, and zeroization are
-> unavailable. See
+> certificate-derived identity, local authorization, replay protection, and
+> Ed25519 artifact verification. Optional durable replay/local-revocation
+> stores and atomic certificate/trust reload with transition-window rotation
+> are integration-tested; without the durable replay store, replay state still
+> resets on restart. Secure contexts and directly wrapped sockets cannot bypass
+> `SecurityConfig`. Hybrid-PQ, CRL/OCSP, OS keystores, zeroization guarantees,
+> and general durable session/job recovery are unavailable. See
 > [`HK_CSP_SECURITY.md`](../../docs/spec/HK_CSP_SECURITY.md).
 
 ## Contents

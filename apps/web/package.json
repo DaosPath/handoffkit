@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:studio": "node --experimental-strip-types src/lib/studio/parse-rankings.test.mjs",
+    "test:studio": "node --experimental-strip-types --test src/lib/studio/parse-rankings.test.mjs src/lib/studio/security-events.test.mjs",
+    "test:studio:e2e": "node scripts/studio-security-smoke.mjs",
     "check": "pnpm run lint && pnpm run typecheck && pnpm run test:studio"
   },
   "dependencies": {

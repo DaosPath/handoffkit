@@ -66,7 +66,10 @@ and never fall back to `standard`. Secure `tlsOptions` overrides and direct
 wrapping outside the validated TCP factories are rejected.
 
 Ed25519 artifact sign/verify uses `node:crypto`. The file keystore is a
-development backend, not an OS keystore. Rotation, CRL/OCSP, trust-store live
-reload, durable replay state, and zeroization guarantees are unavailable. See
+development backend, not an OS keystore. Optional durable replay/local-
+revocation stores and atomic certificate/trust reload with transition-window
+rotation are integration-tested; replay still resets on restart when no
+durable store is configured. CRL/OCSP, OS keystores, zeroization guarantees,
+and general durable session/job recovery are unavailable. See
 [`HK_CSP_SECURITY.md`](../../../docs/spec/HK_CSP_SECURITY.md) for the exact
 status ledger.
