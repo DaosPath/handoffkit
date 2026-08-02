@@ -27,7 +27,7 @@ weakly protected files.
 | Artifact provenance | Maintained Ed25519 providers verify a shared vector. Go/C++ snapshot gates are mandatory on the remote cpp-ml route, but unrelated consumers are not yet universally gated. |
 | Keys/credentials | Python/Node development file stores check lifecycle/path/POSIX permissions. Four TLS runtimes support tested credential/trust reload; OS keystores, CRL/OCSP, and zeroization guarantees remain absent. |
 | Hybrid TLS | Compatible Node and Go providers prove X25519MLKEM768 handshakes, including Node 24 to Go 1.26 mTLS interoperability. Other providers fail closed and report unavailable. |
-| Edge deployment | Profiles apply bounded runtime limits. A native ARM64 CI job is configured but has not yet completed for this branch; no ARM64 or unstable-network deployment guarantee follows. |
+| Edge deployment | Profiles apply bounded runtime limits. The branch's native ARM64 CI job passed the named runtime, security, memory, C++, and cpp-ml routes. That result qualifies only the tested runner; no broader ARM64 device/OS or unstable-network deployment guarantee follows. |
 | Studio visibility | The optional Go gateway emits a private, bounded, validated event file. Studio reads it read-only and rejects unsafe or corrupt files; no Studio action can alter security policy, credentials, dispatch, or runtime state. |
 
 ## Threat/control ledger
