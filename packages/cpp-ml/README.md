@@ -3,8 +3,8 @@
 > ## Status: **ACTIVE FOR HK-CSP INTEGRATION**
 >
 > The native training scope remains deliberately small. HandoffKit 1.19 work
-> adds the requested local HK-CSP worker integration; it does not claim 4B/7B
-> scale, an external trainer, or a remote secure transport.
+> adds bounded HK-CSP worker integration; it does not claim 4B/7B scale, an
+> external trainer, direct C++ TLS, or general distributed-worker support.
 
 **C++ weight-training engine for HandoffKit — not part of `handoffkit_core`.**  
 **No Python.** Default train profile is **non-tiny** (128d / 4 layers).
@@ -12,17 +12,20 @@
 | Package | Role |
 |---------|------|
 | `packages/cpp` | Core: agents, distill jobs, echo/process |
-| `packages/cpp-ml` (**this**) | Tensors, BPE, GPT/llama-like, GGUF, LoRA/QLoRA, DP |
+| `packages/cpp-ml` (**this**) | Tensors, BPE, GPT/llama-like, GGUF, LoRA/QLoRA, in-process `cpu_sim` DP; no network/NCCL backend |
 
 ## HK-CSP worker (experimental)
 
-With `HANDOFFKIT_ML_LINK_CORE=ON`, `CspMlWorker` executes real `TrainingJob`
+With `HANDOFFKIT_ML_LINK_CORE=ON`, `MlCspWorker` executes real `TrainingJob`
 and `EvaluationJob` operations through the core bounded native worker. It
 checks input artifact size/SHA-256, streams progress, emits hashed
 checkpoint/report artifacts, propagates cancellation and deadlines, reports
 structured failures, and exposes measured CPU/RAM plus compiled/available CUDA
-metadata. It is a local-file worker; C++ TLS and remote worker interoperability
-are unavailable.
+metadata. Inputs pass through a root/media/size/hash/signature policy and a
+verified snapshot before consumption. The optional Go mTLS gateway starts the
+`handoffkit-cpp-ml-worker` local process without a shell and provides the remote
+security boundary. C++ TLS itself and generic remote-worker registration remain
+unavailable.
 
 ## Roadmap status
 

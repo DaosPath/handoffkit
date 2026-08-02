@@ -181,8 +181,8 @@ StructuredParseResult parse_agent_structured(
             result.errors.push_back(repaired.error().message);
             return result;
         }
-        result.repairs.push_back("applied_common_json_repairs");
         result = validate_structured(repaired.value(), schema);
+        result.repairs.push_back("applied_common_json_repairs");
         return result;
     }
     result = validate_structured(extracted.value(), schema);

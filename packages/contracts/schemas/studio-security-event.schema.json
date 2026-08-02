@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/studio-security-event.schema.json",
+  "title": "HandoffKit Studio read-only runtime security event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "format_version",
+    "event_id",
+    "event_type",
+    "observed_at",
+    "runtime",
+    "edge_profile",
+    "payload"
+  ],
+  "properties": {
+    "format": { "const": "handoffkit.studio.security-event" },
+    "format_version": { "const": 1 },
+    "event_id": { "$ref": "#/$defs/id" },
+    "event_type": {
+      "enum": [
+        "session.observed",
+        "session.reconnected",
+        "security.rejected",
+        "job.updated",
+        "artifact.verified",
+        "runtime.status"
+      ]
+    },
+    "observed_at": { "type": "string", "format": "date-time" },
+    "runtime": { "type": "string", "enum": ["python", "node", "go", "rust", "cpp"] },
+    "edge_profile": { "type": "string", "enum": ["edge-small", "edge-standard", "server"] },
+    "payload": {
+      "oneOf": [
+        { "$ref": "#/$defs/session" },
+        { "$ref": "#/$defs/rejection" },
+        { "$ref": "#/$defs/job" },
+        { "$ref": "#/$defs/artifact" },
+        { "$ref": "#/$defs/runtime_status" }
+      ]
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:@-]+$"
+    },
+    "nullable_id": {
+      "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }]
+    },
+    "identity": {
+      "type": "string",
+      "pattern": "^(?:[A-Za-z0-9._:@-]{1,128}|spiffe://[A-Za-z0-9._:@/-]{1,240})$"
+    },
+    "nullable_identity": {
+      "oneOf": [{ "$ref": "#/$defs/identity" }, { "type": "null" }]
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{12}\\.\\.\\.[0-9a-f]{8}$"
+    },
+    "nullable_fingerprint": {
+      "oneOf": [{ "$ref": "#/$defs/fingerprint" }, { "type": "null" }]
+    },
+    "queue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pending", "capacity"],
+      "properties": {
+        "pending": { "type": "integer", "minimum": 0 },
+        "capacity": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "rotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "current_fingerprint",
+        "previous_fingerprint",
+        "previous_accepted",
+        "transition_until"
+      ],
+      "properties": {
+        "status": { "enum": ["not-configured", "current", "transition"] },
+        "current_fingerprint": { "$ref": "#/$defs/nullable_fingerprint" },
+        "previous_fingerprint": { "$ref": "#/$defs/nullable_fingerprint" },
+        "previous_accepted": { "type": "boolean" },
+        "transition_until": {
+          "oneOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+        }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id",
+        "peer_id",
+        "node_id",
+        "worker_id",
+        "identity_source",
+        "trust_domain",
+        "credential_fingerprint",
+        "certificate_expires_at",
+        "certificate_state",
+        "security_profile",
+        "tls_version",
+        "negotiated_group",
+        "hybrid_pq_provider_state",
+        "revocation_state",
+        "rotation",
+        "queue",
+        "reconnects"
+      ],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/id" },
+        "peer_id": { "$ref": "#/$defs/id" },
+        "node_id": { "$ref": "#/$defs/id" },
+        "worker_id": { "$ref": "#/$defs/nullable_id" },
+        "identity_source": { "const": "certificate-san" },
+        "trust_domain": { "$ref": "#/$defs/id" },
+        "credential_fingerprint": { "$ref": "#/$defs/fingerprint" },
+        "certificate_expires_at": { "type": "string", "format": "date-time" },
+        "certificate_state": { "enum": ["valid", "expired"] },
+        "security_profile": { "enum": ["standard", "hybrid-pq"] },
+        "tls_version": { "const": "TLSv1.3" },
+        "negotiated_group": { "oneOf": [{ "type": "string", "maxLength": 64 }, { "type": "null" }] },
+        "hybrid_pq_provider_state": { "enum": ["unavailable", "available-not-selected", "negotiated"] },
+        "revocation_state": { "enum": ["not-configured", "not-revoked", "revoked"] },
+        "rotation": { "$ref": "#/$defs/rotation" },
+        "queue": { "$ref": "#/$defs/queue" },
+        "reconnects": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "rejection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_id", "category", "code", "message"],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/nullable_id" },
+        "category": { "enum": ["authentication", "authorization", "replay", "revocation", "transcript", "artifact", "worker"] },
+        "code": { "$ref": "#/$defs/id" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 240 }
+      }
+    },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["job_id", "operation", "status", "progress", "worker_id", "error_code"],
+      "properties": {
+        "job_id": { "$ref": "#/$defs/id" },
+        "operation": { "enum": ["training", "evaluation"] },
+        "status": { "enum": ["queued", "running", "completed", "failed", "cancelled", "interrupted"] },
+        "progress": { "type": "number", "minimum": 0, "maximum": 1 },
+        "worker_id": { "$ref": "#/$defs/nullable_id" },
+        "error_code": { "$ref": "#/$defs/nullable_id" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "job_id",
+        "media_type",
+        "verification",
+        "producer_identity",
+        "identity_source",
+        "signer_fingerprint",
+        "error_code"
+      ],
+      "properties": {
+        "artifact_id": { "$ref": "#/$defs/id" },
+        "job_id": { "$ref": "#/$defs/id" },
+        "media_type": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "verification": { "enum": ["verified", "rejected"] },
+        "producer_identity": { "$ref": "#/$defs/nullable_identity" },
+        "identity_source": { "enum": ["verified-signer", "unverified"] },
+        "signer_fingerprint": { "$ref": "#/$defs/nullable_fingerprint" },
+        "error_code": { "$ref": "#/$defs/nullable_id" }
+      }
+    },
+    "runtime_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "connections",
+        "connection_limit",
+        "queue",
+        "replay_rejections",
+        "authorization_rejections",
+        "reconnects",
+        "hybrid_pq_provider_state"
+      ],
+      "properties": {
+        "connections": { "type": "integer", "minimum": 0 },
+        "connection_limit": { "type": "integer", "minimum": 1 },
+        "queue": { "$ref": "#/$defs/queue" },
+        "replay_rejections": { "type": "integer", "minimum": 0 },
+        "authorization_rejections": { "type": "integer", "minimum": 0 },
+        "reconnects": { "type": "integer", "minimum": 0 },
+        "hybrid_pq_provider_state": { "enum": ["unavailable", "available-not-selected", "negotiated"] }
+      }
+    }
+  }
+}

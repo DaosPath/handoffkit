@@ -5,6 +5,7 @@
 #include <cmath>
 #include <regex>
 #include <stdexcept>
+#include <utility>
 
 namespace handoffkit::csp {
 namespace {
@@ -36,6 +37,22 @@ RuntimeMode runtime_mode_from_name(const std::string& value) {
     if (value == "session") return RuntimeMode::session;
     if (value == "distributed") return RuntimeMode::distributed;
     throw std::invalid_argument("unknown runtime mode: " + value);
+}
+
+std::string edge_profile_name(EdgeProfile profile) {
+    switch (profile) {
+        case EdgeProfile::edge_small: return "edge-small";
+        case EdgeProfile::edge_standard: return "edge-standard";
+        case EdgeProfile::server: return "server";
+    }
+    throw std::invalid_argument("unknown edge profile");
+}
+
+EdgeProfile edge_profile_from_name(const std::string& value) {
+    if (value == "edge-small") return EdgeProfile::edge_small;
+    if (value == "edge-standard") return EdgeProfile::edge_standard;
+    if (value == "server") return EdgeProfile::server;
+    throw std::invalid_argument("unknown edge profile: " + value);
 }
 
 std::string overflow_name(OverflowPolicy policy) {
@@ -184,6 +201,141 @@ RetryPolicy RetryPolicy::from_json(const nlohmann::json& value) {
     return result;
 }
 
+void EdgeRuntimeProfile::validate() const {
+    if (channel_capacity == 0 || max_frame_bytes == 0 || pending_ack_limit == 0 ||
+        dedup_capacity == 0 || durable_replay_capacity == 0 || connection_limit == 0 ||
+        heartbeat_seconds == 0 || timeout.connect_ms == 0 || timeout.io_ms == 0 ||
+        timeout.ack_ms == 0 || artifact_limit_bytes == 0 || memory_budget_bytes == 0 ||
+        durable_state_limit_bytes == 0) {
+        throw std::invalid_argument("edge runtime limits must be positive");
+    }
+    if (max_frame_bytes < 1024 || max_frame_bytes > default_max_message_bytes) {
+        throw std::invalid_argument("edge max_frame_bytes is invalid");
+    }
+    reconnect.validate();
+    if ((logging.level != "warning" && logging.level != "info") ||
+        logging.include_payloads || !logging.redact_paths) {
+        throw std::invalid_argument("edge logging policy is unsafe");
+    }
+    if (security_profile != "standard") {
+        throw std::invalid_argument("edge profiles require the standard security profile");
+    }
+}
+
+nlohmann::json EdgeRuntimeProfile::to_json() const {
+    validate();
+    return {
+        {"name", edge_profile_name(name)},
+        {"channel_capacity", channel_capacity},
+        {"max_frame_bytes", max_frame_bytes},
+        {"pending_ack_limit", pending_ack_limit},
+        {"dedup_capacity", dedup_capacity},
+        {"durable_replay_capacity", durable_replay_capacity},
+        {"connection_limit", connection_limit},
+        {"heartbeat_seconds", heartbeat_seconds},
+        {"reconnect", reconnect.to_json()},
+        {"timeout",
+         {{"connect_ms", timeout.connect_ms},
+          {"io_ms", timeout.io_ms},
+          {"ack_ms", timeout.ack_ms}}},
+        {"artifact_limit_bytes", artifact_limit_bytes},
+        {"memory_budget_bytes", memory_budget_bytes},
+        {"durable_state_limit_bytes", durable_state_limit_bytes},
+        {"logging",
+         {{"level", logging.level},
+          {"include_payloads", logging.include_payloads},
+          {"redact_paths", logging.redact_paths}}},
+        {"security_profile", security_profile},
+    };
+}
+
+EdgeRuntimeProfile EdgeRuntimeProfile::for_profile(EdgeProfile profile) {
+    EdgeRuntimeProfile result;
+    result.name = profile;
+    result.logging.include_payloads = false;
+    result.logging.redact_paths = true;
+    result.security_profile = "standard";
+    switch (profile) {
+        case EdgeProfile::edge_small:
+            result.channel_capacity = 16;
+            result.max_frame_bytes = 1048576;
+            result.pending_ack_limit = 32;
+            result.dedup_capacity = 512;
+            result.durable_replay_capacity = 2048;
+            result.connection_limit = 8;
+            result.heartbeat_seconds = 30;
+            result.reconnect = {5, 250, 5000};
+            result.timeout = {5000, 15000, 10000};
+            result.artifact_limit_bytes = 16777216;
+            result.memory_budget_bytes = 268435456;
+            result.durable_state_limit_bytes = 8388608;
+            result.logging.level = "warning";
+            break;
+        case EdgeProfile::edge_standard:
+            result.channel_capacity = 64;
+            result.max_frame_bytes = 4194304;
+            result.pending_ack_limit = 128;
+            result.dedup_capacity = 2048;
+            result.durable_replay_capacity = 10000;
+            result.connection_limit = 32;
+            result.heartbeat_seconds = 15;
+            result.reconnect = {5, 100, 3000};
+            result.timeout = {5000, 30000, 30000};
+            result.artifact_limit_bytes = 67108864;
+            result.memory_budget_bytes = 1073741824;
+            result.durable_state_limit_bytes = 33554432;
+            result.logging.level = "info";
+            break;
+        case EdgeProfile::server:
+            result.channel_capacity = 256;
+            result.max_frame_bytes = 8388608;
+            result.pending_ack_limit = 1024;
+            result.dedup_capacity = 16384;
+            result.durable_replay_capacity = 100000;
+            result.connection_limit = 256;
+            result.heartbeat_seconds = 10;
+            result.reconnect = {8, 50, 2000};
+            result.timeout = {5000, 60000, 60000};
+            result.artifact_limit_bytes = 536870912;
+            result.memory_budget_bytes = 4294967296ULL;
+            result.durable_state_limit_bytes = 268435456;
+            result.logging.level = "info";
+            break;
+    }
+    result.validate();
+    return result;
+}
+
+EdgeRuntimeProfile EdgeRuntimeProfile::from_json(const nlohmann::json& value) {
+    EdgeRuntimeProfile result;
+    result.name = edge_profile_from_name(value.at("name").get<std::string>());
+    result.channel_capacity = value.at("channel_capacity").get<std::size_t>();
+    result.max_frame_bytes = value.at("max_frame_bytes").get<std::size_t>();
+    result.pending_ack_limit = value.at("pending_ack_limit").get<std::size_t>();
+    result.dedup_capacity = value.at("dedup_capacity").get<std::size_t>();
+    result.durable_replay_capacity = value.at("durable_replay_capacity").get<std::size_t>();
+    result.connection_limit = value.at("connection_limit").get<std::size_t>();
+    result.heartbeat_seconds = value.at("heartbeat_seconds").get<std::uint64_t>();
+    result.reconnect = RetryPolicy::from_json(value.at("reconnect"));
+    result.timeout = {
+        value.at("timeout").at("connect_ms").get<std::uint64_t>(),
+        value.at("timeout").at("io_ms").get<std::uint64_t>(),
+        value.at("timeout").at("ack_ms").get<std::uint64_t>(),
+    };
+    result.artifact_limit_bytes = value.at("artifact_limit_bytes").get<std::uint64_t>();
+    result.memory_budget_bytes = value.at("memory_budget_bytes").get<std::uint64_t>();
+    result.durable_state_limit_bytes =
+        value.at("durable_state_limit_bytes").get<std::uint64_t>();
+    result.logging = {
+        value.at("logging").at("level").get<std::string>(),
+        value.at("logging").at("include_payloads").get<bool>(),
+        value.at("logging").at("redact_paths").get<bool>(),
+    };
+    result.security_profile = value.at("security_profile").get<std::string>();
+    result.validate();
+    return result;
+}
+
 void SessionConfig::validate() const {
     require_text("session_id", session_id);
     if (channel_capacity == 0) throw std::invalid_argument("channel_capacity must be at least 1");
@@ -223,6 +375,20 @@ SessionConfig SessionConfig::from_json(const nlohmann::json& value) {
     config.retry_policy = RetryPolicy::from_json(value.value("retry_policy", nlohmann::json::object()));
     config.deadline = optional_string(value, "deadline");
     config.metadata = object_or_empty(value.value("metadata", nlohmann::json::object()));
+    config.validate();
+    return config;
+}
+
+SessionConfig EdgeRuntimeProfile::session_config(std::string session_id) const {
+    validate();
+    SessionConfig config;
+    config.session_id = std::move(session_id);
+    config.channel_capacity = channel_capacity;
+    config.max_message_bytes = max_frame_bytes;
+    config.ack_timeout_ms = timeout.ack_ms;
+    config.dedup_capacity = dedup_capacity;
+    config.retry_policy = reconnect;
+    config.metadata = {{"edge_profile", edge_profile_name(name)}};
     config.validate();
     return config;
 }

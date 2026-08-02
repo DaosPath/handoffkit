@@ -10,7 +10,9 @@
 | Real TrainingJob/EvaluationJob dispatch through bounded native worker | experimental, tested |
 | Progress and hashed checkpoint/report ArtifactRef output | experimental, tested |
 | Cancellation, deadlines, failure reporting, CPU/CUDA metadata | experimental, tested |
-| Remote C++ TLS worker | unavailable |
+| Mandatory local artifact policy/snapshot gate | experimental, tested |
+| Remote Go mTLS gateway to local C++ process | experimental, real-process CI |
+| Direct C++ TLS worker | unavailable |
 
 ## Implemented (0.3.x roadmap complete)
 
@@ -22,7 +24,7 @@
 | **C** | GGUF f32 import/export + arch allowlist `gpt-mini` / `gpt2` / `llama-like` | **done** |
 | **D** | Multi-thread CPU matmul + optional CUDA compile path (`matmul_device`) | **done** |
 | **E** | NF4 quant + QLoRA train path (`--qlora`) multi-module freeze + adapter-only Adam | **done** |
-| **F** | Data-parallel allreduce / `world_size` grad scale | **done** |
+| **F** | In-process `cpu_sim` allreduce / `world_size` grad scale; no network or NCCL backend | **done** |
 
 ## Device-resident (DR) — own-kernel full-GPU train
 

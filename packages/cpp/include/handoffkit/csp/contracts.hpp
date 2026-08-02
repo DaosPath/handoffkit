@@ -17,6 +17,7 @@ inline constexpr std::size_t default_max_message_bytes = 8U * 1024U * 1024U;
 
 enum class RuntimeMode { classic, session, distributed };
 enum class OverflowPolicy { block, reject };
+enum class EdgeProfile { edge_small, edge_standard, server };
 
 std::string negotiate_version(std::string_view remote);
 std::string validation_error_code(std::string_view message);
@@ -28,6 +29,44 @@ struct RetryPolicy {
     void validate() const;
     nlohmann::json to_json() const;
     static RetryPolicy from_json(const nlohmann::json& value);
+};
+
+struct EdgeTimeouts {
+    std::uint64_t connect_ms = 0;
+    std::uint64_t io_ms = 0;
+    std::uint64_t ack_ms = 0;
+};
+
+struct EdgeLoggingPolicy {
+    std::string level;
+    bool include_payloads = false;
+    bool redact_paths = true;
+};
+
+struct SessionConfig;
+
+struct EdgeRuntimeProfile {
+    EdgeProfile name = EdgeProfile::edge_standard;
+    std::size_t channel_capacity = 0;
+    std::size_t max_frame_bytes = 0;
+    std::size_t pending_ack_limit = 0;
+    std::size_t dedup_capacity = 0;
+    std::size_t durable_replay_capacity = 0;
+    std::size_t connection_limit = 0;
+    std::uint64_t heartbeat_seconds = 0;
+    RetryPolicy reconnect;
+    EdgeTimeouts timeout;
+    std::uint64_t artifact_limit_bytes = 0;
+    std::uint64_t memory_budget_bytes = 0;
+    std::uint64_t durable_state_limit_bytes = 0;
+    EdgeLoggingPolicy logging;
+    std::string security_profile;
+
+    void validate() const;
+    [[nodiscard]] nlohmann::json to_json() const;
+    [[nodiscard]] SessionConfig session_config(std::string session_id) const;
+    static EdgeRuntimeProfile for_profile(EdgeProfile profile);
+    static EdgeRuntimeProfile from_json(const nlohmann::json& value);
 };
 
 struct SessionConfig {

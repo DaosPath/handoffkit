@@ -21,8 +21,9 @@ int main() {
 
     auto dev = query_devices();
     assert(dev.cpu);
-    assert(!dist_available());
-    assert(!dist_status().empty());
+    assert(dist_available());
+    assert(dist_status().find("cpu_sim") != std::string::npos);
+    assert(dist_status().find("NCCL backends unavailable") != std::string::npos);
 
     // CUDA path must throw when moving without implementation
     bool threw = false;

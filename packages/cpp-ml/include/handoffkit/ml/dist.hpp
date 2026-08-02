@@ -20,7 +20,7 @@ namespace ml {
 struct DistContext {
     int world_size = 1;
     int rank = 0;
-    std::string backend{"cpu_sim"};  // cpu_sim | nccl | none
+    std::string backend{"cpu_sim"};  // cpu_sim | none; network/NCCL unavailable
 };
 
 inline DistContext make_dist_context(int world_size, int rank) {

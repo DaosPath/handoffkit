@@ -120,6 +120,11 @@ public:
         std::size_t queue_capacity,
         NativeProgressHandler progress_handler,
         NativeResultHandler result_handler);
+    NativeComputePool(
+        const EdgeRuntimeProfile& profile,
+        std::size_t worker_count,
+        NativeProgressHandler progress_handler,
+        NativeResultHandler result_handler);
     ~NativeComputePool();
 
     NativeComputePool(const NativeComputePool&) = delete;

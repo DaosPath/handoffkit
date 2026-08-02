@@ -1,0 +1,113 @@
+{
+  "wire_version": "1.0",
+  "classification": "experimental",
+  "participants": ["python", "javascript", "go", "rust", "cpp"],
+  "durable_replay": {
+    "participants": ["python", "javascript", "go", "rust"],
+    "fixture": "test-fixtures/security/durable-replay-v1.json",
+    "schema": "schemas/durable-replay-state.schema.json",
+    "format": "handoffkit.security.replay",
+    "format_version": 1,
+    "generation": 7,
+    "scopes": 1,
+    "nonces": 2,
+    "canonical_payload": "{\"format\":\"handoffkit.security.replay\",\"format_version\":1,\"generation\":7,\"records\":[{\"credential_fingerprint\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"expires_at\":4102444800,\"last_sequence\":42,\"nonces\":[{\"seen_at\":2000000000,\"value\":\"nonce-001\"},{\"seen_at\":2000000001,\"value\":\"nonce-002\"}],\"peer_id\":\"peer-a\",\"scope\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|session-a\",\"security_profile\":\"standard\",\"session_id\":\"session-a\",\"updated_at\":2000000001}]}",
+    "checksum": "sha256:bfa226f2d41614349565926767ac3f13a78a83e04ee0e2086239a5634ba410fe"
+  },
+  "durable_revocation": {
+    "participants": ["python", "javascript", "go", "rust"],
+    "fixture": "test-fixtures/security/durable-revocation-v1.json",
+    "schema": "schemas/durable-revocation-state.schema.json",
+    "format": "handoffkit.security.revocations",
+    "format_version": 1,
+    "generation": 3,
+    "entries": 3,
+    "canonical_payload": "{\"entries\":[{\"effective_at\":1700000000,\"expires_at\":0,\"kind\":\"certificate_fingerprint\",\"reason\":\"credential compromise\",\"revoked_at\":1700000000,\"value\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},{\"effective_at\":2000000000,\"expires_at\":2100000000,\"kind\":\"peer_id\",\"reason\":\"scheduled isolation\",\"revoked_at\":1900000000,\"value\":\"peer-b\"},{\"effective_at\":1700000001,\"expires_at\":0,\"kind\":\"signer_fingerprint\",\"reason\":\"signing key compromise\",\"revoked_at\":1700000001,\"value\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}],\"format\":\"handoffkit.security.revocations\",\"format_version\":1,\"generation\":3}",
+    "checksum": "sha256:a82ecbcb48ed87d3861f263a629aec5256c1d6211d3a15207db9fbaf1c6fa4f8"
+  },
+  "rotation": {
+    "participants": ["python", "javascript", "go", "rust"],
+    "metadata": [
+      "current_fingerprint",
+      "previous_fingerprint",
+      "previous_accepted",
+      "transition_until"
+    ],
+    "error_code": "credential_rotation_rejected",
+    "scope": "runtime-local TLS credential and trust snapshot reload"
+  },
+  "security_transcript": {
+    "participants": ["python", "javascript", "go", "rust"],
+    "fixture": "test-fixtures/security/security-transcript-v1.json",
+    "schema": "schemas/security-transcript-v1.schema.json",
+    "format": "handoffkit.security.transcript",
+    "format_version": 1,
+    "binding_type": "tls-certificate-endpoints",
+    "transcript_hash": "sha256:e9c73b9219600835e9749cfe35d7df419f0b393f6b0a6badea299f684db4fefa",
+    "error_codes": [
+      "security_transcript_invalid",
+      "security_transcript_version",
+      "security_transcript_hash_mismatch",
+      "security_profile_mismatch",
+      "security_transcript_identity_mismatch",
+      "security_transcript_mismatch"
+    ]
+  },
+  "artifact_ingestion": {
+    "participants": ["go", "cpp"],
+    "wire_contracts": ["ArtifactRef", "SignedArtifact"],
+    "required_order": [
+      "resolve",
+      "size",
+      "media_type",
+      "sha256",
+      "producer_identity",
+      "signature",
+      "revocation",
+      "authorization",
+      "consume_snapshot"
+    ],
+    "shared_decisions": {
+      "tamper": "artifact_integrity_mismatch",
+      "path_escape": "artifact_path_denied",
+      "size": "artifact_too_large",
+      "media_type": "artifact_media_type_denied",
+      "signature_binding": "artifact_signature_mismatch",
+      "signature_verification": "artifact_signature_invalid",
+      "signer_policy": "artifact_signer_denied",
+      "signer_revocation": "artifact_signer_revoked",
+      "producer_binding": "artifact_producer_mismatch",
+      "algorithm": "artifact_algorithm_unsupported"
+    },
+    "scope": "Go and C++ ingestion gates plus the Go-to-cpp-ml route; not a universal runtime gate"
+  },
+  "edge_profiles": {
+    "participants": ["python", "javascript", "go", "rust", "cpp"],
+    "fixture": "test-fixtures/security/edge-runtime-profiles-v1.json",
+    "schema": "schemas/edge-runtime-profile.schema.json",
+    "format": "handoffkit.edge-profiles",
+    "format_version": 1,
+    "profiles": ["edge-small", "edge-standard", "server"],
+    "security_profile": "standard",
+    "downgrade_error_code": "edge_security_profile_mismatch"
+  },
+  "studio_security_events": {
+    "emitters": ["go-ml-gateway"],
+    "parsers": ["go", "typescript"],
+    "fixture": "test-fixtures/security/studio-security-events-v1.ndjson",
+    "schema": "schemas/studio-security-event.schema.json",
+    "format": "handoffkit.studio.security-event",
+    "format_version": 1,
+    "events": 8,
+    "event_types": [
+      "session.observed",
+      "session.reconnected",
+      "security.rejected",
+      "job.updated",
+      "artifact.verified",
+      "runtime.status"
+    ],
+    "fingerprint_representation": "sha256:<12 hex>...<8 hex>",
+    "scope": "read-only optional Go runtime event sink; no Python, JavaScript, Rust, or C++ emitter is claimed"
+  }
+}

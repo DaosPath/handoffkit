@@ -74,6 +74,8 @@ target_link_libraries(handoffkit_ml PUBLIC Threads::Threads)
 if(HANDOFFKIT_ML_LINK_CORE)
   find_package(OpenSSL REQUIRED COMPONENTS Crypto)
   if(NOT TARGET handoffkit_core)
+    set(HANDOFFKIT_WITH_CRYPTO ON CACHE BOOL
+        "Enable OpenSSL-backed artifact verification for cpp-ml CSP ingestion" FORCE)
     add_subdirectory(
       "${HANDOFFKIT_CORE_SOURCE_DIR}"
       "${CMAKE_CURRENT_BINARY_DIR}/handoffkit-core"
@@ -101,6 +103,14 @@ if(HANDOFFKIT_ML_BUILD_CLI)
   endif()
 endif()
 
+if(HANDOFFKIT_ML_LINK_CORE)
+  add_executable(handoffkit-cpp-ml-worker src/csp_worker_main.cpp)
+  target_link_libraries(handoffkit-cpp-ml-worker PRIVATE handoffkit_ml handoffkit_core)
+  if(WIN32)
+    target_compile_definitions(handoffkit-cpp-ml-worker PRIVATE NOMINMAX)
+  endif()
+endif()
+
 if(HANDOFFKIT_ML_BUILD_TESTS)
   enable_testing()
   function(hk_ml_test name src)
@@ -108,6 +118,11 @@ if(HANDOFFKIT_ML_BUILD_TESTS)
     target_link_libraries(${name} PRIVATE handoffkit_ml)
     if(WIN32)
       target_compile_definitions(${name} PRIVATE NOMINMAX)
+    endif()
+    if(MSVC)
+      target_compile_options(${name} PRIVATE /UNDEBUG)
+    else()
+      target_compile_options(${name} PRIVATE -UNDEBUG)
     endif()
     add_test(NAME ${name} COMMAND ${name})
   endfunction()
@@ -161,6 +176,9 @@ install(TARGETS handoffkit_ml
 install(DIRECTORY include/handoffkit DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 if(HANDOFFKIT_ML_BUILD_CLI)
   install(TARGETS handoffkit-ml RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+if(HANDOFFKIT_ML_LINK_CORE)
+  install(TARGETS handoffkit-cpp-ml-worker RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 install(EXPORT handoffkit_mlTargets
   FILE handoffkit_mlTargets.cmake

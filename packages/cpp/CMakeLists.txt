@@ -67,6 +67,7 @@ set(HANDOFFKIT_CORE_SOURCES
   src/handoff.cpp
   src/csp/contracts.cpp
   src/csp/artifact_security.cpp
+  src/csp/artifact_gate.cpp
   src/csp/native_compute.cpp
   src/core/validation.cpp
   src/core/quality.cpp
@@ -252,6 +253,14 @@ if(HANDOFFKIT_BUILD_TESTS)
     endif()
     add_executable(${name} ${source})
     target_link_libraries(${name} PRIVATE ${HKT_LINK})
+    # These executables use assertions as executable test requirements. Keep
+    # them active in Release so CI cannot report success after compiling the
+    # checks away with NDEBUG.
+    if(MSVC)
+      target_compile_options(${name} PRIVATE /UNDEBUG)
+    else()
+      target_compile_options(${name} PRIVATE -UNDEBUG)
+    endif()
     if(HANDOFFKIT_CONTRACTS_DIR)
       file(TO_CMAKE_PATH "${HANDOFFKIT_CONTRACTS_DIR}" _contracts_cmake)
       target_compile_definitions(${name} PRIVATE
@@ -268,9 +277,11 @@ if(HANDOFFKIT_BUILD_TESTS)
   # Core-only tests (must not require demos/fusion)
   handoffkit_add_test(test_handoff tests/test_handoff.cpp LINK handoffkit_core)
   handoffkit_add_test(test_csp_contracts tests/test_csp_contracts.cpp LINK handoffkit_core)
+  handoffkit_add_test(test_edge_profiles tests/test_edge_profiles.cpp LINK handoffkit_core)
   handoffkit_add_test(test_csp_security tests/test_csp_security.cpp LINK handoffkit_core)
   handoffkit_add_test(test_security_conformance tests/test_security_conformance.cpp LINK handoffkit_core)
   handoffkit_add_test(test_artifact_signatures tests/test_artifact_signatures.cpp LINK handoffkit_core)
+  handoffkit_add_test(test_artifact_gate tests/test_artifact_gate.cpp LINK handoffkit_core)
   handoffkit_add_test(test_native_compute tests/test_native_compute.cpp LINK handoffkit_core)
   handoffkit_add_test(test_runtime tests/test_runtime.cpp LINK handoffkit_core)
   handoffkit_add_test(test_validation_quality tests/test_validation_quality.cpp LINK handoffkit_core)
