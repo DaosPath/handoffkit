@@ -29,7 +29,43 @@ type Config struct {
 	IdentityPolicy   *security.CertificateIdentityPolicy
 	CapabilityPolicy *security.CapabilityPolicy
 	ReplayProtection *security.ReplayProtection
+	TLSProvider      *security.ReloadableTLSConfig
 	ServerName       string
+	now              func() time.Time
+}
+
+type tlsIdentityConnection struct {
+	*tls.Conn
+	localIdentity *security.PeerIdentity
+}
+
+type tlsSnapshotListener struct {
+	net.Listener
+	fixed    *tls.Config
+	provider *security.ReloadableTLSConfig
+}
+
+func (listener *tlsSnapshotListener) Accept() (net.Conn, error) {
+	connection, err := listener.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	var tlsConfig *tls.Config
+	var identity *security.PeerIdentity
+	if listener.provider != nil {
+		tlsConfig, identity, err = listener.provider.ServerSnapshot(nil)
+	} else {
+		tlsConfig = listener.fixed.Clone()
+		identity, err = security.PeerIdentityFromTLSConfig(tlsConfig, nil)
+	}
+	if err != nil {
+		_ = connection.Close()
+		return nil, err
+	}
+	return &tlsIdentityConnection{
+		Conn:          tls.Server(connection, tlsConfig),
+		localIdentity: identity,
+	}, nil
 }
 
 func DefaultConfig() Config {
@@ -90,6 +126,13 @@ func (c Config) Validate() error {
 
 func (c Config) secure() bool {
 	return c.SecurityConfig != nil && (c.SecurityConfig.Profile == security.SecurityProfileStandard || c.SecurityConfig.Profile == security.SecurityProfileHybridPQ)
+}
+
+func (c Config) currentTime() time.Time {
+	if c.now != nil {
+		return c.now()
+	}
+	return time.Now()
 }
 
 type NDJSON struct {
@@ -170,9 +213,21 @@ type LengthDelimited struct {
 	connection        net.Conn
 	config            Config
 	AuthenticatedPeer *security.PeerIdentity
+	localIdentity     *security.PeerIdentity
+	tlsVersion        string
 	sendMu            sync.Mutex
 	recvMu            sync.Mutex
 	closed            atomic.Bool
+}
+
+type SecurityObservation struct {
+	TLSVersion                 string
+	NegotiatedGroup            *string
+	SecurityProfile            security.SecurityProfile
+	HybridPQProviderSupported  bool
+	RevocationPolicyConfigured bool
+	RevocationState            string
+	RotationStatus             map[string]any
 }
 
 func NewLengthDelimited(connection net.Conn, config Config) (*LengthDelimited, error) {
@@ -181,7 +236,16 @@ func NewLengthDelimited(connection net.Conn, config Config) (*LengthDelimited, e
 	}
 	transport := &LengthDelimited{connection: connection, config: config}
 	if config.secure() {
-		tlsConnection, ok := connection.(*tls.Conn)
+		var tlsConnection *tls.Conn
+		var snapshotIdentity *security.PeerIdentity
+		switch typed := connection.(type) {
+		case *tls.Conn:
+			tlsConnection = typed
+		case *tlsIdentityConnection:
+			tlsConnection = typed.Conn
+			snapshotIdentity = typed.localIdentity
+		}
+		ok := tlsConnection != nil
 		if !ok {
 			return nil, &security.SecurityError{Code: "tls_required", Message: "secure network transport requires a TLS connection", Details: map[string]any{}}
 		}
@@ -203,6 +267,17 @@ func NewLengthDelimited(connection net.Conn, config Config) (*LengthDelimited, e
 			}
 		}
 		transport.AuthenticatedPeer = peer
+		if snapshotIdentity != nil {
+			transport.localIdentity = snapshotIdentity
+		} else if config.TLSProvider != nil {
+			transport.localIdentity, err = config.TLSProvider.LocalIdentity(nil)
+		} else if config.SecurityConfig.CertPath != "" {
+			transport.localIdentity, err = security.PeerIdentityFromCertificatePath(config.SecurityConfig.CertPath, nil)
+		}
+		if err != nil {
+			return nil, err
+		}
+		transport.tlsVersion = "TLSv1.3"
 	}
 	return transport, nil
 }
@@ -210,6 +285,13 @@ func NewLengthDelimited(connection net.Conn, config Config) (*LengthDelimited, e
 func (t *LengthDelimited) Send(ctx context.Context, envelope contract.MessageEnvelope) error {
 	if t.closed.Load() {
 		return errors.New("transport is closed")
+	}
+	var err error
+	if t.AuthenticatedPeer != nil && t.localIdentity != nil {
+		envelope, err = t.withSecurityTranscript(envelope)
+		if err != nil {
+			return err
+		}
 	}
 	payload, err := envelope.Encode()
 	if err != nil {
@@ -261,6 +343,9 @@ func (t *LengthDelimited) validateSecureEnvelope(envelope contract.MessageEnvelo
 	if t.AuthenticatedPeer == nil {
 		return &security.SecurityError{Code: "authenticated_peer_missing", Message: "secure envelope has no authenticated transport peer", Details: map[string]any{}}
 	}
+	if err := t.validateLivePeerCredential(); err != nil {
+		return err
+	}
 	declaredValue, ok := envelope.Metadata["peer_identity"]
 	if !ok {
 		return &security.SecurityError{Code: "declared_identity_missing", Message: "secure envelope requires peer_identity", Details: map[string]any{}}
@@ -283,12 +368,44 @@ func (t *LengthDelimited) validateSecureEnvelope(envelope contract.MessageEnvelo
 	if !ok || nonce == "" || len(nonce) > 256 {
 		return &security.SecurityError{Code: "security_nonce_missing", Message: "secure envelope requires a bounded non-empty security_nonce", Details: map[string]any{}}
 	}
+	transcriptValue, ok := envelope.Metadata["security_transcript"]
+	if !ok {
+		return &security.SecurityError{Code: "security_transcript_missing", Message: "secure envelope requires an authenticated security_transcript extension", Details: map[string]any{}}
+	}
+	if t.localIdentity == nil || t.tlsVersion == "" {
+		return &security.SecurityError{Code: "security_transcript_unavailable", Message: "secure transcript requires authenticated TLS endpoints", Details: map[string]any{}}
+	}
+	if _, err := security.VerifySecurityTranscript(transcriptValue, security.SecurityTranscriptInput{
+		ProtocolVersion:  envelope.ProtocolVersion,
+		RequestedProfile: t.config.SecurityConfig.Profile,
+		SelectedProfile:  t.config.SecurityConfig.Profile,
+		Sender:           t.AuthenticatedPeer,
+		Receiver:         t.localIdentity,
+		TLSVersion:       t.tlsVersion,
+		NegotiatedGroup:  t.negotiatedGroup(),
+		SessionID:        envelope.SessionID,
+		HandshakeNonce:   nonce,
+		Timestamp:        envelope.CreatedAt,
+	}); err != nil {
+		return err
+	}
 	createdAt, err := time.Parse(time.RFC3339Nano, envelope.CreatedAt)
 	if err != nil {
 		return err
 	}
 	scope := t.AuthenticatedPeer.CredentialFingerprint + "|" + envelope.SessionID
-	if err := t.config.ReplayProtection.CheckAndRecord(scope, envelope.Sequence, nonce, createdAt.Unix()); err != nil {
+	if err := t.config.ReplayProtection.CheckAndRecordContext(
+		scope,
+		envelope.Sequence,
+		nonce,
+		createdAt.Unix(),
+		&security.ReplayContext{
+			PeerID:                t.AuthenticatedPeer.PeerID,
+			SessionID:             envelope.SessionID,
+			CredentialFingerprint: t.AuthenticatedPeer.CredentialFingerprint,
+			SecurityProfile:       string(t.config.SecurityConfig.Profile),
+		},
+	); err != nil {
 		return err
 	}
 	operation, ok := envelope.Metadata["operation"].(string)
@@ -299,6 +416,102 @@ func (t *LengthDelimited) validateSecureEnvelope(envelope contract.MessageEnvelo
 		return &security.SecurityError{Code: "authorization_denied", Message: "authenticated peer is not authorized for operation", Details: map[string]any{"peer_id": t.AuthenticatedPeer.PeerID, "operation": operation}}
 	}
 	return nil
+}
+
+func (t *LengthDelimited) validateLivePeerCredential() error {
+	peer := t.AuthenticatedPeer
+	policy := t.config.IdentityPolicy
+	if peer == nil || policy == nil {
+		return &security.SecurityError{Code: "authenticated_peer_missing", Message: "secure envelope has no authenticated peer policy", Details: map[string]any{}}
+	}
+	now := t.config.currentTime().Unix()
+	if !peer.IsValidAt(now) {
+		return &security.SecurityError{Code: "credential_expired", Message: "authenticated TLS certificate is outside its validity period", Details: map[string]any{}}
+	}
+	fingerprint := security.NormalizeFingerprint(peer.CredentialFingerprint)
+	if policy.RevokedFingerprints[fingerprint] {
+		return &security.SecurityError{Code: "credential_revoked", Message: "authenticated TLS certificate is revoked by local policy", Details: map[string]any{}}
+	}
+	if policy.RevocationPolicy != nil {
+		checks := []struct {
+			kind  security.RevocationKind
+			value string
+		}{
+			{security.RevocationCertificateFingerprint, fingerprint},
+			{security.RevocationPeerID, peer.PeerID},
+			{security.RevocationTrustDomain, peer.TrustDomain},
+		}
+		if state, ok := t.TLSState(); ok && len(state.PeerCertificates) > 0 {
+			checks = append(checks, struct {
+				kind  security.RevocationKind
+				value string
+			}{security.RevocationIssuer, state.PeerCertificates[0].Issuer.String()})
+		}
+		for _, check := range checks {
+			revoked, err := policy.RevocationPolicy.IsRevoked(check.kind, check.value, now)
+			if err != nil {
+				return err
+			}
+			if revoked {
+				return &security.SecurityError{Code: "credential_revoked", Message: "authenticated TLS identity is revoked by durable local policy", Details: map[string]any{}}
+			}
+		}
+	}
+	if policy.RotationPolicy != nil && !policy.RotationPolicy.IsAllowed(fingerprint, now) {
+		return &security.SecurityError{Code: "credential_rotation_rejected", Message: "authenticated TLS credential is outside the configured rotation window", Details: map[string]any{}}
+	}
+	return nil
+}
+
+func (t *LengthDelimited) withSecurityTranscript(envelope contract.MessageEnvelope) (contract.MessageEnvelope, error) {
+	declaredValue, ok := envelope.Metadata["peer_identity"]
+	if !ok {
+		return contract.MessageEnvelope{}, &security.SecurityError{Code: "declared_identity_missing", Message: "secure envelope requires peer_identity", Details: map[string]any{}}
+	}
+	encoded, err := json.Marshal(declaredValue)
+	if err != nil {
+		return contract.MessageEnvelope{}, err
+	}
+	var declared security.PeerIdentity
+	if err := json.Unmarshal(encoded, &declared); err != nil {
+		return contract.MessageEnvelope{}, err
+	}
+	nonce, ok := envelope.Metadata["security_nonce"].(string)
+	if !ok || nonce == "" || len(nonce) > 256 {
+		return contract.MessageEnvelope{}, &security.SecurityError{Code: "security_nonce_missing", Message: "secure envelope requires a bounded non-empty security_nonce", Details: map[string]any{}}
+	}
+	sender := *t.localIdentity
+	sender.Capabilities = append([]string(nil), declared.Capabilities...)
+	transcript, err := security.BuildSecurityTranscript(security.SecurityTranscriptInput{
+		ProtocolVersion:  envelope.ProtocolVersion,
+		RequestedProfile: t.config.SecurityConfig.Profile,
+		SelectedProfile:  t.config.SecurityConfig.Profile,
+		Sender:           &sender,
+		Receiver:         t.AuthenticatedPeer,
+		TLSVersion:       t.tlsVersion,
+		NegotiatedGroup:  t.negotiatedGroup(),
+		SessionID:        envelope.SessionID,
+		HandshakeNonce:   nonce,
+		Timestamp:        envelope.CreatedAt,
+	})
+	if err != nil {
+		return contract.MessageEnvelope{}, err
+	}
+	metadata := make(map[string]any, len(envelope.Metadata)+1)
+	for key, value := range envelope.Metadata {
+		metadata[key] = value
+	}
+	metadata["security_transcript"] = transcript
+	envelope.Metadata = metadata
+	return envelope, nil
+}
+
+func (t *LengthDelimited) negotiatedGroup() *string {
+	if t.config.SecurityConfig.Profile != security.SecurityProfileHybridPQ {
+		return nil
+	}
+	group := "X25519MLKEM768"
+	return &group
 }
 
 func (t *LengthDelimited) writeContext(ctx context.Context, payload []byte) error {
@@ -339,11 +552,40 @@ func (t *LengthDelimited) Close() error {
 }
 
 func (t *LengthDelimited) TLSState() (tls.ConnectionState, bool) {
-	connection, ok := t.connection.(*tls.Conn)
-	if !ok {
+	var connection *tls.Conn
+	switch typed := t.connection.(type) {
+	case *tls.Conn:
+		connection = typed
+	case *tlsIdentityConnection:
+		connection = typed.Conn
+	}
+	if connection == nil {
 		return tls.ConnectionState{}, false
 	}
 	return connection.ConnectionState(), true
+}
+
+func (t *LengthDelimited) SecurityObservation() (SecurityObservation, bool) {
+	if t.AuthenticatedPeer == nil || t.config.SecurityConfig == nil || t.tlsVersion == "" {
+		return SecurityObservation{}, false
+	}
+	revocationState := "not-configured"
+	if t.config.IdentityPolicy != nil && t.config.IdentityPolicy.RevocationPolicy != nil {
+		revocationState = "not-revoked"
+	}
+	var rotationStatus map[string]any
+	if t.config.IdentityPolicy != nil && t.config.IdentityPolicy.RotationPolicy != nil {
+		rotationStatus = t.config.IdentityPolicy.RotationPolicy.Status(t.config.currentTime().Unix())
+	}
+	return SecurityObservation{
+		TLSVersion:                 t.tlsVersion,
+		NegotiatedGroup:            t.negotiatedGroup(),
+		SecurityProfile:            t.config.SecurityConfig.Profile,
+		HybridPQProviderSupported:  security.DetectHybridPQSupport(),
+		RevocationPolicyConfigured: t.config.IdentityPolicy != nil && t.config.IdentityPolicy.RevocationPolicy != nil,
+		RevocationState:            revocationState,
+		RotationStatus:             rotationStatus,
+	}, true
 }
 
 func DialTCP(ctx context.Context, address string, config Config) (*LengthDelimited, error) {
@@ -369,13 +611,22 @@ func ListenTCP(address string, config Config) (net.Listener, error) {
 	if err != nil {
 		return nil, err
 	}
-	tlsConfig, err := security.BuildTLSConfig(securityConfig, true)
+	var tlsConfig *tls.Config
+	if config.TLSProvider != nil {
+		tlsConfig, err = config.TLSProvider.ServerConfig()
+	} else {
+		tlsConfig, err = security.BuildTLSConfig(securityConfig, true)
+	}
 	if err != nil {
 		_ = listener.Close()
 		return nil, err
 	}
 	if tlsConfig != nil {
-		return tls.NewListener(listener, tlsConfig), nil
+		return &tlsSnapshotListener{
+			Listener: listener,
+			fixed:    tlsConfig,
+			provider: config.TLSProvider,
+		}, nil
 	}
 	return listener, nil
 }
@@ -438,13 +689,26 @@ func dial(ctx context.Context, network, address string, config Config) (*LengthD
 				return nil, err
 			}
 		}
-		tlsConfig, tlsErr := security.BuildTLSConfig(securityConfig, false, serverName)
+		var tlsConfig *tls.Config
+		var tlsErr error
+		var localIdentity *security.PeerIdentity
+		if config.TLSProvider != nil {
+			tlsConfig, localIdentity, tlsErr = config.TLSProvider.ClientSnapshot(serverName, nil)
+		} else {
+			tlsConfig, tlsErr = security.BuildTLSConfig(securityConfig, false, serverName)
+			if tlsErr == nil && tlsConfig != nil && len(tlsConfig.Certificates) > 0 {
+				localIdentity, tlsErr = security.PeerIdentityFromTLSConfig(tlsConfig, nil)
+			}
+		}
 		if tlsErr != nil {
 			_ = connection.Close()
 			return nil, tlsErr
 		}
 		if tlsConfig != nil {
-			connection = tls.Client(connection, tlsConfig)
+			connection = &tlsIdentityConnection{
+				Conn:          tls.Client(connection, tlsConfig),
+				localIdentity: localIdentity,
+			}
 		}
 	}
 	transport, err := NewLengthDelimited(connection, config)
@@ -457,8 +721,34 @@ func dial(ctx context.Context, network, address string, config Config) (*LengthD
 
 type Subprocess struct {
 	*NDJSON
-	command *exec.Cmd
-	stdin   io.WriteCloser
+	command   *exec.Cmd
+	stdin     io.WriteCloser
+	stderr    *boundedProcessBuffer
+	closeOnce sync.Once
+	closeDone chan struct{}
+	closeErr  error
+}
+
+type boundedProcessBuffer struct {
+	mu   sync.Mutex
+	data []byte
+	max  int
+}
+
+func (buffer *boundedProcessBuffer) Write(value []byte) (int, error) {
+	buffer.mu.Lock()
+	defer buffer.mu.Unlock()
+	remaining := buffer.max - len(buffer.data)
+	if remaining > 0 {
+		buffer.data = append(buffer.data, value[:min(len(value), remaining)]...)
+	}
+	return len(value), nil
+}
+
+func (buffer *boundedProcessBuffer) String() string {
+	buffer.mu.Lock()
+	defer buffer.mu.Unlock()
+	return contract.SanitizeError(string(buffer.data))
 }
 
 func Spawn(ctx context.Context, argv []string, maxMessageBytes int) (*Subprocess, error) {
@@ -474,7 +764,8 @@ func Spawn(ctx context.Context, argv []string, maxMessageBytes int) (*Subprocess
 	if err != nil {
 		return nil, err
 	}
-	command.Stderr = io.Discard
+	stderr := &boundedProcessBuffer{max: 4096}
+	command.Stderr = stderr
 	if err := command.Start(); err != nil {
 		return nil, err
 	}
@@ -483,21 +774,45 @@ func Spawn(ctx context.Context, argv []string, maxMessageBytes int) (*Subprocess
 		_ = command.Process.Kill()
 		return nil, err
 	}
-	return &Subprocess{NDJSON: ndjson, command: command, stdin: stdin}, nil
+	return &Subprocess{
+		NDJSON: ndjson, command: command, stdin: stdin, stderr: stderr, closeDone: make(chan struct{}),
+	}, nil
 }
 
 func (s *Subprocess) Close() error {
-	_ = s.NDJSON.Close()
-	done := make(chan error, 1)
-	go func() { done <- s.command.Wait() }()
-	select {
-	case <-time.After(2 * time.Second):
-		_ = s.command.Process.Kill()
-		<-done
+	s.closeOnce.Do(func() {
+		_ = s.NDJSON.Close()
+		done := make(chan error, 1)
+		go func() { done <- s.command.Wait() }()
+		select {
+		case <-time.After(2 * time.Second):
+			_ = s.command.Process.Kill()
+			s.closeErr = <-done
+		case err := <-done:
+			s.closeErr = err
+		}
+		close(s.closeDone)
+	})
+	<-s.closeDone
+	return s.closeErr
+}
+
+// Terminate stops a local subprocess immediately. It is used by supervisors
+// after a worker crash or an unresponsive shutdown; no shell is involved.
+func (s *Subprocess) Terminate() error {
+	if s.command.Process == nil {
 		return nil
-	case err := <-done:
-		return err
 	}
+	return s.command.Process.Kill()
+}
+
+// Stderr returns a bounded, sanitized diagnostic captured from the local
+// subprocess. It must not be forwarded directly to an untrusted peer.
+func (s *Subprocess) Stderr() string {
+	if s.stderr == nil {
+		return ""
+	}
+	return s.stderr.String()
 }
 
 func readLineBounded(reader *bufio.Reader, maximum int) ([]byte, error) {

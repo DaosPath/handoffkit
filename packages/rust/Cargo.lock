@@ -473,9 +473,12 @@ name = "handoffkit-protocol"
 version = "1.19.0"
 dependencies = [
  "chrono",
+ "hex",
  "proptest",
  "serde",
  "serde_json",
+ "sha2",
+ "tempfile",
 ]
 
 [[package]]

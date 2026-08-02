@@ -1,8 +1,11 @@
-use super::{LengthDelimitedTransport, NetworkConfig, TcpTransport};
-use handoffkit_protocol::security::{
-    CapabilityPolicy, PeerIdentity, ReplayProtection, SecurityConfig, SecurityProfile,
+use super::{
+    DurableRevocationPolicy, LengthDelimitedTransport, NetworkConfig, RevocationKind, TcpTransport,
 };
-use handoffkit_protocol::MessageEnvelope;
+use handoffkit_protocol::security::{
+    build_security_transcript, verify_security_transcript, CapabilityPolicy, PeerIdentity,
+    ReplayContext, ReplayProtection, SecurityConfig, SecurityProfile, SecurityTranscriptInput,
+};
+use handoffkit_protocol::{EdgeRuntimeProfile, MessageEnvelope};
 use handoffkit_runtime::{RuntimeError, RuntimeResult};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::server::WebPkiClientVerifier;
@@ -10,11 +13,12 @@ use rustls::{ClientConfig, RootCertStore, ServerConfig};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::BufReader;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::sync::{Arc, Mutex as StdMutex};
+use std::sync::{Arc, Mutex as StdMutex, RwLock};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::{TlsAcceptor, TlsConnector};
 use x509_parser::extensions::GeneralName;
@@ -30,6 +34,8 @@ pub struct CertificateIdentityPolicy {
     pub expected_worker_id: Option<String>,
     pub allowed_issuer_names: HashSet<String>,
     pub require_authorized_fingerprint: bool,
+    pub revocation_policy: Option<DurableRevocationPolicy>,
+    pub rotation_policy: Option<CredentialRotationPolicy>,
 }
 
 impl CertificateIdentityPolicy {
@@ -51,12 +57,130 @@ impl CertificateIdentityPolicy {
             expected_worker_id: None,
             allowed_issuer_names: HashSet::new(),
             require_authorized_fingerprint: true,
+            revocation_policy: None,
+            rotation_policy: None,
         }
     }
 
     pub fn revoke(&mut self, fingerprint: impl AsRef<str>) {
         self.revoked_fingerprints
             .insert(normalize_fingerprint(fingerprint.as_ref()));
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CredentialRotationStatus {
+    pub current_fingerprint: String,
+    pub previous_fingerprint: Option<String>,
+    pub transition_until: u64,
+    pub previous_accepted: bool,
+}
+
+#[derive(Debug)]
+struct CredentialRotationState {
+    current: String,
+    previous: Option<String>,
+    transition_until: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct CredentialRotationPolicy {
+    state: Arc<RwLock<CredentialRotationState>>,
+    max_clock_skew_seconds: u64,
+}
+
+impl CredentialRotationPolicy {
+    pub fn new(
+        current_fingerprint: impl AsRef<str>,
+        max_clock_skew_seconds: u64,
+    ) -> RuntimeResult<Self> {
+        if current_fingerprint.as_ref().trim().is_empty() {
+            return Err(RuntimeError::new(
+                "credential_rotation_invalid",
+                "current fingerprint must not be empty",
+            ));
+        }
+        Ok(Self {
+            state: Arc::new(RwLock::new(CredentialRotationState {
+                current: normalize_fingerprint(current_fingerprint.as_ref()),
+                previous: None,
+                transition_until: 0,
+            })),
+            max_clock_skew_seconds,
+        })
+    }
+
+    pub fn rotate(
+        &self,
+        new_fingerprint: impl AsRef<str>,
+        transition_until: u64,
+    ) -> RuntimeResult<()> {
+        if new_fingerprint.as_ref().trim().is_empty() {
+            return Err(RuntimeError::new(
+                "credential_rotation_invalid",
+                "new fingerprint must not be empty",
+            ));
+        }
+        let mut state = self.state.write().map_err(|_| {
+            RuntimeError::new(
+                "credential_rotation_unavailable",
+                "credential rotation lock is poisoned",
+            )
+        })?;
+        state.previous = Some(state.current.clone());
+        state.current = normalize_fingerprint(new_fingerprint.as_ref());
+        state.transition_until = transition_until;
+        Ok(())
+    }
+
+    pub fn is_allowed(&self, fingerprint: &str, now: u64) -> RuntimeResult<bool> {
+        let timestamp = if now == 0 { unix_now() } else { now };
+        let normalized = normalize_fingerprint(fingerprint);
+        let state = self.state.read().map_err(|_| {
+            RuntimeError::new(
+                "credential_rotation_unavailable",
+                "credential rotation lock is poisoned",
+            )
+        })?;
+        Ok(normalized == state.current
+            || (state.previous.as_deref() == Some(normalized.as_str())
+                && timestamp
+                    <= state
+                        .transition_until
+                        .saturating_add(self.max_clock_skew_seconds)))
+    }
+
+    pub fn set_transition_until(&self, transition_until: u64) -> RuntimeResult<()> {
+        self.state
+            .write()
+            .map_err(|_| {
+                RuntimeError::new(
+                    "credential_rotation_unavailable",
+                    "credential rotation lock is poisoned",
+                )
+            })?
+            .transition_until = transition_until;
+        Ok(())
+    }
+
+    pub fn status(&self, now: u64) -> RuntimeResult<CredentialRotationStatus> {
+        let timestamp = if now == 0 { unix_now() } else { now };
+        let state = self.state.read().map_err(|_| {
+            RuntimeError::new(
+                "credential_rotation_unavailable",
+                "credential rotation lock is poisoned",
+            )
+        })?;
+        Ok(CredentialRotationStatus {
+            current_fingerprint: state.current.clone(),
+            previous_fingerprint: state.previous.clone(),
+            transition_until: state.transition_until,
+            previous_accepted: state.previous.is_some()
+                && timestamp
+                    <= state
+                        .transition_until
+                        .saturating_add(self.max_clock_skew_seconds),
+        })
     }
 }
 
@@ -68,6 +192,7 @@ pub struct SecureNetworkConfig {
     pub capability_policy: CapabilityPolicy,
     pub replay_protection: Arc<StdMutex<ReplayProtection>>,
     pub server_name: Option<String>,
+    pub tls_provider: Option<ReloadableTlsConfig>,
 }
 
 impl SecureNetworkConfig {
@@ -89,7 +214,31 @@ impl SecureNetworkConfig {
             capability_policy,
             replay_protection,
             server_name: None,
+            tls_provider: None,
         }
+    }
+
+    pub fn for_edge_profile(
+        profile: &EdgeRuntimeProfile,
+        security: SecurityConfig,
+        identity_policy: CertificateIdentityPolicy,
+        capability_policy: CapabilityPolicy,
+    ) -> RuntimeResult<Self> {
+        profile
+            .validate()
+            .map_err(|error| RuntimeError::new("edge_profile_invalid", error.to_string()))?;
+        if profile.security_profile != "standard" || security.profile != SecurityProfile::Standard {
+            return Err(RuntimeError::new(
+                "edge_security_profile_mismatch",
+                "edge runtime profiles require the exact standard security profile",
+            ));
+        }
+        Ok(Self::new(
+            NetworkConfig::from_edge_profile(profile)?,
+            security,
+            identity_policy,
+            capability_policy,
+        ))
     }
 
     fn validate(&self, is_server: bool) -> RuntimeResult<()> {
@@ -153,7 +302,9 @@ impl SecureNetworkConfig {
 pub(crate) struct SecureSession {
     pub(crate) config: Arc<SecureNetworkConfig>,
     pub(crate) peer: PeerIdentity,
+    pub(crate) local_identity: Option<PeerIdentity>,
     pub(crate) tls_version: &'static str,
+    pub(crate) negotiated_group: Option<String>,
 }
 
 pub fn supported_crypto_capabilities() -> Value {
@@ -289,6 +440,276 @@ fn build_server_config(config: &SecureNetworkConfig) -> RuntimeResult<ServerConf
         .map_err(|error| RuntimeError::new("certificate_invalid", error.to_string()))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TlsReloadStatus {
+    pub generation: u64,
+    pub role: &'static str,
+    pub security_profile: SecurityProfile,
+    pub current_fingerprint: Option<String>,
+    pub previous_fingerprint: Option<String>,
+    pub transition_until: u64,
+    pub previous_accepted: bool,
+    pub trust_anchor_hash: Option<String>,
+    pub previous_trust_anchor_hash: Option<String>,
+    pub certificate_expires_at: u64,
+    pub provider: &'static str,
+}
+
+enum ReloadableTlsSnapshot {
+    Client(Arc<ClientConfig>),
+    Server(Arc<ServerConfig>),
+}
+
+struct ReloadableTlsState {
+    current: ReloadableTlsSnapshot,
+    current_fingerprint: Option<String>,
+    previous_fingerprint: Option<String>,
+    trust_anchor_hash: Option<String>,
+    previous_trust_anchor_hash: Option<String>,
+    certificate_expires_at: u64,
+    current_identity: Option<PeerIdentity>,
+    transition_until: u64,
+    generation: u64,
+}
+
+#[derive(Clone)]
+pub struct ReloadableTlsConfig {
+    state: Arc<RwLock<ReloadableTlsState>>,
+    is_server: bool,
+    profile: SecurityProfile,
+    trust_domain: String,
+}
+
+impl std::fmt::Debug for ReloadableTlsConfig {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ReloadableTlsConfig")
+            .field("is_server", &self.is_server)
+            .field("profile", &self.profile)
+            .field("trust_domain", &self.trust_domain)
+            .finish_non_exhaustive()
+    }
+}
+
+impl ReloadableTlsConfig {
+    pub fn new(config: &SecureNetworkConfig, is_server: bool) -> RuntimeResult<Self> {
+        let current = if is_server {
+            ReloadableTlsSnapshot::Server(Arc::new(build_server_config(config)?))
+        } else {
+            ReloadableTlsSnapshot::Client(Arc::new(build_client_config(config)?))
+        };
+        let (fingerprint, certificate_expires_at, current_identity) =
+            certificate_metadata(config.security.cert_path.as_deref())?;
+        let trust_anchor_hash = file_sha256(config.security.ca_cert_path.as_deref())?;
+        Ok(Self {
+            state: Arc::new(RwLock::new(ReloadableTlsState {
+                current,
+                current_fingerprint: fingerprint,
+                previous_fingerprint: None,
+                trust_anchor_hash,
+                previous_trust_anchor_hash: None,
+                certificate_expires_at,
+                current_identity,
+                transition_until: 0,
+                generation: 1,
+            })),
+            is_server,
+            profile: config.security.profile,
+            trust_domain: config.security.trust_domain.clone(),
+        })
+    }
+
+    pub fn client_config(&self) -> RuntimeResult<Arc<ClientConfig>> {
+        self.client_snapshot().map(|(config, _)| config)
+    }
+
+    pub fn client_snapshot(&self) -> RuntimeResult<(Arc<ClientConfig>, Option<PeerIdentity>)> {
+        if self.is_server {
+            return Err(RuntimeError::new(
+                "tls_reload_role_mismatch",
+                "TLS reload provider role does not match transport role",
+            ));
+        }
+        let state = self.state.read().map_err(tls_reload_lock_error)?;
+        match &state.current {
+            ReloadableTlsSnapshot::Client(config) => {
+                Ok((config.clone(), state.current_identity.clone()))
+            }
+            ReloadableTlsSnapshot::Server(_) => unreachable!(),
+        }
+    }
+
+    pub fn server_config(&self) -> RuntimeResult<Arc<ServerConfig>> {
+        self.server_snapshot().map(|(config, _)| config)
+    }
+
+    pub fn server_snapshot(&self) -> RuntimeResult<(Arc<ServerConfig>, Option<PeerIdentity>)> {
+        if !self.is_server {
+            return Err(RuntimeError::new(
+                "tls_reload_role_mismatch",
+                "TLS reload provider role does not match transport role",
+            ));
+        }
+        let state = self.state.read().map_err(tls_reload_lock_error)?;
+        match &state.current {
+            ReloadableTlsSnapshot::Server(config) => {
+                Ok((config.clone(), state.current_identity.clone()))
+            }
+            ReloadableTlsSnapshot::Client(_) => unreachable!(),
+        }
+    }
+
+    pub fn reload(
+        &self,
+        config: &SecureNetworkConfig,
+        transition: Duration,
+        now: u64,
+    ) -> RuntimeResult<TlsReloadStatus> {
+        if config.security.profile != self.profile
+            || config.security.trust_domain != self.trust_domain
+        {
+            return Err(RuntimeError::new(
+                "tls_reload_policy_mismatch",
+                "TLS reload cannot change security profile or trust domain",
+            ));
+        }
+        let candidate = if self.is_server {
+            ReloadableTlsSnapshot::Server(Arc::new(build_server_config(config)?))
+        } else {
+            ReloadableTlsSnapshot::Client(Arc::new(build_client_config(config)?))
+        };
+        let (fingerprint, certificate_expires_at, current_identity) =
+            certificate_metadata(config.security.cert_path.as_deref())?;
+        let trust_anchor_hash = file_sha256(config.security.ca_cert_path.as_deref())?;
+        let timestamp = if now == 0 { unix_now() } else { now };
+        {
+            let mut state = self.state.write().map_err(tls_reload_lock_error)?;
+            state.previous_fingerprint = state.current_fingerprint.clone();
+            state.previous_trust_anchor_hash = state.trust_anchor_hash.clone();
+            state.current = candidate;
+            state.current_fingerprint = fingerprint;
+            state.trust_anchor_hash = trust_anchor_hash;
+            state.certificate_expires_at = certificate_expires_at;
+            state.current_identity = current_identity;
+            state.transition_until = timestamp.saturating_add(transition.as_secs());
+            state.generation = state.generation.saturating_add(1);
+        }
+        self.status(timestamp)
+    }
+
+    pub fn status(&self, now: u64) -> RuntimeResult<TlsReloadStatus> {
+        let timestamp = if now == 0 { unix_now() } else { now };
+        let state = self.state.read().map_err(tls_reload_lock_error)?;
+        Ok(TlsReloadStatus {
+            generation: state.generation,
+            role: if self.is_server { "server" } else { "client" },
+            security_profile: self.profile,
+            current_fingerprint: state.current_fingerprint.clone(),
+            previous_fingerprint: state.previous_fingerprint.clone(),
+            transition_until: state.transition_until,
+            previous_accepted: state.previous_fingerprint.is_some()
+                && timestamp <= state.transition_until,
+            trust_anchor_hash: state.trust_anchor_hash.clone(),
+            previous_trust_anchor_hash: state.previous_trust_anchor_hash.clone(),
+            certificate_expires_at: state.certificate_expires_at,
+            provider: "rustls 0.23 / ring",
+        })
+    }
+}
+
+fn tls_reload_lock_error<T>(_error: std::sync::PoisonError<T>) -> RuntimeError {
+    RuntimeError::new(
+        "tls_reload_unavailable",
+        "TLS reload state lock is poisoned",
+    )
+}
+
+fn certificate_metadata(
+    path: Option<&str>,
+) -> RuntimeResult<(Option<String>, u64, Option<PeerIdentity>)> {
+    let Some(path) = path else {
+        return Ok((None, 0, None));
+    };
+    let certificate = load_certificates(Path::new(path))?
+        .into_iter()
+        .next()
+        .ok_or_else(|| RuntimeError::new("certificate_invalid", "certificate is empty"))?;
+    let (_, parsed) = parse_x509_certificate(certificate.as_ref())
+        .map_err(|error| RuntimeError::new("certificate_invalid", error.to_string()))?;
+    let identity = peer_identity_from_certificate(certificate.as_ref(), Vec::new())?;
+    Ok((
+        Some(certificate_fingerprint(certificate.as_ref())),
+        parsed.validity().not_after.timestamp().max(0) as u64,
+        Some(identity),
+    ))
+}
+
+fn file_sha256(path: Option<&str>) -> RuntimeResult<Option<String>> {
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    let data = fs::read(path).map_err(|error| {
+        RuntimeError::new(
+            "trust_anchor_read_failed",
+            format!("failed to read trust anchor file: {error}"),
+        )
+    })?;
+    Ok(Some(format!(
+        "sha256:{}",
+        hex::encode(Sha256::digest(data))
+    )))
+}
+
+fn unix_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
+}
+
+fn peer_identity_from_certificate(
+    certificate_der: &[u8],
+    capabilities: Vec<String>,
+) -> RuntimeResult<PeerIdentity> {
+    let (_, certificate) = parse_x509_certificate(certificate_der)
+        .map_err(|error| RuntimeError::new("certificate_invalid", error.to_string()))?;
+    let subject_alt_name = certificate
+        .subject_alternative_name()
+        .map_err(|error| RuntimeError::new("identity_san_invalid", error.to_string()))?
+        .ok_or_else(|| {
+            RuntimeError::new(
+                "identity_san_invalid",
+                "TLS certificate has no subject alternative name",
+            )
+        })?;
+    let identity_uris: Vec<&str> = subject_alt_name
+        .value
+        .general_names
+        .iter()
+        .filter_map(|name| match name {
+            GeneralName::URI(value) if value.starts_with("spiffe://") => Some(*value),
+            _ => None,
+        })
+        .collect();
+    if identity_uris.len() != 1 {
+        return Err(RuntimeError::new(
+            "identity_san_invalid",
+            "TLS certificate must contain exactly one HK-CSP identity URI SAN",
+        ));
+    }
+    let (peer_id, node_id, worker_id, trust_domain) = parse_identity_uri(identity_uris[0])?;
+    Ok(PeerIdentity {
+        peer_id,
+        node_id,
+        trust_domain,
+        worker_id,
+        credential_fingerprint: certificate_fingerprint(certificate_der),
+        capabilities,
+        issued_at: certificate.validity().not_before.timestamp().max(0) as u64,
+        expires_at: certificate.validity().not_after.timestamp().max(0) as u64,
+    })
+}
+
 fn authenticate_peer(
     certificate_der: &[u8],
     policy: &CertificateIdentityPolicy,
@@ -364,14 +785,37 @@ fn authenticate_peer(
         }
     }
     let fingerprint = certificate_fingerprint(certificate_der);
-    if policy
-        .revoked_fingerprints
-        .contains(&normalize_fingerprint(&fingerprint))
+    let mut durable_revoked = false;
+    if let Some(revocations) = &policy.revocation_policy {
+        for (kind, value) in [
+            (RevocationKind::CertificateFingerprint, fingerprint.as_str()),
+            (RevocationKind::PeerId, peer_id.as_str()),
+            (RevocationKind::Issuer, issuer.as_str()),
+            (RevocationKind::TrustDomain, trust_domain.as_str()),
+        ] {
+            if revocations.is_revoked(kind, value, 0)? {
+                durable_revoked = true;
+                break;
+            }
+        }
+    }
+    if durable_revoked
+        || policy
+            .revoked_fingerprints
+            .contains(&normalize_fingerprint(&fingerprint))
     {
         return Err(RuntimeError::new(
             "credential_revoked",
             "TLS peer credential is revoked by local policy",
         ));
+    }
+    if let Some(rotation) = &policy.rotation_policy {
+        if !rotation.is_allowed(&fingerprint, unix_now())? {
+            return Err(RuntimeError::new(
+                "credential_rotation_rejected",
+                "TLS peer credential is outside the configured rotation window",
+            ));
+        }
     }
     let capabilities = policy
         .capabilities_by_fingerprint
@@ -475,6 +919,58 @@ fn validate_declared_identity(
     }
 }
 
+pub(crate) fn attach_security_transcript(
+    envelope: &MessageEnvelope,
+    session: &SecureSession,
+) -> RuntimeResult<MessageEnvelope> {
+    let Some(local_identity) = &session.local_identity else {
+        return Ok(envelope.clone());
+    };
+    let declared: PeerIdentity =
+        serde_json::from_value(envelope.metadata.get("peer_identity").cloned().ok_or_else(
+            || {
+                RuntimeError::new(
+                    "declared_identity_missing",
+                    "secure envelope requires peer_identity",
+                )
+            },
+        )?)
+        .map_err(|error| RuntimeError::new("declared_identity_invalid", error.to_string()))?;
+    let nonce = envelope
+        .metadata
+        .get("security_nonce")
+        .and_then(Value::as_str)
+        .filter(|nonce| !nonce.is_empty() && nonce.len() <= 256)
+        .ok_or_else(|| {
+            RuntimeError::new(
+                "security_nonce_missing",
+                "secure envelope requires a bounded security_nonce",
+            )
+        })?;
+    let mut sender = local_identity.clone();
+    sender.capabilities = declared.capabilities;
+    let transcript = build_security_transcript(SecurityTranscriptInput {
+        protocol_version: &envelope.protocol_version,
+        requested_profile: session.config.security.profile,
+        selected_profile: session.config.security.profile,
+        sender: &sender,
+        receiver: &session.peer,
+        tls_version: session.tls_version,
+        negotiated_group: session.negotiated_group.as_deref(),
+        session_id: &envelope.session_id,
+        handshake_nonce: nonce,
+        timestamp: &envelope.created_at,
+    })
+    .map_err(|error| RuntimeError::new(error.code, error.message))?;
+    let mut secured = envelope.clone();
+    secured.metadata.insert(
+        "security_transcript".to_string(),
+        serde_json::to_value(transcript)
+            .map_err(|error| RuntimeError::new("security_transcript_invalid", error.to_string()))?,
+    );
+    Ok(secured)
+}
+
 pub(crate) fn validate_secure_envelope(
     envelope: &MessageEnvelope,
     session: &SecureSession,
@@ -507,6 +1003,38 @@ pub(crate) fn validate_secure_envelope(
                 "secure envelope requires a bounded security_nonce",
             )
         })?;
+    let local_identity = session.local_identity.as_ref().ok_or_else(|| {
+        RuntimeError::new(
+            "security_transcript_unavailable",
+            "secure transcript requires authenticated TLS endpoints",
+        )
+    })?;
+    let transcript = envelope
+        .metadata
+        .get("security_transcript")
+        .cloned()
+        .ok_or_else(|| {
+            RuntimeError::new(
+                "security_transcript_missing",
+                "secure envelope requires an authenticated security_transcript extension",
+            )
+        })?;
+    verify_security_transcript(
+        transcript,
+        SecurityTranscriptInput {
+            protocol_version: &envelope.protocol_version,
+            requested_profile: session.config.security.profile,
+            selected_profile: session.config.security.profile,
+            sender: &session.peer,
+            receiver: local_identity,
+            tls_version: session.tls_version,
+            negotiated_group: session.negotiated_group.as_deref(),
+            session_id: &envelope.session_id,
+            handshake_nonce: nonce,
+            timestamp: &envelope.created_at,
+        },
+    )
+    .map_err(|error| RuntimeError::new(error.code, error.message))?;
     let created_at = chrono::DateTime::parse_from_rfc3339(&envelope.created_at)
         .map_err(|error| RuntimeError::new("invalid_timestamp", error.to_string()))?
         .timestamp();
@@ -527,11 +1055,17 @@ pub(crate) fn validate_secure_envelope(
         .map_err(|_| {
             RuntimeError::new("replay_state_unavailable", "replay state lock is poisoned")
         })?
-        .check_and_record(
+        .check_and_record_context(
             &scope,
             envelope.sequence,
             Some(nonce),
             Some(created_at as u64),
+            Some(&ReplayContext {
+                peer_id: session.peer.peer_id.clone(),
+                session_id: envelope.session_id.clone(),
+                credential_fingerprint: session.peer.credential_fingerprint.clone(),
+                security_profile: session.config.security.profile.as_str().to_string(),
+            }),
         );
     if let Err(error) = replay_result {
         return Err(RuntimeError::new(error.code, error.message));
@@ -587,7 +1121,14 @@ impl TcpTransport {
             .map_err(|error| RuntimeError::new("socket_config", error.to_string()))?;
         let server_name = ServerName::try_from(config.server_name.clone().unwrap_or_default())
             .map_err(|error| RuntimeError::new("server_name_invalid", error.to_string()))?;
-        let connector = TlsConnector::from(Arc::new(build_client_config(config)?));
+        let (client_config, local_identity) = match &config.tls_provider {
+            Some(provider) => provider.client_snapshot()?,
+            None => (
+                Arc::new(build_client_config(config)?),
+                certificate_metadata(config.security.cert_path.as_deref())?.2,
+            ),
+        };
+        let connector = TlsConnector::from(client_config);
         let stream = tokio::time::timeout(
             config.network.connect_timeout,
             connector.connect(server_name, stream),
@@ -626,7 +1167,9 @@ impl TcpTransport {
                 SecureSession {
                     config: Arc::new(config.clone()),
                     peer,
+                    local_identity,
                     tls_version: "TLSv1.3",
+                    negotiated_group: None,
                 },
             )?,
         })
@@ -635,7 +1178,8 @@ impl TcpTransport {
 
 pub struct TlsTcpListener {
     listener: TcpListener,
-    acceptor: TlsAcceptor,
+    server_config: Arc<ServerConfig>,
+    local_identity: Option<PeerIdentity>,
     config: Arc<SecureNetworkConfig>,
 }
 
@@ -648,13 +1192,20 @@ impl TlsTcpListener {
         config
             .security
             .validate_listen_address(&parsed.ip().to_string())?;
-        let server_config = build_server_config(&config)?;
+        let (server_config, local_identity) = match &config.tls_provider {
+            Some(provider) => provider.server_snapshot()?,
+            None => (
+                Arc::new(build_server_config(&config)?),
+                certificate_metadata(config.security.cert_path.as_deref())?.2,
+            ),
+        };
         let listener = TcpListener::bind(parsed)
             .await
             .map_err(|error| RuntimeError::new("listen_failed", error.to_string()))?;
         Ok(Self {
             listener,
-            acceptor: TlsAcceptor::from(Arc::new(server_config)),
+            server_config,
+            local_identity,
             config: Arc::new(config),
         })
     }
@@ -671,9 +1222,13 @@ impl TlsTcpListener {
             .accept()
             .await
             .map_err(|error| RuntimeError::new("accept_failed", error.to_string()))?;
+        let (current_server_config, local_identity) = match &self.config.tls_provider {
+            Some(provider) => provider.server_snapshot()?,
+            None => (self.server_config.clone(), self.local_identity.clone()),
+        };
         let stream = tokio::time::timeout(
             self.config.network.connect_timeout,
-            self.acceptor.accept(stream),
+            TlsAcceptor::from(current_server_config).accept(stream),
         )
         .await
         .map_err(|_| RuntimeError::retryable("connect_timeout", "TLS handshake timed out"))?
@@ -703,7 +1258,9 @@ impl TlsTcpListener {
                 SecureSession {
                     config: self.config.clone(),
                     peer,
+                    local_identity,
                     tls_version: "TLSv1.3",
+                    negotiated_group: None,
                 },
             )?,
         })

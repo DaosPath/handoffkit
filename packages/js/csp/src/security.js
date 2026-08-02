@@ -163,6 +163,185 @@ export class PeerIdentity {
   }
 }
 
+export class CredentialRotationPolicy {
+  constructor({
+    currentFingerprint,
+    current_fingerprint: currentFingerprintWire,
+    previousFingerprint = null,
+    previous_fingerprint: previousFingerprintWire = null,
+    transitionUntil,
+    transition_until: transitionUntilWire,
+    maxClockSkewSeconds,
+    max_clock_skew_seconds: maxClockSkewSecondsWire,
+  } = {}) {
+    const current = currentFingerprint || currentFingerprintWire;
+    if (!current) throw new TypeError("currentFingerprint must not be empty");
+    const skew = Number(maxClockSkewSeconds ?? maxClockSkewSecondsWire ?? 10);
+    if (!Number.isSafeInteger(skew) || skew < 0) {
+      throw new TypeError("maxClockSkewSeconds must be a non-negative safe integer");
+    }
+    this.currentFingerprint = normalizeFingerprint(current);
+    this.previousFingerprint = previousFingerprint || previousFingerprintWire
+      ? normalizeFingerprint(previousFingerprint || previousFingerprintWire)
+      : null;
+    this.transitionUntil = Number(transitionUntil ?? transitionUntilWire ?? 0);
+    this.maxClockSkewSeconds = skew;
+  }
+
+  rotate(newFingerprint, { transitionUntil } = {}) {
+    if (!Number.isSafeInteger(transitionUntil) || transitionUntil < 0) {
+      throw new TypeError("transitionUntil must be a non-negative safe integer");
+    }
+    this.previousFingerprint = this.currentFingerprint;
+    this.currentFingerprint = normalizeFingerprint(newFingerprint);
+    this.transitionUntil = transitionUntil;
+  }
+
+  isAllowed(fingerprint, { now = Math.floor(Date.now() / 1000) } = {}) {
+    const normalized = normalizeFingerprint(fingerprint);
+    return normalized === this.currentFingerprint || Boolean(
+      this.previousFingerprint
+      && normalized === this.previousFingerprint
+      && now <= this.transitionUntil + this.maxClockSkewSeconds
+    );
+  }
+
+  setTransitionUntil(transitionUntil) {
+    if (!Number.isSafeInteger(transitionUntil) || transitionUntil < 0) {
+      throw new TypeError("transitionUntil must be a non-negative safe integer");
+    }
+    this.transitionUntil = transitionUntil;
+  }
+
+  status({ now = Math.floor(Date.now() / 1000) } = {}) {
+    return {
+      current_fingerprint: this.currentFingerprint,
+      previous_fingerprint: this.previousFingerprint,
+      transition_until: this.transitionUntil,
+      previous_accepted: Boolean(
+        this.previousFingerprint
+        && now <= this.transitionUntil + this.maxClockSkewSeconds
+      ),
+    };
+  }
+}
+
+export const SECURITY_TRANSCRIPT_FORMAT = "handoffkit.security.transcript";
+export const SECURITY_TRANSCRIPT_FORMAT_VERSION = 1;
+
+export class SecurityTranscript {
+  constructor(data = {}) {
+    this.bindingHash = data.bindingHash || data.binding_hash || "";
+    this.bindingType = data.bindingType || data.binding_type || "";
+    this.capabilitiesHash = data.capabilitiesHash || data.capabilities_hash || "";
+    this.format = data.format || "";
+    this.formatVersion = Number(data.formatVersion ?? data.format_version ?? 0);
+    this.handshakeNonce = data.handshakeNonce || data.handshake_nonce || "";
+    this.negotiatedGroup = data.negotiatedGroup ?? data.negotiated_group ?? null;
+    this.protocolVersion = data.protocolVersion || data.protocol_version || "";
+    this.receiverCredentialFingerprint = normalizeFingerprint(
+      data.receiverCredentialFingerprint || data.receiver_credential_fingerprint || "",
+    );
+    this.receiverNodeId = data.receiverNodeId || data.receiver_node_id || "";
+    this.receiverPeerId = data.receiverPeerId || data.receiver_peer_id || "";
+    this.requestedProfile = data.requestedProfile || data.requested_profile || "";
+    this.selectedProfile = data.selectedProfile || data.selected_profile || "";
+    this.senderCredentialFingerprint = normalizeFingerprint(
+      data.senderCredentialFingerprint || data.sender_credential_fingerprint || "",
+    );
+    this.senderNodeId = data.senderNodeId || data.sender_node_id || "";
+    this.senderPeerId = data.senderPeerId || data.sender_peer_id || "";
+    this.sessionId = data.sessionId || data.session_id || "";
+    this.timestamp = data.timestamp || "";
+    this.tlsVersion = data.tlsVersion || data.tls_version || "";
+    this.transcriptHash = data.transcriptHash || data.transcript_hash || "";
+    if (this.format !== SECURITY_TRANSCRIPT_FORMAT) {
+      throw new AuthenticationError(
+        "Security transcript format is not recognized.",
+        { code: "security_transcript_invalid" },
+      );
+    }
+    if (this.formatVersion !== SECURITY_TRANSCRIPT_FORMAT_VERSION) {
+      throw new AuthenticationError(
+        "Security transcript format version is unavailable.",
+        { code: "security_transcript_version" },
+      );
+    }
+    const required = [
+      this.bindingHash,
+      this.bindingType,
+      this.capabilitiesHash,
+      this.handshakeNonce,
+      this.protocolVersion,
+      this.receiverNodeId,
+      this.receiverPeerId,
+      this.requestedProfile,
+      this.selectedProfile,
+      this.senderNodeId,
+      this.senderPeerId,
+      this.sessionId,
+      this.timestamp,
+      this.tlsVersion,
+    ];
+    if (required.some((value) => !value)) {
+      throw new AuthenticationError(
+        "Security transcript contains an empty required field.",
+        { code: "security_transcript_invalid" },
+      );
+    }
+    for (const value of [
+      this.bindingHash,
+      this.capabilitiesHash,
+      this.receiverCredentialFingerprint,
+      this.senderCredentialFingerprint,
+      ...(this.transcriptHash ? [this.transcriptHash] : []),
+    ]) {
+      if (!/^sha256:[0-9a-f]{64}$/.test(value)) {
+        throw new AuthenticationError(
+          "Security transcript contains an invalid SHA-256 value.",
+          { code: "security_transcript_invalid" },
+        );
+      }
+    }
+  }
+
+  unsignedWire() {
+    return {
+      binding_hash: this.bindingHash,
+      binding_type: this.bindingType,
+      capabilities_hash: this.capabilitiesHash,
+      format: this.format,
+      format_version: this.formatVersion,
+      handshake_nonce: this.handshakeNonce,
+      negotiated_group: this.negotiatedGroup,
+      protocol_version: this.protocolVersion,
+      receiver_credential_fingerprint: this.receiverCredentialFingerprint,
+      receiver_node_id: this.receiverNodeId,
+      receiver_peer_id: this.receiverPeerId,
+      requested_profile: this.requestedProfile,
+      selected_profile: this.selectedProfile,
+      sender_credential_fingerprint: this.senderCredentialFingerprint,
+      sender_node_id: this.senderNodeId,
+      sender_peer_id: this.senderPeerId,
+      session_id: this.sessionId,
+      timestamp: this.timestamp,
+      tls_version: this.tlsVersion,
+    };
+  }
+
+  canonicalPayload() {
+    return new TextEncoder().encode(JSON.stringify(this.unsignedWire()));
+  }
+
+  toWire() {
+    return { ...this.unsignedWire(), transcript_hash: this.transcriptHash };
+  }
+
+  static fromWire(data = {}) {
+    return new SecurityTranscript(data);
+  }
+}
+
 export class SignedArtifact {
   constructor(data = {}) {
     this.artifactId = data.artifactId || data.artifact_id || "";
@@ -245,6 +424,8 @@ export class CertificateIdentityPolicy {
     this.requireAuthorizedFingerprint = options.requireAuthorizedFingerprint
       ?? options.require_authorized_fingerprint
       ?? true;
+    this.revocationPolicy = options.revocationPolicy || options.revocation_policy || null;
+    this.rotationPolicy = options.rotationPolicy || options.rotation_policy || null;
   }
 }
 
@@ -324,7 +505,8 @@ export class ReplayProtection {
     this.lastSequences = new Map();
   }
 
-  checkAndRecord(sessionId, sequence, nonce = null, createdAtTs = null) {
+  checkAndRecord(sessionId, sequence, nonce = null, createdAtTs = null, context = null) {
+    void context;
     const now = Date.now() / 1000;
     if (createdAtTs !== null) {
       if (createdAtTs < now - this.windowSeconds) {
@@ -362,12 +544,15 @@ export class ReplayProtection {
       }
     }
 
+    if (nonceKey && this.seenNonces.size >= this.maxSeenNonces) {
+      throw new SecurityError(
+        "Replay nonce capacity is exhausted.",
+        { code: "replay_state_capacity", details: { max_seen_nonces: this.maxSeenNonces } },
+      );
+    }
+
     this.lastSequences.set(sessionId, sequence);
     if (nonceKey) {
-      if (this.seenNonces.size >= this.maxSeenNonces) {
-        const oldestKey = this.seenNonces.keys().next().value;
-        this.seenNonces.delete(oldestKey);
-      }
       this.seenNonces.set(nonceKey, now);
     }
   }

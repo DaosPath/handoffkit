@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/security-transcript-v1.schema.json",
+  "title": "HK-CSP Security Transcript Extension v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "binding_hash",
+    "binding_type",
+    "capabilities_hash",
+    "format",
+    "format_version",
+    "handshake_nonce",
+    "negotiated_group",
+    "protocol_version",
+    "receiver_credential_fingerprint",
+    "receiver_node_id",
+    "receiver_peer_id",
+    "requested_profile",
+    "selected_profile",
+    "sender_credential_fingerprint",
+    "sender_node_id",
+    "sender_peer_id",
+    "session_id",
+    "timestamp",
+    "tls_version",
+    "transcript_hash"
+  ],
+  "properties": {
+    "binding_hash": { "$ref": "#/$defs/fingerprint" },
+    "binding_type": { "const": "tls-certificate-endpoints" },
+    "capabilities_hash": { "$ref": "#/$defs/fingerprint" },
+    "format": { "const": "handoffkit.security.transcript" },
+    "format_version": { "const": 1 },
+    "handshake_nonce": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "negotiated_group": { "type": ["string", "null"], "minLength": 1 },
+    "protocol_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "receiver_credential_fingerprint": { "$ref": "#/$defs/fingerprint" },
+    "receiver_node_id": { "type": "string", "minLength": 1 },
+    "receiver_peer_id": { "type": "string", "minLength": 1 },
+    "requested_profile": { "enum": ["standard", "hybrid-pq"] },
+    "selected_profile": { "enum": ["standard", "hybrid-pq"] },
+    "sender_credential_fingerprint": { "$ref": "#/$defs/fingerprint" },
+    "sender_node_id": { "type": "string", "minLength": 1 },
+    "sender_peer_id": { "type": "string", "minLength": 1 },
+    "session_id": { "type": "string", "minLength": 1 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "tls_version": { "const": "TLSv1.3" },
+    "transcript_hash": { "$ref": "#/$defs/fingerprint" }
+  },
+  "$defs": {
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

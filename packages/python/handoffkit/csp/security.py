@@ -4,18 +4,22 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import json
 import os
 import ssl
 import stat
+import threading
 import time
+import weakref
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from dataclasses import replace as dataclass_replace
 from datetime import timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 from urllib.parse import unquote, urlparse
 
 from cryptography import x509
@@ -97,6 +101,14 @@ class ArtifactSignatureError(SecurityError):
     """Raised when a signed artifact fails cryptographic or signer policy checks."""
 
     code = "artifact_signature_invalid"
+
+
+class RevocationPolicy(Protocol):
+    """Read-only revocation decision interface consumed by secure routes."""
+
+    def is_revoked(self, kind: str, value: str, *, now: int | None = None) -> bool:
+        """Return whether a normalized subject is currently revoked."""
+        ...
 
 
 def negotiate_security_profile(
@@ -222,6 +234,396 @@ class PeerIdentity:
         )
 
 
+SECURITY_TRANSCRIPT_FORMAT = "handoffkit.security.transcript"
+SECURITY_TRANSCRIPT_FORMAT_VERSION = 1
+
+
+@dataclass(frozen=True)
+class SecurityTranscript:
+    """Canonical additive HK-CSP 1.x transcript carried inside authenticated TLS."""
+
+    protocol_version: str
+    requested_profile: str
+    selected_profile: str
+    sender_peer_id: str
+    sender_node_id: str
+    sender_credential_fingerprint: str
+    receiver_peer_id: str
+    receiver_node_id: str
+    receiver_credential_fingerprint: str
+    tls_version: str
+    negotiated_group: str | None
+    session_id: str
+    handshake_nonce: str
+    capabilities_hash: str
+    timestamp: str
+    binding_type: str
+    binding_hash: str
+    transcript_hash: str = ""
+    format: str = SECURITY_TRANSCRIPT_FORMAT
+    format_version: int = SECURITY_TRANSCRIPT_FORMAT_VERSION
+
+    def __post_init__(self) -> None:
+        if self.format != SECURITY_TRANSCRIPT_FORMAT:
+            raise AuthenticationError(
+                "Security transcript format is not recognized.",
+                code="security_transcript_invalid",
+            )
+        if self.format_version != SECURITY_TRANSCRIPT_FORMAT_VERSION:
+            raise AuthenticationError(
+                "Security transcript format version is unavailable.",
+                code="security_transcript_version",
+            )
+        for name in (
+            "protocol_version",
+            "requested_profile",
+            "selected_profile",
+            "sender_peer_id",
+            "sender_node_id",
+            "sender_credential_fingerprint",
+            "receiver_peer_id",
+            "receiver_node_id",
+            "receiver_credential_fingerprint",
+            "tls_version",
+            "session_id",
+            "handshake_nonce",
+            "capabilities_hash",
+            "timestamp",
+            "binding_type",
+            "binding_hash",
+        ):
+            if not getattr(self, name):
+                raise AuthenticationError(
+                    f"Security transcript field '{name}' is empty.",
+                    code="security_transcript_invalid",
+                )
+        for value in (
+            self.sender_credential_fingerprint,
+            self.receiver_credential_fingerprint,
+            self.capabilities_hash,
+            self.binding_hash,
+        ):
+            if not _is_sha256_fingerprint(value):
+                raise AuthenticationError(
+                    "Security transcript contains an invalid SHA-256 value.",
+                    code="security_transcript_invalid",
+                )
+        if self.transcript_hash and not _is_sha256_fingerprint(self.transcript_hash):
+            raise AuthenticationError(
+                "Security transcript hash is invalid.",
+                code="security_transcript_invalid",
+            )
+
+    @classmethod
+    def build(
+        cls,
+        *,
+        protocol_version: str,
+        requested_profile: str,
+        selected_profile: str,
+        sender: PeerIdentity,
+        receiver: PeerIdentity,
+        tls_version: str,
+        negotiated_group: str | None,
+        session_id: str,
+        handshake_nonce: str,
+        timestamp: str,
+    ) -> SecurityTranscript:
+        capabilities_hash = _sha256_canonical(sorted(sender.capabilities))
+        binding_hash = _sha256_canonical(
+            {
+                "receiver_credential_fingerprint": _normalize_fingerprint(
+                    receiver.credential_fingerprint
+                ),
+                "sender_credential_fingerprint": _normalize_fingerprint(
+                    sender.credential_fingerprint
+                ),
+                "tls_version": tls_version,
+            }
+        )
+        transcript = cls(
+            protocol_version=protocol_version,
+            requested_profile=requested_profile,
+            selected_profile=selected_profile,
+            sender_peer_id=sender.peer_id,
+            sender_node_id=sender.node_id,
+            sender_credential_fingerprint=_normalize_fingerprint(
+                sender.credential_fingerprint
+            ),
+            receiver_peer_id=receiver.peer_id,
+            receiver_node_id=receiver.node_id,
+            receiver_credential_fingerprint=_normalize_fingerprint(
+                receiver.credential_fingerprint
+            ),
+            tls_version=tls_version,
+            negotiated_group=negotiated_group,
+            session_id=session_id,
+            handshake_nonce=handshake_nonce,
+            capabilities_hash=capabilities_hash,
+            timestamp=timestamp,
+            binding_type="tls-certificate-endpoints",
+            binding_hash=binding_hash,
+        )
+        return cls(**{**transcript.to_dict(), "transcript_hash": transcript.digest()})
+
+    def unsigned_dict(self) -> dict[str, Any]:
+        return {
+            "binding_hash": self.binding_hash,
+            "binding_type": self.binding_type,
+            "capabilities_hash": self.capabilities_hash,
+            "format": self.format,
+            "format_version": self.format_version,
+            "handshake_nonce": self.handshake_nonce,
+            "negotiated_group": self.negotiated_group,
+            "protocol_version": self.protocol_version,
+            "receiver_credential_fingerprint": self.receiver_credential_fingerprint,
+            "receiver_node_id": self.receiver_node_id,
+            "receiver_peer_id": self.receiver_peer_id,
+            "requested_profile": self.requested_profile,
+            "selected_profile": self.selected_profile,
+            "sender_credential_fingerprint": self.sender_credential_fingerprint,
+            "sender_node_id": self.sender_node_id,
+            "sender_peer_id": self.sender_peer_id,
+            "session_id": self.session_id,
+            "timestamp": self.timestamp,
+            "tls_version": self.tls_version,
+        }
+
+    def digest(self) -> str:
+        return _sha256_canonical(self.unsigned_dict())
+
+    def to_dict(self) -> dict[str, Any]:
+        return {**self.unsigned_dict(), "transcript_hash": self.transcript_hash}
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> SecurityTranscript:
+        try:
+            transcript = cls(
+                protocol_version=str(value["protocol_version"]),
+                requested_profile=str(value["requested_profile"]),
+                selected_profile=str(value["selected_profile"]),
+                sender_peer_id=str(value["sender_peer_id"]),
+                sender_node_id=str(value["sender_node_id"]),
+                sender_credential_fingerprint=str(value["sender_credential_fingerprint"]),
+                receiver_peer_id=str(value["receiver_peer_id"]),
+                receiver_node_id=str(value["receiver_node_id"]),
+                receiver_credential_fingerprint=str(
+                    value["receiver_credential_fingerprint"]
+                ),
+                tls_version=str(value["tls_version"]),
+                negotiated_group=(
+                    str(value["negotiated_group"])
+                    if value.get("negotiated_group") is not None
+                    else None
+                ),
+                session_id=str(value["session_id"]),
+                handshake_nonce=str(value["handshake_nonce"]),
+                capabilities_hash=str(value["capabilities_hash"]),
+                timestamp=str(value["timestamp"]),
+                binding_type=str(value["binding_type"]),
+                binding_hash=str(value["binding_hash"]),
+                transcript_hash=str(value["transcript_hash"]),
+                format=str(value["format"]),
+                format_version=int(value["format_version"]),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise AuthenticationError(
+                "Security transcript is malformed.",
+                code="security_transcript_invalid",
+            ) from error
+        if not hmac.compare_digest(transcript.transcript_hash, transcript.digest()):
+            raise AuthenticationError(
+                "Security transcript hash does not match its canonical payload.",
+                code="security_transcript_hash_mismatch",
+            )
+        return transcript
+
+
+def verify_security_transcript(
+    value: Mapping[str, Any],
+    *,
+    protocol_version: str,
+    profile: SecurityProfile,
+    sender: PeerIdentity,
+    receiver: PeerIdentity,
+    tls_version: str,
+    negotiated_group: str | None,
+    session_id: str,
+    handshake_nonce: str,
+    timestamp: str,
+) -> SecurityTranscript:
+    transcript = SecurityTranscript.from_dict(value)
+    expected = SecurityTranscript.build(
+        protocol_version=protocol_version,
+        requested_profile=profile.value,
+        selected_profile=profile.value,
+        sender=sender,
+        receiver=receiver,
+        tls_version=tls_version,
+        negotiated_group=negotiated_group,
+        session_id=session_id,
+        handshake_nonce=handshake_nonce,
+        timestamp=timestamp,
+    )
+    if (
+        transcript.requested_profile != profile.value
+        or transcript.selected_profile != profile.value
+    ):
+        raise SecurityProfileMismatchError(
+            "Security transcript attempted a profile downgrade.",
+            details={
+                "requested": transcript.requested_profile,
+                "selected": transcript.selected_profile,
+                "required": profile.value,
+            },
+        )
+    identity_fields = (
+        "sender_peer_id",
+        "sender_node_id",
+        "sender_credential_fingerprint",
+        "receiver_peer_id",
+        "receiver_node_id",
+        "receiver_credential_fingerprint",
+    )
+    if any(getattr(transcript, name) != getattr(expected, name) for name in identity_fields):
+        raise AuthenticationError(
+            "Security transcript identities do not match the authenticated TLS endpoints.",
+            code="security_transcript_identity_mismatch",
+        )
+    if transcript.to_dict() != expected.to_dict():
+        raise AuthenticationError(
+            "Security transcript does not match the authenticated HK-CSP exchange.",
+            code="security_transcript_mismatch",
+        )
+    return transcript
+
+
+def peer_identity_from_certificate(
+    certificate: bytes | str | Path,
+    *,
+    capabilities: Sequence[str] = (),
+) -> PeerIdentity:
+    if isinstance(certificate, Path):
+        raw = certificate.read_bytes()
+    elif isinstance(certificate, str):
+        candidate = Path(certificate)
+        raw = candidate.read_bytes() if candidate.exists() else certificate.encode("utf-8")
+    else:
+        raw = certificate
+    parsed = (
+        x509.load_pem_x509_certificate(raw)
+        if raw.lstrip().startswith(b"-----BEGIN CERTIFICATE-----")
+        else x509.load_der_x509_certificate(raw)
+    )
+    try:
+        san = parsed.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+    except x509.ExtensionNotFound as error:
+        raise AuthenticationError(
+            "Certificate has no subject alternative name extension.",
+            code="identity_san_missing",
+        ) from error
+    identity_uris = [
+        value
+        for value in san.get_values_for_type(x509.UniformResourceIdentifier)
+        if urlparse(value).scheme == CERTIFICATE_IDENTITY_SCHEME
+    ]
+    if len(identity_uris) != 1:
+        raise AuthenticationError(
+            "Certificate must contain exactly one HK-CSP identity URI SAN.",
+            code="identity_san_invalid",
+        )
+    peer_id, node_id, worker_id, trust_domain = _parse_identity_uri(identity_uris[0])
+    return PeerIdentity(
+        peer_id=peer_id,
+        node_id=node_id,
+        worker_id=worker_id,
+        trust_domain=trust_domain,
+        credential_fingerprint=certificate_fingerprint(raw),
+        capabilities=tuple(capabilities),
+        issued_at=int(parsed.not_valid_before_utc.timestamp()),
+        expires_at=int(parsed.not_valid_after_utc.timestamp()),
+    )
+
+
+def _sha256_canonical(value: Any) -> str:
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _is_sha256_fingerprint(value: str) -> bool:
+    prefix, separator, digest = value.partition(":")
+    return separator == ":" and prefix == "sha256" and len(digest) == 64 and all(
+        character in "0123456789abcdef" for character in digest
+    )
+
+
+class CredentialRotationPolicy:
+    """Thread-safe current/previous credential acceptance window."""
+
+    def __init__(
+        self,
+        current_fingerprint: str,
+        *,
+        previous_fingerprint: str | None = None,
+        transition_until: int = 0,
+        max_clock_skew_seconds: int = 10,
+    ) -> None:
+        if max_clock_skew_seconds < 0:
+            raise ValueError("max_clock_skew_seconds must not be negative")
+        self._lock = threading.RLock()
+        self._current = _normalize_fingerprint(current_fingerprint)
+        self._previous = (
+            _normalize_fingerprint(previous_fingerprint) if previous_fingerprint else None
+        )
+        self._transition_until = transition_until
+        self.max_clock_skew_seconds = max_clock_skew_seconds
+
+    def rotate(self, new_fingerprint: str, *, transition_until: int) -> None:
+        if transition_until < 0:
+            raise ValueError("transition_until must not be negative")
+        normalized = _normalize_fingerprint(new_fingerprint)
+        with self._lock:
+            self._previous = self._current
+            self._current = normalized
+            self._transition_until = transition_until
+
+    def is_allowed(self, fingerprint: str, *, now: int | None = None) -> bool:
+        normalized = _normalize_fingerprint(fingerprint)
+        timestamp = int(time.time()) if now is None else now
+        with self._lock:
+            if normalized == self._current:
+                return True
+            return bool(
+                self._previous
+                and normalized == self._previous
+                and timestamp <= self._transition_until + self.max_clock_skew_seconds
+            )
+
+    def set_transition_until(self, transition_until: int) -> None:
+        if transition_until < 0:
+            raise ValueError("transition_until must not be negative")
+        with self._lock:
+            self._transition_until = transition_until
+
+    def status(self, *, now: int | None = None) -> dict[str, Any]:
+        timestamp = int(time.time()) if now is None else now
+        with self._lock:
+            return {
+                "current_fingerprint": self._current,
+                "previous_fingerprint": self._previous,
+                "transition_until": self._transition_until,
+                "previous_accepted": bool(
+                    self._previous
+                    and timestamp <= self._transition_until + self.max_clock_skew_seconds
+                ),
+            }
+
+
 @dataclass(frozen=True)
 class CertificateIdentityPolicy:
     """Local policy used to authorize identity extracted from a verified certificate."""
@@ -234,6 +636,8 @@ class CertificateIdentityPolicy:
     expected_worker_id: str | None = None
     allowed_issuer_names: tuple[str, ...] = field(default_factory=tuple)
     require_authorized_fingerprint: bool = True
+    revocation_policy: RevocationPolicy | None = None
+    rotation_policy: CredentialRotationPolicy | None = None
 
     def __post_init__(self) -> None:
         if not self.trust_domain:
@@ -331,10 +735,36 @@ def authenticate_ssl_peer(
     _verify_expected_identity(policy, peer_id, node_id, worker_id)
 
     fingerprint = certificate_fingerprint(der)
-    if fingerprint in policy.revoked_fingerprints:
+    durable_revocation = policy.revocation_policy
+    revoked_kind = next(
+        (
+            kind
+            for kind, value in (
+                ("certificate_fingerprint", fingerprint),
+                ("peer_id", peer_id),
+                ("issuer", issuer_name),
+                ("trust_domain", trust_domain),
+            )
+            if durable_revocation is not None
+            and durable_revocation.is_revoked(kind, value, now=int(now))
+        ),
+        None,
+    )
+    if fingerprint in policy.revoked_fingerprints or revoked_kind is not None:
         raise AuthenticationError(
             "TLS peer credential is revoked by local policy.",
             code="credential_revoked",
+            details={
+                "credential_fingerprint": fingerprint,
+                "revocation_kind": revoked_kind or "certificate_fingerprint",
+            },
+        )
+    if policy.rotation_policy is not None and not policy.rotation_policy.is_allowed(
+        fingerprint, now=int(now)
+    ):
+        raise AuthenticationError(
+            "TLS peer credential is outside the configured rotation window.",
+            code="credential_rotation_rejected",
             details={"credential_fingerprint": fingerprint},
         )
     grants = policy.capabilities_by_fingerprint.get(fingerprint)
@@ -514,7 +944,10 @@ class ReplayProtection:
         sequence: int,
         nonce: str | None = None,
         created_at_ts: float | None = None,
+        *,
+        context: Any | None = None,
     ) -> None:
+        del context
         now = time.time()
         if created_at_ts is not None:
             if created_at_ts < (now - self.window_seconds):
@@ -543,12 +976,15 @@ class ReplayProtection:
                     f"Duplicate nonce detected: {nonce}", code="replay_nonce"
                 )
 
+        if nonce_key and len(self._seen_nonces) >= self.max_seen_nonces:
+            raise SecurityError(
+                "Replay nonce capacity is exhausted.",
+                code="replay_state_capacity",
+                details={"max_seen_nonces": self.max_seen_nonces},
+            )
+
         self._last_sequences[session_id] = sequence
         if nonce_key:
-            if len(self._seen_nonces) >= self.max_seen_nonces:
-                # Evict oldest entry
-                oldest_key = min(self._seen_nonces, key=self._seen_nonces.get)  # type: ignore
-                del self._seen_nonces[oldest_key]
             self._seen_nonces[nonce_key] = now
 
     def prune_old_nonces(self, now: float | None = None) -> None:
@@ -753,10 +1189,12 @@ class ArtifactTrustPolicy:
         *,
         allowed_algorithms: Sequence[str] = ("ed25519",),
         max_future_skew_seconds: int = 10,
+        revocation_policy: RevocationPolicy | None = None,
     ) -> None:
         self.credentials = {credential.fingerprint: credential for credential in credentials}
         self.allowed_algorithms = frozenset(allowed_algorithms)
         self.max_future_skew_seconds = max_future_skew_seconds
+        self.revocation_policy = revocation_policy
 
 
 class ArtifactSigner:
@@ -856,12 +1294,22 @@ class ArtifactVerifier:
                 "Artifact signer identity does not match local key policy.",
                 code="artifact_signer_mismatch",
             )
-        if credential.revoked:
+        timestamp = int(time.time()) if now is None else now
+        signer_revoked = policy.revocation_policy is not None and any(
+            (
+                policy.revocation_policy.is_revoked(
+                    "signer_fingerprint", artifact.key_fingerprint, now=timestamp
+                ),
+                policy.revocation_policy.is_revoked(
+                    "peer_id", artifact.signer_identity, now=timestamp
+                ),
+            )
+        )
+        if credential.revoked or signer_revoked:
             raise ArtifactSignatureError(
                 "Artifact signer key is revoked.",
                 code="artifact_signer_revoked",
             )
-        timestamp = int(time.time()) if now is None else now
         if credential.valid_from and timestamp < credential.valid_from:
             raise ArtifactSignatureError(
                 "Artifact signer credential is not yet valid.",
@@ -967,6 +1415,168 @@ def build_ssl_context(
         context.verify_mode = ssl.CERT_REQUIRED
 
     return context
+
+
+class ReloadableTLSContext:
+    """Atomically swaps validated TLS credentials and trust for new connections."""
+
+    def __init__(self, config: SecurityConfig, *, is_server: bool) -> None:
+        self._lock = threading.RLock()
+        self.is_server = is_server
+        self._profile = config.profile
+        self._trust_domain = config.trust_domain
+        context = build_ssl_context(config, is_server=is_server)
+        if context is None:
+            raise SecurityError(
+                "Reloadable TLS context requires a secure profile.",
+                code="tls_profile_required",
+            )
+        self._current_context = context
+        self._generation = 1
+        self._current_fingerprint = self._credential_fingerprint(config)
+        self._previous_fingerprint: str | None = None
+        self._transition_until = 0
+        self._trust_anchor_hash = self._file_hash(config.ca_cert_path)
+        self._previous_trust_anchor_hash: str | None = None
+        self._certificate_expires_at = self._certificate_expiry(config)
+        self._current_certificate_identity = (
+            peer_identity_from_certificate(config.cert_path) if config.cert_path else None
+        )
+        self._identities_by_context: weakref.WeakKeyDictionary[
+            ssl.SSLContext, PeerIdentity
+        ] = weakref.WeakKeyDictionary()
+        if self._current_certificate_identity is not None:
+            self._identities_by_context[context] = self._current_certificate_identity
+        self._router_context: ssl.SSLContext | None = None
+        if is_server:
+            # The context attached to the listener must itself request client
+            # certificates. OpenSSL decides whether to emit CertificateRequest
+            # before all attributes of a context selected by the SNI callback
+            # are applied. Reuse the fully validated initial context as the
+            # router, then select the current immutable context for every new
+            # handshake. Existing sessions retain the context they negotiated.
+            router = context
+            router.set_servername_callback(self._route_server_context)
+            self._router_context = router
+
+    def context(self, *, is_server: bool) -> ssl.SSLContext:
+        if is_server != self.is_server:
+            raise SecurityError(
+                "TLS reload provider role does not match transport role.",
+                code="tls_reload_role_mismatch",
+            )
+        with self._lock:
+            if is_server:
+                assert self._router_context is not None
+                return self._router_context
+            return self._current_context
+
+    def reload(
+        self,
+        config: SecurityConfig,
+        *,
+        transition_seconds: int = 300,
+        now: int | None = None,
+    ) -> dict[str, Any]:
+        if transition_seconds < 0:
+            raise ValueError("transition_seconds must not be negative")
+        if config.profile != self._profile or config.trust_domain != self._trust_domain:
+            raise SecurityError(
+                "TLS reload cannot change security profile or trust domain.",
+                code="tls_reload_policy_mismatch",
+            )
+        # Build and validate everything before acquiring the swap lock. A bad
+        # certificate, key, or trust bundle leaves the active context untouched.
+        candidate = build_ssl_context(config, is_server=self.is_server)
+        if candidate is None:
+            raise SecurityError(
+                "TLS reload requires a secure profile.",
+                code="tls_profile_required",
+            )
+        fingerprint = self._credential_fingerprint(config)
+        trust_hash = self._file_hash(config.ca_cert_path)
+        expiry = self._certificate_expiry(config)
+        identity = peer_identity_from_certificate(config.cert_path) if config.cert_path else None
+        timestamp = int(time.time()) if now is None else now
+        with self._lock:
+            self._previous_fingerprint = self._current_fingerprint
+            self._previous_trust_anchor_hash = self._trust_anchor_hash
+            self._current_context = candidate
+            self._current_fingerprint = fingerprint
+            self._trust_anchor_hash = trust_hash
+            self._certificate_expires_at = expiry
+            self._current_certificate_identity = identity
+            if identity is not None:
+                self._identities_by_context[candidate] = identity
+            self._transition_until = timestamp + transition_seconds
+            self._generation += 1
+            return self.status(now=timestamp)
+
+    def local_identity(
+        self,
+        *,
+        context: ssl.SSLContext | None = None,
+        capabilities: Sequence[str] = (),
+    ) -> PeerIdentity | None:
+        with self._lock:
+            identity = (
+                self._identities_by_context.get(context)
+                if context is not None
+                else self._current_certificate_identity
+            )
+            if identity is None:
+                return None
+            return dataclass_replace(
+                identity,
+                capabilities=tuple(capabilities),
+            )
+
+    def status(self, *, now: int | None = None) -> dict[str, Any]:
+        timestamp = int(time.time()) if now is None else now
+        with self._lock:
+            return {
+                "generation": self._generation,
+                "role": "server" if self.is_server else "client",
+                "security_profile": self._profile.value,
+                "current_fingerprint": self._current_fingerprint,
+                "previous_fingerprint": self._previous_fingerprint,
+                "transition_until": self._transition_until,
+                "previous_accepted": bool(
+                    self._previous_fingerprint and timestamp <= self._transition_until
+                ),
+                "trust_anchor_hash": self._trust_anchor_hash,
+                "previous_trust_anchor_hash": self._previous_trust_anchor_hash,
+                "certificate_expires_at": self._certificate_expires_at,
+                "provider": ssl.OPENSSL_VERSION,
+            }
+
+    def _route_server_context(
+        self,
+        ssl_object: ssl.SSLObject | ssl.SSLSocket,
+        server_name: str | None,
+        _initial_context: ssl.SSLContext,
+    ) -> None:
+        if not server_name:
+            raise ssl.SSLError("reloadable TLS server requires SNI")
+        with self._lock:
+            ssl_object.context = self._current_context
+
+    @staticmethod
+    def _credential_fingerprint(config: SecurityConfig) -> str | None:
+        return certificate_fingerprint(Path(config.cert_path)) if config.cert_path else None
+
+    @staticmethod
+    def _certificate_expiry(config: SecurityConfig) -> int:
+        if not config.cert_path:
+            return 0
+        certificate = x509.load_pem_x509_certificate(Path(config.cert_path).read_bytes())
+        return int(certificate.not_valid_after_utc.timestamp())
+
+    @staticmethod
+    def _file_hash(path: str | None) -> str | None:
+        if not path:
+            return None
+        return f"sha256:{hashlib.sha256(Path(path).read_bytes()).hexdigest()}"
 
 
 def _tls13_supported() -> bool:

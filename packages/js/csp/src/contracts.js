@@ -14,6 +14,11 @@ export const RuntimeMode = Object.freeze({
 });
 
 export const OverflowPolicy = Object.freeze({ BLOCK: "block", REJECT: "reject" });
+export const EdgeProfile = Object.freeze({
+  EDGE_SMALL: "edge-small",
+  EDGE_STANDARD: "edge-standard",
+  SERVER: "server",
+});
 
 export class CspError extends Error {}
 export class ChannelClosedError extends CspError {}
@@ -112,6 +117,155 @@ export class RetryPolicy {
   }
 }
 
+export class EdgeRuntimeProfile {
+  constructor({
+    name,
+    channelCapacity,
+    maxFrameBytes,
+    pendingAckLimit,
+    dedupCapacity,
+    durableReplayCapacity,
+    connectionLimit,
+    heartbeatSeconds,
+    reconnect,
+    connectTimeoutMs,
+    ioTimeoutMs,
+    ackTimeoutMs,
+    artifactLimitBytes,
+    memoryBudgetBytes,
+    durableStateLimitBytes,
+    loggingLevel,
+    loggingIncludePayloads,
+    loggingRedactPaths,
+    securityProfile,
+  }) {
+    if (!Object.values(EdgeProfile).includes(name)) throw new TypeError("edge profile name is invalid");
+    const positive = {
+      channelCapacity,
+      maxFrameBytes,
+      pendingAckLimit,
+      dedupCapacity,
+      durableReplayCapacity,
+      connectionLimit,
+      heartbeatSeconds,
+      connectTimeoutMs,
+      ioTimeoutMs,
+      ackTimeoutMs,
+      artifactLimitBytes,
+      memoryBudgetBytes,
+      durableStateLimitBytes,
+    };
+    if (Object.values(positive).some((value) => !Number.isSafeInteger(value) || value < 1)) {
+      throw new TypeError("edge runtime limits must be positive safe integers");
+    }
+    if (maxFrameBytes < MIN_MESSAGE_BYTES || maxFrameBytes > DEFAULT_MAX_MESSAGE_BYTES) {
+      throw new TypeError(`maxFrameBytes must be between ${MIN_MESSAGE_BYTES} and ${DEFAULT_MAX_MESSAGE_BYTES}`);
+    }
+    if (!["warning", "info"].includes(loggingLevel)) throw new TypeError("edge loggingLevel is invalid");
+    if (loggingIncludePayloads !== false) throw new TypeError("edge profiles must not log message payloads");
+    if (loggingRedactPaths !== true) throw new TypeError("edge profiles must redact paths");
+    if (securityProfile !== "standard") throw new TypeError("edge profiles require the standard security profile");
+    Object.assign(this, {
+      name,
+      ...positive,
+      reconnect: reconnect instanceof RetryPolicy ? reconnect : RetryPolicy.fromWire(reconnect),
+      loggingLevel,
+      loggingIncludePayloads,
+      loggingRedactPaths,
+      securityProfile,
+    });
+  }
+
+  static forProfile(profile = EdgeProfile.EDGE_STANDARD) {
+    const presets = {
+      [EdgeProfile.EDGE_SMALL]: {
+        channelCapacity: 16, maxFrameBytes: 1048576, pendingAckLimit: 32,
+        dedupCapacity: 512, durableReplayCapacity: 2048, connectionLimit: 8,
+        heartbeatSeconds: 30, reconnect: new RetryPolicy({ maxAttempts: 5, baseDelayMs: 250, maxDelayMs: 5000 }),
+        connectTimeoutMs: 5000, ioTimeoutMs: 15000, ackTimeoutMs: 10000,
+        artifactLimitBytes: 16777216, memoryBudgetBytes: 268435456,
+        durableStateLimitBytes: 8388608, loggingLevel: "warning",
+      },
+      [EdgeProfile.EDGE_STANDARD]: {
+        channelCapacity: 64, maxFrameBytes: 4194304, pendingAckLimit: 128,
+        dedupCapacity: 2048, durableReplayCapacity: 10000, connectionLimit: 32,
+        heartbeatSeconds: 15, reconnect: new RetryPolicy({ maxAttempts: 5, baseDelayMs: 100, maxDelayMs: 3000 }),
+        connectTimeoutMs: 5000, ioTimeoutMs: 30000, ackTimeoutMs: 30000,
+        artifactLimitBytes: 67108864, memoryBudgetBytes: 1073741824,
+        durableStateLimitBytes: 33554432, loggingLevel: "info",
+      },
+      [EdgeProfile.SERVER]: {
+        channelCapacity: 256, maxFrameBytes: 8388608, pendingAckLimit: 1024,
+        dedupCapacity: 16384, durableReplayCapacity: 100000, connectionLimit: 256,
+        heartbeatSeconds: 10, reconnect: new RetryPolicy({ maxAttempts: 8, baseDelayMs: 50, maxDelayMs: 2000 }),
+        connectTimeoutMs: 5000, ioTimeoutMs: 60000, ackTimeoutMs: 60000,
+        artifactLimitBytes: 536870912, memoryBudgetBytes: 4294967296,
+        durableStateLimitBytes: 268435456, loggingLevel: "info",
+      },
+    };
+    if (!Object.hasOwn(presets, profile)) throw new TypeError("edge profile name is invalid");
+    return new EdgeRuntimeProfile({
+      name: profile,
+      loggingIncludePayloads: false,
+      loggingRedactPaths: true,
+      securityProfile: "standard",
+      ...presets[profile],
+    });
+  }
+
+  toWire() {
+    return {
+      name: this.name,
+      channel_capacity: this.channelCapacity,
+      max_frame_bytes: this.maxFrameBytes,
+      pending_ack_limit: this.pendingAckLimit,
+      dedup_capacity: this.dedupCapacity,
+      durable_replay_capacity: this.durableReplayCapacity,
+      connection_limit: this.connectionLimit,
+      heartbeat_seconds: this.heartbeatSeconds,
+      reconnect: this.reconnect.toWire(),
+      timeout: {
+        connect_ms: this.connectTimeoutMs,
+        io_ms: this.ioTimeoutMs,
+        ack_ms: this.ackTimeoutMs,
+      },
+      artifact_limit_bytes: this.artifactLimitBytes,
+      memory_budget_bytes: this.memoryBudgetBytes,
+      durable_state_limit_bytes: this.durableStateLimitBytes,
+      logging: {
+        level: this.loggingLevel,
+        include_payloads: this.loggingIncludePayloads,
+        redact_paths: this.loggingRedactPaths,
+      },
+      security_profile: this.securityProfile,
+    };
+  }
+
+  static fromWire(value) {
+    return new EdgeRuntimeProfile({
+      name: value.name,
+      channelCapacity: value.channelCapacity ?? value.channel_capacity,
+      maxFrameBytes: value.maxFrameBytes ?? value.max_frame_bytes,
+      pendingAckLimit: value.pendingAckLimit ?? value.pending_ack_limit,
+      dedupCapacity: value.dedupCapacity ?? value.dedup_capacity,
+      durableReplayCapacity: value.durableReplayCapacity ?? value.durable_replay_capacity,
+      connectionLimit: value.connectionLimit ?? value.connection_limit,
+      heartbeatSeconds: value.heartbeatSeconds ?? value.heartbeat_seconds,
+      reconnect: value.reconnect,
+      connectTimeoutMs: value.connectTimeoutMs ?? value.timeout?.connect_ms,
+      ioTimeoutMs: value.ioTimeoutMs ?? value.timeout?.io_ms,
+      ackTimeoutMs: value.ackTimeoutMs ?? value.timeout?.ack_ms,
+      artifactLimitBytes: value.artifactLimitBytes ?? value.artifact_limit_bytes,
+      memoryBudgetBytes: value.memoryBudgetBytes ?? value.memory_budget_bytes,
+      durableStateLimitBytes: value.durableStateLimitBytes ?? value.durable_state_limit_bytes,
+      loggingLevel: value.loggingLevel ?? value.logging?.level,
+      loggingIncludePayloads: value.loggingIncludePayloads ?? value.logging?.include_payloads,
+      loggingRedactPaths: value.loggingRedactPaths ?? value.logging?.redact_paths,
+      securityProfile: value.securityProfile ?? value.security_profile,
+    });
+  }
+}
+
 export class SessionConfig {
   constructor({
     sessionId,
@@ -165,6 +319,25 @@ export class SessionConfig {
       retryPolicy: value.retryPolicy ?? value.retry_policy,
       deadline: value.deadline,
       metadata: value.metadata,
+    });
+  }
+
+  static forProfile(sessionId, profile = EdgeProfile.EDGE_STANDARD, overrides = {}) {
+    const edge = profile instanceof EdgeRuntimeProfile ? profile : EdgeRuntimeProfile.forProfile(profile);
+    const metadata = { ...(overrides.metadata ?? {}) };
+    if (metadata.edge_profile != null && metadata.edge_profile !== edge.name) {
+      throw new TypeError("metadata edge_profile does not match the applied profile");
+    }
+    metadata.edge_profile = edge.name;
+    return new SessionConfig({
+      sessionId,
+      channelCapacity: edge.channelCapacity,
+      maxMessageBytes: edge.maxFrameBytes,
+      ackTimeoutMs: edge.ackTimeoutMs,
+      dedupCapacity: edge.dedupCapacity,
+      retryPolicy: edge.reconnect,
+      ...overrides,
+      metadata,
     });
   }
 }

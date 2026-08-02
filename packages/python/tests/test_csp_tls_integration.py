@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import ssl
+import struct
 import subprocess
 import sys
 import tempfile
@@ -19,15 +20,21 @@ from handoffkit.csp import (
     CapabilityPolicy,
     CertificateIdentityPolicy,
     ChannelClosedError,
+    CredentialRotationPolicy,
+    DurableReplayProtection,
+    DurableRevocationPolicy,
     LengthDelimitedTransport,
     MessageEnvelope,
     NetworkConfig,
     PeerIdentity,
+    ReloadableTLSContext,
     ReplayDetectedError,
     ReplayProtection,
+    RevocationEntry,
     SecurityConfig,
     SecurityError,
     SecurityProfile,
+    SecurityTranscript,
     TcpTransport,
     build_ssl_context,
     certificate_fingerprint,
@@ -48,6 +55,7 @@ subprocess.run(
 CA = TLS_FIXTURES / "ca_cert.pem"
 ROGUE_CA = TLS_FIXTURES / "rogue_ca_cert.pem"
 ISSUER = "CN=HandoffKit Test CA"
+NEXT_ISSUER = "CN=HandoffKit Next Test CA"
 TRUST_DOMAIN = "handoffkit.internal"
 OPERATION = "message:echo"
 
@@ -79,6 +87,9 @@ def identity_policy(
     expected: PeerIdentity | None = None,
     revoked: tuple[str, ...] = (),
     trust_domain: str = TRUST_DOMAIN,
+    revocation_policy: DurableRevocationPolicy | None = None,
+    rotation_policy: CredentialRotationPolicy | None = None,
+    allowed_issuer_names: tuple[str, ...] | None = None,
 ) -> CertificateIdentityPolicy:
     grants = {
         certificate_fingerprint(TLS_FIXTURES / f"{name}_cert.pem"): (OPERATION,)
@@ -91,7 +102,13 @@ def identity_policy(
         expected_peer_id=expected.peer_id if expected else None,
         expected_node_id=expected.node_id if expected else None,
         expected_worker_id=expected.worker_id if expected else None,
-        allowed_issuer_names=(ISSUER,) if trust_domain == TRUST_DOMAIN else (),
+        allowed_issuer_names=(
+            allowed_issuer_names
+            if allowed_issuer_names is not None
+            else ((ISSUER,) if trust_domain == TRUST_DOMAIN else ())
+        ),
+        revocation_policy=revocation_policy,
+        rotation_policy=rotation_policy,
     )
 
 
@@ -106,6 +123,10 @@ def network_config(
     replay: ReplayProtection | None = None,
     revoked: tuple[str, ...] = (),
     trust_domain: str = TRUST_DOMAIN,
+    revocation_policy: DurableRevocationPolicy | None = None,
+    rotation_policy: CredentialRotationPolicy | None = None,
+    allowed_issuer_names: tuple[str, ...] | None = None,
+    tls_context_provider: ReloadableTLSContext | None = None,
 ) -> NetworkConfig:
     security = SecurityConfig(
         profile=SecurityProfile.STANDARD,
@@ -126,9 +147,13 @@ def network_config(
             expected=peer_expected,
             revoked=revoked,
             trust_domain=trust_domain,
+            revocation_policy=revocation_policy,
+            rotation_policy=rotation_policy,
+            allowed_issuer_names=allowed_issuer_names,
         ),
         capability_policy=CapabilityPolicy(allowed_operations=[OPERATION]),
         replay_protection=replay or ReplayProtection(window_seconds=30, max_skew_seconds=3),
+        tls_context_provider=tls_context_provider,
     )
 
 
@@ -185,6 +210,9 @@ def test_python_tls13_mtls_roundtrip_uses_real_tcp_and_certificate_identity() ->
             try:
                 assert transport.authenticated_peer == client_identity
                 request = await transport.receive()
+                assert request.metadata["security_transcript"]["format"] == (
+                    "handoffkit.security.transcript"
+                )
                 ssl_object = transport.writer.get_extra_info("ssl_object")
                 assert ssl_object.version() == "TLSv1.3"
                 await transport.send(
@@ -211,6 +239,7 @@ def test_python_tls13_mtls_roundtrip_uses_real_tcp_and_certificate_identity() ->
         await client.send(secure_envelope(client_identity))
         response = await client.receive()
         assert response.source == "server-peer"
+        assert response.metadata["security_transcript"]["selected_profile"] == "standard"
         await client.close()
         await asyncio.wait_for(completed.wait(), 2)
         await close_server(server)
@@ -465,8 +494,8 @@ def test_python_secure_receive_integrates_replay_and_authorization() -> None:
 
         await close_server(server)
 
-        # Current replay state is process-local: a new state object accepts the
-        # same peer/session/sequence after restart. This behavior is documented.
+        # The explicit in-memory fallback resets when no durable backend is
+        # configured; the next test covers the durable listener-restart path.
         restarted = ReplayProtection(window_seconds=30, max_skew_seconds=3)
         scope = f"{client_identity.credential_fingerprint}|{first.session_id}"
         restarted.check_and_record(
@@ -477,6 +506,118 @@ def test_python_secure_receive_integrates_replay_and_authorization() -> None:
                 first.created_at.replace("Z", "+00:00")
             ).timestamp(),
         )
+
+    asyncio.run(scenario())
+
+
+def test_python_tls_route_rejects_validly_rehashed_downgrade_transcript() -> None:
+    async def scenario() -> None:
+        result: asyncio.Queue[str] = asyncio.Queue()
+
+        async def handler(transport: TcpTransport) -> None:
+            try:
+                await transport.receive()
+                await result.put("accepted")
+            except SecurityError as error:
+                await result.put(error.code)
+            finally:
+                await transport.close()
+
+        server = await TcpTransport.start_server(
+            handler,
+            "127.0.0.1",
+            0,
+            config=network_config("server", ("client",), server=True),
+        )
+        client = await TcpTransport.connect(
+            "127.0.0.1",
+            server.sockets[0].getsockname()[1],
+            config=network_config("client", ("server",), server=False),
+            server_hostname="localhost",
+        )
+        secured = client._with_security_transcript(  # noqa: SLF001 - wire attack probe
+            secure_envelope(fixture_identity("client"), session_id="downgrade")
+        )
+        transcript = dict(secured.metadata["security_transcript"])
+        transcript["selected_profile"] = "local"
+        transcript["transcript_hash"] = ""
+        transcript["transcript_hash"] = SecurityTranscript(**transcript).digest()
+        tampered = replace(
+            secured,
+            metadata={**secured.metadata, "security_transcript": transcript},
+        )
+        payload = tampered.to_json().encode("utf-8")
+        client.writer.write(struct.pack(">I", len(payload)) + payload)
+        await client.writer.drain()
+        assert await asyncio.wait_for(result.get(), 2) == "security_profile_mismatch"
+        await client.close()
+        await close_server(server)
+
+    asyncio.run(scenario())
+
+
+def test_python_secure_receive_restores_durable_replay_after_listener_restart(
+    tmp_path,
+) -> None:
+    async def scenario() -> None:
+        client_identity = fixture_identity("client")
+        envelope = secure_envelope(client_identity, sequence=1, nonce="durable-nonce")
+        replay_path = tmp_path / "secure-replay.json"
+
+        async def submit(replay: DurableReplayProtection) -> BaseException | None:
+            outcome: asyncio.Future[BaseException | None] = (
+                asyncio.get_running_loop().create_future()
+            )
+            server_config = network_config(
+                "server",
+                ("client",),
+                server=True,
+                replay=replay,
+            )
+
+            async def handler(transport: TcpTransport) -> None:
+                try:
+                    await transport.receive()
+                except BaseException as exc:
+                    outcome.set_result(exc)
+                else:
+                    outcome.set_result(None)
+                finally:
+                    await transport.close()
+
+            server = await TcpTransport.start_server(
+                handler,
+                "127.0.0.1",
+                0,
+                config=server_config,
+            )
+            client = await TcpTransport.connect(
+                "127.0.0.1",
+                server.sockets[0].getsockname()[1],
+                config=network_config("client", ("server",), server=False),
+                server_hostname="localhost",
+            )
+            await client.send(envelope)
+            result = await asyncio.wait_for(outcome, 2)
+            await client.close()
+            await close_server(server)
+            return result
+
+        first = DurableReplayProtection(
+            replay_path,
+            window_seconds=30,
+            max_skew_seconds=3,
+        )
+        assert await submit(first) is None
+
+        restored = DurableReplayProtection(
+            replay_path,
+            window_seconds=30,
+            max_skew_seconds=3,
+        )
+        replay = await submit(restored)
+        assert isinstance(replay, ReplayDetectedError)
+        assert replay.code in {"replay_sequence", "replay_nonce"}
 
     asyncio.run(scenario())
 
@@ -509,6 +650,266 @@ def test_python_local_revocation_policy_rejects_valid_certificate() -> None:
         await asyncio.sleep(0.05)
         assert not called.is_set()
         await client.close()
+        await close_server(server)
+
+    asyncio.run(scenario())
+
+
+def test_python_durable_revocation_reload_updates_live_tls_policy(tmp_path) -> None:
+    async def scenario() -> None:
+        state_path = tmp_path / "revocations.json"
+        live_policy = DurableRevocationPolicy(state_path)
+        writer_policy = DurableRevocationPolicy(state_path)
+        server_config = network_config(
+            "server",
+            ("client", "revoked_client"),
+            server=True,
+            revocation_policy=live_policy,
+        )
+        calls: asyncio.Queue[str] = asyncio.Queue()
+
+        async def handler(transport: TcpTransport) -> None:
+            assert transport.authenticated_peer is not None
+            await calls.put(transport.authenticated_peer.peer_id)
+            await transport.close()
+
+        server = await TcpTransport.start_server(handler, "127.0.0.1", 0, config=server_config)
+        port = server.sockets[0].getsockname()[1]
+
+        async def connect(certificate: str) -> TcpTransport:
+            return await TcpTransport.connect(
+                "127.0.0.1",
+                port,
+                config=network_config(certificate, ("server",), server=False),
+                server_hostname="localhost",
+            )
+
+        first = await connect("revoked_client")
+        assert await asyncio.wait_for(calls.get(), 2) == "revoked-peer"
+        await first.close()
+
+        fingerprint = certificate_fingerprint(TLS_FIXTURES / "revoked_client_cert.pem")
+        timestamp = int(datetime.now(timezone.utc).timestamp())
+        writer_policy.revoke(
+            RevocationEntry(
+                kind="certificate_fingerprint",
+                value=fingerprint,
+                reason="test compromise",
+                revoked_at=timestamp,
+            )
+        )
+        assert not live_policy.is_revoked("certificate_fingerprint", fingerprint)
+        live_policy.reload()
+        assert live_policy.is_revoked("certificate_fingerprint", fingerprint)
+
+        rejected = await connect("revoked_client")
+        with pytest.raises((ConnectionError, ssl.SSLError, ChannelClosedError)):
+            await rejected.receive()
+        await rejected.close()
+        await asyncio.sleep(0.05)
+        assert calls.empty()
+
+        renewed = await connect("client")
+        assert await asyncio.wait_for(calls.get(), 2) == "client-peer"
+        await renewed.close()
+        await close_server(server)
+
+        restored = DurableRevocationPolicy(state_path)
+        assert restored.is_revoked("certificate_fingerprint", fingerprint)
+
+    asyncio.run(scenario())
+
+
+def test_python_tls_credentials_reload_atomically_on_live_listener() -> None:
+    async def scenario() -> None:
+        now = int(datetime.now(timezone.utc).timestamp())
+        old_client = fixture_identity("client")
+        new_client = fixture_identity("client_rotated")
+        old_server = fixture_identity("server")
+        new_server = fixture_identity("server_rotated")
+        client_rotation = CredentialRotationPolicy(
+            old_client.credential_fingerprint,
+            max_clock_skew_seconds=0,
+        )
+        server_rotation = CredentialRotationPolicy(
+            old_server.credential_fingerprint,
+            max_clock_skew_seconds=0,
+        )
+        base_server = network_config(
+            "server",
+            ("client", "client_rotated"),
+            server=True,
+            rotation_policy=client_rotation,
+        )
+        base_client = network_config(
+            "client",
+            ("server", "server_rotated"),
+            server=False,
+            rotation_policy=server_rotation,
+        )
+        server_provider = ReloadableTLSContext(base_server.security_config, is_server=True)
+        client_provider = ReloadableTLSContext(base_client.security_config, is_server=False)
+        server_config = replace(base_server, tls_context_provider=server_provider)
+        client_config = replace(base_client, tls_context_provider=client_provider)
+        accepted: asyncio.Queue[str] = asyncio.Queue()
+
+        async def handler(transport: TcpTransport) -> None:
+            await transport.receive()
+            assert transport.authenticated_peer is not None
+            await accepted.put(transport.authenticated_peer.credential_fingerprint)
+            await transport.close()
+
+        server = await TcpTransport.start_server(handler, "127.0.0.1", 0, config=server_config)
+        port = server.sockets[0].getsockname()[1]
+        existing = await TcpTransport.connect(
+            "127.0.0.1",
+            port,
+            config=client_config,
+            server_hostname="localhost",
+        )
+
+        next_server_security = replace(
+            base_server.security_config,
+            cert_path=str(TLS_FIXTURES / "server_rotated_cert.pem"),
+            key_path=str(TLS_FIXTURES / "server_rotated_key.pem"),
+        )
+        before_failed_reload = server_provider.status(now=now)
+        mismatched = replace(
+            next_server_security,
+            key_path=str(TLS_FIXTURES / "server_key.pem"),
+        )
+        with pytest.raises(ssl.SSLError):
+            server_provider.reload(mismatched, now=now)
+        assert server_provider.status(now=now) == before_failed_reload
+
+        server_provider.reload(next_server_security, transition_seconds=60, now=now)
+        client_provider.reload(
+            replace(
+                base_client.security_config,
+                cert_path=str(TLS_FIXTURES / "client_rotated_cert.pem"),
+                key_path=str(TLS_FIXTURES / "client_rotated_key.pem"),
+            ),
+            transition_seconds=60,
+            now=now,
+        )
+        client_rotation.rotate(new_client.credential_fingerprint, transition_until=now + 60)
+        server_rotation.rotate(new_server.credential_fingerprint, transition_until=now + 60)
+
+        await existing.send(
+            secure_envelope(old_client, session_id="existing-after-reload", nonce="existing")
+        )
+        assert await asyncio.wait_for(accepted.get(), 2) == old_client.credential_fingerprint
+        await existing.close()
+
+        rotated = await TcpTransport.connect(
+            "127.0.0.1",
+            port,
+            config=client_config,
+            server_hostname="localhost",
+        )
+        await rotated.send(
+            secure_envelope(new_client, session_id="rotated-new", nonce="rotated")
+        )
+        assert await asyncio.wait_for(accepted.get(), 2) == new_client.credential_fingerprint
+        await rotated.close()
+
+        old_transition_client = await TcpTransport.connect(
+            "127.0.0.1",
+            port,
+            config=network_config(
+                "client",
+                ("server_rotated",),
+                server=False,
+            ),
+            server_hostname="localhost",
+        )
+        await old_transition_client.send(
+            secure_envelope(old_client, session_id="old-transition", nonce="old-transition")
+        )
+        assert await asyncio.wait_for(accepted.get(), 2) == old_client.credential_fingerprint
+        await old_transition_client.close()
+
+        client_rotation.set_transition_until(now - 1)
+        rejected = await TcpTransport.connect(
+            "127.0.0.1",
+            port,
+            config=network_config("client", ("server_rotated",), server=False),
+            server_hostname="localhost",
+        )
+        await rejected.send(
+            secure_envelope(old_client, session_id="old-expired", nonce="old-expired")
+        )
+        with pytest.raises((ConnectionError, ssl.SSLError, ChannelClosedError)):
+            await rejected.receive()
+        await rejected.close()
+        await asyncio.sleep(0.05)
+        assert accepted.empty()
+
+        status = server_provider.status(now=now)
+        assert status["current_fingerprint"] == new_server.credential_fingerprint
+        assert status["previous_fingerprint"] == old_server.credential_fingerprint
+        assert status["generation"] == 2
+        assert "path" not in status
+        await close_server(server)
+
+    asyncio.run(scenario())
+
+
+def test_python_tls_trust_store_reload_accepts_new_ca_without_listener_restart(tmp_path) -> None:
+    async def scenario() -> None:
+        trust_bundle = tmp_path / "ca-transition.pem"
+        trust_bundle.write_bytes(CA.read_bytes() + (TLS_FIXTURES / "next_ca_cert.pem").read_bytes())
+        base_server = network_config(
+            "server",
+            ("client", "next_client"),
+            server=True,
+            allowed_issuer_names=(ISSUER, NEXT_ISSUER),
+        )
+        provider = ReloadableTLSContext(base_server.security_config, is_server=True)
+        server_config = replace(base_server, tls_context_provider=provider)
+        accepted = asyncio.Event()
+
+        async def handler(transport: TcpTransport) -> None:
+            accepted.set()
+            await transport.close()
+
+        server = await TcpTransport.start_server(handler, "127.0.0.1", 0, config=server_config)
+        port = server.sockets[0].getsockname()[1]
+        next_client_config = network_config(
+            "next_client",
+            ("server",),
+            server=False,
+            ca=trust_bundle,
+        )
+        try:
+            rejected = await TcpTransport.connect(
+                "127.0.0.1",
+                port,
+                config=next_client_config,
+                server_hostname="localhost",
+            )
+            with pytest.raises((ConnectionError, ssl.SSLError, ChannelClosedError)):
+                await rejected.receive()
+            await rejected.close()
+        except (ConnectionError, ssl.SSLError):
+            pass
+        await asyncio.sleep(0.05)
+        assert not accepted.is_set()
+
+        before = provider.status()["trust_anchor_hash"]
+        provider.reload(
+            replace(base_server.security_config, ca_cert_path=str(trust_bundle)),
+            transition_seconds=60,
+        )
+        assert provider.status()["trust_anchor_hash"] != before
+        connected = await TcpTransport.connect(
+            "127.0.0.1",
+            port,
+            config=next_client_config,
+            server_hostname="localhost",
+        )
+        await asyncio.wait_for(accepted.wait(), 2)
+        await connected.close()
         await close_server(server)
 
     asyncio.run(scenario())

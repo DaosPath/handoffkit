@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DurableReplayState",
+  "type": "object",
+  "required": [
+    "checksum",
+    "format",
+    "format_version",
+    "generation",
+    "records"
+  ],
+  "properties": {
+    "checksum": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "format": {
+      "const": "handoffkit.security.replay"
+    },
+    "format_version": {
+      "const": 1
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/replayRecord"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "replayNonce": {
+      "type": "object",
+      "required": [
+        "seen_at",
+        "value"
+      ],
+      "properties": {
+        "seen_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "additionalProperties": false
+    },
+    "replayRecord": {
+      "type": "object",
+      "required": [
+        "credential_fingerprint",
+        "expires_at",
+        "last_sequence",
+        "nonces",
+        "peer_id",
+        "scope",
+        "security_profile",
+        "session_id",
+        "updated_at"
+      ],
+      "properties": {
+        "credential_fingerprint": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "expires_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nonces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/replayNonce"
+          }
+        },
+        "peer_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "security_profile": {
+          "type": "string",
+          "enum": [
+            "local",
+            "standard",
+            "hybrid-pq",
+            "research"
+          ]
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "updated_at": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

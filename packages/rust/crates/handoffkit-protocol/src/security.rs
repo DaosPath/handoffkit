@@ -1,11 +1,19 @@
 //! Security profiles, identity, capability authorization, and replay protection.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use serde_json::Value;
+use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::durable_replay::{nonce_key, DurableCommitFailure, DurableReplayState};
 use crate::ProtocolError;
+
+pub use crate::durable_replay::{
+    DurableReplayOptions, DurableReplayStatus, ReplayContext, DURABLE_REPLAY_FORMAT,
+    DURABLE_REPLAY_FORMAT_VERSION,
+};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -159,6 +167,291 @@ impl PeerIdentity {
     }
 }
 
+pub const SECURITY_TRANSCRIPT_FORMAT: &str = "handoffkit.security.transcript";
+pub const SECURITY_TRANSCRIPT_FORMAT_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SecurityTranscript {
+    pub binding_hash: String,
+    pub binding_type: String,
+    pub capabilities_hash: String,
+    pub format: String,
+    pub format_version: u32,
+    pub handshake_nonce: String,
+    pub negotiated_group: Option<String>,
+    pub protocol_version: String,
+    pub receiver_credential_fingerprint: String,
+    pub receiver_node_id: String,
+    pub receiver_peer_id: String,
+    pub requested_profile: String,
+    pub selected_profile: String,
+    pub sender_credential_fingerprint: String,
+    pub sender_node_id: String,
+    pub sender_peer_id: String,
+    pub session_id: String,
+    pub timestamp: String,
+    pub tls_version: String,
+    pub transcript_hash: String,
+}
+
+pub struct SecurityTranscriptInput<'a> {
+    pub protocol_version: &'a str,
+    pub requested_profile: SecurityProfile,
+    pub selected_profile: SecurityProfile,
+    pub sender: &'a PeerIdentity,
+    pub receiver: &'a PeerIdentity,
+    pub tls_version: &'a str,
+    pub negotiated_group: Option<&'a str>,
+    pub session_id: &'a str,
+    pub handshake_nonce: &'a str,
+    pub timestamp: &'a str,
+}
+
+impl SecurityTranscript {
+    pub fn from_value(value: Value) -> Result<Self, SecurityPolicyError> {
+        let transcript: Self = serde_json::from_value(value).map_err(|_| SecurityPolicyError {
+            code: "security_transcript_invalid",
+            message: "security transcript is malformed".to_string(),
+        })?;
+        transcript.validate(true)?;
+        if transcript.transcript_hash != canonical_sha256(&transcript.unsigned_map())? {
+            return Err(SecurityPolicyError {
+                code: "security_transcript_hash_mismatch",
+                message: "security transcript hash does not match its canonical payload"
+                    .to_string(),
+            });
+        }
+        Ok(transcript)
+    }
+
+    pub fn unsigned_map(&self) -> BTreeMap<&'static str, Value> {
+        BTreeMap::from([
+            ("binding_hash", Value::String(self.binding_hash.clone())),
+            ("binding_type", Value::String(self.binding_type.clone())),
+            (
+                "capabilities_hash",
+                Value::String(self.capabilities_hash.clone()),
+            ),
+            ("format", Value::String(self.format.clone())),
+            ("format_version", Value::Number(self.format_version.into())),
+            (
+                "handshake_nonce",
+                Value::String(self.handshake_nonce.clone()),
+            ),
+            (
+                "negotiated_group",
+                self.negotiated_group
+                    .clone()
+                    .map(Value::String)
+                    .unwrap_or(Value::Null),
+            ),
+            (
+                "protocol_version",
+                Value::String(self.protocol_version.clone()),
+            ),
+            (
+                "receiver_credential_fingerprint",
+                Value::String(self.receiver_credential_fingerprint.clone()),
+            ),
+            (
+                "receiver_node_id",
+                Value::String(self.receiver_node_id.clone()),
+            ),
+            (
+                "receiver_peer_id",
+                Value::String(self.receiver_peer_id.clone()),
+            ),
+            (
+                "requested_profile",
+                Value::String(self.requested_profile.clone()),
+            ),
+            (
+                "selected_profile",
+                Value::String(self.selected_profile.clone()),
+            ),
+            (
+                "sender_credential_fingerprint",
+                Value::String(self.sender_credential_fingerprint.clone()),
+            ),
+            ("sender_node_id", Value::String(self.sender_node_id.clone())),
+            ("sender_peer_id", Value::String(self.sender_peer_id.clone())),
+            ("session_id", Value::String(self.session_id.clone())),
+            ("timestamp", Value::String(self.timestamp.clone())),
+            ("tls_version", Value::String(self.tls_version.clone())),
+        ])
+    }
+
+    fn validate(&self, require_hash: bool) -> Result<(), SecurityPolicyError> {
+        if self.format != SECURITY_TRANSCRIPT_FORMAT {
+            return Err(SecurityPolicyError {
+                code: "security_transcript_invalid",
+                message: "security transcript format is not recognized".to_string(),
+            });
+        }
+        if self.format_version != SECURITY_TRANSCRIPT_FORMAT_VERSION {
+            return Err(SecurityPolicyError {
+                code: "security_transcript_version",
+                message: "security transcript format version is unavailable".to_string(),
+            });
+        }
+        for value in [
+            &self.binding_hash,
+            &self.binding_type,
+            &self.capabilities_hash,
+            &self.handshake_nonce,
+            &self.protocol_version,
+            &self.receiver_credential_fingerprint,
+            &self.receiver_node_id,
+            &self.receiver_peer_id,
+            &self.requested_profile,
+            &self.selected_profile,
+            &self.sender_credential_fingerprint,
+            &self.sender_node_id,
+            &self.sender_peer_id,
+            &self.session_id,
+            &self.timestamp,
+            &self.tls_version,
+        ] {
+            if value.is_empty() {
+                return Err(SecurityPolicyError {
+                    code: "security_transcript_invalid",
+                    message: "security transcript contains an empty required field".to_string(),
+                });
+            }
+        }
+        for value in [
+            &self.binding_hash,
+            &self.capabilities_hash,
+            &self.receiver_credential_fingerprint,
+            &self.sender_credential_fingerprint,
+        ] {
+            if !is_canonical_sha256(value) {
+                return Err(SecurityPolicyError {
+                    code: "security_transcript_invalid",
+                    message: "security transcript contains an invalid SHA-256 value".to_string(),
+                });
+            }
+        }
+        if require_hash && !is_canonical_sha256(&self.transcript_hash) {
+            return Err(SecurityPolicyError {
+                code: "security_transcript_invalid",
+                message: "security transcript hash is invalid".to_string(),
+            });
+        }
+        Ok(())
+    }
+}
+
+pub fn build_security_transcript(
+    input: SecurityTranscriptInput<'_>,
+) -> Result<SecurityTranscript, SecurityPolicyError> {
+    let mut capabilities = input.sender.capabilities.clone();
+    capabilities.sort();
+    let capabilities_hash = canonical_sha256(&capabilities)?;
+    let binding_hash = canonical_sha256(&BTreeMap::from([
+        (
+            "receiver_credential_fingerprint",
+            normalize_transcript_fingerprint(&input.receiver.credential_fingerprint),
+        ),
+        (
+            "sender_credential_fingerprint",
+            normalize_transcript_fingerprint(&input.sender.credential_fingerprint),
+        ),
+        ("tls_version", input.tls_version.to_string()),
+    ]))?;
+    let mut transcript = SecurityTranscript {
+        binding_hash,
+        binding_type: "tls-certificate-endpoints".to_string(),
+        capabilities_hash,
+        format: SECURITY_TRANSCRIPT_FORMAT.to_string(),
+        format_version: SECURITY_TRANSCRIPT_FORMAT_VERSION,
+        handshake_nonce: input.handshake_nonce.to_string(),
+        negotiated_group: input.negotiated_group.map(str::to_string),
+        protocol_version: input.protocol_version.to_string(),
+        receiver_credential_fingerprint: normalize_transcript_fingerprint(
+            &input.receiver.credential_fingerprint,
+        ),
+        receiver_node_id: input.receiver.node_id.clone(),
+        receiver_peer_id: input.receiver.peer_id.clone(),
+        requested_profile: input.requested_profile.as_str().to_string(),
+        selected_profile: input.selected_profile.as_str().to_string(),
+        sender_credential_fingerprint: normalize_transcript_fingerprint(
+            &input.sender.credential_fingerprint,
+        ),
+        sender_node_id: input.sender.node_id.clone(),
+        sender_peer_id: input.sender.peer_id.clone(),
+        session_id: input.session_id.to_string(),
+        timestamp: input.timestamp.to_string(),
+        tls_version: input.tls_version.to_string(),
+        transcript_hash: String::new(),
+    };
+    transcript.validate(false)?;
+    transcript.transcript_hash = canonical_sha256(&transcript.unsigned_map())?;
+    Ok(transcript)
+}
+
+pub fn verify_security_transcript(
+    value: Value,
+    input: SecurityTranscriptInput<'_>,
+) -> Result<SecurityTranscript, SecurityPolicyError> {
+    let transcript = SecurityTranscript::from_value(value)?;
+    let expected_profile = input.selected_profile.as_str();
+    if transcript.requested_profile != expected_profile
+        || transcript.selected_profile != expected_profile
+    {
+        return Err(SecurityPolicyError {
+            code: "security_profile_mismatch",
+            message: "security transcript attempted a profile downgrade".to_string(),
+        });
+    }
+    let expected = build_security_transcript(input)?;
+    if transcript.sender_peer_id != expected.sender_peer_id
+        || transcript.sender_node_id != expected.sender_node_id
+        || transcript.sender_credential_fingerprint != expected.sender_credential_fingerprint
+        || transcript.receiver_peer_id != expected.receiver_peer_id
+        || transcript.receiver_node_id != expected.receiver_node_id
+        || transcript.receiver_credential_fingerprint != expected.receiver_credential_fingerprint
+    {
+        return Err(SecurityPolicyError {
+            code: "security_transcript_identity_mismatch",
+            message: "security transcript identities do not match authenticated TLS endpoints"
+                .to_string(),
+        });
+    }
+    if transcript != expected {
+        return Err(SecurityPolicyError {
+            code: "security_transcript_mismatch",
+            message: "security transcript does not match the authenticated HK-CSP exchange"
+                .to_string(),
+        });
+    }
+    Ok(transcript)
+}
+
+fn canonical_sha256(value: &impl Serialize) -> Result<String, SecurityPolicyError> {
+    let encoded = serde_json::to_vec(value).map_err(|error| SecurityPolicyError {
+        code: "security_transcript_invalid",
+        message: error.to_string(),
+    })?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(encoded))))
+}
+
+fn normalize_transcript_fingerprint(value: &str) -> String {
+    let mut normalized = value.trim().to_ascii_lowercase().replace(':', "");
+    if let Some(rest) = normalized.strip_prefix("sha256") {
+        normalized = rest.to_string();
+    }
+    format!("sha256:{normalized}")
+}
+
+fn is_canonical_sha256(value: &str) -> bool {
+    value.len() == 71
+        && value.starts_with("sha256:")
+        && value[7..]
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SignedArtifact {
     pub artifact_id: String,
@@ -309,6 +602,7 @@ pub struct ReplayProtection {
     pub max_seen_nonces: usize,
     seen_nonces: HashMap<String, u64>,
     last_sequences: HashMap<String, u64>,
+    durable: Option<DurableReplayState>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -333,7 +627,23 @@ impl ReplayProtection {
             max_seen_nonces,
             seen_nonces: HashMap::new(),
             last_sequences: HashMap::new(),
+            durable: None,
         }
+    }
+
+    pub fn new_durable(
+        path: impl Into<PathBuf>,
+        options: DurableReplayOptions,
+    ) -> Result<Self, SecurityPolicyError> {
+        let (durable, (last_sequences, seen_nonces)) = DurableReplayState::load(path, &options)?;
+        Ok(Self {
+            window_seconds: options.window_seconds,
+            max_clock_skew_seconds: options.max_clock_skew_seconds,
+            max_seen_nonces: options.max_seen_nonces,
+            seen_nonces,
+            last_sequences,
+            durable: Some(durable),
+        })
     }
 
     pub fn check_and_record(
@@ -342,6 +652,17 @@ impl ReplayProtection {
         sequence: u64,
         nonce: Option<&str>,
         created_at_ts: Option<u64>,
+    ) -> Result<(), SecurityPolicyError> {
+        self.check_and_record_context(session_scope, sequence, nonce, created_at_ts, None)
+    }
+
+    pub fn check_and_record_context(
+        &mut self,
+        session_scope: &str,
+        sequence: u64,
+        nonce: Option<&str>,
+        created_at_ts: Option<u64>,
+        context: Option<&ReplayContext>,
     ) -> Result<(), SecurityPolicyError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -380,29 +701,49 @@ impl ReplayProtection {
             }
         }
 
+        let cutoff = now.saturating_sub(self.window_seconds);
+        let mut candidate_nonces = self.seen_nonces.clone();
+        candidate_nonces.retain(|_, timestamp| *timestamp >= cutoff);
+        let mut candidate_sequences = self.last_sequences.clone();
         if let Some(n) = nonce {
-            self.prune_old_nonces(now);
-            let nonce_key = format!("{session_scope}\0{n}");
-            if self.seen_nonces.contains_key(&nonce_key) {
+            let key = nonce_key(session_scope, n);
+            if candidate_nonces.contains_key(&key) {
                 return Err(SecurityPolicyError {
                     code: "replay_nonce",
                     message: "Duplicate nonce detected.".to_string(),
                 });
             }
+            if candidate_nonces.len() >= self.max_seen_nonces {
+                return Err(SecurityPolicyError {
+                    code: "replay_state_capacity",
+                    message: "Replay nonce capacity is exhausted.".to_string(),
+                });
+            }
+            candidate_nonces.insert(key, now);
         }
 
-        // Only successful messages advance process-local anti-replay state.
-        self.last_sequences
-            .insert(session_scope.to_string(), sequence);
-        if let Some(n) = nonce {
-            let nonce_key = format!("{session_scope}\0{n}");
-            if self.seen_nonces.len() >= self.max_seen_nonces {
-                if let Some(oldest_key) = self.seen_nonces.keys().next().cloned() {
-                    self.seen_nonces.remove(&oldest_key);
+        candidate_sequences.insert(session_scope.to_string(), sequence);
+        if let Some(durable) = &mut self.durable {
+            match durable.commit_candidate(
+                session_scope,
+                sequence,
+                &candidate_sequences,
+                &candidate_nonces,
+                context,
+                now,
+            ) {
+                Ok(()) => {}
+                Err(DurableCommitFailure { error, committed }) => {
+                    if committed {
+                        self.last_sequences = candidate_sequences;
+                        self.seen_nonces = candidate_nonces;
+                    }
+                    return Err(error);
                 }
             }
-            self.seen_nonces.insert(nonce_key, now);
         }
+        self.last_sequences = candidate_sequences;
+        self.seen_nonces = candidate_nonces;
 
         Ok(())
     }
@@ -410,5 +751,46 @@ impl ReplayProtection {
     pub fn prune_old_nonces(&mut self, now: u64) {
         let cutoff = now.saturating_sub(self.window_seconds);
         self.seen_nonces.retain(|_, &mut ts| ts >= cutoff);
+    }
+
+    pub fn compact_durable(&mut self, now: u64) -> Result<(), SecurityPolicyError> {
+        let durable = self.durable.as_mut().ok_or_else(|| SecurityPolicyError {
+            code: "replay_state_not_durable",
+            message: "Replay protection has no durable backend.".to_string(),
+        })?;
+        let cutoff = now.saturating_sub(self.window_seconds);
+        let mut candidate_nonces = self.seen_nonces.clone();
+        candidate_nonces.retain(|_, timestamp| *timestamp >= cutoff);
+        let expired_scopes: HashSet<_> = durable.expired_scopes(now).into_iter().collect();
+        let mut candidate_sequences = self.last_sequences.clone();
+        for scope in &expired_scopes {
+            candidate_sequences.remove(scope);
+            let prefix = format!("{scope}\0");
+            candidate_nonces.retain(|key, _| !key.starts_with(&prefix));
+        }
+        let changed =
+            candidate_nonces.len() != self.seen_nonces.len() || !expired_scopes.is_empty();
+        if !changed {
+            return Ok(());
+        }
+        match durable.commit_compaction(&candidate_nonces, &expired_scopes) {
+            Ok(()) => {}
+            Err(DurableCommitFailure { error, committed }) => {
+                if committed {
+                    self.last_sequences = candidate_sequences;
+                    self.seen_nonces = candidate_nonces;
+                }
+                return Err(error);
+            }
+        }
+        self.last_sequences = candidate_sequences;
+        self.seen_nonces = candidate_nonces;
+        Ok(())
+    }
+
+    pub fn durable_status(&self) -> Option<DurableReplayStatus> {
+        self.durable
+            .as_ref()
+            .map(|durable| durable.status(self.seen_nonces.len()))
     }
 }

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/edge-runtime-profile.schema.json",
+  "title": "EdgeRuntimeProfile",
+  "type": "object",
+  "required": [
+    "name",
+    "channel_capacity",
+    "max_frame_bytes",
+    "pending_ack_limit",
+    "dedup_capacity",
+    "durable_replay_capacity",
+    "connection_limit",
+    "heartbeat_seconds",
+    "reconnect",
+    "timeout",
+    "artifact_limit_bytes",
+    "memory_budget_bytes",
+    "durable_state_limit_bytes",
+    "logging",
+    "security_profile"
+  ],
+  "properties": {
+    "name": { "enum": ["edge-small", "edge-standard", "server"] },
+    "channel_capacity": { "type": "integer", "minimum": 1 },
+    "max_frame_bytes": { "type": "integer", "minimum": 1024, "maximum": 8388608 },
+    "pending_ack_limit": { "type": "integer", "minimum": 1 },
+    "dedup_capacity": { "type": "integer", "minimum": 1 },
+    "durable_replay_capacity": { "type": "integer", "minimum": 1 },
+    "connection_limit": { "type": "integer", "minimum": 1 },
+    "heartbeat_seconds": { "type": "integer", "minimum": 1 },
+    "reconnect": {
+      "type": "object",
+      "required": ["max_attempts", "base_delay_ms", "max_delay_ms"],
+      "properties": {
+        "max_attempts": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "base_delay_ms": { "type": "integer", "minimum": 0 },
+        "max_delay_ms": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "timeout": {
+      "type": "object",
+      "required": ["connect_ms", "io_ms", "ack_ms"],
+      "properties": {
+        "connect_ms": { "type": "integer", "minimum": 1 },
+        "io_ms": { "type": "integer", "minimum": 1 },
+        "ack_ms": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "artifact_limit_bytes": { "type": "integer", "minimum": 1 },
+    "memory_budget_bytes": { "type": "integer", "minimum": 67108864 },
+    "durable_state_limit_bytes": { "type": "integer", "minimum": 1024 },
+    "logging": {
+      "type": "object",
+      "required": ["level", "include_payloads", "redact_paths"],
+      "properties": {
+        "level": { "enum": ["warning", "info"] },
+        "include_payloads": { "const": false },
+        "redact_paths": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "security_profile": { "const": "standard" }
+  },
+  "additionalProperties": false
+}

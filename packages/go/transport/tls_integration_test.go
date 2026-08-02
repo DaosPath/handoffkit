@@ -11,7 +11,9 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -23,6 +25,7 @@ import (
 const (
 	testTrustDomain = "handoffkit.internal"
 	testIssuer      = "CN=HandoffKit Test CA"
+	testNextIssuer  = "CN=HandoffKit Next Test CA"
 	testOperation   = "message:echo"
 )
 
@@ -201,6 +204,10 @@ func TestGoTLS13MTLSRoundTripAndCertificateIdentity(t *testing.T) {
 		if receiveErr != nil {
 			return receiveErr
 		}
+		transcript, ok := envelope.Metadata["security_transcript"].(map[string]any)
+		if !ok || transcript["format"] != "handoffkit.security.transcript" {
+			return errors.New("validated security transcript is missing from request")
+		}
 		return server.Send(context.Background(), secureEnvelope(t, serverIdentity, envelope.SessionID, 1, "server-response", testOperation, time.Now()))
 	})
 
@@ -222,6 +229,10 @@ func TestGoTLS13MTLSRoundTripAndCertificateIdentity(t *testing.T) {
 	response, err := client.Receive(context.Background())
 	if err != nil || response.Source != serverIdentity.PeerID {
 		t.Fatalf("secure roundtrip failed: %v", err)
+	}
+	transcript, ok := response.Metadata["security_transcript"].(map[string]any)
+	if !ok || transcript["selected_profile"] != "standard" {
+		t.Fatal("validated security transcript is missing from response")
 	}
 	if err := <-result; err != nil {
 		t.Fatal(err)
@@ -409,13 +420,64 @@ func TestGoSecureReceiveIntegratesReplayAndAuthorizationAcrossReconnects(t *test
 		t.Fatalf("unauthorized operation returned %q", code)
 	}
 
-	// Secure replay state is deliberately process-local. A newly constructed
-	// state (the current restart model) accepts the same authenticated scope.
+	// The explicit in-memory fallback resets when no durable backend is
+	// configured; the next test covers the durable listener-restart path.
 	restarted := security.NewReplayProtection(30, 3, 1000)
 	scope := clientIdentity.CredentialFingerprint + "|" + first.SessionID
 	if err := restarted.CheckAndRecord(scope, first.Sequence, "same", now.Unix()); err != nil {
 		t.Fatalf("fresh replay state rejected message after modeled restart: %v", err)
 	}
+}
+
+func TestGoTLSReplayStateSurvivesListenerRestart(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "replay-state.json")
+	options := security.DefaultDurableReplayOptions()
+	options.WindowSeconds = 30
+	options.MaxClockSkewSeconds = 3
+	clientIdentity := fixtureIdentity(t, "client")
+	envelope := secureEnvelope(t, clientIdentity, "durable-restart", 1, "durable-nonce", testOperation, time.Now())
+
+	submit := func(expectReplay bool) {
+		t.Helper()
+		serverConfig := secureTransportConfig(t, "server", "client")
+		replay, replayErr := security.NewDurableReplayProtection(statePath, options)
+		if replayErr != nil {
+			t.Fatal(replayErr)
+		}
+		serverConfig.ReplayProtection = replay
+		listener, listenErr := ListenTCP("127.0.0.1:0", serverConfig)
+		if listenErr != nil {
+			t.Fatal(listenErr)
+		}
+		result := make(chan error, 1)
+		go acceptOne(listener, serverConfig, result, func(server *LengthDelimited) error {
+			_, receiveErr := server.Receive(context.Background())
+			return receiveErr
+		})
+		client, dialErr := DialTCP(context.Background(), listener.Addr().String(), secureTransportConfig(t, "client", "server"))
+		if dialErr != nil {
+			_ = listener.Close()
+			t.Fatal(dialErr)
+		}
+		if sendErr := client.Send(context.Background(), envelope); sendErr != nil {
+			_ = client.Close()
+			_ = listener.Close()
+			t.Fatal(sendErr)
+		}
+		_ = client.Close()
+		receiveErr := <-result
+		_ = listener.Close()
+		if expectReplay {
+			if code := securityCode(receiveErr); code != "replay_sequence" {
+				t.Fatalf("durable replay after listener restart returned %q: %v", code, receiveErr)
+			}
+		} else if receiveErr != nil {
+			t.Fatal(receiveErr)
+		}
+	}
+
+	submit(false)
+	submit(true)
 }
 
 func TestGoLocalRevocationRejectsBeforeDispatch(t *testing.T) {
@@ -444,5 +506,477 @@ func TestGoLocalRevocationRejectsBeforeDispatch(t *testing.T) {
 	case <-dispatched:
 		t.Fatal("revoked peer reached dispatch")
 	default:
+	}
+}
+
+func TestGoExistingConnectionRejectsCertificateAfterExpiry(t *testing.T) {
+	serverConfig := secureTransportConfig(t, "server", "client")
+	var securityClock atomic.Int64
+	securityClock.Store(time.Now().Unix())
+	serverConfig.now = func() time.Time { return time.Unix(securityClock.Load(), 0) }
+	listener, err := ListenTCP("127.0.0.1:0", serverConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	first := make(chan error, 1)
+	second := make(chan error, 1)
+	go func() {
+		connection, acceptErr := listener.Accept()
+		if acceptErr != nil {
+			first <- acceptErr
+			second <- acceptErr
+			return
+		}
+		wire, wireErr := NewLengthDelimited(connection, serverConfig)
+		if wireErr != nil {
+			_ = connection.Close()
+			first <- wireErr
+			second <- wireErr
+			return
+		}
+		defer wire.Close()
+		_, firstErr := wire.Receive(context.Background())
+		first <- firstErr
+		if firstErr != nil {
+			second <- firstErr
+			return
+		}
+		_, secondErr := wire.Receive(context.Background())
+		second <- secondErr
+	}()
+	clientConfig := secureTransportConfig(t, "client", "server")
+	client, err := DialTCP(context.Background(), listener.Addr().String(), clientConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	identity := fixtureIdentity(t, "client")
+	if err := client.Send(context.Background(), secureEnvelope(
+		t, identity, "live-expiry", 1, "before-expiry", testOperation, time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-first; err != nil {
+		t.Fatalf("valid certificate failed on existing connection: %v", err)
+	}
+	securityClock.Store(fixtureCertificate(t, "client").NotAfter.Unix() + 1)
+	if err := client.Send(context.Background(), secureEnvelope(
+		t, identity, "live-expiry", 2, "after-expiry", testOperation, time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-second; securityCode(err) != "credential_expired" {
+		t.Fatalf("existing connection did not re-check certificate expiry: %v", err)
+	}
+}
+
+func TestGoDurableRevocationReloadUpdatesLiveTLSIdentityPolicy(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "revocations.json")
+	livePolicy, err := security.NewDurableRevocationPolicy(statePath, security.DefaultDurableRevocationOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	writerPolicy, err := security.NewDurableRevocationPolicy(statePath, security.DefaultDurableRevocationOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverConfig := secureTransportConfig(t, "server", "client", "revoked_client")
+	serverConfig.IdentityPolicy.RevocationPolicy = livePolicy
+	listener, err := ListenTCP("127.0.0.1:0", serverConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+
+	submit := func(certificate string) (error, bool) {
+		t.Helper()
+		result := make(chan error, 1)
+		dispatched := make(chan struct{}, 1)
+		go acceptOne(listener, serverConfig, result, func(*LengthDelimited) error {
+			dispatched <- struct{}{}
+			return nil
+		})
+		client, dialErr := DialTCP(context.Background(), listener.Addr().String(), secureTransportConfig(t, certificate, "server"))
+		if client != nil {
+			_ = client.Close()
+		}
+		serverErr := <-result
+		select {
+		case <-dispatched:
+			return errors.Join(dialErr, serverErr), true
+		default:
+			return errors.Join(dialErr, serverErr), false
+		}
+	}
+
+	if submitErr, dispatched := submit("revoked_client"); submitErr != nil || !dispatched {
+		t.Fatalf("initial credential rejected: %v", submitErr)
+	}
+	liveFirst := make(chan error, 1)
+	liveSecond := make(chan error, 1)
+	go func() {
+		connection, acceptErr := listener.Accept()
+		if acceptErr != nil {
+			liveFirst <- acceptErr
+			liveSecond <- acceptErr
+			return
+		}
+		wire, wireErr := NewLengthDelimited(connection, serverConfig)
+		if wireErr != nil {
+			_ = connection.Close()
+			liveFirst <- wireErr
+			liveSecond <- wireErr
+			return
+		}
+		defer wire.Close()
+		_, firstErr := wire.Receive(context.Background())
+		liveFirst <- firstErr
+		if firstErr != nil {
+			liveSecond <- firstErr
+			return
+		}
+		_, secondErr := wire.Receive(context.Background())
+		liveSecond <- secondErr
+	}()
+	liveIdentity := fixtureIdentity(t, "revoked_client")
+	liveClient, err := DialTCP(
+		context.Background(), listener.Addr().String(), secureTransportConfig(t, "revoked_client", "server"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := liveClient.Send(context.Background(), secureEnvelope(
+		t, liveIdentity, "live-revocation", 1, "live-before-revocation", testOperation, time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-liveFirst; err != nil {
+		t.Fatalf("live credential failed before revocation: %v", err)
+	}
+	fingerprint := security.CertificateFingerprint(fixtureCertificate(t, "revoked_client"))
+	entry, err := security.NewRevocationEntry(
+		security.RevocationCertificateFingerprint,
+		fingerprint,
+		"test compromise",
+		time.Now().Unix(),
+		0,
+		0,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writerPolicy.Revoke(entry); err != nil {
+		t.Fatal(err)
+	}
+	if revoked, _ := livePolicy.IsRevoked(security.RevocationCertificateFingerprint, fingerprint, 0); revoked {
+		t.Fatal("live policy changed without reload")
+	}
+	if err := livePolicy.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	if err := liveClient.Send(context.Background(), secureEnvelope(
+		t, liveIdentity, "live-revocation", 2, "live-after-revocation", testOperation, time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	if liveErr := <-liveSecond; securityCode(liveErr) != "credential_revoked" {
+		t.Fatalf("existing connection did not re-check durable revocation: %v", liveErr)
+	}
+	_ = liveClient.Close()
+	if submitErr, dispatched := submit("revoked_client"); securityCode(submitErr) != "credential_revoked" || dispatched {
+		t.Fatalf("revoked credential result: %v, dispatched=%v", submitErr, dispatched)
+	}
+	if submitErr, dispatched := submit("client"); submitErr != nil || !dispatched {
+		t.Fatalf("renewed credential rejected: %v", submitErr)
+	}
+	restored, err := security.NewDurableRevocationPolicy(statePath, security.DefaultDurableRevocationOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if revoked, err := restored.IsRevoked(security.RevocationCertificateFingerprint, fingerprint, 0); err != nil || !revoked {
+		t.Fatalf("revocation did not survive restart: %v, %v", revoked, err)
+	}
+}
+
+func TestGoTLSCredentialsReloadAtomicallyOnLiveListener(t *testing.T) {
+	now := time.Now().Unix()
+	oldClient := fixtureIdentity(t, "client")
+	newClient := fixtureIdentity(t, "client_rotated")
+	oldServer := fixtureIdentity(t, "server")
+	newServer := fixtureIdentity(t, "server_rotated")
+	clientRotation, err := security.NewCredentialRotationPolicy(oldClient.CredentialFingerprint, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverRotation, err := security.NewCredentialRotationPolicy(oldServer.CredentialFingerprint, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverConfig := secureTransportConfig(t, "server", "client", "client_rotated")
+	serverConfig.IdentityPolicy.RotationPolicy = clientRotation
+	clientConfig := secureTransportConfig(t, "client", "server", "server_rotated")
+	clientConfig.IdentityPolicy.RotationPolicy = serverRotation
+	serverProvider, err := security.NewReloadableTLSConfig(serverConfig.SecurityConfig, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientProvider, err := security.NewReloadableTLSConfig(clientConfig.SecurityConfig, false, "localhost")
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverConfig.TLSProvider = serverProvider
+	clientConfig.TLSProvider = clientProvider
+	listener, err := ListenTCP("127.0.0.1:0", serverConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+
+	type acceptedResult struct {
+		fingerprint string
+		err         error
+	}
+	acceptMessage := func() <-chan acceptedResult {
+		result := make(chan acceptedResult, 1)
+		go func() {
+			connection, acceptErr := listener.Accept()
+			if acceptErr != nil {
+				result <- acceptedResult{err: acceptErr}
+				return
+			}
+			transport, transportErr := NewLengthDelimited(connection, serverConfig)
+			if transportErr != nil {
+				_ = connection.Close()
+				result <- acceptedResult{err: transportErr}
+				return
+			}
+			_, receiveErr := transport.Receive(context.Background())
+			fingerprint := transport.AuthenticatedPeer.CredentialFingerprint
+			_ = transport.Close()
+			result <- acceptedResult{fingerprint: fingerprint, err: receiveErr}
+		}()
+		return result
+	}
+
+	existingResult := acceptMessage()
+	existing, err := DialTCP(context.Background(), listener.Addr().String(), clientConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nextServerSecurity := *serverConfig.SecurityConfig
+	nextServerSecurity.CertPath = tlsFixture("server_rotated_cert.pem")
+	nextServerSecurity.KeyPath = tlsFixture("server_rotated_key.pem")
+	beforeFailedReload := serverProvider.Status(now)
+	mismatched := nextServerSecurity
+	mismatched.KeyPath = tlsFixture("server_key.pem")
+	if _, err := serverProvider.Reload(&mismatched, time.Minute, now); err == nil {
+		t.Fatal("mismatched certificate/key reload succeeded")
+	}
+	if after := serverProvider.Status(now); !reflect.DeepEqual(after, beforeFailedReload) {
+		t.Fatalf("failed reload changed provider state: %#v", after)
+	}
+	if _, err := serverProvider.Reload(&nextServerSecurity, time.Minute, now); err != nil {
+		t.Fatal(err)
+	}
+	nextClientSecurity := *clientConfig.SecurityConfig
+	nextClientSecurity.CertPath = tlsFixture("client_rotated_cert.pem")
+	nextClientSecurity.KeyPath = tlsFixture("client_rotated_key.pem")
+	if _, err := clientProvider.Reload(&nextClientSecurity, time.Minute, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := clientRotation.Rotate(newClient.CredentialFingerprint, now+60); err != nil {
+		t.Fatal(err)
+	}
+	if err := serverRotation.Rotate(newServer.CredentialFingerprint, now+60); err != nil {
+		t.Fatal(err)
+	}
+	if err := existing.Send(context.Background(), secureEnvelope(t, oldClient, "existing-after-reload", 1, "existing", testOperation, time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	if result := <-existingResult; result.err != nil || result.fingerprint != oldClient.CredentialFingerprint {
+		t.Fatalf("existing session failed after reload: fingerprint=%s error=%v code=%s", result.fingerprint, result.err, securityCode(result.err))
+	}
+	_ = existing.Close()
+
+	rotatedResult := acceptMessage()
+	rotated, err := DialTCP(context.Background(), listener.Addr().String(), clientConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rotated.Send(context.Background(), secureEnvelope(t, newClient, "rotated-new", 1, "rotated", testOperation, time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	if result := <-rotatedResult; result.err != nil || result.fingerprint != newClient.CredentialFingerprint {
+		t.Fatalf("rotated credential failed: %#v", result)
+	}
+	_ = rotated.Close()
+
+	oldTransitionConfig := secureTransportConfig(t, "client", "server_rotated")
+	oldTransitionResult := acceptMessage()
+	oldTransition, err := DialTCP(context.Background(), listener.Addr().String(), oldTransitionConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := oldTransition.Send(context.Background(), secureEnvelope(t, oldClient, "old-transition", 1, "old-transition", testOperation, time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	if result := <-oldTransitionResult; result.err != nil || result.fingerprint != oldClient.CredentialFingerprint {
+		t.Fatalf("previous credential rejected during transition: %#v", result)
+	}
+	_ = oldTransition.Close()
+
+	existingTransitionFirst := make(chan error, 1)
+	existingTransitionSecond := make(chan error, 1)
+	go func() {
+		connection, acceptErr := listener.Accept()
+		if acceptErr != nil {
+			existingTransitionFirst <- acceptErr
+			existingTransitionSecond <- acceptErr
+			return
+		}
+		wire, wireErr := NewLengthDelimited(connection, serverConfig)
+		if wireErr != nil {
+			_ = connection.Close()
+			existingTransitionFirst <- wireErr
+			existingTransitionSecond <- wireErr
+			return
+		}
+		defer wire.Close()
+		_, firstErr := wire.Receive(context.Background())
+		existingTransitionFirst <- firstErr
+		if firstErr != nil {
+			existingTransitionSecond <- firstErr
+			return
+		}
+		_, secondErr := wire.Receive(context.Background())
+		existingTransitionSecond <- secondErr
+	}()
+	existingTransition, err := DialTCP(context.Background(), listener.Addr().String(), oldTransitionConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := existingTransition.Send(context.Background(), secureEnvelope(
+		t, oldClient, "existing-transition", 1, "existing-transition-before", testOperation, time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-existingTransitionFirst; err != nil {
+		t.Fatalf("existing previous credential failed during transition: %v", err)
+	}
+
+	if err := clientRotation.SetTransitionUntil(now - 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := existingTransition.Send(context.Background(), secureEnvelope(
+		t, oldClient, "existing-transition", 2, "existing-transition-after", testOperation, time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	if existingErr := <-existingTransitionSecond; securityCode(existingErr) != "credential_rotation_rejected" {
+		t.Fatalf("existing previous credential survived the rotation window: %v", existingErr)
+	}
+	_ = existingTransition.Close()
+	rejectedResult := make(chan error, 1)
+	dispatched := make(chan struct{}, 1)
+	go acceptOne(listener, serverConfig, rejectedResult, func(*LengthDelimited) error {
+		dispatched <- struct{}{}
+		return nil
+	})
+	rejected, dialErr := DialTCP(context.Background(), listener.Addr().String(), oldTransitionConfig)
+	if rejected != nil {
+		_ = rejected.Close()
+	}
+	serverErr := <-rejectedResult
+	if code := securityCode(errors.Join(dialErr, serverErr)); code != "credential_rotation_rejected" {
+		t.Fatalf("expired previous credential returned %q: %v", code, errors.Join(dialErr, serverErr))
+	}
+	select {
+	case <-dispatched:
+		t.Fatal("expired previous credential reached dispatch")
+	default:
+	}
+
+	status := serverProvider.Status(now)
+	if status["current_fingerprint"] != newServer.CredentialFingerprint ||
+		status["previous_fingerprint"] != oldServer.CredentialFingerprint ||
+		status["generation"] != uint64(2) {
+		t.Fatalf("unexpected reload status: %#v", status)
+	}
+	for key := range status {
+		if strings.Contains(key, "path") {
+			t.Fatalf("reload status leaked a path field: %s", key)
+		}
+	}
+}
+
+func TestGoTLSTrustStoreReloadAcceptsNewCAWithoutListenerRestart(t *testing.T) {
+	trustBundle := filepath.Join(t.TempDir(), "ca-transition.pem")
+	originalCA, err := os.ReadFile(tlsFixture("ca_cert.pem"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	nextCA, err := os.ReadFile(tlsFixture("next_ca_cert.pem"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(trustBundle, append(originalCA, nextCA...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	serverConfig := secureTransportConfig(t, "server", "client", "next_client")
+	serverConfig.IdentityPolicy.AllowedIssuerNames[testNextIssuer] = true
+	provider, err := security.NewReloadableTLSConfig(serverConfig.SecurityConfig, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverConfig.TLSProvider = provider
+	listener, err := ListenTCP("127.0.0.1:0", serverConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	nextClientConfig := secureTransportConfig(t, "next_client", "server")
+	nextClientConfig.SecurityConfig.CACertPath = trustBundle
+
+	firstResult := make(chan error, 1)
+	firstDispatched := make(chan struct{}, 1)
+	go acceptOne(listener, serverConfig, firstResult, func(*LengthDelimited) error {
+		firstDispatched <- struct{}{}
+		return nil
+	})
+	firstClient, firstDialErr := DialTCP(context.Background(), listener.Addr().String(), nextClientConfig)
+	if firstClient != nil {
+		_ = firstClient.Close()
+	}
+	firstServerErr := <-firstResult
+	if errors.Join(firstDialErr, firstServerErr) == nil {
+		t.Fatal("client signed by unknown CA was accepted before trust reload")
+	}
+	select {
+	case <-firstDispatched:
+		t.Fatal("client signed by unknown CA reached dispatch")
+	default:
+	}
+
+	before := provider.Status(0)["trust_anchor_hash"]
+	nextServerSecurity := *serverConfig.SecurityConfig
+	nextServerSecurity.CACertPath = trustBundle
+	if _, err := provider.Reload(&nextServerSecurity, time.Minute, 0); err != nil {
+		t.Fatal(err)
+	}
+	if provider.Status(0)["trust_anchor_hash"] == before {
+		t.Fatal("trust anchor hash did not change")
+	}
+	secondResult := make(chan error, 1)
+	secondDispatched := make(chan struct{}, 1)
+	go acceptOne(listener, serverConfig, secondResult, func(*LengthDelimited) error {
+		secondDispatched <- struct{}{}
+		return nil
+	})
+	connected, err := DialTCP(context.Background(), listener.Addr().String(), nextClientConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = connected.Close()
+	if serverErr := <-secondResult; serverErr != nil {
+		t.Fatal(serverErr)
+	}
+	select {
+	case <-secondDispatched:
+	case <-time.After(2 * time.Second):
+		t.Fatal("trusted next-CA client did not reach dispatch")
 	}
 }
