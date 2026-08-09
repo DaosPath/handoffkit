@@ -313,8 +313,12 @@ void write_ocsp_response(const std::filesystem::path& path,
     ASN1_TIME_free(revocation_time);
     OcspResponse response;
     response.value = OCSP_response_create(OCSP_RESPONSE_STATUS_SUCCESSFUL, basic);
+    // OCSP_response_create encodes the basic response into the outer object;
+    // it does not own the caller's OCSP_BASICRESP. Release it explicitly so
+    // sanitizer runs do not retain the fixture's ASN.1 allocations.
+    OCSP_BASICRESP_free(basic);
+    basic = nullptr;
     if (response.value == nullptr) {
-        OCSP_BASICRESP_free(basic);
         throw std::runtime_error("could not wrap test OCSP response");
     }
     const int encoded_length = i2d_OCSP_RESPONSE(response.value, nullptr);
