@@ -198,6 +198,14 @@ function(handoffkit_apply_common target_name)
   if(WIN32)
     target_link_libraries(${target_name} PUBLIC advapi32)
   endif()
+  # Keep the native-compute contract (jthread/stop_token) explicit for
+  # AppleClang and other toolchains whose feature tables may not propagate
+  # the project-wide setting through imported targets.
+  set_target_properties(${target_name} PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+  )
   target_compile_features(${target_name} PUBLIC cxx_std_20)
   if(MSVC)
     target_compile_options(${target_name} PRIVATE /W4 /permissive-)
