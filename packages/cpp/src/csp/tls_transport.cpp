@@ -122,8 +122,12 @@ public:
         const bool pending_after =
             sigpending(&pending) == 0 && sigismember(&pending, SIGPIPE) == 1;
         if (!pending_before_ && pending_after) {
-            const timespec timeout{};
-            while (sigtimedwait(&set_, nullptr, &timeout) == -1 && errno == EINTR) {
+            // `sigtimedwait` is not available on macOS.  Because SIGPIPE is
+            // still blocked and `sigpending` just observed it for this
+            // thread, `sigwait` removes the newly queued signal without
+            // making it observable by the caller on any POSIX platform.
+            int signal = 0;
+            while (sigwait(&set_, &signal) != 0) {
             }
         }
         (void)pthread_sigmask(SIG_SETMASK, &previous_, nullptr);
