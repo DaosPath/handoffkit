@@ -78,6 +78,8 @@ void set_nonblocking(Socket socket, bool enabled) {
         throw std::runtime_error("ioctlsocket(FIONBIO) failed");
     }
 }
+
+void set_no_sigpipe(Socket) noexcept {}
 #else
 using Socket = int;
 constexpr Socket kInvalidSocket = -1;
@@ -98,6 +100,15 @@ void set_nonblocking(Socket socket, bool enabled) {
     if (flags < 0 || fcntl(socket, F_SETFL, enabled ? flags | O_NONBLOCK : flags & ~O_NONBLOCK) < 0) {
         throw std::runtime_error("fcntl(O_NONBLOCK) failed");
     }
+}
+
+void set_no_sigpipe(Socket socket) noexcept {
+#ifdef SO_NOSIGPIPE
+    const int enabled = 1;
+    (void)setsockopt(socket, SOL_SOCKET, SO_NOSIGPIPE, &enabled, sizeof(enabled));
+#else
+    (void)socket;
+#endif
 }
 
 class ScopedSigpipeBlock {
@@ -204,6 +215,7 @@ Socket make_server_socket(const std::string& host, std::uint16_t port, std::uint
     for (auto* current = addresses; current != nullptr; current = current->ai_next) {
         result = static_cast<Socket>(socket(current->ai_family, current->ai_socktype, current->ai_protocol));
         if (result == kInvalidSocket) continue;
+        set_no_sigpipe(result);
         int reuse = 1;
         setsockopt(result, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&reuse), sizeof(reuse));
         if (bind(result, current->ai_addr, static_cast<int>(current->ai_addrlen)) == 0 && listen(result, 16) == 0) {
@@ -250,6 +262,7 @@ Socket connect_socket(const std::string& host,
     for (auto* current = addresses; current != nullptr; current = current->ai_next) {
         result = static_cast<Socket>(socket(current->ai_family, current->ai_socktype, current->ai_protocol));
         if (result == kInvalidSocket) continue;
+        set_no_sigpipe(result);
         try {
             set_nonblocking(result, true);
         } catch (...) {
@@ -891,6 +904,7 @@ TlsConnection TlsServer::accept() {
 #endif
     Socket peer = static_cast<Socket>(::accept(impl_->socket, reinterpret_cast<sockaddr*>(&address), &length));
     if (peer == kInvalidSocket) throw_tls("tls_socket_error", "could not accept TLS peer", "accept");
+    set_no_sigpipe(peer);
     SSL* ssl = nullptr;
     X509* certificate = nullptr;
     try {
