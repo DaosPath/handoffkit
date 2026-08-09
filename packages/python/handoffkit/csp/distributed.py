@@ -279,7 +279,8 @@ class DistributedScheduler:
                 and job.metadata["require_exactly_once"] is not False
             ):
                 raise SecurityError(
-                    "Exactly-once external effects are unavailable; refusing fallback to at-least-once.",
+                    "Exactly-once external effects are unavailable; refusing fallback "
+                    "to at-least-once.",
                     code="exactly_once_unavailable",
                     details={"runtime": "python"},
                 )
