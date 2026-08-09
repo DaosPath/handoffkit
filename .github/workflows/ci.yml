@@ -535,15 +535,15 @@ jobs:
           -p handoffkit-protocol -p handoffkit-transport
 
       - name: Configure native ARM64 C++ edge and security tests
-        run: >
-          cmake -S packages/cpp -B packages/cpp/build-arm64
-            -DCMAKE_BUILD_TYPE=Release
-            -DHANDOFFKIT_WITH_HTTP=OFF
-            -DHANDOFFKIT_WITH_CRYPTO=ON
-            -DHANDOFFKIT_WITH_TLS=ON
-          -DHANDOFFKIT_BUILD_EXAMPLES=OFF
-          -DHANDOFFKIT_BUILD_DEMOS=OFF
-          -DHANDOFFKIT_BUILD_CLI=OFF
+        run: |
+          cmake -S packages/cpp -B packages/cpp/build-arm64 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DHANDOFFKIT_WITH_HTTP=OFF \
+            -DHANDOFFKIT_WITH_CRYPTO=ON \
+            -DHANDOFFKIT_WITH_TLS=ON \
+            -DHANDOFFKIT_BUILD_EXAMPLES=OFF \
+            -DHANDOFFKIT_BUILD_DEMOS=OFF \
+            -DHANDOFFKIT_BUILD_CLI=OFF
 
       - name: Build and test native ARM64 C++ edge and security routes
         run: |
