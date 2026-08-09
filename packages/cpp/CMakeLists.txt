@@ -76,7 +76,8 @@ endif()
 
 if(APPLE)
   find_library(HANDOFFKIT_SECURITY_FRAMEWORK Security)
-  if(HANDOFFKIT_SECURITY_FRAMEWORK)
+  find_library(HANDOFFKIT_COREFOUNDATION_FRAMEWORK CoreFoundation)
+  if(HANDOFFKIT_SECURITY_FRAMEWORK AND HANDOFFKIT_COREFOUNDATION_FRAMEWORK)
     set(HANDOFFKIT_WITH_MACOS_KEYCHAIN ON)
   endif()
 elseif(UNIX)
@@ -189,7 +190,10 @@ function(handoffkit_apply_common target_name)
   endif()
   if(HANDOFFKIT_WITH_MACOS_KEYCHAIN)
     target_compile_definitions(${target_name} PUBLIC HANDOFFKIT_WITH_MACOS_KEYCHAIN=1)
-    target_link_libraries(${target_name} PUBLIC "${HANDOFFKIT_SECURITY_FRAMEWORK}")
+    target_link_libraries(${target_name} PUBLIC
+      "${HANDOFFKIT_SECURITY_FRAMEWORK}"
+      "${HANDOFFKIT_COREFOUNDATION_FRAMEWORK}"
+    )
   endif()
   if(HANDOFFKIT_WITH_LIBSECRET)
     target_compile_definitions(${target_name} PUBLIC HANDOFFKIT_WITH_LIBSECRET=1)
