@@ -206,7 +206,8 @@ function(handoffkit_apply_common target_name)
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
   )
-  if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
+  if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang"
+      AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16)
     # Xcode 15's libc++ keeps C++20 stop_token/jthread in its experimental
     # library until the newer libc++ release ships on the hosted image.
     target_compile_options(${target_name} PUBLIC -fexperimental-library)
