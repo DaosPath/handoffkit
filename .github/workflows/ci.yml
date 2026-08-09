@@ -341,7 +341,7 @@ jobs:
           python packages/cpp-ml/tests/interop/test_tcp_interoperability.py \
             "$HANDOFFKIT_CPP_ML_WORKER" \
             | tee .local-tests/cpp-tcp-interoperability.json
-          python -c "import json; value=json.load(open('.local-tests/cpp-tcp-interoperability.json')); assert set(value['clients']) == {'node','go','rust'}; assert set(value['reverse_servers']) == {'node','go','rust'}; assert all(item['protocol'] == 'TLSv1.3' for item in value['clients'].values()); assert all(item['protocol'] == 'TLSv1.3' for item in value['reverse_servers'].values())"
+          python -c "import json; value=json.load(open('.local-tests/cpp-tcp-interoperability.json')); assert set(value['clients']) == {'python','node','go','rust'}; assert set(value['reverse_servers']) == {'python','node','go','rust'}; assert all(item['protocol'] == 'TLSv1.3' for item in value['clients'].values()); assert all(item['protocol'] == 'TLSv1.3' for item in value['reverse_servers'].values())"
 
       - name: Test mTLS Go gateway to real cpp-ml worker process
         env:
@@ -588,7 +588,7 @@ jobs:
           python packages/cpp-ml/tests/interop/test_tcp_interoperability.py \
             "$HANDOFFKIT_CPP_ML_WORKER" \
             > .local-tests/cpp-tcp-interoperability-linux-arm64.json
-          python -c "import json; value=json.load(open('.local-tests/cpp-tcp-interoperability-linux-arm64.json')); assert set(value['clients']) == {'node','go','rust'}; assert set(value['reverse_servers']) == {'node','go','rust'}"
+          python -c "import json; value=json.load(open('.local-tests/cpp-tcp-interoperability-linux-arm64.json')); assert set(value['clients']) == {'python','node','go','rust'}; assert set(value['reverse_servers']) == {'python','node','go','rust'}; assert all(item['protocol'] == 'TLSv1.3' for item in value['clients'].values()); assert all(item['protocol'] == 'TLSv1.3' for item in value['reverse_servers'].values())"
 
   arm64-macos:
     name: macOS ARM64 runtime qualification
@@ -690,7 +690,7 @@ jobs:
           python packages/cpp-ml/tests/interop/test_tcp_interoperability.py \
             "$HANDOFFKIT_CPP_ML_WORKER" \
             > .local-tests/cpp-tcp-interoperability-macos-arm64.json
-          python -c "import json; value=json.load(open('.local-tests/cpp-tcp-interoperability-macos-arm64.json')); assert set(value['clients']) == {'node','go','rust'}; assert set(value['reverse_servers']) == {'node','go','rust'}"
+          python -c "import json; value=json.load(open('.local-tests/cpp-tcp-interoperability-macos-arm64.json')); assert set(value['clients']) == {'python','node','go','rust'}; assert set(value['reverse_servers']) == {'python','node','go','rust'}; assert all(item['protocol'] == 'TLSv1.3' for item in value['clients'].values()); assert all(item['protocol'] == 'TLSv1.3' for item in value['reverse_servers'].values())"
 
   go-pq:
     name: Go 1.26 hybrid-PQ provider and Node interoperability
