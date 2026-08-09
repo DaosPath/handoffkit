@@ -54,6 +54,16 @@ target_include_directories(handoffkit_ml
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
+set_target_properties(handoffkit_ml PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  CXX_EXTENSIONS OFF
+)
+if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
+  # The public CSP worker header exposes stop_token/jthread and must compile
+  # with the same libc++ feature mode as the embedded C++ core.
+  target_compile_options(handoffkit_ml PUBLIC -fexperimental-library)
+endif()
 target_compile_features(handoffkit_ml PUBLIC cxx_std_20)
 
 if(HANDOFFKIT_ML_CUDA)

@@ -219,8 +219,9 @@ std::chrono::system_clock::time_point parse_deadline(const std::string& timestam
         fraction.append(9 - fraction.size(), '0');
         nanos = std::stoll(fraction);
     }
+    const auto duration = std::chrono::seconds(seconds) + std::chrono::nanoseconds(nanos);
     return std::chrono::system_clock::time_point{
-        std::chrono::seconds(seconds) + std::chrono::nanoseconds(nanos)};
+        std::chrono::duration_cast<std::chrono::system_clock::duration>(duration)};
 }
 
 std::optional<std::chrono::system_clock::time_point> deadline_for(
