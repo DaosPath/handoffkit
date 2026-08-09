@@ -6,6 +6,7 @@ import time
 import pytest
 
 from handoffkit.csp.security import (
+    ArtifactSignatureError,
     ArtifactVerifier,
     AuthorizationError,
     CapabilityPolicy,
@@ -17,6 +18,7 @@ from handoffkit.csp.security import (
     SecurityError,
     SecurityProfile,
     SecurityProfileUnavailableError,
+    SignedArtifact,
     build_ssl_context,
     detect_hybrid_pq_support,
     get_supported_crypto_capabilities,
@@ -36,6 +38,35 @@ def test_security_config_defaults():
     assert cfg.require_mtls is False
     assert cfg.allow_insecure_loopback is False
     assert cfg.trust_domain == "handoffkit.internal"
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"ocsp_fetch": True},
+        {"ocsp_responder_url": "https://ocsp.invalid"},
+        {"ocsp_response_path": "response.der"},
+        {"require_ocsp": True},
+    ],
+)
+def test_python_ocsp_paths_fail_closed(kwargs):
+    with pytest.raises(SecurityError) as caught:
+        SecurityConfig(**kwargs)
+    assert caught.value.code == "ocsp_fetch_unavailable"
+
+
+def test_unsupported_artifact_algorithm_is_structured():
+    with pytest.raises(ArtifactSignatureError) as caught:
+        SignedArtifact(
+            artifact_id="artifact-unsupported",
+            content_hash="0" * 64,
+            signature="",
+            algorithm="ecdsa",
+            signer_identity="spiffe://handoffkit.internal/producer/test",
+            key_fingerprint="sha256:" + "0" * 64,
+            created_at=1,
+        )
+    assert caught.value.code == "artifact_algorithm_unsupported"
 
 
 def test_security_config_listen_validation():

@@ -3,14 +3,16 @@
   "private": true,
   "packageManager": "pnpm@11.1.1",
   "scripts": {
-    "check": "pnpm workspace:validate && pnpm js:check && pnpm js:typecheck && pnpm web:check && pnpm media:check",
+    "check": "pnpm workspace:validate && pnpm workspace:paths && pnpm js:check && pnpm js:typecheck && pnpm web:check && pnpm media:check",
     "test": "pnpm js:test && pnpm web:test:studio",
-    "ci:js": "pnpm check && pnpm test && pnpm js:pack:check",
+    "ci:js": "pnpm check && pnpm test && pnpm js:pack:check && pnpm js:pack:consumer",
     "workspace:validate": "node scripts/js/validate-workspace.mjs",
+    "workspace:paths": "node scripts/validate-repository-path-map.mjs",
     "js:check": "pnpm --filter \"./packages/js/**\" run check",
     "js:typecheck": "tsc -p scripts/js/tsconfig.json",
     "js:test": "pnpm --filter \"./packages/js/**\" run test",
     "js:pack:check": "node scripts/js/validate-packages.mjs",
+    "js:pack:consumer": "node scripts/js/clean-tarball-consumer-smoke.mjs",
     "contracts:test": "pnpm js:test && pnpm python:test && pnpm rust:test && pnpm cpp:test",
     "python:install": "cd packages/python && python -m pip install -e \".[dev]\"",
     "python:lint": "cd packages/python && python -m ruff check --no-cache .",
@@ -30,11 +32,11 @@
     "media:build": "pnpm --dir apps/media-studio run build"
   },
   "devDependencies": {
+    "@handoffkit/browser": "workspace:*",
     "@handoffkit/core": "workspace:*",
     "@handoffkit/csp": "workspace:*",
     "@handoffkit/node": "workspace:*",
-    "@handoffkit/browser": "workspace:*",
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.1.2",
     "typescript": "^6.0.3"
   },
   "engines": {

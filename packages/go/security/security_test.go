@@ -55,6 +55,25 @@ func TestSecurityConfigValidation(t *testing.T) {
 	}
 }
 
+func TestBuildTLSConfigRejectsUnavailableOCSPPaths(t *testing.T) {
+	for name, mutate := range map[string]func(*security.SecurityConfig){
+		"fetch":     func(config *security.SecurityConfig) { config.OCSPFetch = true },
+		"responder": func(config *security.SecurityConfig) { config.OCSPResponderURL = "https://ocsp.invalid" },
+		"response":  func(config *security.SecurityConfig) { config.OCSPResponsePath = "response.der" },
+		"required":  func(config *security.SecurityConfig) { config.RequireOCSP = true },
+	} {
+		t.Run(name, func(t *testing.T) {
+			config := security.NewDefaultSecurityConfig()
+			mutate(config)
+			_, err := security.BuildTLSConfig(config, false, "localhost")
+			var structured *security.SecurityError
+			if !errors.As(err, &structured) || structured.Code != "ocsp_fetch_unavailable" {
+				t.Fatalf("OCSP path did not fail closed: %#v", err)
+			}
+		})
+	}
+}
+
 func TestBuildTLSConfigLoadsTrustAnchorsAndServerName(t *testing.T) {
 	fixture := func(name string) string {
 		return filepath.Join(tlsFixtureRoot, name)

@@ -47,6 +47,6 @@
   ],
   "sideEffects": false,
   "devDependencies": {
-    "fast-check": "4.3.0"
+    "fast-check": "4.9.0"
   }
 }

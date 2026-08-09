@@ -12,9 +12,9 @@
 | Cancellation, deadlines, failure reporting, CPU/CUDA metadata | experimental, tested |
 | Mandatory local artifact policy/snapshot gate | experimental, tested |
 | Remote Go mTLS gateway to local C++ process | experimental, real-process CI |
-| Direct C++ TLS worker | unavailable |
+| Direct C++ TLS worker (`--tls-policy`) | experimental/provider-dependent; real TCP test |
 
-## Implemented (0.3.x roadmap complete)
+## Implemented (0.3.x native-model roadmap complete)
 
 | Phase | Item | Status |
 |-------|------|--------|
@@ -58,6 +58,16 @@ See [DEVICE_RESIDENT.md](./DEVICE_RESIDENT.md).
 | 3 | Durable `eval_report.json` | **done** |
 | 4 | Preference CLI tool-grade path | **done** |
 | 5 | Docs / doctor scale honesty | **done** |
+
+## v0.6.0 HK-CSP closure scope
+
+| Item | Status |
+|---|---|
+| C++ TLS 1.3/mTLS + certificate-bound SAN/fingerprint identity | experimental/provider-dependent |
+| Common CspDispatcher receive/replay/authorize/dispatch path | experimental, real TCP tested |
+| Durable scheduler claim/complete/fail and durable replay state | experimental, restart/corruption tested |
+| `--policy` NDJSON compatibility mode | local-only legacy |
+| Exactly-once external effects and global zeroization | unavailable, fail closed |
 
 ## Still optional future (not required for this roadmap)
 

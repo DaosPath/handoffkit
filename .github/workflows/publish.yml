@@ -95,6 +95,15 @@ jobs:
       - name: Check package metadata
         run: python -m twine check dist/*
 
+      - name: Clean-install built wheel and verify metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_dir="../../.local-tests/python-wheel-smoke-publish"
+          python -m venv "$smoke_dir"
+          "$smoke_dir/bin/python" -m pip install --disable-pip-version-check dist/*.whl
+          "$smoke_dir/bin/python" -c 'import importlib.metadata as metadata; import handoffkit; expected="1.19.0"; assert handoffkit.__version__ == expected; assert metadata.version("handoffkit") == expected'
+
       - name: Upload distributions
         uses: actions/upload-artifact@v4
         with:
@@ -103,7 +112,7 @@ jobs:
 
   publish-testpypi:
     name: Publish to TestPyPI
-    needs: build
+    needs: [build, quality-gate-js, quality-gate-rust, quality-gate-go, quality-gate-cpp]
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
     environment:
@@ -127,7 +136,7 @@ jobs:
 
   publish-pypi:
     name: Publish to PyPI
-    needs: [build, quality-gate-js, quality-gate-rust, quality-gate-cpp]
+    needs: [build, quality-gate-js, quality-gate-rust, quality-gate-go, quality-gate-cpp]
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag'
     environment:
@@ -204,17 +213,16 @@ jobs:
               --manifest-path packages/rust/Cargo.toml \
               --package "$crate" \
               --locked \
-              --allow-dirty \
               --list >/dev/null
           done
           cargo package --manifest-path packages/rust/Cargo.toml \
-            --package handoffkit-contracts --locked --allow-dirty --no-verify
+            --package handoffkit-contracts --locked --no-verify
           cargo package --manifest-path packages/rust/Cargo.toml \
-            --package handoffkit-protocol --locked --allow-dirty --no-verify
+            --package handoffkit-protocol --locked --no-verify
 
   publish-npm:
     name: Publish npm / ${{ matrix.package }}
-    needs: [quality-gate, quality-gate-js, quality-gate-rust, quality-gate-cpp]
+    needs: [quality-gate, quality-gate-js, quality-gate-rust, quality-gate-go, quality-gate-cpp]
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.target == 'npm')
     strategy:
@@ -313,7 +321,7 @@ jobs:
 
   publish-crates:
     name: Publish Rust crates with Trusted Publishing
-    needs: [quality-gate, quality-gate-js, quality-gate-rust, quality-gate-cpp]
+    needs: [quality-gate, quality-gate-js, quality-gate-rust, quality-gate-go, quality-gate-cpp]
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.target == 'crates')
     permissions:
@@ -391,13 +399,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configure C++ package
-        run: cmake -S packages/cpp -B packages/cpp/build -DCMAKE_BUILD_TYPE=Release -DHANDOFFKIT_WITH_HTTP=OFF
+        run: cmake -S packages/cpp -B packages/cpp/build -DCMAKE_BUILD_TYPE=Release -DHANDOFFKIT_WITH_HTTP=OFF -DHANDOFFKIT_WITH_CRYPTO=ON -DHANDOFFKIT_WITH_TLS=ON
 
       - name: Build C++ package
         run: cmake --build packages/cpp/build --config Release
 
       - name: Test C++ package
         run: ctest --test-dir packages/cpp/build -C Release --output-on-failure
+
+      - name: Install C++ package and build external consumer
+        run: bash packages/cpp/scripts/consumer_install_smoke.sh
 
       - name: Configure cpp-ml CSP adapters
         run: >
@@ -416,9 +427,34 @@ jobs:
           cmake --build packages/cpp-ml/build-csp --target test_ml_csp_jobs --config Release
           ctest --test-dir packages/cpp-ml/build-csp -C Release -R test_ml_csp_jobs --output-on-failure
 
+  quality-gate-go:
+    name: Go tests and race detector (release gate)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/go
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Format Go code
+        shell: bash
+        run: test -z "$(gofmt -l .)"
+
+      - name: Run Go tests with race detector
+        run: go test -race ./...
+
+      - name: Build worker command
+        run: go build ./cmd/handoffkit-worker
+
   build-cpp-release-asset:
     name: Build C++ source tarball
-    needs: [quality-gate, quality-gate-js, quality-gate-rust, quality-gate-cpp]
+    needs: [quality-gate, quality-gate-js, quality-gate-rust, quality-gate-go, quality-gate-cpp]
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository

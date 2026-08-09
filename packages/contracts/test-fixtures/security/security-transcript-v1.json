@@ -1,4 +1,5 @@
 {
+  "canonical_unsigned_payload": "{\"binding_hash\":\"sha256:5071d1faf2d00109e34e94f534d6676c7c488f488aef8aedc9f8e800e672c11d\",\"binding_type\":\"tls-certificate-endpoints\",\"capabilities_hash\":\"sha256:62f874b009623decd4396e04d9e2206d24c6b6d2b2978fdcf5030e7626ae1001\",\"format\":\"handoffkit.security.transcript\",\"format_version\":1,\"handshake_nonce\":\"nonce-transcript-1\",\"negotiated_group\":null,\"protocol_version\":\"1.0\",\"receiver_credential_fingerprint\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"receiver_node_id\":\"server-node\",\"receiver_peer_id\":\"server-peer\",\"requested_profile\":\"standard\",\"selected_profile\":\"standard\",\"sender_credential_fingerprint\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"sender_node_id\":\"client-node\",\"sender_peer_id\":\"client-peer\",\"session_id\":\"session-transcript-1\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"tls_version\":\"TLSv1.3\"}",
   "sender": {
     "peer_id": "client-peer",
     "node_id": "client-node",

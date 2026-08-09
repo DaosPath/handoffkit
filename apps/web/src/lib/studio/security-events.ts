@@ -450,6 +450,15 @@ export function parseStudioSecurityEvent(value: unknown): StudioSecurityEvent {
   };
 }
 
+export function assertGoGatewayEvents(events: readonly StudioSecurityEvent[]): void {
+  if (events.some((event) => event.runtime !== "go")) {
+    throw new StudioSecurityEventError(
+      "studio_event_emitter_untrusted",
+      "configured Studio security sources must contain only Go gateway events",
+    );
+  }
+}
+
 export function parseStudioSecurityNdjson(text: string): StudioSecurityEvent[] {
   if (new TextEncoder().encode(text).byteLength > STUDIO_SECURITY_MAX_FILE_BYTES) {
     throw new StudioSecurityEventError("studio_event_source_too_large", "event source exceeds its limit");

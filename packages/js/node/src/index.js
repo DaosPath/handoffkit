@@ -703,7 +703,15 @@ export class LengthDelimitedTransport extends Transport {
 }
 
 export * from "./security.js";
-export * from "./durable-security.js";
+export {
+  DURABLE_REPLAY_FORMAT_VERSION,
+  DURABLE_REVOCATION_FORMAT_VERSION,
+  DurableReplayProtection,
+  DurableRevocationPolicy,
+  RevocationEntry,
+  normalizeRevocationValue,
+} from "./durable-security.js";
+export * from "./scheduler-state.js";
 import tls from "node:tls";
 import net from "node:net";
 

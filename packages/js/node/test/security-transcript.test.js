@@ -38,6 +38,7 @@ test("Node security transcript matches the shared canonical fixture", () => {
     selectedProfile: SecurityProfile.STANDARD,
   });
   assert.deepEqual(transcript.toWire(), fixture.transcript);
+  assert.equal(Buffer.from(transcript.canonicalPayload()).toString("utf8"), fixture.canonical_unsigned_payload);
   assert.deepEqual(verifySecurityTranscript(fixture.transcript, expected).toWire(), fixture.transcript);
 });
 

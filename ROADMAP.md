@@ -1,6 +1,23 @@
 # HandoffKit Roadmap
 
-Last updated: 2026-07-10
+## Canonical forward roadmap
+
+The maintained roadmap now lives in [`docs/roadmap/README.md`](docs/roadmap/README.md).
+It covers the evidence-gated 1.19.5 release closure, repository convergence,
+Browser Core/Lite/Real in 1.20-1.29, and planned trains through 1.70 LTS.
+
+HandoffKit 1.19 is **not** a completed public release. Its current green branch
+is an experimental development baseline with release-candidate security paths;
+see
+[`HK_CSP_SECURITY.md`](docs/spec/HK_CSP_SECURITY.md) for the authoritative
+capability ledger.
+
+## Historical snapshot
+
+The remainder of this file is retained as the 2026-07-10 roadmap snapshot. It
+is not the source of truth for current implementation or future release status.
+
+Historical snapshot last updated: 2026-07-10
 
 This document is the product roadmap for **HandoffKit** (core runtimes + Studio web).  
 Status legend: **Done** · **In progress** · **Planned** · **Later**

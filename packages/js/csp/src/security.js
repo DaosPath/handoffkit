@@ -93,15 +93,56 @@ export class SecurityConfig {
     this.requireMtls = Boolean(options.requireMtls || options.require_mtls);
     this.allowInsecureLoopback = Boolean(options.allowInsecureLoopback || options.allow_insecure_loopback);
     this.trustDomain = options.trustDomain || options.trust_domain || "handoffkit.internal";
+    this.credentialSource = options.credentialSource || options.credential_source || "file";
+    this.credentialTarget = options.credentialTarget || options.credential_target || null;
+    if (!["file", "os_keystore"].includes(this.credentialSource)) {
+      throw new SecurityError("credential_source must be 'file' or 'os_keystore'.", {
+        code: "invalid_security_config",
+      });
+    }
+    if (this.credentialSource === "os_keystore") {
+      throw new SecurityError(
+        "JavaScript OS keystore provider is unavailable; use credential_source='file'.",
+        { code: "os_keystore_unavailable" },
+      );
+    }
+    if (this.credentialTarget !== null) {
+      throw new SecurityError(
+        "credential_target requires an OS keystore provider.",
+        { code: "invalid_security_config" },
+      );
+    }
     this.caCertPath = options.caCertPath || options.ca_cert_path || null;
     this.certPath = options.certPath || options.cert_path || null;
     this.keyPath = options.keyPath || options.key_path || null;
+    this.ocspResponsePath = options.ocspResponsePath ?? options.ocsp_response_path ?? null;
+    this.ocspResponderUrl = options.ocspResponderUrl ?? options.ocsp_responder_url ?? null;
+    const ocspFetch = options.ocspFetch ?? options.ocsp_fetch ?? false;
+    const requireOcsp = options.requireOcsp ?? options.require_ocsp ?? false;
+    if (typeof ocspFetch !== "boolean" || typeof requireOcsp !== "boolean") {
+      throw new SecurityError("OCSP configuration flags must be boolean.", {
+        code: "invalid_security_config",
+        details: { runtime: "javascript" },
+      });
+    }
+    this.ocspFetch = ocspFetch;
+    this.requireOcsp = requireOcsp;
+    if (this.ocspFetch || this.ocspResponderUrl !== null
+      || this.ocspResponsePath !== null || this.requireOcsp) {
+      throw new SecurityError(
+        "JavaScript TLS has no provider-backed OCSP fetch or response validation.",
+        {
+          code: "ocsp_fetch_unavailable",
+          details: { runtime: "javascript" },
+        },
+      );
+    }
     this.replayWindowSeconds = options.replayWindowSeconds || options.replay_window_seconds || 300;
     this.maxClockSkewSeconds = options.maxClockSkewSeconds || options.max_clock_skew_seconds || 10;
   }
 
   toWire() {
-    return {
+    const wire = {
       profile: this.profile,
       require_mtls: this.requireMtls,
       allow_insecure_loopback: this.allowInsecureLoopback,
@@ -109,6 +150,9 @@ export class SecurityConfig {
       replay_window_seconds: this.replayWindowSeconds,
       max_clock_skew_seconds: this.maxClockSkewSeconds,
     };
+    if (this.credentialSource !== "file") wire.credential_source = this.credentialSource;
+    if (this.credentialTarget !== null) wire.credential_target = this.credentialTarget;
+    return wire;
   }
 
   static fromWire(data = {}) {
@@ -357,7 +401,13 @@ export class SignedArtifact {
       throw new TypeError("artifact_id and signer_identity must not be empty");
     }
     if (this.algorithm !== "ed25519") {
-      throw new TypeError(`unsupported artifact signature algorithm: ${this.algorithm}`);
+      throw new ArtifactSignatureError(
+        `unsupported artifact signature algorithm: ${this.algorithm}`,
+        {
+          code: "artifact_algorithm_unsupported",
+          details: { algorithm: this.algorithm, runtime: "javascript" },
+        },
+      );
     }
     if (!/^[0-9a-f]{64}$/.test(this.contentHash)) {
       throw new TypeError("content_hash must be a lowercase SHA-256 hex digest");

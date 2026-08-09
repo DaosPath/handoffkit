@@ -133,6 +133,15 @@ pub fn verify_signed_artifact(
     policy: &ArtifactTrustPolicy,
     now: u64,
 ) -> RuntimeResult<()> {
+    if artifact.algorithm != "ed25519" {
+        return Err(RuntimeError::new(
+            "artifact_algorithm_unsupported",
+            format!(
+                "unsupported artifact signature algorithm: {}",
+                artifact.algorithm
+            ),
+        ));
+    }
     artifact
         .validate()
         .map_err(|error| RuntimeError::new("artifact_contract_invalid", error.0))?;

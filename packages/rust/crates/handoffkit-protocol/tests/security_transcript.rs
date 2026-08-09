@@ -9,6 +9,7 @@ use std::path::Path;
 
 #[derive(Deserialize)]
 struct Fixture {
+    canonical_unsigned_payload: String,
     sender: PeerIdentity,
     receiver: PeerIdentity,
     transcript: SecurityTranscript,
@@ -40,6 +41,10 @@ fn rust_security_transcript_matches_shared_canonical_fixture() {
     let fixture = fixture();
     let transcript = build_security_transcript(input(&fixture)).unwrap();
     assert_eq!(transcript, fixture.transcript);
+    assert_eq!(
+        serde_json::to_string(&transcript.unsigned_map()).unwrap(),
+        fixture.canonical_unsigned_payload
+    );
     assert_eq!(
         verify_security_transcript(json!(fixture.transcript), input(&fixture)).unwrap(),
         transcript

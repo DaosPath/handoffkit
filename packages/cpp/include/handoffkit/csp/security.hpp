@@ -83,20 +83,50 @@ struct SecurityConfig {
     bool require_mtls{false};
     bool allow_insecure_loopback{false};
     std::string trust_domain{"handoffkit.internal"};
+    /// Credential source for the C++ TLS provider. `file` is the existing
+    /// PEM-path mode. `os_keystore` requires `credential_target` and never
+    /// falls back to the file fields.
+    std::string credential_source{"file"};
+    std::optional<std::string> credential_target;
     std::optional<std::string> ca_cert_path;
     std::optional<std::string> cert_path;
     std::optional<std::string> key_path;
+    /// Optional PEM CRL loaded into the active TLS provider's trust store.
+    /// OCSP is intentionally a separate capability and is not implied by this field.
+    std::optional<std::string> crl_path;
+    /// Optional DER/PEM OCSP response checked against the authenticated peer
+    /// certificate after the TLS handshake. This is a provider-gated,
+    /// file/staple-style response.
+    std::optional<std::string> ocsp_response_path;
+    /// OCSP responder fetch is intentionally unavailable. A responder URL is
+    /// retained only so requests can fail closed with a structured error.
+    bool ocsp_fetch{false};
+    std::optional<std::string> ocsp_responder_url;
+    /// Require a configured OCSP response for every C++ TLS peer when enabled.
+    bool require_ocsp{false};
     std::uint64_t replay_window_seconds{300};
     std::uint64_t max_clock_skew_seconds{10};
 
     [[nodiscard]] nlohmann::json to_json() const {
-        return {
+        nlohmann::json value = {
             {"profile", to_string(profile)},
             {"require_mtls", require_mtls},
             {"allow_insecure_loopback", allow_insecure_loopback},
             {"trust_domain", trust_domain},
             {"replay_window_seconds", replay_window_seconds},
             {"max_clock_skew_seconds", max_clock_skew_seconds}};
+        if (credential_source != "file") value["credential_source"] = credential_source;
+        if (credential_target.has_value()) value["credential_target"] = *credential_target;
+        // Keep the established wire shape unchanged when file-backed credentials are not configured.
+        if (ca_cert_path.has_value()) value["ca_cert_path"] = *ca_cert_path;
+        if (cert_path.has_value()) value["cert_path"] = *cert_path;
+        if (key_path.has_value()) value["key_path"] = *key_path;
+        if (crl_path.has_value()) value["crl_path"] = *crl_path;
+        if (ocsp_response_path.has_value()) value["ocsp_response_path"] = *ocsp_response_path;
+        if (ocsp_fetch) value["ocsp_fetch"] = true;
+        if (ocsp_responder_url.has_value()) value["ocsp_responder_url"] = *ocsp_responder_url;
+        if (require_ocsp) value["require_ocsp"] = true;
+        return value;
     }
 
     static SecurityConfig from_json(const nlohmann::json& value) {
@@ -105,10 +135,56 @@ struct SecurityConfig {
         config.require_mtls = value.value("require_mtls", false);
         config.allow_insecure_loopback = value.value("allow_insecure_loopback", false);
         config.trust_domain = value.value("trust_domain", "handoffkit.internal");
+        config.credential_source = value.value("credential_source", "file");
+        if (value.contains("credential_target") && !value.at("credential_target").is_null()) {
+            config.credential_target = value.at("credential_target").get<std::string>();
+        }
+        if (value.contains("ca_cert_path") && !value.at("ca_cert_path").is_null()) {
+            config.ca_cert_path = value.at("ca_cert_path").get<std::string>();
+        }
+        if (value.contains("cert_path") && !value.at("cert_path").is_null()) {
+            config.cert_path = value.at("cert_path").get<std::string>();
+        }
+        if (value.contains("key_path") && !value.at("key_path").is_null()) {
+            config.key_path = value.at("key_path").get<std::string>();
+        }
+        if (value.contains("crl_path") && !value.at("crl_path").is_null()) {
+            config.crl_path = value.at("crl_path").get<std::string>();
+        }
+        if (value.contains("ocsp_response_path") && !value.at("ocsp_response_path").is_null()) {
+            config.ocsp_response_path = value.at("ocsp_response_path").get<std::string>();
+        }
+        config.ocsp_fetch = value.value("ocsp_fetch", false);
+        if (value.contains("ocsp_responder_url") && !value.at("ocsp_responder_url").is_null()) {
+            config.ocsp_responder_url = value.at("ocsp_responder_url").get<std::string>();
+        }
+        config.require_ocsp = value.value("require_ocsp", false);
         config.replay_window_seconds = value.value("replay_window_seconds", 300ULL);
         config.max_clock_skew_seconds = value.value("max_clock_skew_seconds", 10ULL);
         if (config.trust_domain.empty()) {
             throw SecurityError("invalid_security_config", "trust_domain must not be empty");
+        }
+        if (config.credential_source != "file" && config.credential_source != "os_keystore") {
+            throw SecurityError(
+                "invalid_security_config",
+                "credential_source must be 'file' or 'os_keystore'");
+        }
+        if (config.credential_source == "os_keystore" &&
+            (!config.credential_target.has_value() || config.credential_target->empty())) {
+            throw SecurityError(
+                "invalid_security_config",
+                "os_keystore credential_source requires credential_target");
+        }
+        if (config.credential_source == "file" && config.credential_target.has_value()) {
+            throw SecurityError(
+                "invalid_security_config",
+                "credential_target requires an OS keystore provider");
+        }
+        if (config.credential_source == "os_keystore" &&
+            (config.cert_path.has_value() || config.key_path.has_value())) {
+            throw SecurityError(
+                "invalid_security_config",
+                "os_keystore credential_source cannot be combined with PEM credential paths");
         }
         if (config.replay_window_seconds == 0 || config.replay_window_seconds > 3600) {
             throw SecurityError(
@@ -133,15 +209,63 @@ struct SecurityConfig {
     }
 
     void validate_cpp_transport_support() const {
+        if (credential_source != "file" && credential_source != "os_keystore") {
+            throw SecurityError(
+                "tls_config_invalid",
+                "credential_source must be 'file' or 'os_keystore'");
+        }
+        if (credential_source == "os_keystore" &&
+            (!credential_target.has_value() || credential_target->empty())) {
+            throw SecurityError(
+                "tls_config_invalid",
+                "os_keystore credential_source requires credential_target");
+        }
+        if (credential_source == "file" && credential_target.has_value()) {
+            throw SecurityError(
+                "tls_config_invalid",
+                "credential_target requires an OS keystore provider");
+        }
+        if (credential_source == "os_keystore" &&
+            (cert_path.has_value() || key_path.has_value())) {
+            throw SecurityError(
+                "tls_config_invalid",
+                "os_keystore credential_source cannot be combined with PEM credential paths");
+        }
+        if (ocsp_fetch || ocsp_responder_url.has_value()) {
+            throw SecurityError(
+                "ocsp_fetch_unavailable",
+                "OCSP responder fetching is unavailable in the C++ transport; use a signed response file");
+        }
+        if (require_ocsp && !ocsp_response_path.has_value()) {
+            throw SecurityError(
+                "tls_ocsp_required",
+                "C++ TLS OCSP enforcement requires a signed response file.");
+        }
         if (profile == SecurityProfile::Standard) {
+#if !defined(HANDOFFKIT_WITH_TLS)
             throw SecurityError(
                 "tls_backend_unavailable",
                 "The C++ runtime does not currently ship a maintained TLS transport backend.");
+#endif
         }
+        if (credential_source == "os_keystore" &&
+            (!credential_target.has_value() || credential_target->empty())) {
+            throw SecurityError(
+                "tls_config_invalid",
+                "os_keystore credential_source requires credential_target");
+        }
+#if !defined(HANDOFFKIT_WITH_TLS)
+        if (ocsp_response_path.has_value() || require_ocsp) {
+            throw SecurityError(
+                "ocsp_backend_unavailable",
+                "C++ OCSP requires HANDOFFKIT_WITH_TLS=ON and an OpenSSL provider.");
+        }
+#endif
         if (profile == SecurityProfile::HybridPq) {
             throw SecurityError(
-                "hybrid_pq_unavailable",
-                "The C++ runtime has no provider-backed hybrid-PQ TLS transport.");
+                "security_profile_unavailable",
+                "The C++ runtime has no provider-backed hybrid-PQ TLS transport.",
+                {{"profile", to_string(profile)}});
         }
     }
 };
@@ -197,6 +321,55 @@ struct PeerIdentity {
         }
         return identity;
     }
+};
+
+/// Canonical authenticated HK-CSP transcript shared by all secure runtimes.
+/// The unsigned payload is compact UTF-8 JSON with lexicographically ordered
+/// object keys, then SHA-256 encoded as `sha256:<lowercase-hex>`.
+struct SecurityTranscriptInput {
+    std::string protocol_version;
+    SecurityProfile requested_profile{SecurityProfile::Standard};
+    SecurityProfile selected_profile{SecurityProfile::Standard};
+    PeerIdentity sender;
+    PeerIdentity receiver;
+    std::string tls_version;
+    std::optional<std::string> negotiated_group;
+    std::string session_id;
+    std::string handshake_nonce;
+    std::string timestamp;
+};
+
+struct SecurityTranscript {
+    std::string binding_hash;
+    std::string binding_type;
+    std::string capabilities_hash;
+    std::string format;
+    std::uint32_t format_version{0};
+    std::string handshake_nonce;
+    std::optional<std::string> negotiated_group;
+    std::string protocol_version;
+    std::string receiver_credential_fingerprint;
+    std::string receiver_node_id;
+    std::string receiver_peer_id;
+    std::string requested_profile;
+    std::string selected_profile;
+    std::string sender_credential_fingerprint;
+    std::string sender_node_id;
+    std::string sender_peer_id;
+    std::string session_id;
+    std::string timestamp;
+    std::string tls_version;
+    std::string transcript_hash;
+
+    [[nodiscard]] static SecurityTranscript build(const SecurityTranscriptInput& input);
+    [[nodiscard]] static SecurityTranscript from_json(const nlohmann::json& value);
+    [[nodiscard]] static SecurityTranscript verify(
+        const nlohmann::json& value,
+        const SecurityTranscriptInput& input);
+    [[nodiscard]] nlohmann::json unsigned_json() const;
+    [[nodiscard]] nlohmann::json to_json() const;
+    [[nodiscard]] std::string digest() const;
+    void validate(bool require_hash) const;
 };
 
 struct SignedArtifact {
@@ -397,11 +570,67 @@ public:
             peer_scope + '\0' + session_id, sequence, nonce, created_at_ts);
     }
 
+    /// Versioned in-memory state used by the optional durable wrapper.
+    [[nodiscard]] nlohmann::json snapshot_json() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::vector<std::pair<std::string, std::uint64_t>> sequences;
+        sequences.reserve(last_sequences_.size());
+        for (const auto& item : last_sequences_) sequences.emplace_back(item.first, item.second);
+        std::sort(sequences.begin(), sequences.end(), [](const auto& left, const auto& right) {
+            return left.first < right.first;
+        });
+        std::vector<std::pair<std::string, std::int64_t>> nonces;
+        nonces.reserve(seen_nonces_.size());
+        for (const auto& item : seen_nonces_) nonces.emplace_back(item.first, item.second);
+        std::sort(nonces.begin(), nonces.end(), [](const auto& left, const auto& right) {
+            return left.first < right.first;
+        });
+        nlohmann::json sequence_values = nlohmann::json::array();
+        for (const auto& item : sequences) {
+            sequence_values.push_back({{"scope", item.first}, {"sequence", item.second}});
+        }
+        nlohmann::json nonce_values = nlohmann::json::array();
+        for (const auto& item : nonces) {
+            nonce_values.push_back({{"key", item.first}, {"timestamp", item.second}});
+        }
+        return {
+            {"format", "handoffkit.replay.state"},
+            {"format_version", 1},
+            {"last_sequences", std::move(sequence_values)},
+            {"seen_nonces", std::move(nonce_values)}};
+    }
+
+    void restore_json(const nlohmann::json& value) {
+        if (!value.is_object() || value.value("format", "") != "handoffkit.replay.state" ||
+            value.value("format_version", 0) != 1 ||
+            !value.contains("last_sequences") || !value.at("last_sequences").is_array() ||
+            !value.contains("seen_nonces") || !value.at("seen_nonces").is_array()) {
+            throw SecurityError("replay_state_invalid", "durable replay state format is unsupported");
+        }
+        std::unordered_map<std::string, std::uint64_t> sequences;
+        std::unordered_map<std::string, std::int64_t> nonces;
+        for (const auto& item : value.at("last_sequences")) {
+            const auto scope = item.at("scope").get<std::string>();
+            if (scope.empty() || !sequences.emplace(scope, item.at("sequence").get<std::uint64_t>()).second) {
+                throw SecurityError("replay_state_invalid", "durable replay state has duplicate sequence scope");
+            }
+        }
+        for (const auto& item : value.at("seen_nonces")) {
+            const auto key = item.at("key").get<std::string>();
+            if (key.empty() || !nonces.emplace(key, item.at("timestamp").get<std::int64_t>()).second) {
+                throw SecurityError("replay_state_invalid", "durable replay state has duplicate nonce key");
+            }
+        }
+        std::lock_guard<std::mutex> lock(mutex_);
+        last_sequences_ = std::move(sequences);
+        seen_nonces_ = std::move(nonces);
+    }
+
 private:
     std::uint64_t window_seconds_;
     std::uint64_t max_skew_seconds_;
     std::size_t max_seen_nonces_;
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
     std::unordered_map<std::string, std::int64_t> seen_nonces_;
     std::unordered_map<std::string, std::uint64_t> last_sequences_;
 };

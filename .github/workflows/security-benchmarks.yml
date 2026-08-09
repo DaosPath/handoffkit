@@ -1,0 +1,255 @@
+name: HandoffKit security benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: "Measured samples for runtime benchmarks"
+        required: false
+        default: "25"
+  workflow_call:
+    inputs:
+      iterations:
+        required: false
+        type: string
+        default: "25"
+
+permissions:
+  contents: read
+
+jobs:
+  remote-linux:
+    name: Remote Linux security benchmark suite
+    runs-on: ubuntu-latest
+    env:
+      BENCHMARK_ITERATIONS: ${{ inputs.iterations || github.event.inputs.iterations || '25' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "packages/python[dev]"
+          pnpm install --frozen-lockfile
+
+      - name: Prepare benchmark output
+        run: mkdir -p .local-tests/remote-benchmarks
+
+      - name: Measure Node TLS, reconnect, throughput, and Ed25519
+        run: |
+          node benchmarks/security/node-security-benchmark.mjs \
+            --iterations="$BENCHMARK_ITERATIONS" --warmup=3 --bytes=4194304 \
+            > .local-tests/remote-benchmarks/node.json
+
+      - name: Measure Go durable replay, reload, transcript, signatures, and Studio
+        working-directory: packages/go
+        run: |
+          go run ./cmd/handoffkit-security-benchmark \
+            --iterations="$BENCHMARK_ITERATIONS" --warmup=3 \
+            > ../../.local-tests/remote-benchmarks/go.json
+
+      - name: Run Python and Rust security integration before timing C++
+        run: |
+          python -m pytest -q \
+            packages/python/tests/test_csp_tls_integration.py \
+            packages/python/tests/test_durable_replay.py \
+            packages/python/tests/test_security_transcript.py
+          cargo test --manifest-path packages/rust/Cargo.toml --locked \
+            -p handoffkit-protocol -p handoffkit-transport
+
+      - name: Configure C++ TLS and native worker benchmarks
+        run: |
+          cmake -S packages/cpp -B packages/cpp/build-remote-benchmarks \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DHANDOFFKIT_WITH_HTTP=OFF \
+            -DHANDOFFKIT_WITH_CRYPTO=ON \
+            -DHANDOFFKIT_WITH_TLS=ON \
+            -DHANDOFFKIT_BUILD_BENCHMARKS=ON \
+            -DHANDOFFKIT_BUILD_EXAMPLES=OFF \
+            -DHANDOFFKIT_BUILD_DEMOS=OFF \
+            -DHANDOFFKIT_BUILD_CLI=OFF
+          cmake --build packages/cpp/build-remote-benchmarks --parallel 2 \
+            --target test_tls_transport test_durable_scheduler native_compute_benchmark
+
+      - name: Measure C++ TLS and native worker paths
+        run: |
+          packages/cpp/build-remote-benchmarks/test_tls_transport --benchmark \
+            > .local-tests/remote-benchmarks/cpp-tls.json
+          packages/cpp/build-remote-benchmarks/native_compute_benchmark 500 \
+            > .local-tests/remote-benchmarks/cpp-native-worker.json
+          ctest --test-dir packages/cpp/build-remote-benchmarks --output-on-failure \
+            -R '^(test_tls_transport|test_durable_scheduler)$'
+
+      - name: Build and exercise real cpp-ml gateway path
+        env:
+          HANDOFFKIT_RUN_CPP_ML_INTEGRATION: "1"
+          HANDOFFKIT_CPP_ML_WORKER: ${{ github.workspace }}/packages/cpp-ml/build-remote-benchmarks/handoffkit-cpp-ml-worker
+        run: |
+          cmake -S packages/cpp-ml -B packages/cpp-ml/build-remote-benchmarks \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DHANDOFFKIT_ML_LINK_CORE=ON \
+            -DHANDOFFKIT_ML_TLS=ON \
+            -DHANDOFFKIT_ML_BUILD_TESTS=ON \
+            -DHANDOFFKIT_ML_BUILD_CLI=OFF \
+            -DHANDOFFKIT_BUILD_TESTS=OFF \
+            -DHANDOFFKIT_BUILD_EXAMPLES=OFF \
+            -DHANDOFFKIT_BUILD_CLI=OFF \
+            -DHANDOFFKIT_BUILD_DEMOS=OFF
+          cmake --build packages/cpp-ml/build-remote-benchmarks --parallel 2
+          ctest --test-dir packages/cpp-ml/build-remote-benchmarks --output-on-failure
+          (cd packages/go && go test -tags=cppmlintegration -race ./mlgateway)
+          python packages/cpp-ml/tests/interop/test_tcp_interoperability.py \
+            "$HANDOFFKIT_CPP_ML_WORKER" \
+            > .local-tests/remote-benchmarks/cpp-tcp-interoperability.json
+          touch .local-tests/remote-benchmarks/cpp-ml-tested.marker
+
+      - name: Record verified remote security capability envelope
+        run: |
+          python - <<'PY'
+          import json, platform, ssl
+          from pathlib import Path
+          root = Path('.local-tests/remote-benchmarks')
+          node = json.loads((root / 'node.json').read_text())
+          go = json.loads((root / 'go.json').read_text())
+          cpp_worker = json.loads((root / 'cpp-native-worker.json').read_text())
+          cpp_tls = json.loads((root / 'cpp-tls.json').read_text())
+          cpp_tcp = json.loads((root / 'cpp-tcp-interoperability.json').read_text())
+          standard = node.get('standard', {})
+          artifact = node.get('artifact_ed25519', {})
+          measurements = go.get('measurements', {})
+          has_measurement = lambda name: (
+              isinstance(measurements.get(name), dict)
+              and measurements[name].get('count', 0) > 0
+          )
+          value = {
+              'format': 'handoffkit.security.benchmark-envelope',
+              'format_version': 1,
+              'environment': {
+                  'architecture': platform.machine(),
+                  'platform': platform.platform(),
+                  'python': platform.python_version(),
+                  'node': node.get('environment', {}).get('node', 'unavailable'),
+                  'go': go.get('environment', {}).get('go', 'unavailable'),
+                  'rust': 'cargo test --locked (toolchain selected by runner)',
+                  'cpp': cpp_worker.get('environment', {}).get('compiler', 'unavailable'),
+                  'openssl': ssl.OPENSSL_VERSION,
+              },
+              'providers': {
+                  'node': node.get('provider', 'unavailable'),
+                  'go': go.get('providers', {}),
+                  'cpp_tls': {
+                      'name': cpp_tls.get('provider', 'unavailable'),
+                      'version': cpp_tls.get('provider_version', 'unavailable'),
+                  },
+              },
+              'standard_tls_available': bool(standard.get('available', False)),
+              'hybrid_pq_available': bool(node.get('hybrid_pq', {}).get('available', False)),
+              'reconnect_tested': standard.get('reconnect', {}).get('count', 0) > 0,
+              'durable_recovery_tested': has_measurement('durable_replay_restart_recovery'),
+              'replay_tested': has_measurement('durable_replay_write'),
+              'sign_verify_tested': (
+                  artifact.get('sign', {}).get('count', 0) > 0
+                  and artifact.get('verify', {}).get('count', 0) > 0
+                  and has_measurement('artifact_ed25519_sign')
+                  and has_measurement('artifact_ed25519_verify')
+              ),
+              'cpp_worker_tested': cpp_worker.get('jobs', 0) > 0,
+              'cpp_ml_tested': (root / 'cpp-ml-tested.marker').is_file(),
+              'cpp_tcp_interoperability_tested': (
+                  cpp_tcp.get('transport') == 'TCP/TLSv1.3/mTLS/uint32-be-framed-json'
+                  and set(cpp_tcp.get('clients', {})) == {'node', 'go', 'rust'}
+                  and set(cpp_tcp.get('reverse_servers', {})) == {'node', 'go', 'rust'}
+                  and all(item.get('protocol') == 'TLSv1.3' for item in cpp_tcp.get('clients', {}).values())
+                  and all(item.get('protocol') == 'TLSv1.3' for item in cpp_tcp.get('reverse_servers', {}).values())
+              ),
+              'notice': 'Environmental measurement - not a performance guarantee.',
+          }
+          standard_distributions = {
+              'node_tls_handshake': standard.get('handshake', {}),
+              'node_reconnect': standard.get('reconnect', {}),
+              'go_durable_replay_write': measurements.get('durable_replay_write', {}),
+              'go_artifact_sign': measurements.get('artifact_ed25519_sign', {}),
+              'go_artifact_verify': measurements.get('artifact_ed25519_verify', {}),
+              'cpp_native_worker': {
+                  'p50_ms': cpp_worker.get('latency_ms', {}).get('p50'),
+                  'p95_ms': cpp_worker.get('latency_ms', {}).get('p95'),
+                  'p99_ms': cpp_worker.get('latency_ms', {}).get('p99'),
+              },
+              'cpp_tls_handshake': {
+                  'p50_ms': cpp_tls.get('p50_ms'),
+                  'p95_ms': cpp_tls.get('p95_ms'),
+                  'p99_ms': cpp_tls.get('p99_ms'),
+              },
+          }
+          value['percentiles_ms'] = {
+              name: {
+                  key: distribution.get(key) if isinstance(distribution, dict) else None
+                  for key in ('p50_ms', 'p95_ms', 'p99_ms')
+              }
+              for name, distribution in standard_distributions.items()
+          }
+          (root / 'capabilities.json').write_text(json.dumps(value, indent=2) + '\n')
+          PY
+
+      - name: Validate benchmark envelopes
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('.local-tests/remote-benchmarks')
+          for path in root.glob('*.json'):
+              value = json.loads(path.read_text())
+              notice = value.get('notice', '')
+              if 'not a performance guarantee' not in notice:
+                  raise SystemExit(f'{path}: missing environmental notice')
+          envelope = json.loads((root / 'capabilities.json').read_text())
+          if envelope.get('environment', {}).get('architecture') in {'', 'unknown', None}:
+              raise SystemExit('capabilities envelope has no architecture')
+          if not envelope.get('cpp_tcp_interoperability_tested'):
+              raise SystemExit('C++ TCP interoperability matrix is incomplete')
+          expected_percentiles = {
+              'node_tls_handshake', 'node_reconnect', 'go_durable_replay_write',
+              'go_artifact_sign', 'go_artifact_verify', 'cpp_native_worker',
+              'cpp_tls_handshake',
+          }
+          if set(envelope.get('percentiles_ms', {})) != expected_percentiles:
+              raise SystemExit('benchmark envelope is missing a required percentile distribution')
+          for name, values in envelope.get('percentiles_ms', {}).items():
+              if not all(isinstance(values.get(key), (int, float)) for key in ('p50_ms', 'p95_ms', 'p99_ms')):
+                  raise SystemExit(f'{name}: missing p50/p95/p99')
+              if not values['p50_ms'] <= values['p95_ms'] <= values['p99_ms']:
+                  raise SystemExit(f'{name}: invalid percentile ordering')
+          PY
+
+      - name: Upload remote benchmark evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: handoffkit-security-benchmarks-${{ github.run_id }}
+          path: .local-tests/remote-benchmarks
+          if-no-files-found: error
+          retention-days: 14

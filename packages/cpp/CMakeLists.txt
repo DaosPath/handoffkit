@@ -12,7 +12,15 @@ option(HANDOFFKIT_BUILD_DEMOS "Build demos/fusion catalog as handoffkit_demos (O
 option(HANDOFFKIT_FETCH_JSON "Fetch nlohmann_json via FetchContent when not found" ON)
 option(HANDOFFKIT_WITH_HTTP "Build optional OpenAI-compatible HTTP provider (cpp-httplib)" OFF)
 option(HANDOFFKIT_WITH_CRYPTO "Enable OpenSSL-backed Ed25519 artifact signatures" OFF)
+option(HANDOFFKIT_WITH_TLS "Enable OpenSSL-backed TLS 1.3 transport" OFF)
 option(HANDOFFKIT_BUILD_BENCHMARKS "Build executable runtime benchmarks" OFF)
+option(HANDOFFKIT_INSTALL "Install/export HandoffKit C++ targets" ON)
+
+# OS keystore providers are detected, never emulated. Windows Credential
+# Manager is available through the platform SDK; macOS Keychain and Linux
+# Secret Service are optional maintained platform providers.
+set(HANDOFFKIT_WITH_MACOS_KEYCHAIN OFF)
+set(HANDOFFKIT_WITH_LIBSECRET OFF)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -62,12 +70,36 @@ if(HANDOFFKIT_WITH_CRYPTO)
   find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 endif()
 
+if(HANDOFFKIT_WITH_TLS)
+  find_package(OpenSSL REQUIRED COMPONENTS SSL Crypto)
+endif()
+
+if(APPLE)
+  find_library(HANDOFFKIT_SECURITY_FRAMEWORK Security)
+  if(HANDOFFKIT_SECURITY_FRAMEWORK)
+    set(HANDOFFKIT_WITH_MACOS_KEYCHAIN ON)
+  endif()
+elseif(UNIX)
+  find_package(PkgConfig QUIET)
+  if(PkgConfig_FOUND)
+    pkg_check_modules(HANDOFFKIT_LIBSECRET QUIET IMPORTED_TARGET libsecret-1)
+    if(HANDOFFKIT_LIBSECRET_FOUND)
+      set(HANDOFFKIT_WITH_LIBSECRET ON)
+    endif()
+  endif()
+endif()
+
 # --- core runtime sources (no demos/fusion) ---
 set(HANDOFFKIT_CORE_SOURCES
   src/handoff.cpp
   src/csp/contracts.cpp
   src/csp/artifact_security.cpp
   src/csp/artifact_gate.cpp
+  src/csp/os_keystore.cpp
+  src/csp/durable_scheduler.cpp
+  src/csp/dispatcher.cpp
+  src/csp/security_transcript.cpp
+  src/csp/tls_transport.cpp
   src/csp/native_compute.cpp
   src/core/validation.cpp
   src/core/quality.cpp
@@ -148,6 +180,24 @@ function(handoffkit_apply_common target_name)
     target_compile_definitions(${target_name} PUBLIC HANDOFFKIT_WITH_CRYPTO=1)
     target_link_libraries(${target_name} PUBLIC OpenSSL::Crypto)
   endif()
+  if(HANDOFFKIT_WITH_TLS)
+    target_compile_definitions(${target_name} PUBLIC HANDOFFKIT_WITH_TLS=1)
+    target_link_libraries(${target_name} PUBLIC OpenSSL::SSL OpenSSL::Crypto)
+    if(WIN32)
+      target_link_libraries(${target_name} PUBLIC ws2_32 crypt32)
+    endif()
+  endif()
+  if(HANDOFFKIT_WITH_MACOS_KEYCHAIN)
+    target_compile_definitions(${target_name} PUBLIC HANDOFFKIT_WITH_MACOS_KEYCHAIN=1)
+    target_link_libraries(${target_name} PUBLIC "${HANDOFFKIT_SECURITY_FRAMEWORK}")
+  endif()
+  if(HANDOFFKIT_WITH_LIBSECRET)
+    target_compile_definitions(${target_name} PUBLIC HANDOFFKIT_WITH_LIBSECRET=1)
+    target_link_libraries(${target_name} PUBLIC PkgConfig::HANDOFFKIT_LIBSECRET)
+  endif()
+  if(WIN32)
+    target_link_libraries(${target_name} PUBLIC advapi32)
+  endif()
   target_compile_features(${target_name} PUBLIC cxx_std_20)
   if(MSVC)
     target_compile_options(${target_name} PRIVATE /W4 /permissive-)
@@ -177,6 +227,7 @@ set(HANDOFFKIT_BROWSER_SOURCES
   src/browser/cache.cpp
   src/browser/page.cpp
   src/browser/research.cpp
+  src/browser/ultra_browser.cpp
   src/browser/kit.cpp
 )
 
@@ -279,6 +330,10 @@ if(HANDOFFKIT_BUILD_TESTS)
   handoffkit_add_test(test_csp_contracts tests/test_csp_contracts.cpp LINK handoffkit_core)
   handoffkit_add_test(test_edge_profiles tests/test_edge_profiles.cpp LINK handoffkit_core)
   handoffkit_add_test(test_csp_security tests/test_csp_security.cpp LINK handoffkit_core)
+  handoffkit_add_test(test_tls_transport tests/test_tls_transport.cpp LINK handoffkit_core)
+  handoffkit_add_test(test_os_keystore tests/test_os_keystore.cpp LINK handoffkit_core)
+  handoffkit_add_test(test_secure_memory tests/test_secure_memory.cpp LINK handoffkit_core)
+  handoffkit_add_test(test_durable_scheduler tests/test_durable_scheduler.cpp LINK handoffkit_core)
   handoffkit_add_test(test_security_conformance tests/test_security_conformance.cpp LINK handoffkit_core)
   handoffkit_add_test(test_artifact_signatures tests/test_artifact_signatures.cpp LINK handoffkit_core)
   handoffkit_add_test(test_artifact_gate tests/test_artifact_gate.cpp LINK handoffkit_core)
@@ -309,10 +364,18 @@ if(HANDOFFKIT_BUILD_TESTS)
     handoffkit_add_test(test_fusion_depth tests/test_fusion_depth.cpp)
     handoffkit_add_test(test_fusion_algo tests/test_fusion_algo.cpp)
     handoffkit_add_test(test_fusion_loc_audit tests/test_fusion_loc_audit.cpp)
+    set_tests_properties(test_fusion_algo test_fusion_loc_audit PROPERTIES
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    )
     handoffkit_add_test(test_fusion_web_research tests/test_fusion_web_research.cpp)
     handoffkit_add_test(test_fusion_war_room tests/test_fusion_war_room.cpp)
     handoffkit_add_test(test_fusion_panel tests/test_fusion_panel.cpp)
     handoffkit_add_test(test_fusion_roles tests/test_fusion_roles.cpp)
+    handoffkit_add_test(test_handoff_transfer src/demos/handoff_transfer_benchmark.cpp)
+    handoffkit_add_test(test_handoff_transfer_v2 src/demos/handoff_transfer_ultra_v2.cpp)
+    handoffkit_add_test(test_handoff_transfer_v3 src/demos/handoff_transfer_v3.cpp)
+    handoffkit_add_test(test_handoff_transfer_v4 src/demos/handoff_transfer_v4.cpp)
+    handoffkit_add_test(test_handoff_transfer_v5 benchmarks/test_handoff_transfer_rigorous_v5.cpp)
     # Shipped example pack path for load_role_pack_file / fusion roles --file smoke
     file(TO_CMAKE_PATH
       "${CMAKE_CURRENT_SOURCE_DIR}/examples/fusion/role_packs/custom_review.json"
@@ -335,7 +398,9 @@ if(HANDOFFKIT_BUILD_CLI)
     add_executable(handoffkit-cli src/cli/main.cpp)
     target_link_libraries(handoffkit-cli PRIVATE handoffkit)
     set_target_properties(handoffkit-cli PROPERTIES OUTPUT_NAME handoffkit-cli)
-    install(TARGETS handoffkit-cli RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    if(HANDOFFKIT_INSTALL)
+      install(TARGETS handoffkit-cli RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    endif()
   endif()
 endif()
 
@@ -363,76 +428,78 @@ add_custom_target(package_source_tarball
 # See examples/consumer_core/ and scripts/consumer_install_smoke.*
 
 # Fusion role pack examples (CLI: fusion roles --file …)
-install(DIRECTORY examples/fusion/role_packs
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/handoffkit/examples/fusion
-  FILES_MATCHING PATTERN "*.json" PATTERN "README.md"
-)
+if(HANDOFFKIT_INSTALL)
+  install(DIRECTORY examples/fusion/role_packs
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/handoffkit/examples/fusion
+    FILES_MATCHING PATTERN "*.json" PATTERN "README.md"
+  )
 
-# --- install / export ---
-install(TARGETS ${_hk_install_libs}
-  EXPORT HandoffKitTargets
-  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+  # --- install / export ---
+  install(TARGETS ${_hk_install_libs}
+    EXPORT HandoffKitTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  )
 
-install(DIRECTORY include/handoffkit
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+  install(DIRECTORY include/handoffkit
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  )
 
-# find_package(handoffkit) on Linux is case-sensitive and needs:
-#   handoffkitConfig.cmake / handoffkitTargets.cmake
-# Also ship HandoffKit* aliases so older CI/scripts keep working.
-install(EXPORT HandoffKitTargets
-  FILE handoffkitTargets.cmake
-  NAMESPACE handoffkit::
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit
-)
+  # find_package(handoffkit) on Linux is case-sensitive and needs:
+  #   handoffkitConfig.cmake / handoffkitTargets.cmake
+  # Also ship HandoffKit* aliases so older CI/scripts keep working.
+  install(EXPORT HandoffKitTargets
+    FILE handoffkitTargets.cmake
+    NAMESPACE handoffkit::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit
+  )
 
-configure_package_config_file(
-  cmake/HandoffKitConfig.cmake.in
-  "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfig.cmake"
-  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit
-)
+  configure_package_config_file(
+    cmake/HandoffKitConfig.cmake.in
+    "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfig.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit
+  )
 
-write_basic_package_version_file(
-  "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfigVersion.cmake"
-  VERSION ${PROJECT_VERSION}
-  COMPATIBILITY SameMajorVersion
-)
+  write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+  )
 
-# Case aliases (Windows was fine with either; Linux find_package is picky).
-# configure_file COPYONLY works on CMake 3.16+ (file(COPY_FILE) needs 3.21+).
-configure_file(
-  "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfig.cmake"
-  "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfig.cmake"
-  COPYONLY
-)
-configure_file(
-  "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfigVersion.cmake"
-  "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfigVersion.cmake"
-  COPYONLY
-)
-# Targets alias name for scripts that include HandoffKitTargets.cmake
-install(EXPORT HandoffKitTargets
-  FILE HandoffKitTargets.cmake
-  NAMESPACE handoffkit::
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit
-)
+  # Case aliases (Windows was fine with either; Linux find_package is picky).
+  # configure_file COPYONLY works on CMake 3.16+ (file(COPY_FILE) needs 3.21+).
+  configure_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfig.cmake"
+    COPYONLY
+  )
+  configure_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfigVersion.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfigVersion.cmake"
+    COPYONLY
+  )
+  # Targets alias name for scripts that include HandoffKitTargets.cmake
+  install(EXPORT HandoffKitTargets
+    FILE HandoffKitTargets.cmake
+    NAMESPACE handoffkit::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit
+  )
 
-install(FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfig.cmake"
-  "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfigVersion.cmake"
-  "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfig.cmake"
-  "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfigVersion.cmake"
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit
-)
+  install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/handoffkitConfigVersion.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/HandoffKitConfigVersion.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/handoffkit
+  )
 
-if(HANDOFFKIT_BUNDLED_JSON)
-  if(DEFINED json_SOURCE_DIR AND EXISTS "${json_SOURCE_DIR}/include/nlohmann")
-    install(DIRECTORY "${json_SOURCE_DIR}/include/nlohmann"
-      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-    )
+  if(HANDOFFKIT_BUNDLED_JSON)
+    if(DEFINED json_SOURCE_DIR AND EXISTS "${json_SOURCE_DIR}/include/nlohmann")
+      install(DIRECTORY "${json_SOURCE_DIR}/include/nlohmann"
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+      )
+    endif()
   endif()
 endif()

@@ -8,6 +8,7 @@ import {
   ReplayProtection,
   SignedArtifact,
   SecurityProfileUnavailableError,
+  SecurityError,
   assertSecurityProfileSupported,
   getSupportedCryptoCapabilities,
 } from "../src/security.js";
@@ -35,6 +36,21 @@ test("SecurityConfig listen address validation", () => {
     /cannot listen on non-loopback interface/
   );
 });
+
+for (const options of [
+  { ocsp_fetch: true },
+  { ocsp_responder_url: "https://ocsp.invalid" },
+  { ocsp_response_path: "response.der" },
+  { require_ocsp: true },
+]) {
+  test(`OCSP configuration fails closed: ${Object.keys(options)[0]}`, () => {
+    assert.throws(
+      () => new SecurityConfig(options),
+      (error) => error instanceof SecurityError
+        && error.code === "ocsp_fetch_unavailable",
+    );
+  });
+}
 
 test("PeerIdentity serialization and expiration", () => {
   const peer = new PeerIdentity({
@@ -122,5 +138,21 @@ test("SignedArtifact browser-safe contract emits canonical payload without claim
       + "\"created_at\":1800000000,\"key_fingerprint\":\"sha256:"
       + "a6b5df2969959ff5ce26aea82bb88678604b0d0f07200e7845755f4b9af5bba6\","
       + "\"signer_identity\":\"spiffe://handoffkit.internal/producer/build-1\"}",
+  );
+});
+
+test("unsupported artifact algorithm is a structured security error", () => {
+  assert.throws(
+    () => new SignedArtifact({
+      artifact_id: "artifact-unsupported",
+      content_hash: "0".repeat(64),
+      signature: "",
+      algorithm: "ecdsa",
+      signer_identity: "spiffe://handoffkit.internal/producer/test",
+      key_fingerprint: `sha256:${"0".repeat(64)}`,
+      created_at: 1,
+    }),
+    (error) => error instanceof SecurityError
+      && error.code === "artifact_algorithm_unsupported",
   );
 });

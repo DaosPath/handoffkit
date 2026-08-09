@@ -10,7 +10,7 @@ Move tasks, decisions, files, errors, evidence, and next steps between agents as
 validated data instead of fragile chat summaries.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/DaosPath/handoffkit/ci.yml?branch=main&label=CI&logo=github&logoColor=white&style=flat-square)](https://github.com/DaosPath/handoffkit/actions)
-[![Rust Runtime](https://img.shields.io/badge/Rust_runtime-1.17.0-38bdf8?style=flat-square)](packages/rust/README.md)
+[![Rust Runtime](https://img.shields.io/badge/Rust_runtime-1.19.0-38bdf8?style=flat-square)](packages/rust/README.md)
 [![PyPI](https://img.shields.io/pypi/v/handoffkit.svg?logo=python&logoColor=white&style=flat-square)](https://pypi.org/project/handoffkit/)
 [![npm](https://img.shields.io/npm/v/@handoffkit/core.svg?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/@handoffkit/core)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-7c3aed?logo=cplusplus&logoColor=white&style=flat-square)](packages/cpp/README.md)
@@ -128,8 +128,8 @@ version and maturity level; wire compatibility remains governed by HK-CSP 1.0.
 |---|---|---|---|
 | **Python 3.10–3.14** | Production runtime; HK-CSP session runtime experimental | [PyPI `handoffkit`](https://pypi.org/project/handoffkit/) | Agents, teams, tools, recipes, traces, asyncio channels, stdio |
 | **JavaScript / TypeScript** | Production runtime; HK-CSP session runtime experimental | npm packages under `@handoffkit/*` | Browser-safe core/CSP, Node stdio, providers, recipes, templates, CLI |
-| **C++20** | Native runtime ready for local and Conan use | CMake install, Conan recipe, vcpkg overlay; registry publication pending | Runtime core, CSP codecs, providers, tools, reports, training jobs, native Fusion |
-| **Rust 1.17** | Native Tokio runtime; runtime APIs experimental | Source workspace; crates.io publication prepared, not yet released | Contracts, protocol, sessions, processes, Agent/Team/Recipe, stdio/subprocess, CLI |
+| **C++20** | Experimental native runtime; local/Conan packaging only | CMake install, Conan recipe, vcpkg overlay; registry publication pending | Runtime core, CSP codecs, provider-gated TLS/CSP, tools, reports, training jobs, native Fusion |
+| **Rust 1.19** | Native Tokio runtime; transport/security APIs experimental | Source workspace; crates.io publication prepared, not yet released | Contracts, protocol, sessions, TLS transport, processes, Agent/Team/Recipe, stdio/subprocess, CLI |
 
 Runtime documentation:
 [Python](packages/python/README.md) ·
@@ -139,7 +139,7 @@ Runtime documentation:
 
 ---
 
-## What ships in Rust 1.17.0
+## Historical Rust 1.17.0 baseline
 
 | Area | Included |
 |---|---|
@@ -154,8 +154,10 @@ Runtime documentation:
 | **Security** | 8 MiB default frames, depth validation, process/ACK/retry limits, malformed-line rejection and orphan protection |
 
 Contracts and HK-CSP 1.0 wire semantics are stable. Rust runtime, transport and
-CLI APIs remain experimental through the 1.19 stabilization phase. Unix
-sockets, TCP, WebSocket and distributed scheduling are not part of 1.17.
+CLI APIs remain experimental through the 1.19 stabilization phase. The current
+1.19 Rust workspace additionally contains provider-backed TLS transport and
+durable security state; those capabilities remain experimental and are not
+implied by this historical baseline section.
 
 [Rust runtime guide](docs/rust/RUNTIME.md) ·
 [Rust workspace](packages/rust/README.md) ·
@@ -206,8 +208,9 @@ handoffkit csp inspect packages/contracts/fixtures/message_envelope.json
 
 Defaults remain safe and explicit: bounded channels (`64`), blocking
 backpressure, at most three attempts, an 8 MiB frame limit, and no exactly-once
-claim. `RuntimeMode.CLASSIC` is unchanged. `RuntimeMode.DISTRIBUTED` fails
-clearly until the 1.18 distributed runtime exists.
+claim. `RuntimeMode.CLASSIC` is unchanged. The Python `CspRuntime` distributed
+mode still provides local CSP execution; network worker routing belongs to the
+explicit distributed scheduler APIs and remains experimental.
 
 Specification: [HK-CSP](docs/spec/HK_CSP.md) ·
 [wire format](docs/spec/HK_CSP_WIRE.md) ·

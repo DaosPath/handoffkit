@@ -38,8 +38,13 @@ bounded/checksummed durable store is configured. Durable local revocation and
 atomic certificate/trust reload with transition-window rotation are
 integration-tested. The rustls/ring provider does not expose the required
 hybrid-PQ group, so `hybrid-pq` reports unavailable and fails closed. CRL/OCSP,
-OS keystores, zeroization guarantees, and general durable session/job recovery
-are unavailable.
+OS keystores, and zeroization guarantees are unavailable. The distributed
+scheduler has an optional bounded/checksummed file store shared with Python,
+Node, and Go: queued jobs, counters, and dedup identities survive restart;
+in-flight work becomes `interrupted` and requires explicit retry/fail. Durable
+channel/session buffers and exactly-once effects remain unavailable. The
+opt-in `with_state_store_auto_resume` path requeues interrupted work as
+at-least-once only; automatic resumption remains disabled by default.
 
 ## Commands
 

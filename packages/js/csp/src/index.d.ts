@@ -291,15 +291,42 @@ export class WorkerRegistry {
   get(workerId: string): WorkerRecord | null;
   list(): WorkerRecord[];
 }
+export interface SchedulerStateStore {
+  load(): Record<string, unknown> | null;
+  commit(payload: Record<string, unknown>): void;
+  quarantine(reason: string): never;
+}
+export const SCHEDULER_STATE_FORMAT: "handoffkit.scheduler.state";
+export const SCHEDULER_STATE_FORMAT_VERSION: 1;
 export class DistributedScheduler {
-  constructor(registry: WorkerRegistry, init?: { maxAttempts?: number; leaseMs?: number; queueCapacity?: number; dedupCapacity?: number });
+  constructor(registry: WorkerRegistry, init?: {
+    maxAttempts?: number;
+    leaseMs?: number;
+    queueCapacity?: number;
+    dedupCapacity?: number;
+    stateStore?: SchedulerStateStore | null;
+    /** Opt-in at-least-once restart recovery; never an exactly-once guarantee. */
+    autoResume?: boolean;
+  });
   submit(job: DistributedJob | Record<string, unknown>): boolean;
   schedule(): JobAssignment | null;
   complete(assignmentId: string): boolean;
   fail(assignmentId: string, init?: { retryable?: boolean }): boolean;
   recoverWorker(workerId: string): number;
   recoverExpired(init?: { now?: number }): number;
-  snapshot(): { queued: number; assigned: number; completed: number; failed: number; seen_jobs: number };
+  listInterrupted(): JobAssignment[];
+  retryInterrupted(assignmentId: string): boolean;
+  autoResumeInterrupted(): void;
+  failInterrupted(assignmentId: string): boolean;
+  readonly stateGeneration: number;
+  snapshot(): {
+    queued: number;
+    assigned: number;
+    interrupted: number;
+    completed: number;
+    failed: number;
+    seen_jobs: number;
+  };
 }
 export function heartbeatNow(workerId: string, init: { sequence: number; activeJobs: number; load: number; metadata?: Record<string, unknown> }): WorkerHeartbeat;
 
@@ -348,9 +375,15 @@ export class SecurityConfig {
   requireMtls: boolean;
   allowInsecureLoopback: boolean;
   trustDomain: string;
+  credentialSource: "file" | "os_keystore";
+  credentialTarget: string | null;
   caCertPath: string | null;
   certPath: string | null;
   keyPath: string | null;
+  ocspResponsePath: string | null;
+  ocspFetch: boolean;
+  ocspResponderUrl: string | null;
+  requireOcsp: boolean;
   replayWindowSeconds: number;
   maxClockSkewSeconds: number;
   constructor(init?: Record<string, unknown>);
@@ -434,7 +467,8 @@ export interface SignedArtifactWire {
   artifact_id: string;
   content_hash: string;
   signature: string;
-  algorithm: "ed25519";
+  /** Only `ed25519` is implemented; other values fail closed at runtime. */
+  algorithm: string;
   signer_identity: string;
   key_fingerprint: string;
   created_at: number;
@@ -444,7 +478,7 @@ export class SignedArtifact {
   artifactId: string;
   contentHash: string;
   signature: string;
-  algorithm: "ed25519";
+  algorithm: string;
   signerIdentity: string;
   keyFingerprint: string;
   createdAt: number;

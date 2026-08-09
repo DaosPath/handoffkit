@@ -25,8 +25,10 @@ are maintained in [HK_CSP_SECURITY.md](./HK_CSP_SECURITY.md).
 
 - `classic`: existing direct sequential execution.
 - `session`: CSP execution in one runtime, optionally crossing local stdio.
-- `distributed`: worker routing across network transports. Reserved until the
-  distributed runtime is installed; unsupported runtimes must fail fast.
+- `distributed`: distributed-scheduler execution label. The Python
+  `CspRuntime` mode still runs local CSP sessions; worker routing across network
+  transports is provided only by the explicit distributed scheduler APIs and is
+  experimental. A mode value alone does not claim multi-node transport.
 
 ## Processes and channels
 

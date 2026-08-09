@@ -392,6 +392,12 @@ void ArtifactIngestionPolicy::validate() const {
         throw SecurityError(
             "artifact_policy_invalid", "Required signatures need a local trust policy.");
     }
+    if (signature_requirement == ArtifactSignatureRequirement::Required &&
+        (trusted_producers.empty() || trusted_signers.empty())) {
+        throw SecurityError(
+            "artifact_policy_invalid",
+            "Required signatures need producer and signer allowlists.");
+    }
 }
 
 ArtifactIngestionGate::ArtifactIngestionGate(ArtifactIngestionPolicy policy)

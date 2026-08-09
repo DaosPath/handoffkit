@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   emptyStudioSecuritySnapshot,
+  assertGoGatewayEvents,
   markStudioSecurityDisconnected,
   parseStudioSecurityEvent,
   parseStudioSecurityNdjson,
@@ -90,6 +91,16 @@ test("Studio rejects secrets, untruncated fingerprints, unknown fields, and corr
   assert.throws(
     () => parseStudioSecurityNdjson(`${firstLine}\n{"broken":`),
     (error) => error instanceof StudioSecurityEventError && error.code === "studio_event_json_invalid",
+  );
+});
+
+test("Studio rejects non-Go runtime claims from the configured production source", async () => {
+  const [firstLine] = (await fixtureText()).trim().split(/\r?\n/);
+  const event = JSON.parse(firstLine);
+  event.runtime = "cpp";
+  assert.throws(
+    () => assertGoGatewayEvents([parseStudioSecurityEvent(event)]),
+    (error) => error instanceof StudioSecurityEventError && error.code === "studio_event_emitter_untrusted",
   );
 });
 

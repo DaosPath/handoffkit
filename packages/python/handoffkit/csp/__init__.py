@@ -66,6 +66,12 @@ from handoffkit.csp.runtime import (
     SessionDiagnostics,
     make_envelope,
 )
+from handoffkit.csp.scheduler_state import (
+    SCHEDULER_STATE_FORMAT,
+    SCHEDULER_STATE_FORMAT_VERSION,
+    FileSchedulerStateStore,
+    SchedulerStateStore,
+)
 from handoffkit.csp.security import (
     ArtifactSignatureError,
     ArtifactSigner,
@@ -154,6 +160,7 @@ __all__ = [
     "EvaluationJob",
     "FileDedupStore",
     "FileKeyStore",
+    "FileSchedulerStateStore",
     "JobAssignment",
     "JobProgress",
     "KeyStore",
@@ -174,6 +181,8 @@ __all__ = [
     "ReloadableTLSContext",
     "RetryPolicy",
     "RuntimeMode",
+    "SCHEDULER_STATE_FORMAT",
+    "SCHEDULER_STATE_FORMAT_VERSION",
     "SecurityConfig",
     "SecurityError",
     "SecurityProfile",
@@ -184,6 +193,7 @@ __all__ = [
     "SessionConfig",
     "SessionDiagnostics",
     "SchedulerSnapshot",
+    "SchedulerStateStore",
     "StdioTransport",
     "SubprocessStdioTransport",
     "TcpTransport",

@@ -185,6 +185,10 @@ std::string validation_error_code(std::string_view message) {
     return "invalid_contract";
 }
 
+std::int64_t timestamp_epoch_seconds(std::string_view field, std::string_view value) {
+    return parse_timestamp(field, value) / 1'000'000'000;
+}
+
 void RetryPolicy::validate() const {
     if (max_attempts == 0) throw std::invalid_argument("max_attempts must be at least 1");
     if (max_attempts > 100) throw std::invalid_argument("max_attempts must not exceed 100");

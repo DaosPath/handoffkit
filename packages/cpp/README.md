@@ -16,7 +16,12 @@ Native **C++20** multi-agent runtime with structured handoffs.
 | HK-CSP 1.0 contracts, exact security-profile selection, validation, and JSON codecs | Done; five-runtime conformance |
 | Bounded native HK-CSP worker (`std::jthread`/`std::stop_token`) | Experimental; concurrent tests and benchmark |
 | Ed25519 artifact sign/verify | Provider-dependent; OpenSSL Crypto and `HANDOFFKIT_WITH_CRYPTO=ON` |
-| TLS/mTLS transport | Unavailable; no maintained connector/acceptor is integrated |
+| TLS/mTLS transport | Experimental/provider-dependent; OpenSSL TLS 1.3 client/listener, CA roots, hostname verification, mTLS, SAN identity, timeouts, and framed real-socket tests when `HANDOFFKIT_WITH_TLS=ON` |
+| CRL/OCSP | Experimental/provider-dependent; `SecurityConfig::crl_path` enables OpenSSL CRL checking and `ocsp_response_path` validates a signed response. OCSP responder fetch is unavailable and `ocsp_fetch=true` fails closed; Python/Node/Go/Rust remain local-policy-only |
+| Common C++ CSP dispatcher | Experimental/provider-dependent; `CspDispatcher` enforces certificate identity, replay, local authorization, and capability-claim rejection before handler dispatch on real TLS sockets |
+| Durable C++ scheduler | Experimental/scoped; private checksummed state, atomic restart recovery, validated backup/restore, v0→v1 migration, interrupted records, asynchronous claim/complete/fail, and opt-in at-least-once retry; no exactly-once external-effect guarantee |
+| OS keystore | Experimental/provider-dependent; `OsKeyStore` selects Windows Credential Manager, macOS Keychain, or Linux Secret Service when detected, otherwise fails closed |
+| Native secret buffer | Experimental/scoped; `SecureBuffer` uses `OPENSSL_cleanse` with the crypto provider and holds C++ artifact signer PEM material; provider/managed copies remain outside scope |
 | `HandoffStateValidator` + `ToolSchemaValidator` | Done |
 | Deterministic `HandoffQualityEvaluator` | Done |
 | `EchoProvider`, `FallbackProvider`, usage metrics on `AnyProvider` | Done |
@@ -130,9 +135,9 @@ JSONL wire is shared: `{"prompt":"...","completion":"..."}` (extra `format`/`met
 **Core does not ship a neural trainer** (no autograd/CUDA in `handoffkit_core`).  
 For **C++-only** SFT/LoRA/QLoRA/device-resident train, see the sibling complement:
 
-- [`packages/cpp-ml/`](../cpp-ml/) — `handoffkit-ml` `0.4+` (opt-in; **not** linked from core)
+- [`packages/cpp-ml/`](../cpp-ml/) — `handoffkit-ml` `0.6.0` (opt-in; **not** linked from core; direct TLS worker is provider-dependent)
 - Product split: `handoffkit-cli train …` = jobs/distill; `handoffkit-ml sft|generate …` = native weights (CPU / CUDA / cuda-resident)
-- **Status:** `cpp-ml` is **FROZEN** while other monorepo work proceeds — use as documented; no feature expansion there for now ([STATUS.md](../cpp-ml/STATUS.md)).
+- **Status:** `cpp-ml` maintains an independent `0.6.0` line; its direct TLS worker and durable ledger route are experimental ([STATUS.md](../cpp-ml/STATUS.md)).
 
 Default Conan/tarball/core CI remain light. See `packages/cpp-ml/NONGOALS.md`.
 

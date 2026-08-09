@@ -243,6 +243,34 @@ impl SecureNetworkConfig {
 
     fn validate(&self, is_server: bool) -> RuntimeResult<()> {
         self.network.validate()?;
+        match self.security.credential_source.as_deref() {
+            Some("os_keystore") => {
+                return Err(RuntimeError::new(
+                    "os_keystore_unavailable",
+                    "Rust OS keystore provider is unavailable; no file fallback is permitted",
+                ));
+            }
+            Some("file") | None => {}
+            Some(_) => {
+                return Err(RuntimeError::new(
+                    "invalid_security_config",
+                    "credential_source must be 'file' or 'os_keystore'",
+                ));
+            }
+        }
+        self.security
+            .validate_credential_source()
+            .map_err(|error| RuntimeError::new("invalid_security_config", error.to_string()))?;
+        if self.security.ocsp_fetch
+            || self.security.ocsp_responder_url.is_some()
+            || self.security.ocsp_response_path.is_some()
+            || self.security.require_ocsp
+        {
+            return Err(RuntimeError::new(
+                "ocsp_fetch_unavailable",
+                "Rust TLS has no provider-backed OCSP fetch or response validation.",
+            ));
+        }
         match self.security.profile {
             SecurityProfile::Standard => {}
             SecurityProfile::HybridPq => {

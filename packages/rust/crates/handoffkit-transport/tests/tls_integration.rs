@@ -968,3 +968,28 @@ fn rust_hybrid_pq_is_unavailable_and_fails_closed() {
     };
     assert_eq!(error.code, "security_profile_unavailable");
 }
+
+#[test]
+fn rust_ocsp_paths_are_unavailable_and_fail_closed() {
+    let mut config = secure_config(Some("client"), &["server"]);
+    config.security.ocsp_fetch = true;
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let error = match runtime.block_on(TcpTransport::connect_tls("127.0.0.1:1", &config)) {
+        Ok(_) => panic!("unavailable OCSP fetch was accepted"),
+        Err(error) => error,
+    };
+    assert_eq!(error.code, "ocsp_fetch_unavailable");
+}
+
+#[test]
+fn rust_os_keystore_is_structured_and_has_no_file_fallback() {
+    let mut config = secure_config(Some("client"), &["server"]);
+    config.security.credential_source = Some("os_keystore".to_string());
+    config.security.credential_target = Some("handoffkit/test".to_string());
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let error = match runtime.block_on(TcpTransport::connect_tls("127.0.0.1:1", &config)) {
+        Ok(_) => panic!("unavailable Rust OS keystore was accepted"),
+        Err(error) => error,
+    };
+    assert_eq!(error.code, "os_keystore_unavailable");
+}

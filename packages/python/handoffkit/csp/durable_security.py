@@ -166,6 +166,94 @@ class _VersionedStateFile:
                 except OSError:
                     pass
 
+    def backup(self, destination: str | Path) -> None:
+        """Copy a validated state file to a private atomic backup."""
+        if Path(os.path.abspath(destination)) == Path(os.path.abspath(self.path)):
+            raise SecurityError(
+                "Durable state backup destination must be different from the primary state.",
+                code="security_state_backup_invalid",
+            )
+        raw = self._validated_raw("security_state_backup_missing")
+        self._write_raw(Path(destination), raw, "security_state_backup_failed")
+
+    def restore(self, source: str | Path) -> None:
+        """Restore a validated backup before the owning runtime is started."""
+        source_file = _VersionedStateFile(source, max_file_bytes=self.max_file_bytes)
+        if source_file.path.resolve() == self.path.resolve():
+            raise SecurityError(
+                "Durable security backup must be different from the primary state.",
+                code="security_state_restore_invalid",
+            )
+        raw = source_file._validated_raw("security_state_restore_missing")
+        self._write_raw(self.path, raw, "security_state_restore_failed")
+        self.load()
+
+    def _validated_raw(self, missing_code: str) -> bytes:
+        if self.load() is None:
+            raise SecurityError(
+                "Durable security state does not exist.",
+                code=missing_code,
+            )
+        try:
+            raw = self.path.read_bytes()
+        except OSError as exc:
+            raise SecurityError(
+                "Durable security state could not be read.",
+                code="security_state_read_failed",
+                details={"reason": type(exc).__name__},
+            ) from exc
+        if len(raw) > self.max_file_bytes:
+            raise SecurityError(
+                "Durable security state exceeds configured byte limit.",
+                code="security_state_limit",
+                details={"limit_bytes": self.max_file_bytes},
+            )
+        return raw
+
+    def _write_raw(self, destination: Path, raw: bytes, code: str) -> None:
+        destination = Path(os.path.abspath(destination))
+        parent = destination.parent
+        replaced = False
+        try:
+            parent.mkdir(parents=True, exist_ok=True)
+            if parent.is_symlink() or not parent.is_dir():
+                raise OSError("state parent is not a regular directory")
+            if destination.is_symlink() or (destination.exists() and not destination.is_file()):
+                raise OSError("state destination is not a regular file")
+            descriptor, raw_path = tempfile.mkstemp(
+                prefix=f".{destination.name}.tmp-",
+                dir=parent,
+            )
+            temporary = Path(raw_path)
+            try:
+                if os.name == "posix":
+                    os.fchmod(descriptor, 0o600)
+                with os.fdopen(descriptor, "wb", closefd=True) as stream:
+                    descriptor = -1
+                    stream.write(raw)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(temporary, destination)
+                replaced = True
+                temporary = None  # type: ignore[assignment]
+                if os.name == "posix":
+                    directory_fd = os.open(parent, os.O_RDONLY)
+                    try:
+                        os.fsync(directory_fd)
+                    finally:
+                        os.close(directory_fd)
+            finally:
+                if descriptor >= 0:
+                    os.close(descriptor)
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
+        except OSError as exc:
+            raise SecurityError(
+                "Durable security state copy failed.",
+                code=code,
+                details={"reason": type(exc).__name__, "committed": replaced},
+            ) from exc
+
     def _quarantine(self, reason: str) -> None:
         suffix = f"corrupt-{int(time.time())}-{uuid.uuid4().hex[:12]}"
         target = self.path.with_name(f"{self.path.name}.{suffix}")

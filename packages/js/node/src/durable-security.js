@@ -49,7 +49,7 @@ function stateError(message, code, details = {}) {
   return new SecurityError(message, { code, details });
 }
 
-class VersionedStateFile {
+export class VersionedStateFile {
   constructor(filePath, { maxFileBytes }) {
     this.path = path.resolve(filePath);
     this.maxFileBytes = maxFileBytes;
@@ -172,6 +172,107 @@ class VersionedStateFile {
           // The valid primary state remains authoritative. Orphans are ignored on load.
         }
       }
+    }
+  }
+
+  backup(destination) {
+    if (path.resolve(destination) === this.path) {
+      throw stateError(
+        "Durable state backup destination must be different from the primary state.",
+        "scheduler_state_backup_invalid",
+      );
+    }
+    const raw = this.validatedRaw("scheduler_state_backup_missing");
+    this.writeRaw(destination, raw, "scheduler_state_backup_failed");
+  }
+
+  restore(source) {
+    const sourceFile = new VersionedStateFile(source, { maxFileBytes: this.maxFileBytes });
+    if (sourceFile.path === this.path) {
+      throw stateError(
+        "Durable state backup must be different from the primary state.",
+        "scheduler_state_restore_invalid",
+      );
+    }
+    const raw = sourceFile.validatedRaw("scheduler_state_restore_missing");
+    this.writeRaw(this.path, raw, "scheduler_state_restore_failed");
+    this.load();
+  }
+
+  validatedRaw(missingCode) {
+    if (this.load() === null) {
+      throw stateError("Durable security state does not exist.", missingCode);
+    }
+    const raw = readFileSync(this.path);
+    if (raw.length > this.maxFileBytes) {
+      throw stateError(
+        "Durable security state exceeds configured byte limit.",
+        "security_state_limit",
+        { limit_bytes: this.maxFileBytes },
+      );
+    }
+    return raw;
+  }
+
+  writeRaw(destination, encoded, code) {
+    const target = path.resolve(destination);
+    const parent = path.dirname(target);
+    mkdirSync(parent, { recursive: true, mode: 0o700 });
+    const parentStat = lstatSync(parent);
+    if (!parentStat.isDirectory() || parentStat.isSymbolicLink()) {
+      throw stateError("Durable state copy parent is unsafe.", code);
+    }
+    if (this.existsAt(target)) {
+      const targetStat = lstatSync(target);
+      if (!targetStat.isFile() || targetStat.isSymbolicLink()) {
+        throw stateError("Durable state copy target is unsafe.", code);
+      }
+    }
+    const temporary = path.join(parent, `.${path.basename(target)}.tmp-${randomUUID()}`);
+    let descriptor = null;
+    let replaced = false;
+    try {
+      descriptor = openSync(temporary, "wx", 0o600);
+      if (process.platform !== "win32") fchmodSync(descriptor, 0o600);
+      writeSync(descriptor, encoded);
+      fsyncSync(descriptor);
+      closeSync(descriptor);
+      descriptor = null;
+      renameSync(temporary, target);
+      replaced = true;
+      if (process.platform !== "win32") {
+        const directoryDescriptor = openSync(parent, "r");
+        try {
+          fsyncSync(directoryDescriptor);
+        } finally {
+          closeSync(directoryDescriptor);
+        }
+      }
+    } catch (error) {
+      throw stateError(
+        "Durable security state copy failed.",
+        code,
+        { reason: error?.code || error?.name || "Error", committed: replaced },
+      );
+    } finally {
+      if (descriptor !== null) closeSync(descriptor);
+      try {
+        unlinkSync(temporary);
+      } catch (error) {
+        if (error?.code !== "ENOENT") {
+          // The destination remains authoritative; an orphan is ignored on load.
+        }
+      }
+    }
+  }
+
+  existsAt(target) {
+    try {
+      lstatSync(target);
+      return true;
+    } catch (error) {
+      if (error?.code === "ENOENT") return false;
+      throw error;
     }
   }
 

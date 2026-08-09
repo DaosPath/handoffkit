@@ -47,6 +47,10 @@ def test_python_security_transcript_matches_shared_canonical_fixture() -> None:
         timestamp="2026-01-01T00:00:00Z",
     )
     assert transcript.to_dict() == expected
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    assert json.dumps(
+        transcript.unsigned_dict(), ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ) == fixture["canonical_unsigned_payload"]
     assert SecurityTranscript.from_dict(expected) == transcript
 
 

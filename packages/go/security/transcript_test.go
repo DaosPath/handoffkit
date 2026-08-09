@@ -10,9 +10,10 @@ import (
 )
 
 type transcriptFixture struct {
-	Sender     PeerIdentity       `json:"sender"`
-	Receiver   PeerIdentity       `json:"receiver"`
-	Transcript SecurityTranscript `json:"transcript"`
+	CanonicalUnsignedPayload string             `json:"canonical_unsigned_payload"`
+	Sender                   PeerIdentity       `json:"sender"`
+	Receiver                 PeerIdentity       `json:"receiver"`
+	Transcript               SecurityTranscript `json:"transcript"`
 }
 
 func loadTranscriptFixture(t *testing.T) transcriptFixture {
@@ -52,6 +53,13 @@ func TestGoSecurityTranscriptMatchesSharedCanonicalFixture(t *testing.T) {
 	}
 	if !reflect.DeepEqual(transcript, fixture.Transcript) {
 		t.Fatalf("transcript mismatch:\nactual=%#v\nexpected=%#v", transcript, fixture.Transcript)
+	}
+	canonical, err := json.Marshal(transcript.unsignedMap())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(canonical) != fixture.CanonicalUnsignedPayload {
+		t.Fatalf("canonical transcript payload mismatch:\nactual=%s\nexpected=%s", canonical, fixture.CanonicalUnsignedPayload)
 	}
 	if _, err := VerifySecurityTranscript(fixture.Transcript, transcriptFixtureInput(fixture)); err != nil {
 		t.Fatal(err)

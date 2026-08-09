@@ -70,6 +70,11 @@ development backend, not an OS keystore. Optional durable replay/local-
 revocation stores and atomic certificate/trust reload with transition-window
 rotation are integration-tested; replay still resets on restart when no
 durable store is configured. CRL/OCSP, OS keystores, zeroization guarantees,
-and general durable session/job recovery are unavailable. See
+and durable channel/session buffers remain unavailable. Node provides the
+filesystem backend for the optional cross-runtime scheduler state store;
+queued jobs survive restart, while in-flight assignments become interrupted
+and require explicit retry/fail by default. The opt-in `autoResume` path
+requeues them as at-least-once work only; exactly-once effects are not claimed.
+See
 [`HK_CSP_SECURITY.md`](../../../docs/spec/HK_CSP_SECURITY.md) for the exact
 status ledger.

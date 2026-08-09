@@ -143,3 +143,38 @@ func TestJobStoreFailsClosedOnCapacityAndWriteFailure(t *testing.T) {
 		t.Fatal("failed durable write advanced in-memory state")
 	}
 }
+
+func TestJobStoreBackupAndRestorePreserveTerminalResult(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "jobs.json")
+	backup := filepath.Join(root, "backups", "jobs.json")
+	store, err := NewJobStore(path, DefaultJobStoreOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, _, err := store.LookupOrBegin("peer", "backup-key", "request", "job-backup", time.Now().Unix())
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := StoredResponse{Kind: "job_result", PayloadType: "json", Payload: map[string]any{"ok": true}}
+	if err := store.Complete(record.IdempotencyHash, JobCompleted, response, time.Now().Unix()+1); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Backup(backup); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Restore(backup); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := NewJobStore(path, DefaultJobStoreOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, ok := restored.Record(record.IdempotencyHash)
+	if !ok || value.State != JobCompleted || value.Response == nil || value.Response.Payload["ok"] != true {
+		t.Fatalf("restored terminal result mismatch: %#v", value)
+	}
+}

@@ -50,7 +50,11 @@ pip install handoffkit
 > are integration-tested; without the durable replay store, replay state still
 > resets on restart. Secure contexts and directly wrapped sockets cannot bypass
 > `SecurityConfig`. Hybrid-PQ, CRL/OCSP, OS keystores, zeroization guarantees,
-> and general durable session/job recovery are unavailable. See
+> and durable channel/session buffers are unavailable. Python's optional
+> scheduler file store preserves queued jobs/counters/dedup state; restarted
+> in-flight assignments become interrupted and require explicit retry/fail by
+> default. The opt-in `auto_resume=True` path requeues them as at-least-once
+> work only; exactly-once effects are not claimed. See
 > [`HK_CSP_SECURITY.md`](../../docs/spec/HK_CSP_SECURITY.md).
 
 ## Contents
@@ -126,8 +130,10 @@ handoffkit csp demo
 handoffkit csp inspect packages/contracts/fixtures/message_envelope.json
 ```
 
-`RuntimeMode.DISTRIBUTED` is reserved and fails clearly until the distributed
-runtime lands. See the [HK-CSP specification](../../docs/spec/HK_CSP.md).
+`RuntimeMode.DISTRIBUTED` selects the distributed execution label for local CSP
+sessions; it is not a network worker router. Cross-runtime worker routing uses
+the explicit distributed scheduler APIs, which remain experimental. See the
+[HK-CSP specification](../../docs/spec/HK_CSP.md).
 
 ## Unified Cross-runtime Contracts
 

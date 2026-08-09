@@ -35,6 +35,9 @@ void test_security_config() {
     assert(caught);
 
     cfg.profile = SecurityProfile::Standard;
+#if defined(HANDOFFKIT_WITH_TLS)
+    cfg.validate_cpp_transport_support();
+#else
     caught = false;
     try {
         cfg.validate_cpp_transport_support();
@@ -43,6 +46,7 @@ void test_security_config() {
         caught = true;
     }
     assert(caught);
+#endif
     std::cout << "[PASS] C++ SecurityConfig test" << std::endl;
 }
 
@@ -101,11 +105,59 @@ void test_replay_protection() {
     std::cout << "[PASS] C++ ReplayProtection test" << std::endl;
 }
 
+void test_unavailable_capabilities_fail_closed() {
+    SecurityConfig ocsp;
+    ocsp.profile = SecurityProfile::Standard;
+    ocsp.ocsp_fetch = true;
+    ocsp.ocsp_responder_url = "http://127.0.0.1:8080/ocsp";
+    ocsp.require_ocsp = true;
+    bool ocsp_rejected = false;
+    std::string ocsp_error;
+    try {
+        ocsp.validate_cpp_transport_support();
+    } catch (const SecurityError& error) {
+        ocsp_rejected = error.code() == "ocsp_fetch_unavailable" ||
+            error.code() == "ocsp_backend_unavailable" ||
+            error.code() == "tls_backend_unavailable";
+        ocsp_error = error.code();
+    }
+    if (!ocsp_rejected) std::cerr << "OCSP fail-closed code=" << ocsp_error << std::endl;
+    assert(ocsp_rejected);
+
+    SecurityConfig ambiguous;
+    ambiguous.profile = SecurityProfile::Standard;
+    ambiguous.ocsp_responder_url = "http://127.0.0.1:8080/ocsp";
+    bool ambiguous_rejected = false;
+    try {
+        ambiguous.validate_cpp_transport_support();
+    } catch (const SecurityError& error) {
+        ambiguous_rejected = error.code() == "ocsp_fetch_unavailable" ||
+            error.code() == "ocsp_backend_unavailable" ||
+            error.code() == "tls_backend_unavailable";
+    }
+    if (!ambiguous_rejected) std::cerr << "ambiguous OCSP config was accepted" << std::endl;
+    assert(ambiguous_rejected);
+
+    SecurityConfig hybrid;
+    hybrid.profile = SecurityProfile::HybridPq;
+    bool hybrid_rejected = false;
+    try {
+        hybrid.validate_cpp_transport_support();
+    } catch (const SecurityError& error) {
+        hybrid_rejected = error.code() == "security_profile_unavailable" &&
+            error.details().value("profile", "") == "hybrid-pq";
+    }
+    if (!hybrid_rejected) std::cerr << "hybrid profile was accepted" << std::endl;
+    assert(hybrid_rejected);
+    std::cout << "[PASS] unavailable C++ hybrid-PQ/ambiguous OCSP paths fail closed" << std::endl;
+}
+
 int main() {
     test_security_config();
     test_peer_identity();
     test_capability_policy();
     test_replay_protection();
+    test_unavailable_capabilities_fail_closed();
     std::cout << "All C++ security tests passed!" << std::endl;
     return 0;
 }

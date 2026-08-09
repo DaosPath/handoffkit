@@ -83,9 +83,15 @@ type SecurityConfig struct {
 	RequireMTLS           bool            `json:"require_mtls"`
 	AllowInsecureLoopback bool            `json:"allow_insecure_loopback"`
 	TrustDomain           string          `json:"trust_domain"`
+	CredentialSource      string          `json:"credential_source,omitempty"`
+	CredentialTarget      string          `json:"credential_target,omitempty"`
 	CACertPath            string          `json:"ca_cert_path,omitempty"`
 	CertPath              string          `json:"cert_path,omitempty"`
 	KeyPath               string          `json:"key_path,omitempty"`
+	OCSPResponsePath      string          `json:"ocsp_response_path,omitempty"`
+	OCSPFetch             bool            `json:"ocsp_fetch,omitempty"`
+	OCSPResponderURL      string          `json:"ocsp_responder_url,omitempty"`
+	RequireOCSP           bool            `json:"require_ocsp,omitempty"`
 	ReplayWindowSeconds   uint64          `json:"replay_window_seconds"`
 	MaxClockSkewSeconds   uint64          `json:"max_clock_skew_seconds"`
 }
@@ -811,7 +817,30 @@ func GetSupportedCryptoCapabilities() map[string]any {
 }
 
 func BuildTLSConfig(config *SecurityConfig, isServer bool, serverName ...string) (*cryptotls.Config, error) {
-	if config == nil || config.Profile == SecurityProfileLocal {
+	if config == nil {
+		return nil, nil
+	}
+	if config.OCSPFetch || config.OCSPResponderURL != "" || config.OCSPResponsePath != "" || config.RequireOCSP {
+		return nil, securityError(
+			"ocsp_fetch_unavailable",
+			"Go TLS has no provider-backed OCSP fetch or response validation.",
+			map[string]any{"runtime": "go"},
+		)
+	}
+	source := config.CredentialSource
+	if source == "" {
+		source = "file"
+	}
+	if source != "file" && source != "os_keystore" {
+		return nil, securityError("invalid_security_config", "credential_source must be 'file' or 'os_keystore'", map[string]any{"credential_source": source})
+	}
+	if source == "file" && config.CredentialTarget != "" {
+		return nil, securityError("invalid_security_config", "credential_target requires an OS keystore provider", map[string]any{"credential_target": config.CredentialTarget})
+	}
+	if source == "os_keystore" {
+		return nil, securityError("os_keystore_unavailable", "Go OS keystore provider is unavailable in this transport build; no file fallback is permitted", map[string]any{"credential_target": config.CredentialTarget})
+	}
+	if config.Profile == SecurityProfileLocal {
 		return nil, nil
 	}
 	if config.Profile == SecurityProfileResearch {

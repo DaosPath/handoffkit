@@ -21,6 +21,8 @@ enum class EdgeProfile { edge_small, edge_standard, server };
 
 std::string negotiate_version(std::string_view remote);
 std::string validation_error_code(std::string_view message);
+/// Parse a validated RFC 3339 timestamp into Unix epoch seconds.
+std::int64_t timestamp_epoch_seconds(std::string_view field, std::string_view value);
 
 struct RetryPolicy {
     std::uint32_t max_attempts = 3;

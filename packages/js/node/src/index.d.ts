@@ -7,6 +7,7 @@ import {
   PeerIdentity,
   ReplayProtection,
   RevocationPolicy,
+  SchedulerStateStore,
   SignedArtifact,
   Transport,
 } from "@handoffkit/csp";
@@ -88,6 +89,16 @@ export class FileDedupStore {
   release(key: string): boolean;
   contains(key: string): boolean;
   readonly size: number;
+}
+
+export class FileSchedulerStateStore implements SchedulerStateStore {
+  readonly path: string;
+  constructor(filePath: string, options?: { maxFileBytes?: number });
+  load(): Record<string, unknown> | null;
+  commit(payload: Record<string, unknown>): void;
+  backup(destination: string): void;
+  restore(source: string): void;
+  quarantine(reason: string): never;
 }
 
 export const DURABLE_REPLAY_FORMAT_VERSION: 1;

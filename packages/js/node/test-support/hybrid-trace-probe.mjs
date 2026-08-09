@@ -32,6 +32,7 @@ server.listen(0, "127.0.0.1", () => {
     servername: "localhost",
     ca: [read("ca_cert.pem")],
     rejectUnauthorized: true,
+    enableTrace: true,
   });
   client.enableTrace();
   client.on("error", (error) => {

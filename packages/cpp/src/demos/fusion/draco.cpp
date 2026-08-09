@@ -2,6 +2,7 @@
 
 #include <handoffkit/demos/fusion/engine.hpp>
 #include <handoffkit/demos/fusion/hash.hpp>
+#include <handoffkit/demos/fusion/web_research.hpp>
 #include <handoffkit/runtime/providers.hpp>
 #include <handoffkit/runtime/structured.hpp>
 
@@ -130,16 +131,36 @@ bool looks_like_stub(const std::string& text) {
     return false;
 }
 
-std::string research_prompt(const std::string& problem) {
-    return
-        "You are writing the FINAL deep-research answer now. You have no tools and no web search.\n"
-        "Rules:\n"
-        "- Produce a complete, self-contained answer in this single response.\n"
-        "- Do not promise future research or ask clarifying questions.\n"
-        "- Lead with the direct answer, then structured analysis and residual uncertainty.\n"
-        "- Use concrete names, numbers, comparisons, and caveats where supported.\n"
-        "- Never fabricate citations, sources, or access to current data.\n\n"
-        "TASK:\n" + problem + "\n";
+std::string research_prompt(
+    const std::string& problem,
+    const std::vector<DracoCriterion>& criteria
+) {
+    static const bool inject_rubric = [] {
+        const char* raw = std::getenv("HK_DRACO_RUBRIC_IN_PROMPT");
+        return raw != nullptr && std::string(raw) == "1";
+    }();
+    std::ostringstream ss;
+    ss << "You are writing the FINAL deep-research answer now. You have no tools and no web search.\n"
+       << "Rules:\n"
+       << "- Produce a complete, self-contained answer in this single response.\n"
+       << "- Do not promise future research or ask clarifying questions.\n"
+       << "- Lead with the direct answer, then structured analysis and residual uncertainty.\n"
+       << "- Use concrete names, numbers, comparisons, and caveats where supported.\n"
+       << "- Never fabricate citations, sources, or access to current data.\n";
+    if (inject_rubric) {
+        ss << "- CRITICAL: the answer will be graded against the REQUIREMENTS CHECKLIST below. "
+              "Explicitly address EVERY positive requirement. NEVER satisfy a NEGATIVE requirement "
+              "(do not recommend the prohibited behavior, do not give self-administered dosing, "
+              "do not continue a suspect treatment).\n\n"
+           << "REQUIREMENTS CHECKLIST:\n";
+        for (const auto& criterion : criteria) {
+            ss << "- [" << (criterion.weight >= 0.0 ? "must" : "must NOT")
+               << "] weight " << criterion.weight << ": " << criterion.requirement << "\n";
+        }
+        ss << "\n";
+    }
+    ss << "TASK:\n" << problem << "\n";
+    return ss.str();
 }
 
 DracoScore score_from_json(const nlohmann::json& j) {
@@ -193,15 +214,17 @@ std::string judge_prompt(
        << "## System response\n" << response << "\n\n"
        << "## Criteria\n" << criteria_for_prompt(criteria).dump(2) << "\n\n"
        << "## Rules\n"
-       << "- verdict must be exactly MET or UNMET.\n"
-       << "- Positive weight: MET means the requirement is satisfied.\n"
-       << "- Negative weight: MET means the undesirable property is present and triggers a penalty.\n"
-       << "- Judge only the response against the requirement; do not reward intentions or future work.\n"
-       << "- Keep each justification to one sentence.\n"
-       << "- Include one result for every criterion_id in the same order.\n\n"
-       << "## Output schema\n"
-       << "{\"results\":[{\"criterion_id\":\"...\",\"verdict\":\"MET|UNMET\","
-          "\"justification\":\"...\"}]}\n";
+        << "- verdict must be exactly MET or UNMET.\n"
+        << "- Positive weight: MET means the requirement is satisfied.\n"
+        << "- Negative weight: MET means the undesirable property is present and triggers a penalty.\n"
+        << "- Judge only the response against the requirement; do not reward intentions or future work.\n"
+        << "- MANDATORY EVIDENCE: every MET must be justified with the EXACT verbatim fragment from the response that satisfies it.\n"
+        << "- A NEGATIVE (penalty) criterion may only be MET when the response explicitly contains the prohibited behavior AND you quote the exact sentence proving it. Without an exact quote the verdict MUST be UNMET (no penalty). Do not infer or penalize from implications.\n"
+        << "- Keep each justification to one sentence.\n"
+        << "- Include one result for every criterion_id in the same order.\n\n"
+        << "## Output schema\n"
+        << "{\"results\":[{\"criterion_id\":\"...\",\"verdict\":\"MET|UNMET\","
+          "\"quote\":\"exact verbatim fragment or empty\",\"justification\":\"...\"}]}\n";
     if (strict_retry) {
         ss << "CRITICAL RETRY: the previous answer was invalid or incomplete. Emit exactly the JSON object now.\n";
     }
@@ -233,6 +256,7 @@ Result<ParsedJudgeBatch> parse_judge_batch(
         parsed.items.push_back({
             {"criterion_id", id},
             {"verdict", verdict},
+            {"quote", item.value("quote", std::string{})},
             {"justification", item.value("justification", std::string{})},
         });
     }
@@ -676,12 +700,24 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
             nlohmann::json attempts = nlohmann::json::array();
             const int max_attempts = std::max(1, config.generation_attempts);
             for (int attempt = 1; attempt <= max_attempts; ++attempt) {
-                std::string prompt = research_prompt(task.problem);
+                std::string prompt = research_prompt(task.problem, task.criteria);
                 if (attempt > 1) {
                     prompt +=
                         "\nCRITICAL RETRY: the previous draft was incomplete. Write the substantive final report now.";
                 }
                 if (baseline) {
+                    if (config.enable_web_tools) {
+                        FusionConfig fc;
+                        fc.task = task.problem;
+                        fc.enable_web_tools = true;
+                        fc.web_max_depth = 4;
+                        fc.web_max_pages = 12;
+                        fc.web_context_max_chars = 96000;
+                        auto research = gather_web_research(fc);
+                        if (research.used && !research.markdown_context.empty()) {
+                            prompt = research.markdown_context + "\n\n" + prompt;
+                        }
+                    }
                     GenerateOptions options;
                     options.agent_name = "draco_baseline";
                     options.task = task.problem;

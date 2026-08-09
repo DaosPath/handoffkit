@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DurableSchedulerState",
+  "type": "object",
+  "required": [
+    "checksum",
+    "completed",
+    "failed",
+    "format",
+    "format_version",
+    "generation",
+    "inflight",
+    "interrupted",
+    "queued",
+    "seen"
+  ],
+  "properties": {
+    "checksum": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "completed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "failed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "format": {
+      "const": "handoffkit.scheduler.state"
+    },
+    "format_version": {
+      "const": 1
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "inflight": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/assignmentRecord"
+      }
+    },
+    "interrupted": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/interruptedRecord"
+      }
+    },
+    "queued": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/queuedRecord"
+      }
+    },
+    "seen": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/seenRecord"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "assignmentRecord": {
+      "type": "object",
+      "required": ["assignment", "job"],
+      "properties": {
+        "assignment": {
+          "$ref": "job-assignment.schema.json"
+        },
+        "job": {
+          "$ref": "distributed-job.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "interruptedRecord": {
+      "type": "object",
+      "required": ["assignment", "job", "reason"],
+      "properties": {
+        "assignment": {
+          "$ref": "job-assignment.schema.json"
+        },
+        "job": {
+          "$ref": "distributed-job.schema.json"
+        },
+        "reason": {
+          "const": "scheduler_restart"
+        }
+      },
+      "additionalProperties": false
+    },
+    "queuedRecord": {
+      "type": "object",
+      "required": ["attempt", "job"],
+      "properties": {
+        "attempt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "job": {
+          "$ref": "distributed-job.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "seenRecord": {
+      "type": "object",
+      "required": ["idempotency_key", "job_id"],
+      "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "job_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

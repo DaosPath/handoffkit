@@ -1,6 +1,6 @@
 # Rust runtime support matrix
 
-HandoffKit Rust 1.17 is a native Tokio implementation. It does not depend on
+HandoffKit Rust 1.19 is a native Tokio implementation. It does not depend on
 Python.
 
 | Capability | State | Stability |
@@ -18,8 +18,9 @@ Python.
 | CLI doctor/inspect/run/worker/demo | Implemented, subprocess tested | Experimental API |
 | Rust to Python/JavaScript stdio | Implemented, real-process tested | Experimental API |
 | Python/JavaScript to Rust stdio | Implemented, real-process tested | Experimental API |
-| Unix sockets and TCP | Designed for 1.18 | Not implemented |
-| Distributed scheduler/workers | Designed for 1.18 | Not implemented |
+| Unix sockets and TCP | Implemented, real-socket tested | Experimental API |
+| TLS 1.3, mTLS, certificate identity, replay, and authorization | Implemented in `handoffkit-transport`, real-socket tested | Experimental API; C++ is not covered |
+| Distributed scheduler/workers | Implemented in `handoffkit-runtime`, fixture/restart/corruption tested | Experimental API; durable state is optional and in-flight work becomes explicit `interrupted` |
 | Tauri callback adapter | Deferred | Not implemented |
 
 Security limits and operational semantics are documented in

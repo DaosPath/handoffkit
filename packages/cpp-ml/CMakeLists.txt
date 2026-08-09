@@ -5,9 +5,9 @@ cmake_minimum_required(VERSION 3.18)
 option(HANDOFFKIT_ML_CUDA "Build own CUDA kernels (cudart only, no cuBLAS)" OFF)
 
 if(HANDOFFKIT_ML_CUDA)
-  project(handoffkit_ml VERSION 0.5.0 LANGUAGES CXX CUDA)
+  project(handoffkit_ml VERSION 0.6.0 LANGUAGES CXX CUDA)
 else()
-  project(handoffkit_ml VERSION 0.5.0 LANGUAGES CXX)
+  project(handoffkit_ml VERSION 0.6.0 LANGUAGES CXX)
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -17,6 +17,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(HANDOFFKIT_ML_BUILD_TESTS "Build handoffkit-ml unit tests" ON)
 option(HANDOFFKIT_ML_BUILD_CLI "Build handoffkit-ml CLI" ON)
 option(HANDOFFKIT_ML_LINK_CORE "Link handoffkit_core when available" OFF)
+option(HANDOFFKIT_ML_TLS "Build the direct C++ TLS/dispatcher worker entrypoint" OFF)
 set(HANDOFFKIT_CORE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cpp"
     CACHE PATH "In-tree path to packages/cpp (core)")
 
@@ -72,8 +73,20 @@ find_package(Threads REQUIRED)
 target_link_libraries(handoffkit_ml PUBLIC Threads::Threads)
 
 if(HANDOFFKIT_ML_LINK_CORE)
+  if(HANDOFFKIT_ML_TLS)
+    set(HANDOFFKIT_WITH_TLS ON CACHE BOOL
+        "Enable OpenSSL-backed TLS 1.3 transport for cpp-ml" FORCE)
+  endif()
   find_package(OpenSSL REQUIRED COMPONENTS Crypto)
+  # Resolve an installed JSON package in this parent scope so its imported
+  # target remains visible when cpp-ml links CSP sources from the nested core.
+  # If unavailable, the core's existing FetchContent fallback still owns it.
+  find_package(nlohmann_json 3.11 QUIET CONFIG)
   if(NOT TARGET handoffkit_core)
+    # Embedded core is a link-only implementation detail. Its standalone
+    # install exports would conflict with handoffkit_ml's export set.
+    set(HANDOFFKIT_INSTALL OFF CACHE BOOL
+        "Disable standalone core install when embedded in cpp-ml" FORCE)
     set(HANDOFFKIT_WITH_CRYPTO ON CACHE BOOL
         "Enable OpenSSL-backed artifact verification for cpp-ml CSP ingestion" FORCE)
     add_subdirectory(
@@ -93,6 +106,11 @@ if(HANDOFFKIT_ML_LINK_CORE)
       OpenSSL::Crypto
     PRIVATE $<BUILD_INTERFACE:nlohmann_json::nlohmann_json>
   )
+  if(HANDOFFKIT_ML_TLS)
+    find_package(OpenSSL REQUIRED COMPONENTS SSL Crypto)
+    target_compile_definitions(handoffkit_ml PUBLIC HANDOFFKIT_ML_WITH_TLS=1)
+    target_link_libraries(handoffkit_ml PUBLIC OpenSSL::SSL)
+  endif()
 endif()
 
 if(HANDOFFKIT_ML_BUILD_CLI)
@@ -108,6 +126,15 @@ if(HANDOFFKIT_ML_LINK_CORE)
   target_link_libraries(handoffkit-cpp-ml-worker PRIVATE handoffkit_ml handoffkit_core)
   if(WIN32)
     target_compile_definitions(handoffkit-cpp-ml-worker PRIVATE NOMINMAX)
+  endif()
+  if(HANDOFFKIT_ML_TLS)
+    # Test-only reverse-direction TCP interop client. It is intentionally not
+    # installed; CI uses it to prove C++ can speak to Node/Go/Rust servers.
+    add_executable(handoffkit-cpp-tcp-client tests/interop/cpp_tcp_client.cpp)
+    target_link_libraries(handoffkit-cpp-tcp-client PRIVATE handoffkit_core)
+    if(WIN32)
+      target_compile_definitions(handoffkit-cpp-tcp-client PRIVATE NOMINMAX)
+    endif()
   endif()
 endif()
 
@@ -164,6 +191,18 @@ if(HANDOFFKIT_ML_BUILD_TESTS)
     target_link_libraries(test_ml_csp_jobs PRIVATE handoffkit_core)
     hk_ml_test(test_ml_csp_worker tests/test_ml_csp_worker.cpp)
     target_link_libraries(test_ml_csp_worker PRIVATE handoffkit_core)
+    if(HANDOFFKIT_ML_TLS)
+      find_package(Python3 COMPONENTS Interpreter QUIET)
+      if(Python3_Interpreter_FOUND)
+        add_test(
+          NAME test_ml_tls_worker
+          COMMAND ${Python3_EXECUTABLE}
+                  ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_tls_worker.py
+                  $<TARGET_FILE:handoffkit-cpp-ml-worker>)
+      else()
+        message(WARNING "HANDOFFKIT_ML_TLS tests require a Python interpreter; skipping real worker socket test")
+      endif()
+    endif()
   endif()
 endif()
 

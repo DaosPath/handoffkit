@@ -4,6 +4,7 @@ import { lstat, readFile } from "node:fs/promises";
 
 import {
   emptyStudioSecuritySnapshot,
+  assertGoGatewayEvents,
   parseStudioSecurityNdjson,
   reduceStudioSecurityEvents,
   STUDIO_SECURITY_MAX_FILE_BYTES,
@@ -27,6 +28,7 @@ export async function loadStudioSecuritySnapshot(): Promise<StudioSecuritySnapsh
       return emptyStudioSecuritySnapshot("invalid", "studio_event_source_permissions");
     }
     const events = parseStudioSecurityNdjson(await readFile(source, "utf8"));
+    assertGoGatewayEvents(events);
     return reduceStudioSecurityEvents(events, { status: "connected" });
   } catch (error) {
     const code = error instanceof StudioSecurityEventError

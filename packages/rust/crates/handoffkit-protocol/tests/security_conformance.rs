@@ -46,6 +46,40 @@ fn security_wire_conformance() {
 }
 
 #[test]
+fn finalization_unavailable_fixture_is_fail_closed() {
+    let fixture: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../contracts/test-fixtures/security/finalization-unavailable-v1.json"
+    )))
+    .unwrap();
+    assert_eq!(fixture["format"], "handoffkit.security.unavailable");
+    assert_eq!(fixture["format_version"], 1);
+    assert_eq!(fixture["generation"], 1);
+    let expected = [
+        ("ocsp_fetch", "ocsp_fetch_unavailable"),
+        ("exactly_once", "exactly_once_unavailable"),
+        ("zeroization_global", ""),
+        ("ml_dsa", "artifact_algorithm_unsupported"),
+        ("ecdsa", "artifact_algorithm_unsupported"),
+        ("slh_dsa", "artifact_algorithm_unsupported"),
+        ("hybrid_pq", "security_profile_unavailable"),
+    ];
+    let participants = serde_json::json!(["python", "javascript", "go", "rust", "cpp"]);
+    let capabilities = fixture["capabilities"].as_array().unwrap();
+    assert_eq!(capabilities.len(), expected.len());
+    for (name, code) in expected {
+        let item = capabilities
+            .iter()
+            .find(|value| value["name"] == name)
+            .unwrap_or_else(|| panic!("missing unavailable capability {name}"));
+        assert_eq!(item["status"], "unavailable");
+        assert_eq!(item["fail_closed"], true);
+        assert_eq!(item["error_code"].as_str().unwrap_or(""), code);
+        assert_eq!(item["participants"], participants);
+    }
+}
+
+#[test]
 fn profile_authorization_and_replay_conformance() {
     let vectors = vectors();
     for case in vectors["profile_negotiation"].as_array().unwrap() {

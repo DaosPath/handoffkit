@@ -2,9 +2,9 @@
 
 > ## Status: **ACTIVE FOR HK-CSP INTEGRATION**
 >
-> The native training scope remains deliberately small. HandoffKit 1.19 work
-> adds bounded HK-CSP worker integration; it does not claim 4B/7B scale, an
-> external trainer, direct C++ TLS, or general distributed-worker support.
+> The native training scope remains deliberately small. The 0.6.0 line adds a
+> bounded, experimental direct HK-CSP TLS worker; it does not claim 4B/7B
+> scale, an external trainer, or general distributed-worker support.
 
 **C++ weight-training engine for HandoffKit — not part of `handoffkit_core`.**  
 **No Python.** Default train profile is **non-tiny** (128d / 4 layers).
@@ -23,16 +23,33 @@ checkpoint/report artifacts, propagates cancellation and deadlines, reports
 structured failures, and exposes measured CPU/RAM plus compiled/available CUDA
 metadata. Inputs pass through a root/media/size/hash/signature policy and a
 verified snapshot before consumption. The optional Go mTLS gateway starts the
-`handoffkit-cpp-ml-worker` local process without a shell and provides the remote
-security boundary. C++ TLS itself and generic remote-worker registration remain
-unavailable.
+`handoffkit-cpp-ml-worker` local process without a shell. The direct native
+route is enabled with `HANDOFFKIT_ML_LINK_CORE=ON` and
+`HANDOFFKIT_ML_TLS=ON`, then `handoffkit-cpp-ml-worker --tls-policy
+POLICY.json`; it requires TLS 1.3 + mTLS and derives identity/capabilities from
+the certificate and local fingerprint policy. The older `--policy` NDJSON mode
+remains a local-subprocess compatibility path only.
+
+The TCP interoperability gate is a real-process matrix:
+
+```powershell
+python packages/cpp-ml/tests/interop/test_tcp_interoperability.py `
+  .local-tests/cpp-ml-tls-build/handoffkit-cpp-ml-worker.exe
+```
+
+It runs independent Python, Node.js, Go, and Rust TLS 1.3+mTLS clients against
+fresh C++ workers, then drives independent Python, Node.js, Go, and Rust
+servers from the C++ client. Go and Rust reverse servers are standalone
+commands, not client server modes. This is transport and certificate-admission
+evidence; the shared security-transcript byte vector is covered by five-runtime
+conformance, while provider/session operational qualification remains separate.
 
 ## Roadmap status
 
 Primary checklist in [ROADMAP.md](./ROADMAP.md) (Phases A–F) is **implemented**.  
 **Device-resident** path (weights + activations on GPU): [DEVICE_RESIDENT.md](./DEVICE_RESIDENT.md) **DR-1…DR-6**.  
-**v0.5** native-model checklist is done; only bounded HK-CSP integration and
-fixes are active.
+**v0.6.0** direct TLS/dispatcher worker and durable at-least-once ledger path
+are experimental; exactly-once and global zeroization remain unavailable.
 
 ## Build
 

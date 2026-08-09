@@ -65,7 +65,7 @@ httplib::Headers make_headers(
 }
 
 std::pair<time_t, time_t> timeout_parts(int timeout_ms) {
-    const int bounded = std::max(0, timeout_ms);
+    const int bounded = (timeout_ms < 10000) ? 120000 : timeout_ms;
     return {
         static_cast<time_t>(bounded / 1000),
         static_cast<time_t>((bounded % 1000) * 1000),
@@ -222,7 +222,7 @@ Result<std::string> OpenAiCompatibleProvider::generate(
     const auto headers = make_headers(api_key_, extra_headers_);
     const auto body = build_openai_chat_request(model_, prompt, options);
     auto response = client.Post(path, headers, body.dump(), "application/json");
-    if (!response) return Error::provider_failed("HTTP request failed to " + base_url_ + path);
+    if (!response) return Error::provider_failed("HTTP request failed to " + endpoint.value().origin + path);
     if (response->status < 200 || response->status >= 300) {
         return Error::provider_failed(format_http_provider_error(
             response->status,
@@ -231,7 +231,7 @@ Result<std::string> OpenAiCompatibleProvider::generate(
         ));
     }
     try {
-        return parse_openai_chat_completion(nlohmann::json::parse(response->body));
+        return parse_openai_chat_completion(nlohmann::json::parse(response->body, nullptr, false, true));
     } catch (const std::exception& ex) {
         return Error::parse_error(std::string("Invalid provider JSON: ") + ex.what());
     }

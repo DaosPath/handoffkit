@@ -6,6 +6,10 @@ if(@HANDOFFKIT_WITH_CRYPTO@)
   find_dependency(OpenSSL COMPONENTS Crypto)
 endif()
 
+if(@HANDOFFKIT_WITH_TLS@)
+  find_dependency(OpenSSL COMPONENTS SSL Crypto)
+endif()
+
 set(_handoffkit_have_json FALSE)
 find_package(nlohmann_json 3.11 QUIET CONFIG)
 if(nlohmann_json_FOUND)

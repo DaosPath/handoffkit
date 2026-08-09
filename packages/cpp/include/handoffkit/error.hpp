@@ -20,6 +20,8 @@ struct Error {
     ErrorCode code = ErrorCode::InvalidArgument;
     std::string message;
     std::string field;
+    /// Optional wire-level security/error code preserved by CSP routes.
+    std::string structured_code{};
 
     static Error invalid_argument(std::string message, std::string field = {}) {
         return Error{ErrorCode::InvalidArgument, std::move(message), std::move(field)};
@@ -43,6 +45,10 @@ struct Error {
 
     static Error parse_error(std::string message, std::string field = {}) {
         return Error{ErrorCode::ParseError, std::move(message), std::move(field)};
+    }
+
+    static Error security_unavailable(std::string code, std::string message) {
+        return Error{ErrorCode::ProviderFailed, std::move(message), {}, std::move(code)};
     }
 };
 

@@ -16,8 +16,10 @@ baseline. It is not yet a complete or publishable 1.19 release.
 
 - Added real TLS 1.3 client/server transports for Python, Node, Go, and Rust,
   including configured/system roots, hostname verification, mTLS, structured
-  failures, timeouts, and real-socket positive and negative tests. C++ TLS is
-  unavailable.
+  failures, timeouts, and real-socket positive and negative tests. Added a
+  provider-gated C++ OpenSSL client/listener with TLS 1.3, mTLS, SAN-bound
+  identity, fingerprint policy, timeouts, and framed real sockets; default C++
+  builds still report the provider as unavailable.
 - Added certificate-derived peer identity for those four secure transports.
   URI SAN claims and locally calculated fingerprints are checked against every
   declared identity field; capabilities come from local fingerprint policy.
@@ -28,10 +30,15 @@ baseline. It is not yet a complete or publishable 1.19 release.
   expiry/compaction, corruption quarantine, and real listener-restart tests.
 - Added atomic certificate/trust reload and transition-window rotation in the
   four TLS runtimes, plus a durable local revocation policy for certificate,
-  signer, peer, issuer, and trust-domain subjects. CRL/OCSP remains unavailable.
-- Added an additive HK-CSP 1.0 security transcript on Python, Node, Go, and Rust
-  TLS framed paths. It binds profile, certificate endpoints, TLS negotiation,
-  session, nonce, capabilities, and timestamp and rejects replay/tamper/downgrade.
+  signer, peer, issuer, and trust-domain subjects. C++ OpenSSL can also enforce
+  a configured PEM CRL and signed DER/PEM OCSP response on real mTLS
+  handshakes. OCSP responder fetch (AIA/HTTP/HTTPS) remains unavailable and
+  fails closed in every runtime.
+- Added an additive HK-CSP 1.0 security transcript on Python, Node, Go, Rust,
+  and C++ shared-vector paths. It binds profile, certificate endpoints, TLS
+  negotiation, session, nonce, capabilities, and timestamp; the canonical
+  UTF-8 payload/hash vector is checked byte-for-byte by all five runtimes and
+  rejects replay/tamper/downgrade.
 - Added maintained-provider Ed25519 artifact signing and verification in
   Python, Node, Go, Rust, and optional C++ Crypto, with one canonical shared
   vector and negative trust/tamper/expiry/revocation tests.
@@ -49,19 +56,52 @@ baseline. It is not yet a complete or publishable 1.19 release.
 - Added mandatory Go/C++ artifact ingestion gates with root/media/size/hash,
   Ed25519 producer/signer policy, quarantine records, and immutable snapshots.
   cpp-ml consumes verified snapshots rather than reopening unverified inputs.
-- Added an optional Go TLS/mTLS gateway to the local cpp-ml process. Real-process
-  CI covers certificate identity and authorization, durable replay/idempotency,
-  signed input and output artifacts, progress/checkpoints, cancellation,
-  deadlines, worker crash/restart, and reconnect. C++ TLS remains unavailable.
+- Added an optional Go TLS/mTLS gateway to the local cpp-ml process and a
+  provider-gated direct C++ TLS worker in cpp-ml 0.6.0. `--tls-policy` uses the
+  common dispatcher over real TCP, derives identity/capabilities from the
+  certificate and local fingerprint policy, and persists replay/scheduler
+  state. The older `--policy` NDJSON mode remains local-subprocess compatibility
+  only. CI is configured to exercise both real-process routes; exactly-once and
+  global zeroization remain unavailable.
+- Added a bidirectional real TCP interoperability gate: independent Python,
+  Node.js, Go, and Rust TLS 1.3+mTLS clients reach fresh C++ cpp-ml workers,
+  and the C++ client reaches independent Python, Node.js, Go, and Rust TLS
+  servers. Go and Rust reverse servers are standalone commands, not client
+  server modes. The gate verifies certificate admission, uint32-big-endian
+  framing, and real responses; it does not claim cross-runtime transcript byte
+  parity.
 - Added shared `edge-small`, `edge-standard`, and `server` profiles that apply
   concrete session/frame/retry limits in Python, JavaScript, Go, Rust, and the
-  C++ local queue. A native Linux ARM64 CI qualification job is configured, but
-  has not yet produced a remote result for this branch.
+  C++ local queue. Native Linux ARM64 and macOS ARM64 qualification jobs cover
+  the named runtime/security routes; no broader ARM64 device/OS or
+  unstable-network guarantee is claimed.
 - Added optional read-only Studio runtime security visibility for the Go ML
   gateway. Its bounded atomic event sink records certificate-authenticated
   sessions, profile/TLS state, replay and authorization rejections, jobs,
   artifacts, reconnects, and sanitized runtime status. Studio rejects unsafe,
   corrupt, or unconfigured sources and shows no mock session data.
+- Added optional durable distributed-scheduler state in Python, Node, Go, and
+  Rust. One shared checksummed/versioned fixture proves queued jobs, counters,
+  and dedup identities across runtimes. Restarted in-flight assignments become
+  explicit interrupted records and require retry/fail; no automatic execution
+  or exactly-once guarantee is claimed. Pre-commit failures roll back, while a
+  post-rename directory-sync uncertainty keeps the committed mutation visible.
+- Added fail-closed unavailable-capability admission checks across the runtime
+  scheduler/configuration paths: `metadata.require_exactly_once=true` is
+  rejected with `exactly_once_unavailable`; OCSP fetch/responder/response
+  configuration is rejected with `ocsp_fetch_unavailable` outside the scoped
+  C++ response-file validator; unsupported ECDSA, ML-DSA, and SLH-DSA artifact
+  algorithms now surface structured `artifact_algorithm_unsupported` errors.
+- Added a checked, durable scheduler migration path for the supported legacy
+  `v0` envelope and opt-in deterministic `auto_resume`/`AutoResumeInterrupted`
+  in Python, Node, Go, and Rust. The mode is explicitly at-least-once; no
+  exactly-once side-effect guarantee is claimed.
+- Added validated private backup/restore operations to the four file-backed
+  scheduler stores and the Go gateway job ledger. Backups use the same checksum,
+  size, permission, and atomic replacement rules; unsupported state versions
+  still fail closed. The explicitly supported v0 scheduler envelope is migrated
+  in place with a new checksum. Automatic in-flight resume and exactly-once
+  side effects remain intentionally unclaimed by default.
 - Added live Go secure-frame checks for certificate expiry, durable revocation,
   and rotation-window expiry on existing TLS connections, plus real-process
   Studio event coverage for mTLS, progress, artifacts, reconnect, replay, and
@@ -73,28 +113,52 @@ baseline. It is not yet a complete or publishable 1.19 release.
   benchmarks for TLS/reconnect/throughput/signatures and C++ workers.
 - Added development file-backed credential stores in Python and Node with
   lifecycle/path/POSIX private-key permission checks.
+- Added a provider-dependent Windows C++ `OsKeyStore` backed by Credential
+  Manager, optional macOS Keychain/Linux Secret Service providers, plus a
+  scoped native `SecureBuffer` wipe primitive used for C++ artifact signer key
+  storage and tests. No cross-runtime OS-keystore or global zeroization
+  guarantee is claimed.
+- Added the C++ durable scheduler with private checksummed state, atomic
+  restart recovery, v0→v1 migration, interrupted assignments, and opt-in
+  deterministic at-least-once retry. C++ replay state also supports validated
+  private backup/restore and v0-to-v1 migration. Added the common C++ TLS dispatcher with
+  certificate-bound identity, replay, local authorization, and capability
+  claim rejection before handler dispatch, and connected it to the direct
+  cpp-ml TLS worker route.
 - Added experimental isolated Crypto Lab (`packages/python/handoffkit/crypto_research`) for education, fuzzing, and research, strictly forbidden from production runtime fallbacks.
+- Added a JavaScript package-consumer smoke gate: all eight tarballs are built,
+  installed offline from generated artifacts, imported through public entry
+  points, and checked for package metadata versions. This validates packaging;
+  it does not imply registry publication or version alignment.
 
 ### Security
 
 - Public security status is now classified as stable, experimental,
-  provider-dependent, local-only, partially integrated, planned, or
-  unavailable in `HK_CSP_SECURITY.md`.
+  provider-dependent, planned, or unavailable in `HK_CSP_SECURITY.md`.
 - Algorithm names, signature fields, JSON identity claims, and profile enums no
   longer count as support. Runtime capability reports are provider-derived and
   unsupported profile selection fails closed.
 - Secure Python and Node sockets must originate from their validated transport
   factories; Go verifies the negotiated group when a TLS socket is wrapped as
   `hybrid-pq`. External contexts cannot silently bypass profile requirements.
-- CRL/OCSP, OS keystores, zeroization guarantees, and general durable
-  session/queue recovery remain unavailable. ARM64/edge is partially integrated
-  pending a green native remote runner result; Studio visibility is experimental
-  and limited to the optional Go gateway event source. Reload/rotation and
-  durable replay are experimental per-runtime controls, not claims of universal
-  production readiness.
+- OCSP responder fetch, global zeroization guarantees, durable channel/session
+  buffers, exactly-once external effects, and default automatic in-flight
+  resumption remain unavailable. The five
+  scheduler implementations expose opt-in at-least-once auto-resume only.
+  C++ OpenSSL file-CRL/response validation, provider-selected OS keystores, and
+  scoped native wiping are provider-dependent and integration-tested;
+  artifact gates, Ed25519, the development keystore, C++ native
+  worker, benchmarks, ARM64/edge, and durable scheduler recovery are now
+  experimental within their named tested scopes. Studio visibility remains
+  experimental and limited to the optional Go gateway event source. Reload,
+  rotation, and secure replay remain experimental per-runtime controls, not
+  claims of universal production readiness.
 - TLS integration certificates and private keys are generated into temporary
   directories for each test process. No reusable TLS or artifact-signing
   private key is committed as a test fixture.
+- Added the evidence matrix in `docs/roadmap/1.19.0-FINAL-AUDIT.md`; it keeps
+  declared, implemented, integrated, interoperability-tested, and
+  production-ready claims separate for every scoped capability.
 
 ### Compatibility
 

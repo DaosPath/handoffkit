@@ -153,9 +153,15 @@ class SecurityConfig:
     allow_insecure_loopback: bool = False
     require_mtls: bool = False
     trust_domain: str = "handoffkit.internal"
+    credential_source: str = "file"
+    credential_target: str | None = None
     ca_cert_path: str | None = None
     cert_path: str | None = None
     key_path: str | None = None
+    ocsp_response_path: str | None = None
+    ocsp_fetch: bool = False
+    ocsp_responder_url: str | None = None
+    require_ocsp: bool = False
     replay_window_seconds: int = 300
     max_clock_skew_seconds: int = 10
 
@@ -165,6 +171,37 @@ class SecurityConfig:
                 object.__setattr__(self, "profile", SecurityProfile(self.profile))
             except ValueError as err:
                 raise ValueError(f"invalid_profile: {self.profile}") from err
+
+        if self.credential_source not in ("file", "os_keystore"):
+            raise SecurityError(
+                "credential_source must be 'file' or 'os_keystore'.",
+                code="invalid_security_config",
+            )
+        if self.credential_source == "os_keystore":
+            # Python intentionally has no OS-keystore adapter in this release.
+            # Never fall back to PEM paths when the unavailable source is asked.
+            raise SecurityError(
+                "Python OS keystore provider is unavailable; use credential_source='file'.",
+                code="os_keystore_unavailable",
+            )
+        if self.credential_target and self.credential_source == "file":
+            raise SecurityError(
+                "credential_target requires an OS keystore provider.",
+                code="invalid_security_config",
+            )
+
+        if self.ocsp_fetch or self.ocsp_responder_url:
+            raise SecurityError(
+                "Python TLS has no provider-backed OCSP responder fetch.",
+                code="ocsp_fetch_unavailable",
+                details={"runtime": "python"},
+            )
+        if self.ocsp_response_path or self.require_ocsp:
+            raise SecurityError(
+                "Python TLS has no configured OCSP response validation backend.",
+                code="ocsp_fetch_unavailable",
+                details={"runtime": "python", "reason": "ocsp_validation_unavailable"},
+            )
 
         if self.profile == SecurityProfile.RESEARCH:
             # Research profile is strictly for isolated laboratory testing
@@ -1094,7 +1131,11 @@ class SignedArtifact:
         if not self.artifact_id or not self.signer_identity:
             raise ValueError("artifact_id and signer_identity must not be empty")
         if self.algorithm != "ed25519":
-            raise ValueError(f"unsupported artifact signature algorithm: {self.algorithm}")
+            raise ArtifactSignatureError(
+                f"unsupported artifact signature algorithm: {self.algorithm}",
+                code="artifact_algorithm_unsupported",
+                details={"algorithm": self.algorithm, "runtime": "python"},
+            )
         if len(self.content_hash) != 64:
             raise ValueError("content_hash must be a lowercase SHA-256 hex digest")
         try:

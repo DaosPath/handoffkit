@@ -59,6 +59,10 @@ func (policy Policy) Validate() error {
 	if policy.SignatureRequirement == SignatureRequired && policy.SignaturePolicy == nil {
 		return gateError("artifact_policy_invalid", "required signatures need a local trust policy")
 	}
+	if policy.SignatureRequirement == SignatureRequired &&
+		(len(policy.TrustedProducers) == 0 || len(policy.TrustedSigners) == 0) {
+		return gateError("artifact_policy_invalid", "required signatures need producer and signer allowlists")
+	}
 	return nil
 }
 

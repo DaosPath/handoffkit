@@ -57,6 +57,9 @@ func (config Config) Validate() error {
 	if config.ArtifactGate == nil || config.ResultGate == nil || config.ResultSigner == nil || config.JobStore == nil {
 		return gatewayError("gateway_policy_incomplete", "ML gateway requires artifact, result-signing, and durable job policies")
 	}
+	if err := requireSignedArtifactGate(config.ArtifactGate, "input"); err != nil {
+		return err
+	}
 	if config.EdgeProfile == nil {
 		return gatewayError("edge_profile_missing", "ML gateway requires an explicit operational profile")
 	}
@@ -88,6 +91,21 @@ func (config Config) Validate() error {
 	}
 	if config.WorkerMaxMessageBytes < contract.MinMessageBytes || config.WorkerMaxMessageBytes > contract.DefaultMaxMessageBytes {
 		return gatewayError("gateway_policy_incomplete", "local worker message limit is outside protocol bounds")
+	}
+	return nil
+}
+
+func requireSignedArtifactGate(gate *artifactgate.Gate, name string) error {
+	policy := gate.Policy()
+	if !policy.HashRequired ||
+		policy.SignatureRequirement != artifactgate.SignatureRequired ||
+		policy.SignaturePolicy == nil ||
+		len(policy.TrustedProducers) == 0 ||
+		len(policy.TrustedSigners) == 0 {
+		return gatewayError(
+			"artifact_policy_incomplete",
+			fmt.Sprintf("ML gateway %s artifact gate requires hash, signature, producer, and signer policy", name),
+		)
 	}
 	return nil
 }

@@ -45,7 +45,7 @@ KeyPtr load_public_key(const std::string& pem) {
     return key;
 }
 
-KeyPtr load_private_key(const std::string& pem) {
+KeyPtr load_private_key(std::string_view pem) {
     BioPtr bio(BIO_new_mem_buf(pem.data(), static_cast<int>(pem.size())), BIO_free);
     if (!bio) throw SecurityError("crypto_provider_error", "OpenSSL BIO allocation failed.");
     KeyPtr key(PEM_read_bio_PrivateKey(bio.get(), nullptr, nullptr, nullptr), EVP_PKEY_free);
@@ -237,7 +237,7 @@ ArtifactSigner::ArtifactSigner(std::string private_key_pem, std::string signer_i
       signer_identity_(std::move(signer_identity)) {
     if (signer_identity_.empty()) throw std::invalid_argument("signer_identity must not be empty");
 #if defined(HANDOFFKIT_WITH_CRYPTO)
-    static_cast<void>(load_private_key(private_key_pem_));
+    static_cast<void>(load_private_key(private_key_pem_.view()));
 #else
     provider_unavailable();
 #endif
@@ -249,7 +249,7 @@ SignedArtifact ArtifactSigner::sign(
     std::int64_t created_at) const {
 #if defined(HANDOFFKIT_WITH_CRYPTO)
     if (created_at == 0) created_at = unix_now();
-    auto key = load_private_key(private_key_pem_);
+    auto key = load_private_key(private_key_pem_.view());
     SignedArtifact artifact;
     artifact.artifact_id = artifact_id;
     artifact.content_hash = hex_lower(sha256(data));

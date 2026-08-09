@@ -81,11 +81,23 @@ pub struct SecurityConfig {
     #[serde(default = "default_trust_domain")]
     pub trust_domain: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_target: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ca_cert_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cert_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ocsp_response_path: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub ocsp_fetch: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ocsp_responder_url: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub require_ocsp: bool,
     #[serde(default = "default_replay_window")]
     pub replay_window_seconds: u64,
     #[serde(default = "default_clock_skew")]
@@ -104,6 +116,10 @@ fn default_clock_skew() -> u64 {
     10
 }
 
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
 impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
@@ -111,9 +127,15 @@ impl Default for SecurityConfig {
             require_mtls: false,
             allow_insecure_loopback: false,
             trust_domain: default_trust_domain(),
+            credential_source: None,
+            credential_target: None,
             ca_cert_path: None,
             cert_path: None,
             key_path: None,
+            ocsp_response_path: None,
+            ocsp_fetch: false,
+            ocsp_responder_url: None,
+            require_ocsp: false,
             replay_window_seconds: default_replay_window(),
             max_clock_skew_seconds: default_clock_skew(),
         }
@@ -121,6 +143,26 @@ impl Default for SecurityConfig {
 }
 
 impl SecurityConfig {
+    pub fn validate_credential_source(&self) -> Result<(), ProtocolError> {
+        let source = self.credential_source.as_deref().unwrap_or("file");
+        match source {
+            "file" => {
+                if self.credential_target.is_some() {
+                    return Err(ProtocolError(
+                        "credential_target requires an OS keystore provider".to_string(),
+                    ));
+                }
+                Ok(())
+            }
+            "os_keystore" => Err(ProtocolError(
+                "os_keystore_unavailable: Rust OS keystore provider is unavailable; no file fallback is permitted".to_string(),
+            )),
+            _ => Err(ProtocolError(
+                "invalid_security_config: credential_source must be 'file' or 'os_keystore'".to_string(),
+            )),
+        }
+    }
+
     pub fn validate_listen_address(&self, host: &str) -> Result<(), ProtocolError> {
         let is_loopback = host == "127.0.0.1" || host == "localhost" || host == "::1";
         if matches!(

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <handoffkit/csp/secure_memory.hpp>
 #include <handoffkit/csp/security.hpp>
 
 #include <cstdint>
@@ -49,7 +50,7 @@ public:
         std::int64_t created_at = 0) const;
 
 private:
-    std::string private_key_pem_;
+    SecureBuffer private_key_pem_;
     std::string signer_identity_;
 };
 

@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -187,6 +188,66 @@ func (store *JobStore) Options() JobStoreOptions {
 	return store.options
 }
 
+// Backup copies a validated durable job ledger to a private atomic path.
+func (store *JobStore) Backup(destination string) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	target, err := filepath.Abs(destination)
+	if err != nil || target == store.path {
+		return gatewayError("job_state_backup_invalid", "job state backup path is invalid")
+	}
+	if err := validateJobStatePath(store.path, store.options, "job_state_backup_missing"); err != nil {
+		return err
+	}
+	if _, err := os.Lstat(target); err == nil {
+		if info, statErr := os.Lstat(target); statErr != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+			return gatewayError("job_state_backup_invalid", "job state backup target is unsafe")
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return gatewayError("job_state_backup_invalid", "job state backup target cannot be inspected")
+	}
+	raw, err := os.ReadFile(store.path)
+	if errors.Is(err, os.ErrNotExist) {
+		return gatewayError("job_state_backup_missing", "durable job state does not exist")
+	}
+	if err != nil {
+		return gatewayError("job_state_read_failed", "durable job state backup source cannot be read")
+	}
+	if err := validateJobStoreRaw(raw, store.options); err != nil {
+		return err
+	}
+	if err := atomicWriteJobState(target, raw, 0o600); err != nil {
+		return gatewayError("job_state_backup_failed", "durable job state backup could not be committed")
+	}
+	return nil
+}
+
+// Restore replaces the primary ledger with a validated backup. Call this
+// before starting the gateway that owns the store.
+func (store *JobStore) Restore(source string) error {
+	sourcePath, err := filepath.Abs(source)
+	if err != nil || sourcePath == store.path {
+		return gatewayError("job_state_restore_invalid", "job state restore path is invalid")
+	}
+	if err := validateJobStatePath(sourcePath, store.options, "job_state_restore_missing"); err != nil {
+		return err
+	}
+	raw, err := os.ReadFile(sourcePath)
+	if errors.Is(err, os.ErrNotExist) {
+		return gatewayError("job_state_restore_missing", "job state backup does not exist")
+	}
+	if err != nil {
+		return gatewayError("job_state_read_failed", "durable job state backup cannot be read")
+	}
+	if err := validateJobStoreRaw(raw, store.options); err != nil {
+		return err
+	}
+	if err := atomicWriteJobState(store.path, raw, 0o600); err != nil {
+		return gatewayError("job_state_restore_failed", "durable job state restore could not be committed")
+	}
+	return nil
+}
+
 func (store *JobStore) load(now int64) (bool, error) {
 	info, err := os.Stat(store.path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -254,6 +315,59 @@ func (store *JobStore) load(now int64) (bool, error) {
 	}
 	store.generation = envelope.Generation
 	return changed, nil
+}
+
+func validateJobStatePath(path string, options JobStoreOptions, missingCode string) error {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return gatewayError(missingCode, "durable job state does not exist")
+	}
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+		return gatewayError("job_state_path_unsafe", "durable job state must be a regular non-symlink file")
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
+		return gatewayError("job_state_permissions", "durable job state grants group or other permissions")
+	}
+	if info.Size() > options.MaxFileBytes {
+		return gatewayError("job_state_capacity", "durable job state exceeds configured file capacity")
+	}
+	return nil
+}
+
+func validateJobStoreRaw(raw []byte, options JobStoreOptions) error {
+	if int64(len(raw)) > options.MaxFileBytes {
+		return gatewayError("job_state_capacity", "durable job state exceeds configured file capacity")
+	}
+	decoder := json.NewDecoder(strings.NewReader(string(raw)))
+	decoder.DisallowUnknownFields()
+	var envelope jobStoreEnvelope
+	if err := decoder.Decode(&envelope); err != nil {
+		return gatewayError("job_state_corrupt", "durable job state cannot be decoded")
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return gatewayError("job_state_corrupt", "durable job state contains trailing data")
+	}
+	if envelope.Format != jobStoreFormat || envelope.FormatVersion != jobStoreFormatVersion {
+		return gatewayError("job_state_corrupt", "durable job state format is unsupported")
+	}
+	payload := jobStorePayload{
+		Format: envelope.Format, FormatVersion: envelope.FormatVersion,
+		Generation: envelope.Generation, Records: envelope.Records,
+	}
+	checksum, err := checksumPayload(payload)
+	if err != nil || checksum != envelope.Checksum {
+		return gatewayError("job_state_corrupt", "durable job state checksum mismatch")
+	}
+	if len(envelope.Records) > options.MaxRecords {
+		return gatewayError("job_state_capacity", "durable job state exceeds configured record capacity")
+	}
+	for _, record := range envelope.Records {
+		if err := validateJobRecord(record); err != nil {
+			return gatewayError("job_state_corrupt", "durable job state record is invalid")
+		}
+	}
+	return nil
 }
 
 func (store *JobStore) compactLocked(now int64) {
