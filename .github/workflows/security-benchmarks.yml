@@ -1,6 +1,9 @@
 name: HandoffKit security benchmarks
 
 on:
+  push:
+    branches:
+      - release/1.19.0-finalization
   workflow_dispatch:
     inputs:
       iterations:
@@ -182,8 +185,8 @@ jobs:
               'cpp_ml_tested': (root / 'cpp-ml-tested.marker').is_file(),
               'cpp_tcp_interoperability_tested': (
                   cpp_tcp.get('transport') == 'TCP/TLSv1.3/mTLS/uint32-be-framed-json'
-                  and set(cpp_tcp.get('clients', {})) == {'node', 'go', 'rust'}
-                  and set(cpp_tcp.get('reverse_servers', {})) == {'node', 'go', 'rust'}
+                  and set(cpp_tcp.get('clients', {})) == {'python', 'node', 'go', 'rust'}
+                  and set(cpp_tcp.get('reverse_servers', {})) == {'python', 'node', 'go', 'rust'}
                   and all(item.get('protocol') == 'TLSv1.3' for item in cpp_tcp.get('clients', {}).values())
                   and all(item.get('protocol') == 'TLSv1.3' for item in cpp_tcp.get('reverse_servers', {}).values())
               ),
