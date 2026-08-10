@@ -7,10 +7,20 @@ HandoffKit uses semantic versioning for published releases. Subsystem changelogs
 contain deeper engineering history; this root file remains the concise public
 release summary.
 
+## [1.19.0-beta.1] - 2026-08-10
+
+First HandoffKit 1.19 beta publication. This is a scoped experimental
+baseline, not the final 1.19 release. PyPI publishes `handoffkit==1.19.0b1`;
+npm publishes the dependency-complete `@handoffkit/core`, `@handoffkit/csp`,
+and `@handoffkit/node` packages as `1.19.0-beta.1`.
+
+Exactly-once effects, global zeroization, OCSP responder fetch, ML-DSA,
+SLH-DSA, common five-runtime ECDSA, and hybrid-PQ outside Node/Go remain
+unavailable and fail closed.
+
 ## [Unreleased]
 
-The current 1.19 development branch is a security contract and hardening
-baseline. It is not yet a complete or publishable 1.19 release.
+The current 1.20 development line continues from the 1.19 beta baseline.
 
 ### Added
 

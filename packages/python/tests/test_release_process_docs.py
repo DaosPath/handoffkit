@@ -48,12 +48,7 @@ def test_publish_workflow_uses_trusted_publishing_without_tokens() -> None:
     for package in (
         "@handoffkit/core",
         "@handoffkit/csp",
-        "@handoffkit/providers",
-        "@handoffkit/templates",
-        "@handoffkit/browser",
-        "@handoffkit/recipes",
         "@handoffkit/node",
-        "@handoffkit/cli",
     ):
         assert package in text
     assert "TWINE_PASSWORD" not in text

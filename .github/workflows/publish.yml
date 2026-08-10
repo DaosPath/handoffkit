@@ -10,10 +10,11 @@ on:
         type: choice
         options:
           - testpypi
+          - pypi
           - npm
           - crates
       release_version:
-        description: Version to retry for npm or crates.io, for example 1.17.0
+        description: Version to retry for npm or crates.io, for example 1.19.0-beta.1
         required: false
         type: string
   push:
@@ -100,9 +101,10 @@ jobs:
         run: |
           set -euo pipefail
           smoke_dir="../../.local-tests/python-wheel-smoke-publish"
+          expected_version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
           python -m venv "$smoke_dir"
           "$smoke_dir/bin/python" -m pip install --disable-pip-version-check dist/*.whl
-          "$smoke_dir/bin/python" -c 'import importlib.metadata as metadata; import handoffkit; expected="1.19.0"; assert handoffkit.__version__ == expected; assert metadata.version("handoffkit") == expected'
+          EXPECTED_VERSION="$expected_version" "$smoke_dir/bin/python" -c 'import importlib.metadata as metadata; import os; import handoffkit; expected=os.environ["EXPECTED_VERSION"]; assert handoffkit.__version__ == expected; assert metadata.version("handoffkit") == expected'
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4
@@ -138,7 +140,7 @@ jobs:
     name: Publish to PyPI
     needs: [build, quality-gate-js, quality-gate-rust, quality-gate-go, quality-gate-cpp]
     runs-on: ubuntu-latest
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
     environment:
       name: pypi
       url: https://pypi.org/project/handoffkit/
@@ -235,24 +237,9 @@ jobs:
           - package: "@handoffkit/csp"
             directory: packages/js/csp
             archive: handoffkit-csp
-          - package: "@handoffkit/providers"
-            directory: packages/js/providers
-            archive: handoffkit-providers
-          - package: "@handoffkit/templates"
-            directory: packages/js/templates
-            archive: handoffkit-templates
-          - package: "@handoffkit/browser"
-            directory: packages/js/browser
-            archive: handoffkit-browser
-          - package: "@handoffkit/recipes"
-            directory: packages/js/recipes
-            archive: handoffkit-recipes
           - package: "@handoffkit/node"
             directory: packages/js/node
             archive: handoffkit-node
-          - package: "@handoffkit/cli"
-            directory: packages/js/cli
-            archive: handoffkit-cli
     permissions:
       contents: read
       id-token: write
@@ -323,7 +310,7 @@ jobs:
     name: Publish Rust crates with Trusted Publishing
     needs: [quality-gate, quality-gate-js, quality-gate-rust, quality-gate-go, quality-gate-cpp]
     runs-on: ubuntu-latest
-    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.target == 'crates')
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'crates'
     permissions:
       contents: read
       id-token: write
@@ -489,7 +476,7 @@ jobs:
     name: Attach C++ assets + OIDC attestation
     needs: build-cpp-release-asset
     runs-on: ubuntu-latest
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' && !contains(github.ref_name, '-')
     environment:
       name: cpp-release
     permissions:

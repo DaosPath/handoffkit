@@ -113,7 +113,7 @@ test("project indexer enforces maxFiles and normalizes extensions", async () => 
 test("node parity defaults to current core version", async () => {
   const contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts");
   const report = await buildNodeContractParityReport({ contractsRoot });
-  assert.equal(report.version, "1.16.0");
+  assert.equal(report.version, "1.19.0-beta.1");
 });
 
 test("node stdio transport uses one JSON envelope per line", async () => {
