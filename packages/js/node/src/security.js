@@ -5,6 +5,7 @@ import {
   createPrivateKey,
   createPublicKey,
   sign as cryptoSign,
+  timingSafeEqual,
   verify as cryptoVerify,
 } from "node:crypto";
 import tls from "node:tls";
@@ -14,7 +15,9 @@ import {
   PeerIdentity,
   SecurityError,
   SecurityProfile,
+  SecurityProfileMismatchError,
   SecurityProfileUnavailableError,
+  SecurityTranscript,
   SignedArtifact,
   normalizeFingerprint,
 } from "@handoffkit/csp";
@@ -116,6 +119,7 @@ export class ArtifactTrustPolicy {
   constructor(credentials = [], {
     allowedAlgorithms = ["ed25519"],
     maxFutureSkewSeconds = 10,
+    revocationPolicy = null,
   } = {}) {
     this.credentials = new Map(credentials.map((credentialValue) => {
       const credential = credentialValue instanceof ArtifactSigningCredential
@@ -125,6 +129,7 @@ export class ArtifactTrustPolicy {
     }));
     this.allowedAlgorithms = new Set(allowedAlgorithms);
     this.maxFutureSkewSeconds = maxFutureSkewSeconds;
+    this.revocationPolicy = revocationPolicy;
   }
 }
 
@@ -185,7 +190,15 @@ export function verifySignedArtifact(data, signedArtifactValue, policy, {
       { code: "artifact_signer_mismatch" },
     );
   }
-  if (credential.revoked) {
+  const signerRevoked = policy.revocationPolicy && (
+    policy.revocationPolicy.isRevoked(
+      "signer_fingerprint",
+      artifact.keyFingerprint,
+      { now },
+    )
+    || policy.revocationPolicy.isRevoked("peer_id", artifact.signerIdentity, { now })
+  );
+  if (credential.revoked || signerRevoked) {
     throw new ArtifactSignatureError(
       "Artifact signer key is revoked.",
       { code: "artifact_signer_revoked" },
@@ -313,10 +326,37 @@ export function authenticateTlsSocket(socket, policy) {
     );
   }
   const fingerprint = normalizeFingerprint(certificate.fingerprint256);
-  if (policy.revokedFingerprints.has(fingerprint)) {
+  const revocationCandidates = [
+    ["certificate_fingerprint", fingerprint],
+    ["peer_id", parsed.peerId],
+    ["issuer", issuerName],
+    ["trust_domain", parsed.trustDomain],
+  ];
+  const revokedKind = revocationCandidates.find(([kind, value]) => (
+    policy.revocationPolicy?.isRevoked(kind, value, { now: Math.floor(now) })
+  ))?.[0] || null;
+  if (policy.revokedFingerprints.has(fingerprint) || revokedKind) {
     throw new AuthenticationError(
       "TLS peer credential is revoked by local policy.",
-      { code: "credential_revoked", details: { credential_fingerprint: fingerprint } },
+      {
+        code: "credential_revoked",
+        details: {
+          credential_fingerprint: fingerprint,
+          revocation_kind: revokedKind || "certificate_fingerprint",
+        },
+      },
+    );
+  }
+  if (policy.rotationPolicy && !policy.rotationPolicy.isAllowed(
+    fingerprint,
+    { now: Math.floor(now) },
+  )) {
+    throw new AuthenticationError(
+      "TLS peer credential is outside the configured rotation window.",
+      {
+        code: "credential_rotation_rejected",
+        details: { credential_fingerprint: fingerprint },
+      },
     );
   }
   const grants = policy.capabilitiesByFingerprint.get(fingerprint);
@@ -499,4 +539,260 @@ export function buildTlsOptions(securityConfig, isServer = false, { servername }
   }
 
   return options;
+}
+
+export function peerIdentityFromCertificate(certificateValue, capabilities = []) {
+  let raw = certificateValue;
+  if (typeof certificateValue === "string" && !certificateValue.includes("BEGIN CERTIFICATE")) {
+    raw = fs.readFileSync(certificateValue);
+  }
+  const certificate = new X509Certificate(raw);
+  const identityUris = parseSubjectAltName(certificate.subjectAltName)
+    .filter(({ type }) => type === "URI")
+    .map(({ value }) => value)
+    .filter((value) => value.startsWith("spiffe://"));
+  if (identityUris.length !== 1) {
+    throw new AuthenticationError(
+      "Certificate must contain exactly one HK-CSP identity URI SAN.",
+      { code: "identity_san_invalid" },
+    );
+  }
+  const parsed = parseIdentityUri(identityUris[0]);
+  return new PeerIdentity({
+    peer_id: parsed.peerId,
+    node_id: parsed.nodeId,
+    worker_id: parsed.workerId,
+    trust_domain: parsed.trustDomain,
+    credential_fingerprint: normalizeFingerprint(certificate.fingerprint256),
+    capabilities,
+    issued_at: Math.floor(Date.parse(certificate.validFrom) / 1000),
+    expires_at: Math.floor(Date.parse(certificate.validTo) / 1000),
+  });
+}
+
+function canonicalSha256(value) {
+  return `sha256:${createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex")}`;
+}
+
+export function buildSecurityTranscript({
+  protocolVersion,
+  requestedProfile,
+  selectedProfile,
+  sender,
+  receiver,
+  tlsVersion,
+  negotiatedGroup = null,
+  sessionId,
+  handshakeNonce,
+  timestamp,
+}) {
+  const capabilitiesHash = canonicalSha256([...sender.capabilities].sort());
+  const bindingHash = canonicalSha256({
+    receiver_credential_fingerprint: normalizeFingerprint(receiver.credentialFingerprint),
+    sender_credential_fingerprint: normalizeFingerprint(sender.credentialFingerprint),
+    tls_version: tlsVersion,
+  });
+  const transcript = new SecurityTranscript({
+    binding_hash: bindingHash,
+    binding_type: "tls-certificate-endpoints",
+    capabilities_hash: capabilitiesHash,
+    format: "handoffkit.security.transcript",
+    format_version: 1,
+    handshake_nonce: handshakeNonce,
+    negotiated_group: negotiatedGroup,
+    protocol_version: protocolVersion,
+    receiver_credential_fingerprint: receiver.credentialFingerprint,
+    receiver_node_id: receiver.nodeId,
+    receiver_peer_id: receiver.peerId,
+    requested_profile: requestedProfile,
+    selected_profile: selectedProfile,
+    sender_credential_fingerprint: sender.credentialFingerprint,
+    sender_node_id: sender.nodeId,
+    sender_peer_id: sender.peerId,
+    session_id: sessionId,
+    timestamp,
+    tls_version: tlsVersion,
+    transcript_hash: "",
+  });
+  transcript.transcriptHash = canonicalSha256(transcript.unsignedWire());
+  return transcript;
+}
+
+export function verifySecurityTranscript(value, {
+  protocolVersion,
+  profile,
+  sender,
+  receiver,
+  tlsVersion,
+  negotiatedGroup = null,
+  sessionId,
+  handshakeNonce,
+  timestamp,
+}) {
+  const transcript = value instanceof SecurityTranscript
+    ? value
+    : SecurityTranscript.fromWire(value);
+  const digest = canonicalSha256(transcript.unsignedWire());
+  const actual = Buffer.from(transcript.transcriptHash);
+  const expectedDigest = Buffer.from(digest);
+  if (actual.length !== expectedDigest.length || !timingSafeEqual(actual, expectedDigest)) {
+    throw new AuthenticationError(
+      "Security transcript hash does not match its canonical payload.",
+      { code: "security_transcript_hash_mismatch" },
+    );
+  }
+  const expected = buildSecurityTranscript({
+    protocolVersion,
+    requestedProfile: profile,
+    selectedProfile: profile,
+    sender,
+    receiver,
+    tlsVersion,
+    negotiatedGroup,
+    sessionId,
+    handshakeNonce,
+    timestamp,
+  });
+  if (transcript.requestedProfile !== profile || transcript.selectedProfile !== profile) {
+    throw new SecurityProfileMismatchError(
+      "Security transcript attempted a profile downgrade.",
+      {
+        requested: transcript.requestedProfile,
+        selected: transcript.selectedProfile,
+        required: profile,
+      },
+    );
+  }
+  const identityFields = [
+    "senderPeerId",
+    "senderNodeId",
+    "senderCredentialFingerprint",
+    "receiverPeerId",
+    "receiverNodeId",
+    "receiverCredentialFingerprint",
+  ];
+  if (identityFields.some((name) => transcript[name] !== expected[name])) {
+    throw new AuthenticationError(
+      "Security transcript identities do not match the authenticated TLS endpoints.",
+      { code: "security_transcript_identity_mismatch" },
+    );
+  }
+  if (JSON.stringify(transcript.toWire()) !== JSON.stringify(expected.toWire())) {
+    throw new AuthenticationError(
+      "Security transcript does not match the authenticated HK-CSP exchange.",
+      { code: "security_transcript_mismatch" },
+    );
+  }
+  return transcript;
+}
+
+export class ReloadableTlsContext {
+  constructor(securityConfig, { isServer = false } = {}) {
+    this.isServer = Boolean(isServer);
+    this.profile = securityConfig?.profile;
+    this.trustDomain = securityConfig?.trustDomain;
+    this.servers = new Set();
+    const candidate = this.#buildCandidate(securityConfig);
+    this.currentOptions = candidate.options;
+    this.currentFingerprint = candidate.fingerprint;
+    this.previousFingerprint = null;
+    this.trustAnchorHash = candidate.trustAnchorHash;
+    this.previousTrustAnchorHash = null;
+    this.certificateExpiresAt = candidate.certificateExpiresAt;
+    this.transitionUntil = 0;
+    this.generation = 1;
+  }
+
+  options({ isServer, servername } = {}) {
+    if (Boolean(isServer) !== this.isServer) {
+      throw new SecurityError(
+        "TLS reload provider role does not match transport role.",
+        { code: "tls_reload_role_mismatch" },
+      );
+    }
+    return {
+      ...this.currentOptions,
+      ...(!this.isServer && servername ? { servername } : {}),
+    };
+  }
+
+  registerServer(server) {
+    if (!this.isServer || typeof server?.setSecureContext !== "function") {
+      throw new SecurityError(
+        "TLS reload provider requires a compatible TLS server.",
+        { code: "tls_reload_role_mismatch" },
+      );
+    }
+    this.servers.add(server);
+    return () => this.servers.delete(server);
+  }
+
+  reload(securityConfig, {
+    transitionSeconds = 300,
+    now = Math.floor(Date.now() / 1000),
+  } = {}) {
+    if (!Number.isSafeInteger(transitionSeconds) || transitionSeconds < 0) {
+      throw new TypeError("transitionSeconds must be a non-negative safe integer");
+    }
+    if (securityConfig?.profile !== this.profile
+      || securityConfig?.trustDomain !== this.trustDomain) {
+      throw new SecurityError(
+        "TLS reload cannot change security profile or trust domain.",
+        { code: "tls_reload_policy_mismatch" },
+      );
+    }
+    const candidate = this.#buildCandidate(securityConfig);
+    for (const server of this.servers) server.setSecureContext(candidate.options);
+    this.previousFingerprint = this.currentFingerprint;
+    this.previousTrustAnchorHash = this.trustAnchorHash;
+    this.currentOptions = candidate.options;
+    this.currentFingerprint = candidate.fingerprint;
+    this.trustAnchorHash = candidate.trustAnchorHash;
+    this.certificateExpiresAt = candidate.certificateExpiresAt;
+    this.transitionUntil = now + transitionSeconds;
+    this.generation += 1;
+    return this.status({ now });
+  }
+
+  status({ now = Math.floor(Date.now() / 1000) } = {}) {
+    return {
+      generation: this.generation,
+      role: this.isServer ? "server" : "client",
+      security_profile: this.profile,
+      current_fingerprint: this.currentFingerprint,
+      previous_fingerprint: this.previousFingerprint,
+      transition_until: this.transitionUntil,
+      previous_accepted: Boolean(
+        this.previousFingerprint && now <= this.transitionUntil
+      ),
+      trust_anchor_hash: this.trustAnchorHash,
+      previous_trust_anchor_hash: this.previousTrustAnchorHash,
+      certificate_expires_at: this.certificateExpiresAt,
+      provider: `OpenSSL ${process.versions.openssl || "unknown"}`,
+    };
+  }
+
+  #buildCandidate(securityConfig) {
+    const options = buildTlsOptions(securityConfig, this.isServer);
+    if (!options) {
+      throw new SecurityError(
+        "Reloadable TLS context requires a secure profile.",
+        { code: "tls_profile_required" },
+      );
+    }
+    tls.createSecureContext(options);
+    const certPath = securityConfig.certPath;
+    const caPath = securityConfig.caCertPath;
+    let certificateExpiresAt = 0;
+    let fingerprint = null;
+    if (certPath) {
+      const certificate = new X509Certificate(fs.readFileSync(certPath));
+      fingerprint = normalizeFingerprint(certificate.fingerprint256);
+      certificateExpiresAt = Math.floor(Date.parse(certificate.validTo) / 1000);
+    }
+    const trustAnchorHash = caPath
+      ? `sha256:${createHash("sha256").update(fs.readFileSync(caPath)).digest("hex")}`
+      : null;
+    return { options, fingerprint, trustAnchorHash, certificateExpiresAt };
+  }
 }

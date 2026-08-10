@@ -149,6 +149,183 @@ class EdgeProfile(str, Enum):
 
 
 @dataclass(frozen=True)
+class EdgeRuntimeProfile:
+    """Operational limits applied to real edge sessions and transports."""
+
+    name: EdgeProfile
+    channel_capacity: int
+    max_frame_bytes: int
+    pending_ack_limit: int
+    dedup_capacity: int
+    durable_replay_capacity: int
+    connection_limit: int
+    heartbeat_seconds: int
+    reconnect: RetryPolicy
+    connect_timeout_ms: int
+    io_timeout_ms: int
+    ack_timeout_ms: int
+    artifact_limit_bytes: int
+    memory_budget_bytes: int
+    durable_state_limit_bytes: int
+    logging_level: str
+    logging_include_payloads: bool
+    logging_redact_paths: bool
+    security_profile: str
+
+    def __post_init__(self) -> None:
+        if isinstance(self.name, str):
+            object.__setattr__(self, "name", EdgeProfile(self.name))
+        positive = {
+            "channel_capacity": self.channel_capacity,
+            "max_frame_bytes": self.max_frame_bytes,
+            "pending_ack_limit": self.pending_ack_limit,
+            "dedup_capacity": self.dedup_capacity,
+            "durable_replay_capacity": self.durable_replay_capacity,
+            "connection_limit": self.connection_limit,
+            "heartbeat_seconds": self.heartbeat_seconds,
+            "connect_timeout_ms": self.connect_timeout_ms,
+            "io_timeout_ms": self.io_timeout_ms,
+            "ack_timeout_ms": self.ack_timeout_ms,
+            "artifact_limit_bytes": self.artifact_limit_bytes,
+            "memory_budget_bytes": self.memory_budget_bytes,
+            "durable_state_limit_bytes": self.durable_state_limit_bytes,
+        }
+        if any(value < 1 for value in positive.values()):
+            raise ValueError("edge runtime limits must be positive")
+        if not MIN_MESSAGE_BYTES <= self.max_frame_bytes <= DEFAULT_MAX_MESSAGE_BYTES:
+            raise ValueError(
+                f"max_frame_bytes must be between {MIN_MESSAGE_BYTES} "
+                f"and {DEFAULT_MAX_MESSAGE_BYTES}"
+            )
+        if self.logging_level not in {"warning", "info"}:
+            raise ValueError("edge logging_level must be warning or info")
+        if self.logging_include_payloads:
+            raise ValueError("edge profiles must not log message payloads")
+        if not self.logging_redact_paths:
+            raise ValueError("edge profiles must redact paths")
+        if self.security_profile != "standard":
+            raise ValueError("edge profiles require the standard security profile")
+
+    @classmethod
+    def for_profile(cls, profile: EdgeProfile | str) -> EdgeRuntimeProfile:
+        """Return the exact built-in profile shared by all runtimes."""
+        name = EdgeProfile(profile) if isinstance(profile, str) else profile
+        values: dict[EdgeProfile, dict[str, Any]] = {
+            EdgeProfile.EDGE_SMALL: {
+                "channel_capacity": 16,
+                "max_frame_bytes": 1_048_576,
+                "pending_ack_limit": 32,
+                "dedup_capacity": 512,
+                "durable_replay_capacity": 2_048,
+                "connection_limit": 8,
+                "heartbeat_seconds": 30,
+                "reconnect": RetryPolicy(5, 250, 5_000),
+                "connect_timeout_ms": 5_000,
+                "io_timeout_ms": 15_000,
+                "ack_timeout_ms": 10_000,
+                "artifact_limit_bytes": 16_777_216,
+                "memory_budget_bytes": 268_435_456,
+                "durable_state_limit_bytes": 8_388_608,
+                "logging_level": "warning",
+            },
+            EdgeProfile.EDGE_STANDARD: {
+                "channel_capacity": 64,
+                "max_frame_bytes": 4_194_304,
+                "pending_ack_limit": 128,
+                "dedup_capacity": 2_048,
+                "durable_replay_capacity": 10_000,
+                "connection_limit": 32,
+                "heartbeat_seconds": 15,
+                "reconnect": RetryPolicy(5, 100, 3_000),
+                "connect_timeout_ms": 5_000,
+                "io_timeout_ms": 30_000,
+                "ack_timeout_ms": 30_000,
+                "artifact_limit_bytes": 67_108_864,
+                "memory_budget_bytes": 1_073_741_824,
+                "durable_state_limit_bytes": 33_554_432,
+                "logging_level": "info",
+            },
+            EdgeProfile.SERVER: {
+                "channel_capacity": 256,
+                "max_frame_bytes": 8_388_608,
+                "pending_ack_limit": 1_024,
+                "dedup_capacity": 16_384,
+                "durable_replay_capacity": 100_000,
+                "connection_limit": 256,
+                "heartbeat_seconds": 10,
+                "reconnect": RetryPolicy(8, 50, 2_000),
+                "connect_timeout_ms": 5_000,
+                "io_timeout_ms": 60_000,
+                "ack_timeout_ms": 60_000,
+                "artifact_limit_bytes": 536_870_912,
+                "memory_budget_bytes": 4_294_967_296,
+                "durable_state_limit_bytes": 268_435_456,
+                "logging_level": "info",
+            },
+        }
+        return cls(
+            name=name,
+            logging_include_payloads=False,
+            logging_redact_paths=True,
+            security_profile="standard",
+            **values[name],
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name.value,
+            "channel_capacity": self.channel_capacity,
+            "max_frame_bytes": self.max_frame_bytes,
+            "pending_ack_limit": self.pending_ack_limit,
+            "dedup_capacity": self.dedup_capacity,
+            "durable_replay_capacity": self.durable_replay_capacity,
+            "connection_limit": self.connection_limit,
+            "heartbeat_seconds": self.heartbeat_seconds,
+            "reconnect": self.reconnect.to_dict(),
+            "timeout": {
+                "connect_ms": self.connect_timeout_ms,
+                "io_ms": self.io_timeout_ms,
+                "ack_ms": self.ack_timeout_ms,
+            },
+            "artifact_limit_bytes": self.artifact_limit_bytes,
+            "memory_budget_bytes": self.memory_budget_bytes,
+            "durable_state_limit_bytes": self.durable_state_limit_bytes,
+            "logging": {
+                "level": self.logging_level,
+                "include_payloads": self.logging_include_payloads,
+                "redact_paths": self.logging_redact_paths,
+            },
+            "security_profile": self.security_profile,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> EdgeRuntimeProfile:
+        timeout = dict(value.get("timeout", {}))
+        logging = dict(value.get("logging", {}))
+        return cls(
+            name=EdgeProfile(value["name"]),
+            channel_capacity=int(value["channel_capacity"]),
+            max_frame_bytes=int(value["max_frame_bytes"]),
+            pending_ack_limit=int(value["pending_ack_limit"]),
+            dedup_capacity=int(value["dedup_capacity"]),
+            durable_replay_capacity=int(value["durable_replay_capacity"]),
+            connection_limit=int(value["connection_limit"]),
+            heartbeat_seconds=int(value["heartbeat_seconds"]),
+            reconnect=RetryPolicy.from_dict(dict(value["reconnect"])),
+            connect_timeout_ms=int(timeout["connect_ms"]),
+            io_timeout_ms=int(timeout["io_ms"]),
+            ack_timeout_ms=int(timeout["ack_ms"]),
+            artifact_limit_bytes=int(value["artifact_limit_bytes"]),
+            memory_budget_bytes=int(value["memory_budget_bytes"]),
+            durable_state_limit_bytes=int(value["durable_state_limit_bytes"]),
+            logging_level=str(logging["level"]),
+            logging_include_payloads=bool(logging["include_payloads"]),
+            logging_redact_paths=bool(logging["redact_paths"]),
+            security_profile=str(value["security_profile"]),
+        )
+
+
+@dataclass(frozen=True)
 class SessionConfig:
     """Configuration shared by one CSP session."""
 
@@ -169,28 +346,20 @@ class SessionConfig:
         profile: EdgeProfile | str = EdgeProfile.EDGE_STANDARD,
         **kwargs: Any,
     ) -> SessionConfig:
-        prof = EdgeProfile(profile) if isinstance(profile, str) else profile
-        if prof == EdgeProfile.EDGE_SMALL:
-            defaults = {
-                "channel_capacity": 16,
-                "max_message_bytes": 1048576,
-                "dedup_capacity": 512,
-                "ack_timeout_ms": 10000,
-            }
-        elif prof == EdgeProfile.SERVER:
-            defaults = {
-                "channel_capacity": 256,
-                "max_message_bytes": 8388608,
-                "dedup_capacity": 16384,
-                "ack_timeout_ms": 60000,
-            }
-        else:
-            defaults = {
-                "channel_capacity": 64,
-                "max_message_bytes": 4194304,
-                "dedup_capacity": 2048,
-                "ack_timeout_ms": 30000,
-            }
+        edge = EdgeRuntimeProfile.for_profile(profile)
+        metadata = dict(kwargs.pop("metadata", {}))
+        configured_name = metadata.get("edge_profile")
+        if configured_name not in (None, edge.name.value):
+            raise ValueError("metadata edge_profile does not match the applied profile")
+        metadata["edge_profile"] = edge.name.value
+        defaults = {
+            "channel_capacity": edge.channel_capacity,
+            "max_message_bytes": edge.max_frame_bytes,
+            "dedup_capacity": edge.dedup_capacity,
+            "ack_timeout_ms": edge.ack_timeout_ms,
+            "retry_policy": edge.reconnect,
+            "metadata": metadata,
+        }
         defaults.update(kwargs)
         return cls(session_id=session_id, **defaults)
 

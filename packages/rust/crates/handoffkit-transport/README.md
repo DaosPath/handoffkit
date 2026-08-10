@@ -9,5 +9,8 @@ The maintained rustls/ring path supplies real TLS 1.3 client/listener sockets,
 configured/native roots, hostname validation, mTLS, certificate-derived
 identity, local capability authorization, process-local replay checks, and
 structured timeout/authentication failures. It also supplies Ed25519 artifact
-sign/verify through `ed25519-dalek`. Hybrid-PQ, rotation, CRL/OCSP, OS
-keystores, and durable secure replay remain unavailable.
+sign/verify through `ed25519-dalek`. Optional bounded/checksummed durable replay
+and local revocation stores plus atomic certificate/trust reload with
+transition-window rotation are integration-tested. Hybrid-PQ, CRL/OCSP, OS
+keystores, zeroization guarantees, and general durable session/job recovery
+remain unavailable.

@@ -2,9 +2,9 @@
 
 use async_trait::async_trait;
 use handoffkit_protocol::{
-    negotiate_version, sanitize_error_message, utc_now, DeliveryNack, MessageEnvelope, RetryPolicy,
-    SessionConfig, ValidationLimits, DEFAULT_MAX_MESSAGE_BYTES, MIN_MESSAGE_BYTES,
-    PROTOCOL_VERSION,
+    negotiate_version, sanitize_error_message, utc_now, DeliveryNack, EdgeRuntimeProfile,
+    MessageEnvelope, RetryPolicy, SessionConfig, ValidationLimits, DEFAULT_MAX_MESSAGE_BYTES,
+    MIN_MESSAGE_BYTES, PROTOCOL_VERSION,
 };
 use handoffkit_runtime::{RuntimeError, RuntimeResult};
 use serde::{Deserialize, Serialize};
@@ -25,12 +25,19 @@ pub use artifact_security::{
     artifact_public_key_fingerprint, verify_signed_artifact, ArtifactSigner,
     ArtifactSigningCredential, ArtifactTrustPolicy,
 };
+mod revocation;
+pub use revocation::{
+    normalize_revocation_value, DurableRevocationOptions, DurableRevocationPolicy,
+    DurableRevocationStatus, RevocationEntry, RevocationKind, DURABLE_REVOCATION_FORMAT,
+    DURABLE_REVOCATION_FORMAT_VERSION,
+};
 mod tls_security;
+use tls_security::{attach_security_transcript, validate_secure_envelope, SecureSession};
 pub use tls_security::{
     certificate_fingerprint, supported_crypto_capabilities, CertificateIdentityPolicy,
-    SecureNetworkConfig, TlsTcpListener,
+    CredentialRotationPolicy, CredentialRotationStatus, ReloadableTlsConfig, SecureNetworkConfig,
+    TlsReloadStatus, TlsTcpListener,
 };
-use tls_security::{validate_secure_envelope, SecureSession};
 
 #[cfg(feature = "websocket")]
 use futures_util::{stream::SplitSink, stream::SplitStream, SinkExt, StreamExt};
@@ -220,6 +227,19 @@ impl Default for NetworkConfig {
 }
 
 impl NetworkConfig {
+    pub fn from_edge_profile(profile: &EdgeRuntimeProfile) -> RuntimeResult<Self> {
+        profile
+            .validate()
+            .map_err(|error| RuntimeError::new("edge_profile_invalid", error.to_string()))?;
+        let config = Self {
+            max_message_bytes: profile.max_frame_bytes,
+            connect_timeout: Duration::from_millis(profile.timeout.connect_ms),
+            io_timeout: Duration::from_millis(profile.timeout.io_ms),
+        };
+        config.validate()?;
+        Ok(config)
+    }
+
     pub fn validate(&self) -> RuntimeResult<()> {
         if self.max_message_bytes < MIN_MESSAGE_BYTES {
             return Err(RuntimeError::new(
@@ -379,7 +399,14 @@ impl Transport for LengthDelimitedTransport {
         if self.closed.load(Ordering::Acquire) {
             return Err(RuntimeError::new("transport_closed", "transport is closed"));
         }
-        let frame = encode_length_delimited_frame(envelope, self.config.limits())?;
+        let secured;
+        let outbound = if let Some(session) = &self.secure_session {
+            secured = attach_security_transcript(envelope, session)?;
+            &secured
+        } else {
+            envelope
+        };
+        let frame = encode_length_delimited_frame(outbound, self.config.limits())?;
         let mut writer = self.writer.lock().await;
         tokio::time::timeout(self.config.io_timeout, writer.write_all(&frame))
             .await

@@ -122,4 +122,11 @@ fn rust_signs_with_ephemeral_key_and_rejects_negative_policies() {
         error_code(data, &signed, &disallowed),
         "artifact_algorithm_unsupported"
     );
+
+    let mut unsupported = signed.clone();
+    unsupported.algorithm = "ecdsa".to_string();
+    assert_eq!(
+        error_code(data, &unsupported, &policy),
+        "artifact_algorithm_unsupported"
+    );
 }

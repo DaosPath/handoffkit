@@ -7,6 +7,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
+mod durable_replay;
 pub mod security;
 
 pub const PROTOCOL_VERSION: &str = "1.0";
@@ -116,6 +117,216 @@ impl RetryPolicy {
         self.base_delay_ms
             .saturating_mul(1_u64 << exponent)
             .min(self.max_delay_ms)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum EdgeProfile {
+    EdgeSmall,
+    EdgeStandard,
+    Server,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EdgeTimeouts {
+    pub connect_ms: u64,
+    pub io_ms: u64,
+    pub ack_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EdgeLoggingPolicy {
+    pub level: String,
+    pub include_payloads: bool,
+    pub redact_paths: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EdgeRuntimeProfile {
+    pub name: EdgeProfile,
+    pub channel_capacity: usize,
+    pub max_frame_bytes: usize,
+    pub pending_ack_limit: usize,
+    pub dedup_capacity: usize,
+    pub durable_replay_capacity: usize,
+    pub connection_limit: usize,
+    pub heartbeat_seconds: u64,
+    pub reconnect: RetryPolicy,
+    pub timeout: EdgeTimeouts,
+    pub artifact_limit_bytes: u64,
+    pub memory_budget_bytes: u64,
+    pub durable_state_limit_bytes: u64,
+    pub logging: EdgeLoggingPolicy,
+    pub security_profile: String,
+}
+
+impl EdgeRuntimeProfile {
+    pub fn for_profile(name: EdgeProfile) -> Self {
+        let mut profile = match name {
+            EdgeProfile::EdgeSmall => Self {
+                name,
+                channel_capacity: 16,
+                max_frame_bytes: 1_048_576,
+                pending_ack_limit: 32,
+                dedup_capacity: 512,
+                durable_replay_capacity: 2_048,
+                connection_limit: 8,
+                heartbeat_seconds: 30,
+                reconnect: RetryPolicy {
+                    max_attempts: 5,
+                    base_delay_ms: 250,
+                    max_delay_ms: 5_000,
+                },
+                timeout: EdgeTimeouts {
+                    connect_ms: 5_000,
+                    io_ms: 15_000,
+                    ack_ms: 10_000,
+                },
+                artifact_limit_bytes: 16_777_216,
+                memory_budget_bytes: 268_435_456,
+                durable_state_limit_bytes: 8_388_608,
+                logging: EdgeLoggingPolicy {
+                    level: "warning".to_string(),
+                    include_payloads: false,
+                    redact_paths: true,
+                },
+                security_profile: "standard".to_string(),
+            },
+            EdgeProfile::EdgeStandard => Self {
+                name,
+                channel_capacity: 64,
+                max_frame_bytes: 4_194_304,
+                pending_ack_limit: 128,
+                dedup_capacity: 2_048,
+                durable_replay_capacity: 10_000,
+                connection_limit: 32,
+                heartbeat_seconds: 15,
+                reconnect: RetryPolicy {
+                    max_attempts: 5,
+                    base_delay_ms: 100,
+                    max_delay_ms: 3_000,
+                },
+                timeout: EdgeTimeouts {
+                    connect_ms: 5_000,
+                    io_ms: 30_000,
+                    ack_ms: 30_000,
+                },
+                artifact_limit_bytes: 67_108_864,
+                memory_budget_bytes: 1_073_741_824,
+                durable_state_limit_bytes: 33_554_432,
+                logging: EdgeLoggingPolicy {
+                    level: "info".to_string(),
+                    include_payloads: false,
+                    redact_paths: true,
+                },
+                security_profile: "standard".to_string(),
+            },
+            EdgeProfile::Server => Self {
+                name,
+                channel_capacity: 256,
+                max_frame_bytes: 8_388_608,
+                pending_ack_limit: 1_024,
+                dedup_capacity: 16_384,
+                durable_replay_capacity: 100_000,
+                connection_limit: 256,
+                heartbeat_seconds: 10,
+                reconnect: RetryPolicy {
+                    max_attempts: 8,
+                    base_delay_ms: 50,
+                    max_delay_ms: 2_000,
+                },
+                timeout: EdgeTimeouts {
+                    connect_ms: 5_000,
+                    io_ms: 60_000,
+                    ack_ms: 60_000,
+                },
+                artifact_limit_bytes: 536_870_912,
+                memory_budget_bytes: 4_294_967_296,
+                durable_state_limit_bytes: 268_435_456,
+                logging: EdgeLoggingPolicy {
+                    level: "info".to_string(),
+                    include_payloads: false,
+                    redact_paths: true,
+                },
+                security_profile: "standard".to_string(),
+            },
+        };
+        debug_assert!(profile.validate().is_ok());
+        profile.name = name;
+        profile
+    }
+
+    pub fn from_name(name: &str) -> Result<Self, ProtocolError> {
+        let profile = match name {
+            "edge-small" => EdgeProfile::EdgeSmall,
+            "edge-standard" => EdgeProfile::EdgeStandard,
+            "server" => EdgeProfile::Server,
+            _ => return Err(ProtocolError("edge profile name is invalid".to_string())),
+        };
+        Ok(Self::for_profile(profile))
+    }
+
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        if self.channel_capacity == 0
+            || self.max_frame_bytes == 0
+            || self.pending_ack_limit == 0
+            || self.dedup_capacity == 0
+            || self.durable_replay_capacity == 0
+            || self.connection_limit == 0
+            || self.heartbeat_seconds == 0
+            || self.timeout.connect_ms == 0
+            || self.timeout.io_ms == 0
+            || self.timeout.ack_ms == 0
+            || self.artifact_limit_bytes == 0
+            || self.memory_budget_bytes == 0
+            || self.durable_state_limit_bytes == 0
+        {
+            return Err(ProtocolError(
+                "edge runtime limits must be positive".to_string(),
+            ));
+        }
+        if !(MIN_MESSAGE_BYTES..=DEFAULT_MAX_MESSAGE_BYTES).contains(&self.max_frame_bytes) {
+            return Err(ProtocolError("edge max_frame_bytes is invalid".to_string()));
+        }
+        self.reconnect.validate()?;
+        if !matches!(self.logging.level.as_str(), "warning" | "info")
+            || self.logging.include_payloads
+            || !self.logging.redact_paths
+        {
+            return Err(ProtocolError("edge logging policy is unsafe".to_string()));
+        }
+        if self.security_profile != "standard" {
+            return Err(ProtocolError(
+                "edge profiles require the standard security profile".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn session_config(
+        &self,
+        session_id: impl Into<String>,
+    ) -> Result<SessionConfig, ProtocolError> {
+        self.validate()?;
+        let mut metadata = HashMap::new();
+        metadata.insert(
+            "edge_profile".to_string(),
+            serde_json::to_value(self.name).map_err(|error| ProtocolError(error.to_string()))?,
+        );
+        let config = SessionConfig {
+            session_id: session_id.into(),
+            runtime_mode: RuntimeMode::Session,
+            channel_capacity: self.channel_capacity,
+            max_message_bytes: self.max_frame_bytes,
+            ack_timeout_ms: self.timeout.ack_ms,
+            dedup_capacity: self.dedup_capacity,
+            retry_policy: self.reconnect.clone(),
+            deadline: None,
+            metadata,
+        };
+        config.validate()?;
+        Ok(config)
     }
 }
 

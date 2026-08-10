@@ -31,6 +31,36 @@ test("security wire conformance", async () => {
   assert.equal(new TextDecoder().decode(signed.canonicalPayload()), vectors.signed_artifact.canonical_payload);
 });
 
+test("finalization unavailable fixture is fail-closed", async () => {
+  const fixture = JSON.parse(await readFile(
+    join(contractsRoot, "test-fixtures", "security", "finalization-unavailable-v1.json"),
+    "utf8",
+  ));
+  const expected = new Map([
+    ["ocsp_fetch", "ocsp_fetch_unavailable"],
+    ["exactly_once", "exactly_once_unavailable"],
+    ["zeroization_global", undefined],
+    ["ml_dsa", "artifact_algorithm_unsupported"],
+    ["ecdsa", "artifact_algorithm_unsupported"],
+    ["slh_dsa", "artifact_algorithm_unsupported"],
+    ["hybrid_pq", "security_profile_unavailable"],
+  ]);
+  assert.equal(fixture.format, "handoffkit.security.unavailable");
+  assert.equal(fixture.format_version, 1);
+  assert.equal(fixture.generation, 1);
+  assert.deepEqual(new Set(fixture.capabilities.map((item) => item.name)), new Set(expected.keys()));
+  for (const item of fixture.capabilities) {
+    assert.equal(item.status, "unavailable");
+    assert.equal(item.fail_closed, true);
+    assert.equal(item.error_code, expected.get(item.name));
+    assert.deepEqual(item.participants, ["python", "javascript", "go", "rust", "cpp"]);
+    if (item.name === "ecdsa") {
+      assert.deepEqual(item.available_in, ["python", "cpp"]);
+      assert.deepEqual(item.unavailable_in, ["javascript", "go", "rust"]);
+    }
+  }
+});
+
 for (const profileCase of vectors.profile_negotiation) {
   test(`profile negotiation: ${profileCase.id}`, () => {
     if (profileCase.error_code) {

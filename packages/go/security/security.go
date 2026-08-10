@@ -83,9 +83,15 @@ type SecurityConfig struct {
 	RequireMTLS           bool            `json:"require_mtls"`
 	AllowInsecureLoopback bool            `json:"allow_insecure_loopback"`
 	TrustDomain           string          `json:"trust_domain"`
+	CredentialSource      string          `json:"credential_source,omitempty"`
+	CredentialTarget      string          `json:"credential_target,omitempty"`
 	CACertPath            string          `json:"ca_cert_path,omitempty"`
 	CertPath              string          `json:"cert_path,omitempty"`
 	KeyPath               string          `json:"key_path,omitempty"`
+	OCSPResponsePath      string          `json:"ocsp_response_path,omitempty"`
+	OCSPFetch             bool            `json:"ocsp_fetch,omitempty"`
+	OCSPResponderURL      string          `json:"ocsp_responder_url,omitempty"`
+	RequireOCSP           bool            `json:"require_ocsp,omitempty"`
 	ReplayWindowSeconds   uint64          `json:"replay_window_seconds"`
 	MaxClockSkewSeconds   uint64          `json:"max_clock_skew_seconds"`
 }
@@ -193,6 +199,7 @@ type ReplayProtection struct {
 	MaxSeenNonces       int
 	seenNonces          map[string]int64
 	lastSequences       map[string]uint64
+	durable             *durableReplayState
 }
 
 func NewReplayProtection(windowSec, skewSec uint64, maxNonces int) *ReplayProtection {
@@ -208,6 +215,12 @@ func NewReplayProtection(windowSec, skewSec uint64, maxNonces int) *ReplayProtec
 // CheckAndRecord stores process-local anti-replay state. Callers needing restart
 // persistence must restore an equivalent durable snapshot before accepting traffic.
 func (rp *ReplayProtection) CheckAndRecord(sessionScope string, sequence uint64, nonce string, createdAtTs int64) error {
+	return rp.CheckAndRecordContext(sessionScope, sequence, nonce, createdAtTs, nil)
+}
+
+// CheckAndRecordContext persists authenticated scope metadata when durable
+// replay is enabled. A durable write must complete before the message can pass.
+func (rp *ReplayProtection) CheckAndRecordContext(sessionScope string, sequence uint64, nonce string, createdAtTs int64, context *ReplayContext) error {
 	rp.mu.Lock()
 	defer rp.mu.Unlock()
 
@@ -221,7 +234,16 @@ func (rp *ReplayProtection) CheckAndRecord(sessionScope string, sequence uint64,
 		}
 	}
 
-	if lastSeq, ok := rp.lastSequences[sessionScope]; ok {
+	candidateSequences := cloneSequences(rp.lastSequences)
+	candidateNonces := cloneNonces(rp.seenNonces)
+	cutoff := now - int64(rp.WindowSeconds)
+	for key, seenAt := range candidateNonces {
+		if seenAt < cutoff {
+			delete(candidateNonces, key)
+		}
+	}
+
+	if lastSeq, ok := candidateSequences[sessionScope]; ok {
 		if sequence <= lastSeq {
 			return securityError("replay_sequence", fmt.Sprintf("sequence %d is not strictly monotonic for session %s (last: %d)", sequence, sessionScope, lastSeq), nil)
 		}
@@ -229,23 +251,43 @@ func (rp *ReplayProtection) CheckAndRecord(sessionScope string, sequence uint64,
 
 	nonceKey := sessionScope + "\x00" + nonce
 	if nonce != "" {
-		if _, exists := rp.seenNonces[nonceKey]; exists {
+		if _, exists := candidateNonces[nonceKey]; exists {
 			return securityError("replay_nonce", "duplicate nonce detected", nil)
+		}
+		if len(candidateNonces) >= rp.MaxSeenNonces {
+			return securityError("replay_state_capacity", "replay nonce capacity is exhausted", map[string]any{"max_seen_nonces": rp.MaxSeenNonces})
 		}
 	}
 
-	// Mutate state only after every check succeeds.
-	rp.lastSequences[sessionScope] = sequence
+	// Build and durably commit candidate state before accepting the message.
+	candidateSequences[sessionScope] = sequence
 	if nonce != "" {
-		if len(rp.seenNonces) >= rp.MaxSeenNonces {
-			for k := range rp.seenNonces {
-				delete(rp.seenNonces, k)
-				break
-			}
-		}
-		rp.seenNonces[nonceKey] = now
+		candidateNonces[nonceKey] = now
 	}
+	if rp.durable != nil {
+		if err := rp.durable.commitCandidate(sessionScope, sequence, candidateSequences, candidateNonces, context, now); err != nil {
+			return err
+		}
+	}
+	rp.lastSequences = candidateSequences
+	rp.seenNonces = candidateNonces
 	return nil
+}
+
+func cloneSequences(source map[string]uint64) map[string]uint64 {
+	clone := make(map[string]uint64, len(source))
+	for key, value := range source {
+		clone[key] = value
+	}
+	return clone
+}
+
+func cloneNonces(source map[string]int64) map[string]int64 {
+	clone := make(map[string]int64, len(source))
+	for key, value := range source {
+		clone[key] = value
+	}
+	return clone
 }
 
 type CertificateIdentityPolicy struct {
@@ -257,6 +299,8 @@ type CertificateIdentityPolicy struct {
 	ExpectedWorkerID             string
 	AllowedIssuerNames           map[string]bool
 	RequireAuthorizedFingerprint bool
+	RevocationPolicy             *DurableRevocationPolicy
+	RotationPolicy               *CredentialRotationPolicy
 }
 
 func NewCertificateIdentityPolicy(trustDomain string, grants map[string][]string) *CertificateIdentityPolicy {
@@ -340,8 +384,32 @@ func AuthenticateTLSConnection(connection *cryptotls.Conn, policy *CertificateId
 	}
 
 	fingerprint := CertificateFingerprint(certificate)
-	if policy.RevokedFingerprints[NormalizeFingerprint(fingerprint)] {
+	revokedKind := ""
+	if policy.RevocationPolicy != nil {
+		for _, candidate := range []struct {
+			kind  RevocationKind
+			value string
+		}{
+			{RevocationCertificateFingerprint, fingerprint},
+			{RevocationPeerID, peerID},
+			{RevocationIssuer, issuer},
+			{RevocationTrustDomain, trustDomain},
+		} {
+			revoked, revocationErr := policy.RevocationPolicy.IsRevoked(candidate.kind, candidate.value, now.Unix())
+			if revocationErr != nil {
+				return nil, securityError("revocation_state_invalid", "revocation policy could not evaluate authenticated peer", nil)
+			}
+			if revoked {
+				revokedKind = string(candidate.kind)
+				break
+			}
+		}
+	}
+	if policy.RevokedFingerprints[NormalizeFingerprint(fingerprint)] || revokedKind != "" {
 		return nil, securityError("credential_revoked", "TLS peer credential is revoked by local policy", map[string]any{"credential_fingerprint": fingerprint})
+	}
+	if policy.RotationPolicy != nil && !policy.RotationPolicy.IsAllowed(fingerprint, now.Unix()) {
+		return nil, securityError("credential_rotation_rejected", "TLS peer credential is outside the configured rotation window", map[string]any{"credential_fingerprint": fingerprint})
 	}
 	capabilities, ok := policy.CapabilitiesByFingerprint[NormalizeFingerprint(fingerprint)]
 	if !ok && policy.RequireAuthorizedFingerprint {
@@ -502,6 +570,7 @@ type ArtifactTrustPolicy struct {
 	Credentials          map[string]ArtifactSigningCredential
 	AllowedAlgorithms    map[string]bool
 	MaxFutureSkewSeconds int64
+	RevocationPolicy     *DurableRevocationPolicy
 }
 
 func NewArtifactTrustPolicy(credentials []ArtifactSigningCredential) *ArtifactTrustPolicy {
@@ -598,7 +667,16 @@ func VerifySignedArtifact(data []byte, artifact SignedArtifact, policy *Artifact
 	if credential.SignerIdentity != artifact.SignerIdentity {
 		return securityError("artifact_signer_mismatch", "artifact signer identity does not match local key policy", nil)
 	}
-	if credential.Revoked {
+	signerRevoked := false
+	if policy.RevocationPolicy != nil {
+		fingerprintRevoked, fingerprintErr := policy.RevocationPolicy.IsRevoked(RevocationSignerFingerprint, artifact.KeyFingerprint, now)
+		identityRevoked, identityErr := policy.RevocationPolicy.IsRevoked(RevocationPeerID, artifact.SignerIdentity, now)
+		if fingerprintErr != nil || identityErr != nil {
+			return securityError("revocation_state_invalid", "revocation policy could not evaluate artifact signer", nil)
+		}
+		signerRevoked = fingerprintRevoked || identityRevoked
+	}
+	if credential.Revoked || signerRevoked {
 		return securityError("artifact_signer_revoked", "artifact signer key is revoked", nil)
 	}
 	if now == 0 {
@@ -739,7 +817,30 @@ func GetSupportedCryptoCapabilities() map[string]any {
 }
 
 func BuildTLSConfig(config *SecurityConfig, isServer bool, serverName ...string) (*cryptotls.Config, error) {
-	if config == nil || config.Profile == SecurityProfileLocal {
+	if config == nil {
+		return nil, nil
+	}
+	if config.OCSPFetch || config.OCSPResponderURL != "" || config.OCSPResponsePath != "" || config.RequireOCSP {
+		return nil, securityError(
+			"ocsp_fetch_unavailable",
+			"Go TLS has no provider-backed OCSP fetch or response validation.",
+			map[string]any{"runtime": "go"},
+		)
+	}
+	source := config.CredentialSource
+	if source == "" {
+		source = "file"
+	}
+	if source != "file" && source != "os_keystore" {
+		return nil, securityError("invalid_security_config", "credential_source must be 'file' or 'os_keystore'", map[string]any{"credential_source": source})
+	}
+	if source == "file" && config.CredentialTarget != "" {
+		return nil, securityError("invalid_security_config", "credential_target requires an OS keystore provider", map[string]any{"credential_target": config.CredentialTarget})
+	}
+	if source == "os_keystore" {
+		return nil, securityError("os_keystore_unavailable", "Go OS keystore provider is unavailable in this transport build; no file fallback is permitted", map[string]any{"credential_target": config.CredentialTarget})
+	}
+	if config.Profile == SecurityProfileLocal {
 		return nil, nil
 	}
 	if config.Profile == SecurityProfileResearch {

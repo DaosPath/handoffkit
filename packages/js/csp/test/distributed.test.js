@@ -9,6 +9,7 @@ import {
   JobAssignment,
   RuntimeMode,
   CspRuntime,
+  SecurityError,
   WorkerCapabilities,
   WorkerHeartbeat,
   WorkerRegistry,
@@ -80,6 +81,26 @@ test("scheduler retries, leases, and deduplicates jobs", () => {
   assert.equal(scheduler.snapshot().failed, 1);
 });
 
+test("scheduler rejects exactly-once requests before deduplication", () => {
+  const scheduler = new DistributedScheduler(new WorkerRegistry());
+  const job = new DistributedJob({
+    job_id: "job-exactly-once",
+    operation: "evaluate",
+    payload: {},
+    requested_capabilities: [],
+    idempotency_key: "key-exactly-once",
+    deadline: null,
+    metadata: { require_exactly_once: true },
+  });
+  assert.throws(
+    () => scheduler.submit(job),
+    (error) => error instanceof SecurityError
+      && error.code === "exactly_once_unavailable"
+      && error.details.runtime === "javascript",
+  );
+  assert.equal(scheduler.snapshot().seen_jobs, 0);
+});
+
 test("scheduler retry never exceeds queue capacity", () => {
   const registry = new WorkerRegistry();
   registry.register(capabilities());
@@ -90,5 +111,102 @@ test("scheduler retry never exceeds queue capacity", () => {
   const assignment = scheduler.schedule();
   scheduler.submit(second);
   scheduler.fail(assignment.toWire().assignment_id);
-  assert.deepEqual(scheduler.snapshot(), { queued: 1, assigned: 0, completed: 0, failed: 1, seen_jobs: 2 });
+  assert.deepEqual(scheduler.snapshot(), {
+    queued: 1,
+    assigned: 0,
+    interrupted: 0,
+    completed: 0,
+    failed: 1,
+    seen_jobs: 2,
+  });
+});
+
+test("scheduler rolls back when its configured state store cannot commit", () => {
+  const scheduler = new DistributedScheduler(new WorkerRegistry(), {
+    stateStore: {
+      load: () => null,
+      commit: () => { throw new Error("storage unavailable"); },
+      quarantine: () => { throw new Error("unexpected quarantine"); },
+    },
+  });
+  const job = new DistributedJob({
+    job_id: "job-1",
+    operation: "evaluate",
+    payload: {},
+    requested_capabilities: [],
+    idempotency_key: "key-1",
+    deadline: null,
+    metadata: {},
+  });
+  assert.throws(() => scheduler.submit(job), /storage unavailable/);
+  assert.equal(scheduler.snapshot().queued, 0);
+  assert.equal(scheduler.snapshot().seen_jobs, 0);
+});
+
+test("scheduler keeps a mutation reported as committed with uncertain durability", () => {
+  const scheduler = new DistributedScheduler(new WorkerRegistry(), {
+    stateStore: {
+      load: () => null,
+      commit: () => {
+        throw new SecurityError("directory sync uncertain", {
+          code: "scheduler_state_durability_uncertain",
+          details: { committed: true },
+        });
+      },
+      quarantine: () => { throw new Error("unexpected quarantine"); },
+    },
+  });
+  const job = new DistributedJob({
+    job_id: "job-committed",
+    operation: "evaluate",
+    payload: {},
+    requested_capabilities: [],
+    idempotency_key: "key-committed",
+    deadline: null,
+    metadata: {},
+  });
+  assert.throws(
+    () => scheduler.submit(job),
+    (error) => error.code === "scheduler_state_durability_uncertain",
+  );
+  assert.equal(scheduler.snapshot().queued, 1);
+  assert.equal(scheduler.snapshot().seen_jobs, 1);
+  assert.equal(scheduler.stateGeneration, 1);
+  assert.equal(scheduler.submit(job), false);
+});
+
+test("scheduler never evicts an active dedup identity", () => {
+  const scheduler = new DistributedScheduler(new WorkerRegistry(), {
+    queueCapacity: 2,
+    dedupCapacity: 1,
+  });
+  assert.equal(scheduler.submit(new DistributedJob({
+    job_id: "job-1",
+    operation: "evaluate",
+    payload: {},
+    requested_capabilities: [],
+    idempotency_key: "key-1",
+    deadline: null,
+    metadata: {},
+  })), true);
+  assert.equal(scheduler.submit(new DistributedJob({
+    job_id: "job-1",
+    operation: "evaluate",
+    payload: {},
+    requested_capabilities: [],
+    idempotency_key: "key-2",
+    deadline: null,
+    metadata: {},
+  })), false);
+  assert.throws(() => scheduler.submit(new DistributedJob({
+    job_id: "job-2",
+    operation: "evaluate",
+    payload: {},
+    requested_capabilities: [],
+    idempotency_key: "key-2",
+    deadline: null,
+    metadata: {},
+  })), /deduplication state is at capacity/);
+  assert.equal(scheduler.snapshot().queued, 1);
+  assert.equal(scheduler.snapshot().seen_jobs, 1);
 });

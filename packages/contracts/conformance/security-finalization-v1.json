@@ -1,0 +1,158 @@
+{
+  "wire_version": "1.0",
+  "classification": "experimental",
+  "participants": ["python", "javascript", "go", "rust", "cpp"],
+  "durable_replay": {
+    "participants": ["python", "javascript", "go", "rust", "cpp"],
+    "fixture": "test-fixtures/security/durable-replay-v1.json",
+    "schema": "schemas/durable-replay-state.schema.json",
+    "format": "handoffkit.security.replay",
+    "format_version": 1,
+    "generation": 7,
+    "scopes": 1,
+    "nonces": 2,
+    "canonical_payload": "{\"format\":\"handoffkit.security.replay\",\"format_version\":1,\"generation\":7,\"records\":[{\"credential_fingerprint\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"expires_at\":4102444800,\"last_sequence\":42,\"nonces\":[{\"seen_at\":2000000000,\"value\":\"nonce-001\"},{\"seen_at\":2000000001,\"value\":\"nonce-002\"}],\"peer_id\":\"peer-a\",\"scope\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa|session-a\",\"security_profile\":\"standard\",\"session_id\":\"session-a\",\"updated_at\":2000000001}]}",
+    "checksum": "sha256:bfa226f2d41614349565926767ac3f13a78a83e04ee0e2086239a5634ba410fe"
+  },
+  "durable_scheduler": {
+    "participants": ["python", "javascript", "go", "rust"],
+    "fixture": "test-fixtures/runtime/durable-scheduler-v1.json",
+    "schema": "schemas/durable-scheduler-state.schema.json",
+    "format": "handoffkit.scheduler.state",
+    "format_version": 1,
+    "generation": 7,
+    "queued": 1,
+    "inflight": 0,
+    "interrupted": 1,
+    "completed": 2,
+    "failed": 1,
+    "seen": 3,
+    "restart_policy": "inflight assignments become interrupted and require explicit retry or terminal failure",
+    "operational_controls": ["bounded atomic commit", "checksum quarantine", "validated backup", "validated restore"],
+    "migration_policy": "unsupported format versions fail closed; no in-place migration is claimed",
+    "canonical_payload": "{\"completed\":2,\"failed\":1,\"format\":\"handoffkit.scheduler.state\",\"format_version\":1,\"generation\":7,\"inflight\":[],\"interrupted\":[{\"assignment\":{\"assigned_at\":\"2026-01-01T00:00:08Z\",\"assignment_id\":\"assignment-scheduler-interrupted\",\"attempt\":1,\"job_id\":\"job-scheduler-interrupted\",\"lease_deadline\":\"2026-01-01T00:01:08Z\",\"metadata\":{},\"payload\":{\"input\":\"artifact://interrupted\"},\"worker_id\":\"worker-conformance\"},\"job\":{\"deadline\":null,\"idempotency_key\":\"scheduler-interrupted\",\"job_id\":\"job-scheduler-interrupted\",\"metadata\":{},\"operation\":\"evaluate\",\"payload\":{\"input\":\"artifact://interrupted\"},\"requested_capabilities\":[\"evaluate\"]},\"reason\":\"scheduler_restart\"}],\"queued\":[{\"attempt\":1,\"job\":{\"deadline\":null,\"idempotency_key\":\"scheduler-queued\",\"job_id\":\"job-scheduler-queued\",\"metadata\":{},\"operation\":\"evaluate\",\"payload\":{\"input\":\"artifact://queued\"},\"requested_capabilities\":[\"evaluate\"]}}],\"seen\":[{\"idempotency_key\":\"scheduler-completed\",\"job_id\":\"job-scheduler-completed\"},{\"idempotency_key\":\"scheduler-interrupted\",\"job_id\":\"job-scheduler-interrupted\"},{\"idempotency_key\":\"scheduler-queued\",\"job_id\":\"job-scheduler-queued\"}]}",
+    "checksum": "sha256:267d62e47d35d93e10eded77fb6497a2af4bee98624c683f783bedd752084fbf",
+    "scope": "distributed scheduler state only; channel buffers and general sessions remain process-local; backup/restore is operator-controlled before scheduler startup"
+  },
+  "durable_revocation": {
+    "participants": ["python", "javascript", "go", "rust"],
+    "fixture": "test-fixtures/security/durable-revocation-v1.json",
+    "schema": "schemas/durable-revocation-state.schema.json",
+    "format": "handoffkit.security.revocations",
+    "format_version": 1,
+    "generation": 3,
+    "entries": 3,
+    "canonical_payload": "{\"entries\":[{\"effective_at\":1700000000,\"expires_at\":0,\"kind\":\"certificate_fingerprint\",\"reason\":\"credential compromise\",\"revoked_at\":1700000000,\"value\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},{\"effective_at\":2000000000,\"expires_at\":2100000000,\"kind\":\"peer_id\",\"reason\":\"scheduled isolation\",\"revoked_at\":1900000000,\"value\":\"peer-b\"},{\"effective_at\":1700000001,\"expires_at\":0,\"kind\":\"signer_fingerprint\",\"reason\":\"signing key compromise\",\"revoked_at\":1700000001,\"value\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}],\"format\":\"handoffkit.security.revocations\",\"format_version\":1,\"generation\":3}",
+    "checksum": "sha256:a82ecbcb48ed87d3861f263a629aec5256c1d6211d3a15207db9fbaf1c6fa4f8"
+  },
+  "rotation": {
+    "participants": ["python", "javascript", "go", "rust"],
+    "metadata": [
+      "current_fingerprint",
+      "previous_fingerprint",
+      "previous_accepted",
+      "transition_until"
+    ],
+    "error_code": "credential_rotation_rejected",
+    "scope": "runtime-local TLS credential and trust snapshot reload"
+  },
+  "security_transcript": {
+    "participants": ["python", "javascript", "go", "rust"],
+    "fixture": "test-fixtures/security/security-transcript-v1.json",
+    "schema": "schemas/security-transcript-v1.schema.json",
+    "format": "handoffkit.security.transcript",
+    "format_version": 1,
+    "binding_type": "tls-certificate-endpoints",
+    "canonical_unsigned_payload": "{\"binding_hash\":\"sha256:5071d1faf2d00109e34e94f534d6676c7c488f488aef8aedc9f8e800e672c11d\",\"binding_type\":\"tls-certificate-endpoints\",\"capabilities_hash\":\"sha256:62f874b009623decd4396e04d9e2206d24c6b6d2b2978fdcf5030e7626ae1001\",\"format\":\"handoffkit.security.transcript\",\"format_version\":1,\"handshake_nonce\":\"nonce-transcript-1\",\"negotiated_group\":null,\"protocol_version\":\"1.0\",\"receiver_credential_fingerprint\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"receiver_node_id\":\"server-node\",\"receiver_peer_id\":\"server-peer\",\"requested_profile\":\"standard\",\"selected_profile\":\"standard\",\"sender_credential_fingerprint\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"sender_node_id\":\"client-node\",\"sender_peer_id\":\"client-peer\",\"session_id\":\"session-transcript-1\",\"timestamp\":\"2026-01-01T00:00:00Z\",\"tls_version\":\"TLSv1.3\"}",
+    "transcript_hash": "sha256:e9c73b9219600835e9749cfe35d7df419f0b393f6b0a6badea299f684db4fefa",
+    "error_codes": [
+      "security_transcript_invalid",
+      "security_transcript_version",
+      "security_transcript_hash_mismatch",
+      "security_profile_mismatch",
+      "security_transcript_identity_mismatch",
+      "security_transcript_mismatch"
+    ]
+  },
+  "artifact_ingestion": {
+    "participants": ["go", "cpp"],
+    "wire_contracts": ["ArtifactRef", "SignedArtifact"],
+    "required_order": [
+      "resolve",
+      "size",
+      "media_type",
+      "sha256",
+      "producer_identity",
+      "signature",
+      "revocation",
+      "authorization",
+      "consume_snapshot"
+    ],
+    "shared_decisions": {
+      "tamper": "artifact_integrity_mismatch",
+      "path_escape": "artifact_path_denied",
+      "size": "artifact_too_large",
+      "media_type": "artifact_media_type_denied",
+      "signature_binding": "artifact_signature_mismatch",
+      "signature_verification": "artifact_signature_invalid",
+      "signer_policy": "artifact_signer_denied",
+      "signer_revocation": "artifact_signer_revoked",
+      "producer_binding": "artifact_producer_mismatch",
+      "algorithm": "artifact_algorithm_unsupported"
+    },
+    "scope": "Go and C++ ingestion gates plus the Go-to-cpp-ml route; the gateway rejects optional or untrusted input policies; unrelated consumers remain outside this enforcement boundary"
+  },
+  "edge_profiles": {
+    "participants": ["python", "javascript", "go", "rust", "cpp"],
+    "fixture": "test-fixtures/security/edge-runtime-profiles-v1.json",
+    "schema": "schemas/edge-runtime-profile.schema.json",
+    "format": "handoffkit.edge-profiles",
+    "format_version": 1,
+    "profiles": ["edge-small", "edge-standard", "server"],
+    "security_profile": "standard",
+    "downgrade_error_code": "edge_security_profile_mismatch"
+  },
+  "studio_security_events": {
+    "emitters": ["go-ml-gateway"],
+    "parsers": ["go", "typescript"],
+    "fixture": "test-fixtures/security/studio-security-events-v1.ndjson",
+    "schema": "schemas/studio-security-event.schema.json",
+    "format": "handoffkit.studio.security-event",
+    "format_version": 1,
+    "events": 8,
+    "event_types": [
+      "session.observed",
+      "session.reconnected",
+      "security.rejected",
+      "job.updated",
+      "artifact.verified",
+      "runtime.status"
+    ],
+    "fingerprint_representation": "sha256:<12 hex>...<8 hex>",
+    "source_runtime": "go",
+    "scope": "read-only optional Go runtime event sink; Studio rejects mixed or non-Go production sources; no Python, JavaScript, Rust, or C++ emitter is claimed"
+  },
+  "unavailable_capabilities": {
+    "participants": [
+      "python",
+      "javascript",
+      "go",
+      "rust",
+      "cpp"
+    ],
+    "fixture": "test-fixtures/security/finalization-unavailable-v1.json",
+    "format": "handoffkit.security.unavailable",
+    "format_version": 1,
+    "generation": 1,
+    "capabilities": 7,
+    "error_codes": [
+      "artifact_algorithm_unsupported",
+      "exactly_once_unavailable",
+      "ocsp_fetch_unavailable",
+      "security_profile_unavailable"
+    ],
+    "canonical_payload": "{\"capabilities\":[{\"error_code\":\"ocsp_fetch_unavailable\",\"fail_closed\":true,\"name\":\"ocsp_fetch\",\"participants\":[\"python\",\"javascript\",\"go\",\"rust\",\"cpp\"],\"reason\":\"no AIA/HTTP/HTTPS responder client exists; ocsp_fetch=true is rejected and fails closed\",\"status\":\"unavailable\"},{\"error_code\":\"exactly_once_unavailable\",\"fail_closed\":true,\"name\":\"exactly_once\",\"participants\":[\"python\",\"javascript\",\"go\",\"rust\",\"cpp\"],\"reason\":\"a durable marker cannot close the crash window between an external side effect and its commit; require_exactly_once fails closed and automatic recovery stays at-least-once\",\"status\":\"unavailable\"},{\"fail_closed\":true,\"name\":\"zeroization_global\",\"participants\":[\"python\",\"javascript\",\"go\",\"rust\",\"cpp\"],\"reason\":\"no runtime proves process-wide wiping of allocator, provider, or managed-run-time copies; only scoped native buffers exist\",\"status\":\"unavailable\"},{\"error_code\":\"artifact_algorithm_unsupported\",\"fail_closed\":true,\"name\":\"ml_dsa\",\"participants\":[\"python\",\"javascript\",\"go\",\"rust\",\"cpp\"],\"reason\":\"not allowlisted in the schema nor advertised by runtime capabilities; no sign or verify backend exists\",\"status\":\"unavailable\"},{\"available_in\":[\"python\",\"cpp\"],\"error_code\":\"artifact_algorithm_unsupported\",\"fail_closed\":true,\"name\":\"ecdsa\",\"participants\":[\"python\",\"javascript\",\"go\",\"rust\",\"cpp\"],\"reason\":\"provider-gated ECDSA-P256 paths exist in Python and C++, but there is no shared five-runtime vector or JS/Go/Rust implementation; the common capability remains unavailable and all unsupported runtimes fail closed\",\"status\":\"unavailable\",\"unavailable_in\":[\"javascript\",\"go\",\"rust\"]},{\"error_code\":\"artifact_algorithm_unsupported\",\"fail_closed\":true,\"name\":\"slh_dsa\",\"participants\":[\"python\",\"javascript\",\"go\",\"rust\",\"cpp\"],\"reason\":\"not allowlisted in the schema nor advertised by runtime capabilities; no sign or verify backend exists\",\"status\":\"unavailable\"},{\"available_in\":[\"javascript\",\"go\"],\"error_code\":\"security_profile_unavailable\",\"fail_closed\":true,\"name\":\"hybrid_pq\",\"participants\":[\"python\",\"javascript\",\"go\",\"rust\",\"cpp\"],\"reason\":\"X25519MLKEM768 is negotiated only when the active provider exposes it in Node or Go; capability detection reports false elsewhere and profile selection fails closed without a silent fallback\",\"status\":\"unavailable\",\"unavailable_in\":[\"python\",\"rust\",\"cpp\"]}],\"format\":\"handoffkit.security.unavailable\",\"format_version\":1,\"generation\":1}",
+    "checksum": "sha256:6aef04316571cc93e84eaf0bc7289ba7e88da25b62e878426f6fc2044e5d2bc1",
+    "scope": "fail-closed conformance for capabilities that remain unavailable: OCSP responder fetch (ocsp_fetch_unavailable), exactly-once external effects (exactly_once_unavailable), global zeroization (no structured code; no runtime proves process-wide wiping), ML-DSA/SLH-DSA artifact signatures (artifact_algorithm_unsupported), the common five-runtime ECDSA capability (provider-gated Python/C++ paths exist but JS/Go/Rust and a shared vector are missing), and hybrid-pq outside Node/Go providers (security_profile_unavailable). No backend is invented and no transport change is claimed."
+  }
+}

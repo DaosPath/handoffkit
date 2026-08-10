@@ -44,6 +44,40 @@ int main() {
     REQUIRE(SecurityConfig::from_json(config_value).to_json() == config_value);
     const auto peer_value = read_json(root / "fixtures" / "peer_identity.json");
     REQUIRE(PeerIdentity::from_json(peer_value).to_json() == peer_value);
+
+    const auto transcript_fixture = read_json(root / "test-fixtures" / "security" / "security-transcript-v1.json");
+    SecurityTranscriptInput transcript_input{
+        .protocol_version = transcript_fixture.at("transcript").at("protocol_version").get<std::string>(),
+        .requested_profile = security_profile_from_string(
+            transcript_fixture.at("transcript").at("requested_profile").get<std::string>()),
+        .selected_profile = security_profile_from_string(
+            transcript_fixture.at("transcript").at("selected_profile").get<std::string>()),
+        .sender = PeerIdentity::from_json(transcript_fixture.at("sender")),
+        .receiver = PeerIdentity::from_json(transcript_fixture.at("receiver")),
+        .tls_version = transcript_fixture.at("transcript").at("tls_version").get<std::string>(),
+        .negotiated_group = transcript_fixture.at("transcript").at("negotiated_group").is_null()
+            ? std::nullopt
+            : std::optional<std::string>(transcript_fixture.at("transcript").at("negotiated_group").get<std::string>()),
+        .session_id = transcript_fixture.at("transcript").at("session_id").get<std::string>(),
+        .handshake_nonce = transcript_fixture.at("transcript").at("handshake_nonce").get<std::string>(),
+        .timestamp = transcript_fixture.at("transcript").at("timestamp").get<std::string>(),
+    };
+    const auto transcript = SecurityTranscript::build(transcript_input);
+    REQUIRE(transcript.to_json() == transcript_fixture.at("transcript"));
+    REQUIRE(transcript.unsigned_json().dump() == transcript_fixture.at("canonical_unsigned_payload").get<std::string>());
+    REQUIRE(SecurityTranscript::from_json(transcript_fixture.at("transcript")).to_json() == transcript_fixture.at("transcript"));
+    REQUIRE(SecurityTranscript::verify(transcript_fixture.at("transcript"), transcript_input).to_json() == transcript_fixture.at("transcript"));
+    auto tampered_transcript = transcript_fixture.at("transcript");
+    tampered_transcript["sender_peer_id"] = "spoofed-peer";
+    tampered_transcript["transcript_hash"] = "";
+    std::string transcript_error;
+    try {
+        static_cast<void>(SecurityTranscript::from_json(tampered_transcript));
+    } catch (const SecurityError& error) {
+        transcript_error = error.code();
+    }
+    REQUIRE(transcript_error == "security_transcript_invalid");
+
     const auto artifact_value = read_json(root / "fixtures" / "signed_artifact.json");
     const auto artifact = SignedArtifact::from_json(artifact_value);
     REQUIRE(artifact.to_json() == artifact_value);

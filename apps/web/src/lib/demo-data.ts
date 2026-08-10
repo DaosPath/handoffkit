@@ -956,18 +956,6 @@ export const playerState = {
   mode: "Steps" as "Steps" | "Timeline",
 };
 
-export const studioNav = [
-  { label: "Overview", href: "/" },
-  { label: "Demos", href: "/demos" },
-  { label: "Replay", href: "/demos#replay" },
-  { label: "Reports", href: "/demos#reports" },
-  {
-    label: "GitHub",
-    href: "https://github.com/DaosPath/handoffkit",
-    external: true,
-  },
-] as const;
-
 export function getDemoById(id: string): DemoItem | undefined {
   return demos.find((d) => d.id === id);
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <handoffkit/csp/artifact_gate.hpp>
 #include <handoffkit/csp/contracts.hpp>
 #include <handoffkit/csp/native_compute.hpp>
 
@@ -14,6 +15,7 @@ struct MlWorkerOptions {
     std::string worker_id;
     std::size_t worker_threads{1};
     std::size_t queue_capacity{8};
+    std::shared_ptr<const csp::ArtifactIngestionPolicy> artifact_policy;
 };
 
 [[nodiscard]] csp::WorkerCapabilities detect_ml_worker_capabilities(
@@ -51,6 +53,7 @@ public:
 
 private:
     csp::WorkerCapabilities capabilities_;
+    std::shared_ptr<csp::ArtifactIngestionGate> artifact_gate_;
     std::unique_ptr<csp::NativeComputePool> pool_;
 };
 

@@ -290,12 +290,17 @@ Result<std::vector<std::string>> list_provider_models(
 }
 
 Result<AnyProvider> make_openai_compatible_provider(const ResolvedProviderSettings& settings) {
+    HttpProviderOptions http_opts;
+    http_opts.connection_timeout_ms = 30'000;
+    http_opts.read_timeout_ms = 120'000;
+    http_opts.write_timeout_ms = 120'000;
     OpenAiCompatibleProvider p(
         settings.base_url,
         settings.api_key,
         settings.model,
         settings.api_path,
-        settings.headers
+        settings.headers,
+        http_opts
     );
     return Result<AnyProvider>::success(p.as_any());
 }

@@ -6,6 +6,8 @@ import {
   MessageEnvelope,
   PeerIdentity,
   ReplayProtection,
+  RevocationPolicy,
+  SchedulerStateStore,
   SignedArtifact,
   Transport,
 } from "@handoffkit/csp";
@@ -89,11 +91,43 @@ export class FileDedupStore {
   readonly size: number;
 }
 
+export class FileSchedulerStateStore implements SchedulerStateStore {
+  readonly path: string;
+  constructor(filePath: string, options?: { maxFileBytes?: number });
+  load(): Record<string, unknown> | null;
+  commit(payload: Record<string, unknown>): void;
+  backup(destination: string): void;
+  restore(source: string): void;
+  quarantine(reason: string): never;
+}
+
+export const DURABLE_REPLAY_FORMAT_VERSION: 1;
+export class DurableReplayProtection extends ReplayProtection {
+  readonly generation: number;
+  constructor(filePath: string, options?: {
+    windowSeconds?: number;
+    maxSkewSeconds?: number;
+    maxSeenNonces?: number;
+    maxScopes?: number;
+    stateTtlSeconds?: number;
+    maxFileBytes?: number;
+  });
+  status(): {
+    format: "handoffkit.security.replay";
+    format_version: 1;
+    generation: number;
+    scopes: number;
+    nonces: number;
+  };
+  compact(options?: { now?: number }): void;
+}
+
 export class NetworkConfig {
   securityConfig: import("@handoffkit/csp").SecurityConfig;
   identityPolicy: CertificateIdentityPolicy | null;
   capabilityPolicy: CapabilityPolicy | null;
   replayProtection: ReplayProtection;
+  tlsContextProvider: ReloadableTlsContext | null;
   constructor(init?: {
     maxMessageBytes?: number;
     connectTimeoutMs?: number;
@@ -105,7 +139,18 @@ export class NetworkConfig {
     identityPolicy?: CertificateIdentityPolicy | Record<string, unknown> | null;
     capabilityPolicy?: CapabilityPolicy | Record<string, unknown> | null;
     replayProtection?: ReplayProtection | Record<string, unknown>;
+    tlsContextProvider?: ReloadableTlsContext | null;
   });
+  static forProfile(
+    profile: import("@handoffkit/csp").EdgeProfileValue | import("@handoffkit/csp").EdgeRuntimeProfile,
+    options: {
+      securityConfig: import("@handoffkit/csp").SecurityConfig | Record<string, unknown>;
+      identityPolicy: CertificateIdentityPolicy | Record<string, unknown>;
+      capabilityPolicy: CapabilityPolicy | Record<string, unknown>;
+      replayProtection?: ReplayProtection | Record<string, unknown>;
+      tlsContextProvider?: ReloadableTlsContext | null;
+    },
+  ): NetworkConfig;
 }
 export class LengthDelimitedTransport extends Transport {
   authenticatedPeer: PeerIdentity | null;
@@ -166,7 +211,68 @@ export function buildTlsOptions(
   options?: { servername?: string },
 ): import("node:tls").ConnectionOptions & import("node:tls").TlsOptions;
 
+export class ReloadableTlsContext {
+  readonly isServer: boolean;
+  readonly generation: number;
+  constructor(
+    securityConfig: import("@handoffkit/csp").SecurityConfig,
+    options?: { isServer?: boolean },
+  );
+  options(options: {
+    isServer: boolean;
+    servername?: string;
+  }): import("node:tls").ConnectionOptions & import("node:tls").TlsOptions;
+  registerServer(server: import("node:tls").Server): () => boolean;
+  reload(
+    securityConfig: import("@handoffkit/csp").SecurityConfig,
+    options?: { transitionSeconds?: number; now?: number },
+  ): Record<string, unknown>;
+  status(options?: { now?: number }): {
+    generation: number;
+    role: "server" | "client";
+    security_profile: import("@handoffkit/csp").SecurityProfileValue;
+    current_fingerprint: string | null;
+    previous_fingerprint: string | null;
+    transition_until: number;
+    previous_accepted: boolean;
+    trust_anchor_hash: string | null;
+    previous_trust_anchor_hash: string | null;
+    certificate_expires_at: number;
+    provider: string;
+  };
+}
+
 export function certificateFingerprint(certificate: string | Buffer): string;
+export function peerIdentityFromCertificate(
+  certificate: string | Buffer,
+  capabilities?: string[],
+): PeerIdentity;
+export function buildSecurityTranscript(init: {
+  protocolVersion: string;
+  requestedProfile: import("@handoffkit/csp").SecurityProfileValue;
+  selectedProfile: import("@handoffkit/csp").SecurityProfileValue;
+  sender: PeerIdentity;
+  receiver: PeerIdentity;
+  tlsVersion: string;
+  negotiatedGroup?: string | null;
+  sessionId: string;
+  handshakeNonce: string;
+  timestamp: string;
+}): import("@handoffkit/csp").SecurityTranscript;
+export function verifySecurityTranscript(
+  value: import("@handoffkit/csp").SecurityTranscript | Record<string, unknown>,
+  expected: {
+    protocolVersion: string;
+    profile: import("@handoffkit/csp").SecurityProfileValue;
+    sender: PeerIdentity;
+    receiver: PeerIdentity;
+    tlsVersion: string;
+    negotiatedGroup?: string | null;
+    sessionId: string;
+    handshakeNonce: string;
+    timestamp: string;
+  },
+): import("@handoffkit/csp").SecurityTranscript;
 export function artifactPublicKeyFingerprint(key: string | Buffer | KeyObject): string;
 
 export class ArtifactSigningCredential {
@@ -193,11 +299,76 @@ export class ArtifactTrustPolicy {
   credentials: Map<string, ArtifactSigningCredential>;
   allowedAlgorithms: Set<string>;
   maxFutureSkewSeconds: number;
+  revocationPolicy: RevocationPolicy | null;
   constructor(
     credentials?: Array<ArtifactSigningCredential | ConstructorParameters<typeof ArtifactSigningCredential>[0]>,
-    options?: { allowedAlgorithms?: string[]; maxFutureSkewSeconds?: number },
+    options?: {
+      allowedAlgorithms?: string[];
+      maxFutureSkewSeconds?: number;
+      revocationPolicy?: RevocationPolicy | null;
+    },
   );
 }
+
+export const DURABLE_REVOCATION_FORMAT_VERSION: 1;
+export type RevocationKind =
+  | "certificate_fingerprint"
+  | "signer_fingerprint"
+  | "peer_id"
+  | "issuer"
+  | "trust_domain";
+export class RevocationEntry {
+  kind: RevocationKind;
+  value: string;
+  reason: string;
+  revokedAt: number;
+  effectiveAt: number;
+  expiresAt: number;
+  constructor(init: {
+    kind: RevocationKind;
+    value: string;
+    reason: string;
+    revokedAt?: number;
+    revoked_at?: number;
+    effectiveAt?: number;
+    effective_at?: number;
+    expiresAt?: number;
+    expires_at?: number;
+  });
+  toWire(): {
+    effective_at: number;
+    expires_at: number;
+    kind: RevocationKind;
+    reason: string;
+    revoked_at: number;
+    value: string;
+  };
+}
+export class DurableRevocationPolicy implements RevocationPolicy {
+  generation: number;
+  entries: Map<string, RevocationEntry>;
+  constructor(
+    filePath: string,
+    options?: {
+      maxEntries?: number;
+      max_entries?: number;
+      maxFileBytes?: number;
+      max_file_bytes?: number;
+    },
+  );
+  status(options?: { now?: number }): {
+    format: string;
+    format_version: number;
+    generation: number;
+    entries: number;
+    active: number;
+  };
+  revoke(entry: RevocationEntry | ConstructorParameters<typeof RevocationEntry>[0]): void;
+  remove(kind: RevocationKind, value: string): boolean;
+  isRevoked(kind: RevocationKind, value: string, options?: { now?: number }): boolean;
+  reload(): void;
+}
+export function normalizeRevocationValue(kind: RevocationKind, value: string): string;
 
 export class ArtifactSigner {
   privateKey: KeyObject;

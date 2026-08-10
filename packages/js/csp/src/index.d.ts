@@ -13,8 +13,10 @@ export function validationErrorCode(error: unknown): string;
 
 export const RuntimeMode: Readonly<{ CLASSIC: "classic"; SESSION: "session"; DISTRIBUTED: "distributed" }>;
 export const OverflowPolicy: Readonly<{ BLOCK: "block"; REJECT: "reject" }>;
+export const EdgeProfile: Readonly<{ EDGE_SMALL: "edge-small"; EDGE_STANDARD: "edge-standard"; SERVER: "server" }>;
 export type RuntimeModeValue = typeof RuntimeMode[keyof typeof RuntimeMode];
 export type OverflowPolicyValue = typeof OverflowPolicy[keyof typeof OverflowPolicy];
+export type EdgeProfileValue = typeof EdgeProfile[keyof typeof EdgeProfile];
 
 export class CspError extends Error {}
 export class ChannelClosedError extends CspError {}
@@ -37,6 +39,32 @@ export class RetryPolicy {
   constructor(init?: { maxAttempts?: number; baseDelayMs?: number; maxDelayMs?: number });
   toWire(): { max_attempts: number; base_delay_ms: number; max_delay_ms: number };
   static fromWire(value?: Record<string, unknown>): RetryPolicy;
+}
+
+export class EdgeRuntimeProfile {
+  name: EdgeProfileValue;
+  channelCapacity: number;
+  maxFrameBytes: number;
+  pendingAckLimit: number;
+  dedupCapacity: number;
+  durableReplayCapacity: number;
+  connectionLimit: number;
+  heartbeatSeconds: number;
+  reconnect: RetryPolicy;
+  connectTimeoutMs: number;
+  ioTimeoutMs: number;
+  ackTimeoutMs: number;
+  artifactLimitBytes: number;
+  memoryBudgetBytes: number;
+  durableStateLimitBytes: number;
+  loggingLevel: "warning" | "info";
+  loggingIncludePayloads: false;
+  loggingRedactPaths: true;
+  securityProfile: "standard";
+  constructor(init: Record<string, unknown>);
+  toWire(): Record<string, unknown>;
+  static forProfile(profile?: EdgeProfileValue): EdgeRuntimeProfile;
+  static fromWire(value: Record<string, unknown>): EdgeRuntimeProfile;
 }
 
 export class SessionConfig {
@@ -62,6 +90,11 @@ export class SessionConfig {
   });
   toWire(): Record<string, unknown>;
   static fromWire(value: Record<string, unknown>): SessionConfig;
+  static forProfile(
+    sessionId: string,
+    profile?: EdgeProfileValue | EdgeRuntimeProfile,
+    overrides?: Partial<ConstructorParameters<typeof SessionConfig>[0]>,
+  ): SessionConfig;
 }
 
 export class ChannelConfig {
@@ -258,15 +291,42 @@ export class WorkerRegistry {
   get(workerId: string): WorkerRecord | null;
   list(): WorkerRecord[];
 }
+export interface SchedulerStateStore {
+  load(): Record<string, unknown> | null;
+  commit(payload: Record<string, unknown>): void;
+  quarantine(reason: string): never;
+}
+export const SCHEDULER_STATE_FORMAT: "handoffkit.scheduler.state";
+export const SCHEDULER_STATE_FORMAT_VERSION: 1;
 export class DistributedScheduler {
-  constructor(registry: WorkerRegistry, init?: { maxAttempts?: number; leaseMs?: number; queueCapacity?: number; dedupCapacity?: number });
+  constructor(registry: WorkerRegistry, init?: {
+    maxAttempts?: number;
+    leaseMs?: number;
+    queueCapacity?: number;
+    dedupCapacity?: number;
+    stateStore?: SchedulerStateStore | null;
+    /** Opt-in at-least-once restart recovery; never an exactly-once guarantee. */
+    autoResume?: boolean;
+  });
   submit(job: DistributedJob | Record<string, unknown>): boolean;
   schedule(): JobAssignment | null;
   complete(assignmentId: string): boolean;
   fail(assignmentId: string, init?: { retryable?: boolean }): boolean;
   recoverWorker(workerId: string): number;
   recoverExpired(init?: { now?: number }): number;
-  snapshot(): { queued: number; assigned: number; completed: number; failed: number; seen_jobs: number };
+  listInterrupted(): JobAssignment[];
+  retryInterrupted(assignmentId: string): boolean;
+  autoResumeInterrupted(): void;
+  failInterrupted(assignmentId: string): boolean;
+  readonly stateGeneration: number;
+  snapshot(): {
+    queued: number;
+    assigned: number;
+    interrupted: number;
+    completed: number;
+    failed: number;
+    seen_jobs: number;
+  };
 }
 export function heartbeatNow(workerId: string, init: { sequence: number; activeJobs: number; load: number; metadata?: Record<string, unknown> }): WorkerHeartbeat;
 
@@ -315,9 +375,15 @@ export class SecurityConfig {
   requireMtls: boolean;
   allowInsecureLoopback: boolean;
   trustDomain: string;
+  credentialSource: "file" | "os_keystore";
+  credentialTarget: string | null;
   caCertPath: string | null;
   certPath: string | null;
   keyPath: string | null;
+  ocspResponsePath: string | null;
+  ocspFetch: boolean;
+  ocspResponderUrl: string | null;
+  requireOcsp: boolean;
   replayWindowSeconds: number;
   maxClockSkewSeconds: number;
   constructor(init?: Record<string, unknown>);
@@ -341,11 +407,68 @@ export class PeerIdentity {
   static fromWire(value?: Record<string, unknown>): PeerIdentity;
 }
 
+export class CredentialRotationPolicy {
+  currentFingerprint: string;
+  previousFingerprint: string | null;
+  transitionUntil: number;
+  maxClockSkewSeconds: number;
+  constructor(init: {
+    currentFingerprint?: string;
+    current_fingerprint?: string;
+    previousFingerprint?: string | null;
+    previous_fingerprint?: string | null;
+    transitionUntil?: number;
+    transition_until?: number;
+    maxClockSkewSeconds?: number;
+    max_clock_skew_seconds?: number;
+  });
+  rotate(newFingerprint: string, options: { transitionUntil: number }): void;
+  isAllowed(fingerprint: string, options?: { now?: number }): boolean;
+  setTransitionUntil(transitionUntil: number): void;
+  status(options?: { now?: number }): {
+    current_fingerprint: string;
+    previous_fingerprint: string | null;
+    transition_until: number;
+    previous_accepted: boolean;
+  };
+}
+
+export const SECURITY_TRANSCRIPT_FORMAT: "handoffkit.security.transcript";
+export const SECURITY_TRANSCRIPT_FORMAT_VERSION: 1;
+export class SecurityTranscript {
+  bindingHash: string;
+  bindingType: string;
+  capabilitiesHash: string;
+  format: string;
+  formatVersion: number;
+  handshakeNonce: string;
+  negotiatedGroup: string | null;
+  protocolVersion: string;
+  receiverCredentialFingerprint: string;
+  receiverNodeId: string;
+  receiverPeerId: string;
+  requestedProfile: SecurityProfileValue;
+  selectedProfile: SecurityProfileValue;
+  senderCredentialFingerprint: string;
+  senderNodeId: string;
+  senderPeerId: string;
+  sessionId: string;
+  timestamp: string;
+  tlsVersion: string;
+  transcriptHash: string;
+  constructor(init?: Record<string, unknown>);
+  unsignedWire(): Record<string, unknown>;
+  canonicalPayload(): Uint8Array;
+  toWire(): Record<string, unknown>;
+  static fromWire(value?: Record<string, unknown>): SecurityTranscript;
+}
+
 export interface SignedArtifactWire {
   artifact_id: string;
   content_hash: string;
   signature: string;
-  algorithm: "ed25519";
+  /** Only `ed25519` is implemented; other values fail closed at runtime. */
+  algorithm: string;
   signer_identity: string;
   key_fingerprint: string;
   created_at: number;
@@ -355,7 +478,7 @@ export class SignedArtifact {
   artifactId: string;
   contentHash: string;
   signature: string;
-  algorithm: "ed25519";
+  algorithm: string;
   signerIdentity: string;
   keyFingerprint: string;
   createdAt: number;
@@ -374,7 +497,13 @@ export class CertificateIdentityPolicy {
   expectedWorkerId: string | null;
   allowedIssuerNames: readonly string[];
   requireAuthorizedFingerprint: boolean;
+  revocationPolicy: RevocationPolicy | null;
+  rotationPolicy: CredentialRotationPolicy | null;
   constructor(init?: Record<string, unknown>);
+}
+
+export interface RevocationPolicy {
+  isRevoked(kind: string, value: string, options?: { now?: number }): boolean;
 }
 
 export function normalizeFingerprint(value: string): string;

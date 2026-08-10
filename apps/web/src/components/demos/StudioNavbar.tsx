@@ -2,11 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, Plus, Settings, X } from "lucide-react";
+import { Eye, Menu, Plus, Settings, X } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { studioNav } from "@/lib/demo-data";
+import { studioNav, type StudioNavLabel } from "@/lib/studio/navigation";
 
-export function StudioNavbar() {
+export function StudioNavbar({
+  active = "Demos",
+  readOnly = false,
+}: {
+  active?: StudioNavLabel;
+  readOnly?: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -28,7 +34,7 @@ export function StudioNavbar() {
 
         <nav className="mx-auto hidden items-center gap-0.5 md:flex">
           {studioNav.map((item) => {
-            const active = item.label === "Demos";
+            const isActive = item.label === active;
             const external = "external" in item && item.external;
             return (
               <a
@@ -38,8 +44,9 @@ export function StudioNavbar() {
                   ? { target: "_blank", rel: "noopener noreferrer" }
                   : {})}
                 className={`studio-header-link ${
-                  active ? "studio-header-link-active" : ""
+                  isActive ? "studio-header-link-active" : ""
                 }`}
+                aria-current={isActive ? "page" : undefined}
               >
                 {item.label}
               </a>
@@ -48,18 +55,28 @@ export function StudioNavbar() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            className="docs-header-icon-btn"
-            aria-label="Settings"
-            title="Settings"
-          >
-            <Settings size={16} />
-          </button>
-          <button type="button" className="liquid-button !px-3.5 !py-2 !text-sm">
-            <Plus size={15} strokeWidth={2.25} />
-            New Run
-          </button>
+          {readOnly ? (
+            <span className="studio-readonly-badge" aria-label="Runtime telemetry, read-only">
+              <Eye size={15} aria-hidden="true" />
+              <span className="hidden sm:inline">Runtime telemetry</span>
+              <span>Read-only</span>
+            </span>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="docs-header-icon-btn"
+                aria-label="Settings"
+                title="Settings"
+              >
+                <Settings size={16} />
+              </button>
+              <button type="button" className="liquid-button !px-3.5 !py-2 !text-sm">
+                <Plus size={15} strokeWidth={2.25} />
+                New Run
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -67,7 +84,7 @@ export function StudioNavbar() {
         <div className="border-t border-[rgba(37,99,255,0.08)] px-4 py-3 md:hidden">
           <nav className="flex flex-col gap-1">
             {studioNav.map((item) => {
-              const active = item.label === "Demos";
+              const isActive = item.label === active;
               const external = "external" in item && item.external;
               return (
                 <a
@@ -78,10 +95,11 @@ export function StudioNavbar() {
                     : {})}
                   onClick={() => setOpen(false)}
                   className={`rounded-xl px-3 py-2.5 text-sm font-medium ${
-                    active
+                    isActive
                       ? "bg-[rgba(37,99,255,0.1)] text-[var(--blue-deep)]"
                       : "text-[var(--navy-muted)]"
                   }`}
+                  aria-current={isActive ? "page" : undefined}
                 >
                   {item.label}
                 </a>

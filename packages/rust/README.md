@@ -32,11 +32,19 @@ embed Python.
   and replay checks before dispatch;
 - Ed25519 artifact signing/verification with shared cross-runtime vectors.
 
-There is no exactly-once claim. Deduplication is memory-local and is lost on
-restart. Secure replay state is also process-local. The rustls/ring provider
-does not expose the required hybrid-PQ group, so `hybrid-pq` reports unavailable
-and fails closed. Certificate rotation, CRL/OCSP, OS keystores, and durable
-secure recovery are unavailable.
+There is no exactly-once claim. Business deduplication remains separate from
+cryptographic replay. Secure replay is process-local unless its optional
+bounded/checksummed durable store is configured. Durable local revocation and
+atomic certificate/trust reload with transition-window rotation are
+integration-tested. The rustls/ring provider does not expose the required
+hybrid-PQ group, so `hybrid-pq` reports unavailable and fails closed. CRL/OCSP,
+OS keystores, and zeroization guarantees are unavailable. The distributed
+scheduler has an optional bounded/checksummed file store shared with Python,
+Node, and Go: queued jobs, counters, and dedup identities survive restart;
+in-flight work becomes `interrupted` and requires explicit retry/fail. Durable
+channel/session buffers and exactly-once effects remain unavailable. The
+opt-in `with_state_store_auto_resume` path requeues interrupted work as
+at-least-once only; automatic resumption remains disabled by default.
 
 ## Commands
 

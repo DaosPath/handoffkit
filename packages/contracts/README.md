@@ -46,6 +46,7 @@ how it moves while a workflow is running.
 - `schemas/worker-heartbeat.schema.json`
 - `schemas/distributed-job.schema.json`
 - `schemas/job-assignment.schema.json`
+- `schemas/durable-scheduler-state.schema.json`
 - `fixtures/handoff_state.json`
 - `fixtures/run_trace.json`
 - `fixtures/validation_report.json`
@@ -55,3 +56,7 @@ how it moves while a workflow is running.
 - `fixtures/provider_tool_schema.json`
 - corresponding CSP and worker fixtures under `fixtures/`
 - `corpus/csp-validation.json`: shared accept/reject and canonicalization corpus
+- `test-fixtures/runtime/durable-scheduler-v1.json`: checksummed scheduler restart state shared by Python, Node, Go, and Rust
+- `test-fixtures/security/finalization-unavailable-v1.json`: executable
+  fail-closed declarations for unavailable OCSP fetch, exactly-once, global
+  zeroization, unsupported signature algorithms, and hybrid-PQ outside Node/Go

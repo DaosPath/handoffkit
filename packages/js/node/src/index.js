@@ -13,6 +13,7 @@ import {
   AuthorizationError,
   CapabilityPolicy,
   CertificateIdentityPolicy,
+  EdgeRuntimeProfile,
   MessageEnvelope,
   MessageTooLargeError,
   PeerIdentity,
@@ -24,9 +25,13 @@ import {
   validateDeclaredPeerIdentity,
 } from "@handoffkit/csp";
 import {
+  HYBRID_PQ_GROUP,
   authenticateTlsSocket,
+  buildSecurityTranscript,
   buildTlsOptions,
   detectHybridPqSupport,
+  peerIdentityFromCertificate,
+  verifySecurityTranscript,
 } from "./security.js";
 
 export * from "@handoffkit/core";
@@ -372,6 +377,7 @@ export class NetworkConfig {
     identityPolicy = null,
     capabilityPolicy = null,
     replayProtection = new ReplayProtection(),
+    tlsContextProvider = null,
   } = {}) {
     validateMaxMessageBytes(maxMessageBytes);
     for (const [name, value] of Object.entries({ connectTimeoutMs, ioTimeoutMs, maxAttempts })) {
@@ -408,6 +414,49 @@ export class NetworkConfig {
       identityPolicy,
       capabilityPolicy,
       replayProtection,
+      tlsContextProvider,
+    });
+  }
+
+  static forProfile(profile, {
+    securityConfig,
+    identityPolicy,
+    capabilityPolicy,
+    replayProtection = new ReplayProtection(),
+    tlsContextProvider = null,
+  } = {}) {
+    const edge = profile instanceof EdgeRuntimeProfile
+      ? profile
+      : EdgeRuntimeProfile.forProfile(profile);
+    const security = securityConfig instanceof SecurityConfig
+      ? securityConfig
+      : new SecurityConfig(securityConfig);
+    if (edge.securityProfile !== SecurityProfile.STANDARD
+      || security.profile !== SecurityProfile.STANDARD) {
+      throw new SecurityError(
+        "Edge runtime profiles require the exact standard security profile.",
+        {
+          code: "edge_security_profile_mismatch",
+          details: {
+            edge_profile: edge.name,
+            required: edge.securityProfile,
+            actual: security.profile,
+          },
+        },
+      );
+    }
+    return new NetworkConfig({
+      maxMessageBytes: edge.maxFrameBytes,
+      connectTimeoutMs: edge.connectTimeoutMs,
+      ioTimeoutMs: edge.ioTimeoutMs,
+      maxAttempts: edge.reconnect.maxAttempts,
+      baseDelayMs: edge.reconnect.baseDelayMs,
+      maxDelayMs: edge.reconnect.maxDelayMs,
+      securityConfig: security,
+      identityPolicy,
+      capabilityPolicy,
+      replayProtection,
+      tlsContextProvider,
     });
   }
 }
@@ -447,9 +496,16 @@ export class LengthDelimitedTransport extends Transport {
     this.ended = false;
     this.failure = null;
     this.authenticatedPeer = null;
+    this.localCertificateIdentity = null;
+    this.tlsVersion = null;
     if ([SecurityProfile.STANDARD, SecurityProfile.HYBRID_PQ]
       .includes(this.config.securityConfig.profile)) {
       this.authenticatedPeer = authenticateTlsSocket(socket, this.config.identityPolicy);
+      const localCertificate = socket.getCertificate?.();
+      if (localCertificate?.raw) {
+        this.localCertificateIdentity = peerIdentityFromCertificate(localCertificate.raw);
+      }
+      this.tlsVersion = socket.getProtocol?.() || null;
     }
     socket.on("data", (chunk) => this.accept(Buffer.from(chunk)));
     socket.on("end", () => this.finish());
@@ -481,7 +537,10 @@ export class LengthDelimitedTransport extends Transport {
   }
   async send(value) {
     if (this.ended) throw this.failure ?? new Error("network transport is closed");
-    const envelope = value instanceof MessageEnvelope ? value : MessageEnvelope.fromWire(value);
+    let envelope = value instanceof MessageEnvelope ? value : MessageEnvelope.fromWire(value);
+    if (this.authenticatedPeer && this.localCertificateIdentity) {
+      envelope = this.withSecurityTranscript(envelope);
+    }
     const payload = Buffer.from(envelope.toJSONString(), "utf8");
     if (payload.length > this.config.maxMessageBytes) throw new MessageTooLargeError(`network frame exceeds ${this.config.maxMessageBytes} bytes`);
     const frame = Buffer.allocUnsafe(payload.length + 4);
@@ -533,6 +592,30 @@ export class LengthDelimitedTransport extends Transport {
         { code: "security_nonce_missing" },
       );
     }
+    const transcript = envelope.metadata?.security_transcript;
+    if (!transcript || typeof transcript !== "object" || Array.isArray(transcript)) {
+      throw new AuthenticationError(
+        "Secure envelope requires an authenticated security_transcript extension.",
+        { code: "security_transcript_missing" },
+      );
+    }
+    if (!this.localCertificateIdentity || !this.tlsVersion) {
+      throw new AuthenticationError(
+        "Secure transcript requires authenticated TLS endpoints.",
+        { code: "security_transcript_unavailable" },
+      );
+    }
+    verifySecurityTranscript(transcript, {
+      protocolVersion: envelope.protocolVersion,
+      profile: this.config.securityConfig.profile,
+      sender: peer,
+      receiver: this.localCertificateIdentity,
+      tlsVersion: this.tlsVersion,
+      negotiatedGroup: this.negotiatedGroup(),
+      sessionId: envelope.sessionId,
+      handshakeNonce: nonce,
+      timestamp: envelope.createdAt,
+    });
     const createdAt = Date.parse(envelope.createdAt) / 1000;
     const replayScope = `${peer.credentialFingerprint}|${envelope.sessionId}`;
     this.config.replayProtection.checkAndRecord(
@@ -540,6 +623,12 @@ export class LengthDelimitedTransport extends Transport {
       envelope.sequence,
       nonce,
       createdAt,
+      {
+        peer_id: peer.peerId,
+        session_id: envelope.sessionId,
+        credential_fingerprint: peer.credentialFingerprint,
+        security_profile: this.config.securityConfig.profile,
+      },
     );
     const operation = envelope.metadata?.operation;
     if (typeof operation !== "string" || operation.length === 0) {
@@ -555,6 +644,51 @@ export class LengthDelimitedTransport extends Transport {
       );
     }
   }
+  withSecurityTranscript(envelope) {
+    const declared = envelope.metadata?.peer_identity;
+    const nonce = envelope.metadata?.security_nonce;
+    if (!declared || typeof declared !== "object" || Array.isArray(declared)) {
+      throw new AuthenticationError(
+        "Secure envelope requires a declared peer_identity object.",
+        { code: "declared_identity_missing" },
+      );
+    }
+    if (typeof nonce !== "string" || nonce.length === 0 || nonce.length > 256) {
+      throw new AuthenticationError(
+        "Secure envelope requires a bounded non-empty security_nonce.",
+        { code: "security_nonce_missing" },
+      );
+    }
+    const declaredIdentity = new PeerIdentity(declared);
+    const sender = new PeerIdentity({
+      ...this.localCertificateIdentity.toWire(),
+      capabilities: declaredIdentity.capabilities,
+    });
+    const transcript = buildSecurityTranscript({
+      protocolVersion: envelope.protocolVersion,
+      requestedProfile: this.config.securityConfig.profile,
+      selectedProfile: this.config.securityConfig.profile,
+      sender,
+      receiver: this.authenticatedPeer,
+      tlsVersion: this.tlsVersion,
+      negotiatedGroup: this.negotiatedGroup(),
+      sessionId: envelope.sessionId,
+      handshakeNonce: nonce,
+      timestamp: envelope.createdAt,
+    });
+    return MessageEnvelope.fromWire({
+      ...envelope.toWire(),
+      metadata: {
+        ...envelope.metadata,
+        security_transcript: transcript.toWire(),
+      },
+    });
+  }
+  negotiatedGroup() {
+    return this.config.securityConfig.profile === SecurityProfile.HYBRID_PQ
+      ? HYBRID_PQ_GROUP
+      : null;
+  }
   async close() {
     if (this.ended) return;
     const closed = once(this.socket, "close").catch(() => []);
@@ -569,6 +703,15 @@ export class LengthDelimitedTransport extends Transport {
 }
 
 export * from "./security.js";
+export {
+  DURABLE_REPLAY_FORMAT_VERSION,
+  DURABLE_REVOCATION_FORMAT_VERSION,
+  DurableReplayProtection,
+  DurableRevocationPolicy,
+  RevocationEntry,
+  normalizeRevocationValue,
+} from "./durable-security.js";
+export * from "./scheduler-state.js";
 import tls from "node:tls";
 import net from "node:net";
 
@@ -594,6 +737,10 @@ export class TcpTransport extends LengthDelimitedTransport {
     const server = tlsOpts
       ? tls.createServer(tlsOpts, (socket) => invokeClientCallback(clientCallback, socket, config))
       : net.createServer((socket) => invokeClientCallback(clientCallback, socket, config));
+    if (config.tlsContextProvider) {
+      const unregister = config.tlsContextProvider.registerServer(server);
+      server.once("close", unregister);
+    }
     await new Promise((resolve) => server.listen(port, host, resolve));
     return server;
   }
@@ -673,6 +820,15 @@ function resolveTlsOptions(config, supplied, isServer, servername) {
       "Secure profiles reject tlsOptions overrides; configure trust and credentials through SecurityConfig.",
       { code: "tls_context_override_forbidden", details: { profile } },
     );
+  }
+  if (config.tlsContextProvider) {
+    if (supplied) {
+      throw new SecurityError(
+        "TLS reload provider cannot be combined with tlsOptions overrides.",
+        { code: "tls_context_override_forbidden" },
+      );
+    }
+    return config.tlsContextProvider.options({ isServer, servername });
   }
   return supplied || (config.securityConfig
     ? buildTlsOptions(config.securityConfig, isServer, { servername })

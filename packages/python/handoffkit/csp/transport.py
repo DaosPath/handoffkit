@@ -8,13 +8,16 @@ import ssl
 import struct
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
+from handoffkit.csp.durable_security import ReplayContext
 from handoffkit.csp.errors import ChannelClosedError, MessageTooLargeError
 from handoffkit.csp.models import (
     DEFAULT_MAX_MESSAGE_BYTES,
     MIN_MESSAGE_BYTES,
+    EdgeProfile,
+    EdgeRuntimeProfile,
     MessageEnvelope,
     RetryPolicy,
     sanitize_error_message,
@@ -26,13 +29,17 @@ from handoffkit.csp.security import (
     CapabilityPolicy,
     CertificateIdentityPolicy,
     PeerIdentity,
+    ReloadableTLSContext,
     ReplayProtection,
     SecurityConfig,
     SecurityError,
     SecurityProfile,
+    SecurityTranscript,
     authenticate_ssl_peer,
     build_ssl_context,
+    peer_identity_from_certificate,
     validate_declared_peer_identity,
+    verify_security_transcript,
 )
 
 _SECURE_TRANSPORT_FACTORY_TOKEN = object()
@@ -50,6 +57,52 @@ class NetworkConfig:
     identity_policy: CertificateIdentityPolicy | None = None
     capability_policy: CapabilityPolicy | None = None
     replay_protection: ReplayProtection = field(default_factory=ReplayProtection)
+    tls_context_provider: ReloadableTLSContext | None = None
+
+    @classmethod
+    def for_profile(
+        cls,
+        profile: EdgeRuntimeProfile | EdgeProfile | str,
+        *,
+        security_config: SecurityConfig,
+        identity_policy: CertificateIdentityPolicy,
+        capability_policy: CapabilityPolicy,
+        replay_protection: ReplayProtection | None = None,
+        tls_context_provider: ReloadableTLSContext | None = None,
+        **overrides: Any,
+    ) -> NetworkConfig:
+        """Apply an edge preset to the real secure TCP transport configuration."""
+        edge = (
+            profile
+            if isinstance(profile, EdgeRuntimeProfile)
+            else EdgeRuntimeProfile.for_profile(profile)
+        )
+        if (
+            edge.security_profile != "standard"
+            or security_config.profile != SecurityProfile.STANDARD
+        ):
+            raise SecurityError(
+                "Edge runtime profiles require the exact standard security profile.",
+                code="edge_security_profile_mismatch",
+                details={
+                    "edge_profile": edge.name.value,
+                    "required": edge.security_profile,
+                    "actual": security_config.profile.value,
+                },
+            )
+        values: dict[str, Any] = {
+            "max_message_bytes": edge.max_frame_bytes,
+            "connect_timeout_ms": edge.connect_timeout_ms,
+            "io_timeout_ms": edge.io_timeout_ms,
+            "retry_policy": edge.reconnect,
+            "security_config": security_config,
+            "identity_policy": identity_policy,
+            "capability_policy": capability_policy,
+            "replay_protection": replay_protection or ReplayProtection(),
+            "tls_context_provider": tls_context_provider,
+        }
+        values.update(overrides)
+        return cls(**values)
 
     def __post_init__(self) -> None:
         if not MIN_MESSAGE_BYTES <= self.max_message_bytes <= DEFAULT_MAX_MESSAGE_BYTES:
@@ -205,6 +258,8 @@ class LengthDelimitedTransport(Transport):
         self._receive_lock = asyncio.Lock()
         self._closed = False
         self.authenticated_peer: PeerIdentity | None = None
+        self._local_certificate_identity: PeerIdentity | None = None
+        self._tls_version: str | None = None
         profile = self.config.security_config.profile
         if profile in (SecurityProfile.HYBRID_PQ, SecurityProfile.RESEARCH):
             # Keep unavailable/provider-dependent profiles fail-closed even if
@@ -237,6 +292,14 @@ class LengthDelimitedTransport(Transport):
                 ssl_object,
                 self.config.identity_policy,
             )
+            cert_path = self.config.security_config.cert_path
+            if self.config.tls_context_provider is not None:
+                self._local_certificate_identity = (
+                    self.config.tls_context_provider.local_identity(context=ssl_object.context)
+                )
+            elif cert_path:
+                self._local_certificate_identity = peer_identity_from_certificate(cert_path)
+            self._tls_version = ssl_object.version()
 
     async def _io(self, operation: Any) -> Any:
         return await asyncio.wait_for(
@@ -247,6 +310,8 @@ class LengthDelimitedTransport(Transport):
     async def send(self, envelope: MessageEnvelope) -> None:
         if self._closed:
             raise ChannelClosedError("network transport is closed")
+        if self.authenticated_peer is not None and self._local_certificate_identity is not None:
+            envelope = self._with_security_transcript(envelope)
         payload = envelope.to_json().encode("utf-8")
         if len(payload) > self.config.max_message_bytes:
             raise MessageTooLargeError(
@@ -277,6 +342,50 @@ class LengthDelimitedTransport(Transport):
         envelope = MessageEnvelope.from_json(payload.decode("utf-8"))
         self._validate_secure_envelope(envelope)
         return envelope
+
+    def _with_security_transcript(self, envelope: MessageEnvelope) -> MessageEnvelope:
+        peer = self.authenticated_peer
+        local = self._local_certificate_identity
+        if peer is None or local is None or self._tls_version is None:
+            raise AuthenticationError(
+                "Secure transcript requires authenticated TLS endpoints.",
+                code="security_transcript_unavailable",
+            )
+        declared_value = envelope.metadata.get("peer_identity")
+        if not isinstance(declared_value, dict):
+            raise AuthenticationError(
+                "Secure envelope requires a declared peer_identity object.",
+                code="declared_identity_missing",
+            )
+        declared = PeerIdentity.from_dict(declared_value)
+        nonce = envelope.metadata.get("security_nonce")
+        if not isinstance(nonce, str) or not nonce or len(nonce) > 256:
+            raise AuthenticationError(
+                "Secure envelope requires a bounded non-empty security_nonce.",
+                code="security_nonce_missing",
+            )
+        sender = replace(local, capabilities=declared.capabilities)
+        transcript = SecurityTranscript.build(
+            protocol_version=envelope.protocol_version,
+            requested_profile=self.config.security_config.profile.value,
+            selected_profile=self.config.security_config.profile.value,
+            sender=sender,
+            receiver=peer,
+            tls_version=self._tls_version,
+            negotiated_group=self._negotiated_group(),
+            session_id=envelope.session_id,
+            handshake_nonce=nonce,
+            timestamp=envelope.created_at,
+        )
+        return replace(
+            envelope,
+            metadata={**envelope.metadata, "security_transcript": transcript.to_dict()},
+        )
+
+    def _negotiated_group(self) -> str | None:
+        if self.config.security_config.profile == SecurityProfile.HYBRID_PQ:
+            return "X25519MLKEM768"
+        return None
 
     def _validate_secure_envelope(self, envelope: MessageEnvelope) -> None:
         if self.config.security_config.profile not in (
@@ -311,6 +420,30 @@ class LengthDelimitedTransport(Transport):
                 "Secure envelope requires a bounded non-empty security_nonce.",
                 code="security_nonce_missing",
             )
+        transcript_value = envelope.metadata.get("security_transcript")
+        if not isinstance(transcript_value, dict):
+            raise AuthenticationError(
+                "Secure envelope requires an authenticated security_transcript extension.",
+                code="security_transcript_missing",
+            )
+        local = self._local_certificate_identity
+        if local is None or self._tls_version is None:
+            raise AuthenticationError(
+                "Secure transcript requires authenticated TLS endpoints.",
+                code="security_transcript_unavailable",
+            )
+        verify_security_transcript(
+            transcript_value,
+            protocol_version=envelope.protocol_version,
+            profile=self.config.security_config.profile,
+            sender=peer,
+            receiver=local,
+            tls_version=self._tls_version,
+            negotiated_group=self._negotiated_group(),
+            session_id=envelope.session_id,
+            handshake_nonce=nonce,
+            timestamp=envelope.created_at,
+        )
         created_at = validate_timestamp(envelope.created_at, field_name="created_at").timestamp()
         replay_scope = f"{peer.credential_fingerprint}|{envelope.session_id}"
         self.config.replay_protection.check_and_record(
@@ -318,6 +451,14 @@ class LengthDelimitedTransport(Transport):
             envelope.sequence,
             nonce=nonce,
             created_at_ts=created_at,
+            context=ReplayContext(
+                peer_id=peer.peer_id,
+                session_id=envelope.session_id,
+                credential_fingerprint=peer.credential_fingerprint,
+                security_profile=self.config.security_config.profile.value,
+            )
+            if hasattr(self.config.replay_protection, "generation")
+            else None,
         )
 
         operation = envelope.metadata.get("operation")
@@ -371,6 +512,13 @@ class TcpTransport(LengthDelimitedTransport):
                 code="tls_context_override_forbidden",
                 details={"profile": profile.value},
             )
+        if config.tls_context_provider is not None:
+            if supplied is not None:
+                raise SecurityError(
+                    "TLS reload provider cannot be combined with an SSLContext override.",
+                    code="tls_context_override_forbidden",
+                )
+            return config.tls_context_provider.context(is_server=is_server)
         return supplied or build_ssl_context(config.security_config, is_server=is_server)
 
     @classmethod

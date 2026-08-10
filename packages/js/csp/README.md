@@ -8,6 +8,14 @@ not open TLS sockets, read private keys, verify certificates, or advertise
 provider-backed cryptography. Use a platform transport such as
 `@handoffkit/node` for those capabilities.
 
+`DistributedScheduler` accepts a synchronous state-store contract, but this
+browser-safe package ships no filesystem backend. `@handoffkit/node` provides
+the optional bounded/checksummed file store. With it, queued work, counters,
+and dedup identities survive restart; in-flight assignments become explicit
+`interrupted` records requiring retry/fail by default. The opt-in
+`auto_resume` path requeues them as at-least-once work only; exactly-once
+effects are not claimed.
+
 ```bash
 pnpm add @handoffkit/csp
 ```

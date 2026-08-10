@@ -42,17 +42,40 @@ durable recovery.
 
 ## 1.19 development - security and native compute
 
-Implemented on the development branch: real TLS 1.3 paths in Python, Node, Go,
+The green development baseline contains real TLS 1.3 paths in Python, Node, Go,
 and Rust; certificate-bound identity/authorization/replay; maintained Ed25519
 providers; provider-dependent hybrid TLS in compatible Node/Go environments;
 five-runtime security conformance; a bounded C++ `std::jthread` worker; and a
-real cpp-ml TrainingJob/EvaluationJob path with progress and checkpoint/report
+real cpp-ml TrainingJob/EvaluationJob path with progress and signed checkpoint
 artifacts.
 
-Not implemented and excluded from current public scope: C++ TLS, ARM64/edge
-validation, low-memory/unstable-network qualification, Studio security
-visibility, durable session/job/replay recovery, OS keystores, trust-store live
-reload, certificate rotation, CRL/OCSP, and zeroization guarantees.
+Later finalization work added optional durable replay in the four secure
+runtimes, durable local revocation, live trust/certificate reload and rotation,
+a bounded Go completed-job ledger, native Linux ARM64 runner configuration,
+applied
+edge profiles, and read-only Studio visibility sourced from real Go gateway
+events. The Python, Node, Go, and Rust distributed schedulers also gained an
+optional shared-format durable store for queued jobs, counters, and dedup
+identities. The file stores support validated private backup/restore before
+runtime startup. Restarted in-flight assignments are marked interrupted by
+default; opt-in auto-resume requeues them as at-least-once work. These capabilities are classified as
+**experimental** in the security ledger, with the documented scope limits
+preserved. No capability is promoted by the roadmap text alone.
 
-These entries describe development status, not a released 1.19 product.
-Runtime security APIs remain experimental until the documented gaps close.
+Provider-dependent C++ TLS is now available behind `HANDOFFKIT_WITH_TLS=ON`
+with OpenSSL TLS 1.3/mTLS, file-backed CRL, signed OCSP response validation,
+and a common certificate/replay/authorization/dispatch path. OCSP responder
+fetch (AIA/HTTP/HTTPS), cross-runtime OS-keystore adapters, and verified global
+secret zeroization remain unavailable; C++ selects Windows Credential Manager,
+macOS Keychain, or Linux Secret Service only when detected, and native
+`SecureBuffer` remains scoped.
+Still incomplete: universal artifact-ingestion enforcement, durable
+channel/session buffers, unsupported durable state migrations, upgrade/rollback
+orchestration, automatic in-flight compute resumption, exactly-once external
+effects, broad ARM64 device/OS qualification, unstable-network qualification,
+and reproducible remote benchmark archives.
+
+These entries describe development status, not a released 1.19 product. The
+authoritative evidence and exact classifications are in
+[`HK_CSP_SECURITY.md`](./HK_CSP_SECURITY.md). Forward release planning starts at
+[`docs/roadmap/README.md`](../roadmap/README.md).

@@ -4,9 +4,10 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 SRC="${SRC:-$ROOT/packages/cpp}"
-BUILD="${BUILD:-$ROOT/packages/cpp/build-consumer-smoke}"
-PREFIX="${PREFIX:-$HOME/handoffkit-prefix-smoke}"
-CONSUMER_BUILD="${CONSUMER_BUILD:-$ROOT/packages/cpp/build-consumer}"
+BUILD="${BUILD:-$ROOT/.local-tests/cpp-consumer-smoke-build}"
+PREFIX="${PREFIX:-$ROOT/.local-tests/cpp-prefix-smoke}"
+CONSUMER_BUILD="${CONSUMER_BUILD:-$ROOT/.local-tests/cpp-consumer-build}"
+OUTPUT="${OUTPUT:-$ROOT/.local-tests/cpp-consumer-reports}"
 
 echo "== configure handoffkit =="
 cmake -S "$SRC" -B "$BUILD" \
@@ -40,7 +41,6 @@ BIN="$CONSUMER_BUILD/consumer_core"
 if [[ ! -x "$BIN" ]]; then
   BIN="$(find "$CONSUMER_BUILD" -type f -name 'consumer_core' -o -name 'consumer_core.exe' | head -n1)"
 fi
-OUT="$ROOT/packages/cpp/.local-tests-consumer-reports"
-"$BIN" "$OUT"
+"$BIN" "$OUTPUT"
 
-echo "consumer_install_smoke OK prefix=$PREFIX"
+echo "consumer_install_smoke OK prefix=$PREFIX output=$OUTPUT"

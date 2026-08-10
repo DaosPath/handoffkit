@@ -7,15 +7,17 @@ param(
     [string]$SourceDir = "",
     [string]$BuildDir = "",
     [string]$Prefix = "",
-    [string]$ConsumerBuild = ""
+    [string]$ConsumerBuild = "",
+    [string]$OutputDir = ""
 )
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
 if (-not $SourceDir) { $SourceDir = Join-Path $RepoRoot "packages\cpp" }
-if (-not $BuildDir) { $BuildDir = Join-Path $RepoRoot "packages\cpp\build-consumer-smoke" }
-if (-not $Prefix) { $Prefix = Join-Path $RepoRoot "packages\cpp\.local-prefix-smoke" }
-if (-not $ConsumerBuild) { $ConsumerBuild = Join-Path $RepoRoot "packages\cpp\build-consumer" }
+if (-not $BuildDir) { $BuildDir = Join-Path $RepoRoot ".local-tests\cpp-consumer-smoke-build" }
+if (-not $Prefix) { $Prefix = Join-Path $RepoRoot ".local-tests\cpp-prefix-smoke" }
+if (-not $ConsumerBuild) { $ConsumerBuild = Join-Path $RepoRoot ".local-tests\cpp-consumer-build" }
+if (-not $OutputDir) { $OutputDir = Join-Path $RepoRoot ".local-tests\cpp-consumer-reports" }
 
 Write-Host "== configure handoffkit =="
 cmake -S $SourceDir -B $BuildDir `
@@ -60,9 +62,8 @@ if (-not (Test-Path $exe)) {
         Where-Object { $_.Extension -in @(".exe", "") -or $_.Name -eq "consumer_core" } |
         Select-Object -First 1 -ExpandProperty FullName
 }
-$outDir = Join-Path $RepoRoot "packages\cpp\.local-tests-consumer-reports"
-& $exe $outDir
+& $exe $OutputDir
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Write-Host "consumer_install_smoke OK prefix=$Prefix"
+Write-Host "consumer_install_smoke OK prefix=$Prefix output=$OutputDir"
 exit 0

@@ -54,17 +54,18 @@ inline Tensor dequantize_int8(const QuantizedTensor& q) {
     return t;
 }
 
-/// Multi-GPU / distributed training — F6 explicit non-implementation hooks.
+/// Data-parallel capability report. The in-process CPU simulator is real;
+/// networked and NCCL backends are not provided here.
 struct DistConfig {
     int world_size = 1;
     int rank = 0;
-    std::string backend{"none"};  // none | nccl_stub
+    std::string backend{"none"};  // none | cpu_sim
 };
 
-inline bool dist_available() { return true; }  // cpu_sim DP available
+inline bool dist_available() { return true; }  // in-process cpu_sim DP
 
 inline std::string dist_status() {
-    return "data-parallel cpu_sim allreduce available; NCCL optional when multi-GPU CUDA present";
+    return "in-process data-parallel cpu_sim allreduce available; networked and NCCL backends unavailable";
 }
 
 }  // namespace ml

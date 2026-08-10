@@ -17,7 +17,9 @@ Experimental Go implementation of HK-CSP 1.0 for HandoffKit 1.19 development.
   capability detection, negotiated-group checks on wrapped sockets, and no
   profile fallback;
 - subprocess workers without shell invocation;
-- worker registry, capability routing, heartbeats, leases, and initial scheduler;
+- worker registry, capability routing, heartbeats, leases, and an optional
+  bounded/checksummed durable scheduler store with validated private backup and
+  restore;
 - real stdio interoperability with Python, JavaScript, and Rust;
 - local CLI, worker, and daemon binaries.
 
@@ -25,9 +27,16 @@ Experimental Go implementation of HK-CSP 1.0 for HandoffKit 1.19 development.
 
 The wire contract remains HK-CSP 1.0. Go runtime and security APIs remain
 experimental. Real-socket integration and race tests cover the secure path,
-but this is not a global cluster scheduler. Certificate rotation, CRL/OCSP,
-durable secure replay/session recovery, multi-host consensus, Kubernetes
-orchestration, and durable distributed queues are unavailable.
+but this is not a global cluster scheduler. The secure TCP path has optional
+durable replay, durable local revocation, and atomic certificate/trust reload.
+The optional cpp-ml gateway adds a durable idempotency/result ledger with
+validated private backup/restore and a signed snapshot gate around a same-host C++ worker process. CRL/OCSP, general
+durable channel/session recovery, exactly-once effects, multi-host consensus,
+and Kubernetes orchestration remain unavailable. Scheduler queues can survive
+restart when its store is configured; restarted in-flight assignments are
+marked interrupted for explicit retry/fail by default. The opt-in
+`NewSchedulerWithStoreAutoResume`/`AutoResumeInterrupted` path requeues them
+deterministically as at-least-once work only.
 
 ## Commands
 

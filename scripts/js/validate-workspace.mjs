@@ -21,7 +21,7 @@ for (const { short, packageRoot, manifest } of manifests) {
   if (names.has(manifest.name)) fail(`duplicate package name ${manifest.name}`);
   names.add(manifest.name);
   if (manifest.name !== `@handoffkit/${short}`) fail(`${short}: unexpected name ${manifest.name}`);
-  if (!/^\d+\.\d+\.\d+$/.test(manifest.version)) fail(`${manifest.name}: invalid semantic version`);
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(manifest.version)) fail(`${manifest.name}: invalid semantic version`);
   if (manifest.license !== "MIT") fail(`${manifest.name}: license must be MIT`);
   if (manifest.type !== "module") fail(`${manifest.name}: type must be module`);
   if (manifest.sideEffects !== false) fail(`${manifest.name}: sideEffects must be false`);

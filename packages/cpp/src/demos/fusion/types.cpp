@@ -414,7 +414,7 @@ void apply_fusion_tier(FusionConfig& config, FusionTier tier) {
             config.generation = {1000, 600, 1400, 1600, -1.0, -1.0, nlohmann::json::object()};
             break;
         case FusionTier::Pro:
-            config.generation = {1300, 800, 2400, 2600, -1.0, -1.0, nlohmann::json::object()};
+            config.generation = {4000, 2000, 6000, 4000, -1.0, -1.0, nlohmann::json::object()};
             break;
         case FusionTier::Ultra:
             config.generation = {1400, 800, 2800, 3000, -1.0, -1.0, nlohmann::json::object()};

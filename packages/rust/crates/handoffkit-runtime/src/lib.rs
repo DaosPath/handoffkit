@@ -4,6 +4,7 @@ mod channel;
 mod dedup;
 mod distributed;
 mod error;
+mod scheduler_state;
 mod session;
 mod tools;
 mod tracing;
@@ -17,6 +18,10 @@ pub use distributed::{
 };
 pub use error::{RuntimeError, RuntimeResult};
 pub use handoffkit_protocol::RuntimeMode;
+pub use scheduler_state::{
+    FileSchedulerStateStore, SchedulerStateStore, DEFAULT_SCHEDULER_STATE_BYTES,
+    SCHEDULER_STATE_FORMAT, SCHEDULER_STATE_FORMAT_VERSION,
+};
 pub use session::{
     CspRuntime, CspSession, DeliveryReceipt, ProcessContext, ProcessHandle, RuntimeEvent,
     SessionDiagnostics, SessionState,

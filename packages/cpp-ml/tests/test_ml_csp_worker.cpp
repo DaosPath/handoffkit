@@ -138,8 +138,16 @@ int main() {
     handoffkit::ml::verify_local_artifact(dataset);
 
     Collector collector;
+    auto artifact_policy = std::make_shared<handoffkit::csp::ArtifactIngestionPolicy>();
+    artifact_policy->allowed_roots = {scratch};
+    artifact_policy->snapshot_directory = scratch / "verified-snapshots";
+    artifact_policy->quarantine_directory = scratch / "quarantine";
+    artifact_policy->allowed_media_types = {
+        "application/x-ndjson",
+        "application/vnd.handoffkit.checkpoint"};
+    artifact_policy->max_size_bytes = 16 * 1024 * 1024;
     handoffkit::ml::MlCspWorker worker(
-        {"ml-worker-1", 1, 4},
+        {"ml-worker-1", 1, 4, artifact_policy},
         [&](const auto& value) { collector.add_progress(value); },
         [&](const auto& value) { collector.add_result(value); });
     const auto& capabilities = worker.capabilities();
@@ -148,6 +156,8 @@ int main() {
     REQUIRE(capabilities.memory_bytes > 0);
     REQUIRE(capabilities.metadata.contains("cuda_compiled"));
     REQUIRE(capabilities.metadata.contains("cuda_available"));
+    REQUIRE(capabilities.metadata.at("artifact_gate") == "sha256-policy-snapshot");
+    REQUIRE(capabilities.metadata.at("artifact_allowed_roots") == 1);
     REQUIRE(capabilities.metadata.at("cuda_available").get<bool>() == capabilities.cuda);
     REQUIRE(capabilities.operations.size() == 2);
 
@@ -189,7 +199,17 @@ int main() {
     REQUIRE(collector.wait_result_count(3));
     const auto bad_result = collector.result_for("bad-integrity");
     REQUIRE(bad_result.has_value() && bad_result->nack.has_value());
-    REQUIRE(bad_result->nack->code == "artifact_integrity_failed");
+    REQUIRE(bad_result->nack->code == "artifact_integrity_mismatch");
+
+    auto denied_media = dataset;
+    denied_media.media_type = "application/octet-stream";
+    auto media_job = training_job("bad-media", denied_media, scratch / "bad-media-out", 1);
+    const auto media_submit = worker.submit_training(media_job, "message-bad-media");
+    REQUIRE(media_submit.accepted);
+    REQUIRE(collector.wait_result_count(4));
+    const auto media_result = collector.result_for("bad-media");
+    REQUIRE(media_result.has_value() && media_result->nack.has_value());
+    REQUIRE(media_result->nack->code == "artifact_media_type_denied");
 
     auto denied = training_job("denied", dataset, scratch / "denied-out", 1);
     denied.requested_capabilities = {"tpu"};
@@ -202,7 +222,7 @@ int main() {
     REQUIRE(cancel_submit.accepted);
     REQUIRE(collector.wait_for_progress("cancel-real"));
     REQUIRE(worker.cancel("cancel-real"));
-    REQUIRE(collector.wait_result_count(4));
+    REQUIRE(collector.wait_result_count(5));
     const auto cancel_result = collector.result_for("cancel-real");
     REQUIRE(cancel_result.has_value() && cancel_result->nack.has_value());
     REQUIRE(cancel_result->nack->code == "job_cancelled");
@@ -211,7 +231,7 @@ int main() {
     deadline.deadline = rfc3339_after(200ms);
     const auto deadline_submit = worker.submit_training(deadline, "message-deadline");
     REQUIRE(deadline_submit.accepted);
-    REQUIRE(collector.wait_result_count(5));
+    REQUIRE(collector.wait_result_count(6));
     const auto deadline_result = collector.result_for("deadline-real");
     REQUIRE(deadline_result.has_value() && deadline_result->nack.has_value());
     REQUIRE(deadline_result->nack->code == "deadline_exceeded");

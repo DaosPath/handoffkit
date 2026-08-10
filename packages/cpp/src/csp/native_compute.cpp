@@ -1,4 +1,5 @@
 #include <handoffkit/csp/native_compute.hpp>
+#include <handoffkit/csp/security.hpp>
 
 #include <condition_variable>
 #include <ctime>
@@ -39,6 +40,11 @@ DeliveryNack make_nack(
         retryable,
         utc_now(),
         nlohmann::json::object()};
+}
+
+std::size_t edge_queue_capacity(const EdgeRuntimeProfile& profile) {
+    profile.validate();
+    return profile.channel_capacity;
 }
 
 }  // namespace
@@ -239,6 +245,13 @@ struct NativeComputePool::Impl {
                     error.code(),
                     error.what(),
                     error.retryable());
+            } catch (const SecurityError& error) {
+                result = NativeAckNackAdapter::failure(
+                    record->job.job_id,
+                    record->job.message_id,
+                    error.code(),
+                    error.what(),
+                    false);
             } catch (const std::exception& error) {
                 result = NativeAckNackAdapter::failure(
                     record->job.job_id,
@@ -285,6 +298,17 @@ NativeComputePool::NativeComputePool(
           queue_capacity,
           std::move(progress_handler),
           std::move(result_handler))) {}
+
+NativeComputePool::NativeComputePool(
+    const EdgeRuntimeProfile& profile,
+    std::size_t worker_count,
+    NativeProgressHandler progress_handler,
+    NativeResultHandler result_handler)
+    : NativeComputePool(
+          worker_count,
+          edge_queue_capacity(profile),
+          std::move(progress_handler),
+          std::move(result_handler)) {}
 
 NativeComputePool::~NativeComputePool() {
     if (impl_) shutdown(ShutdownMode::cancel);

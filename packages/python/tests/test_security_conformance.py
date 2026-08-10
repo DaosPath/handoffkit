@@ -43,6 +43,34 @@ def test_security_wire_conformance() -> None:
     assert signed.canonical_payload().decode() == VECTORS["signed_artifact"]["canonical_payload"]
 
 
+def test_finalization_unavailable_fixture_is_fail_closed() -> None:
+    fixture = json.loads(
+        (CONTRACTS / "test-fixtures/security/finalization-unavailable-v1.json")
+        .read_text(encoding="utf-8")
+    )
+    expected = {
+        "ocsp_fetch": "ocsp_fetch_unavailable",
+        "exactly_once": "exactly_once_unavailable",
+        "zeroization_global": None,
+        "ml_dsa": "artifact_algorithm_unsupported",
+        "ecdsa": "artifact_algorithm_unsupported",
+        "slh_dsa": "artifact_algorithm_unsupported",
+        "hybrid_pq": "security_profile_unavailable",
+    }
+    assert fixture["format"] == "handoffkit.security.unavailable"
+    assert fixture["format_version"] == 1
+    assert fixture["generation"] == 1
+    assert {item["name"] for item in fixture["capabilities"]} == set(expected)
+    for item in fixture["capabilities"]:
+        assert item["status"] == "unavailable"
+        assert item["fail_closed"] is True
+        assert item.get("error_code") == expected[item["name"]]
+        assert item["participants"] == ["python", "javascript", "go", "rust", "cpp"]
+        if item["name"] == "ecdsa":
+            assert item["available_in"] == ["python", "cpp"]
+            assert item["unavailable_in"] == ["javascript", "go", "rust"]
+
+
 @pytest.mark.parametrize("case", VECTORS["profile_negotiation"], ids=lambda case: case["id"])
 def test_profile_negotiation_conformance(case: dict[str, object]) -> None:
     if "error_code" in case:

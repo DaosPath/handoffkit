@@ -26,6 +26,42 @@
     "trust_domain": {
       "type": "string"
     },
+    "credential_source": {
+      "type": "string",
+      "enum": ["file", "os_keystore"],
+      "default": "file"
+    },
+    "credential_target": {
+      "type": ["string", "null"]
+    },
+    "ca_cert_path": {
+      "type": ["string", "null"]
+    },
+    "cert_path": {
+      "type": ["string", "null"]
+    },
+    "key_path": {
+      "type": ["string", "null"]
+    },
+    "crl_path": {
+      "type": ["string", "null"]
+    },
+    "ocsp_response_path": {
+      "type": ["string", "null"]
+    },
+    "ocsp_fetch": {
+      "type": "boolean",
+      "default": false,
+      "description": "Unavailable in current runtimes; true must fail closed."
+    },
+    "ocsp_responder_url": {
+      "type": ["string", "null"],
+      "description": "Responder fetch is unavailable; retained only for structured rejection."
+    },
+    "require_ocsp": {
+      "type": "boolean",
+      "default": false
+    },
     "replay_window_seconds": {
       "type": "integer",
       "minimum": 1,

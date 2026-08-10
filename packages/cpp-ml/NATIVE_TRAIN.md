@@ -1,6 +1,6 @@
 # Native train toolkit (HandoffKit ecosystem)
 
-> **Package status: FROZEN** — see [STATUS.md](./STATUS.md). Use as-is; no feature work here for now.
+> **Package status: ACTIVE 0.6.0 HK-CSP integration** — see [STATUS.md](./STATUS.md). Native model scope remains bounded; direct TLS worker work is experimental/provider-dependent.
 
 Goal: the **best training experience that stays inside pure C++** — same monorepo,
 no Python, no cuBLAS product dependency, core stays light.
@@ -8,7 +8,7 @@ no Python, no cuBLAS product dependency, core stays light.
 This is **not** Unsloth/HF scale and **not** a 4B foundation finetuner.  
 It **is** a coherent native pipeline for a small GPT student you own end-to-end.
 
-## Tool map (v0.5)
+## Tool map (v0.6.0)
 
 | Command | Role |
 |---------|------|

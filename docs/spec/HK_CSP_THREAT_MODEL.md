@@ -16,32 +16,35 @@ weakly protected files.
 
 | Boundary | Implemented control and residual risk |
 |---|---|
-| Python/Node/Go/Rust TCP | Real TLS 1.3 and mTLS paths authenticate certificates and hostnames. The profiles remain experimental; C++ has no TLS backend. |
+| Python/Node/Go/Rust TCP | Real TLS 1.3 and mTLS paths authenticate certificates and hostnames. The profiles remain experimental; C++ has a provider-gated OpenSSL path when `HANDOFFKIT_WITH_TLS=ON`. |
 | Framing/decoding | Stable size/depth/version validation precedes authentication-sensitive dispatch. |
-| Profile selection | Exact, fail-closed selection is conformance-tested. The peer handshake has no authenticated profile-negotiation transcript, so full downgrade defense remains planned. |
+| Profile selection | Exact, fail-closed selection and an additive authenticated TLS endpoint transcript are integrated in Python, Node, Go, Rust, and C++ shared-vector paths. C++ TLS is provider-gated and has the common receive/validate/replay/authorize/dispatch route; provider/session qualification remains experimental. |
 | Peer identity | Four secure runtimes derive identity from verified certificate SAN/fingerprint and compare all declared claims. Local policy supplies capabilities. |
 | Authorization | Four secure receive paths authorize locally after authentication and replay checks. |
-| Replay | Peer/session nonce, sequence, and timestamp checks are mandatory on secure framed paths, but their state is process-local. |
-| Durable state | Business deduplication exists. Secure replay persistence, session/job recovery, migrations, and corruption quarantine do not. |
-| Native execution | The C++ bounded jthread worker and cpp-ml job path are real and concurrently tested. They are not themselves remote TLS transports. |
-| Artifact provenance | Maintained Ed25519 providers verify a shared vector in Python, Node, Go, Rust, and optional C++ Crypto. Universal artifact ingestion enforcement is incomplete. |
-| Keys/credentials | Python/Node development file stores check lifecycle/path/POSIX permissions. OS keystores, live rotation/reload, CRL/OCSP, and zeroization guarantees are absent. |
+| Replay | Peer/session/credential nonce, sequence, and timestamp checks are mandatory. Optional durable backends in all four secure runtimes survive listener restart and quarantine invalid state. |
+| Durable state | Cryptographic replay is durable when configured. Python/Node/Go/Rust and the C++ `DurableScheduler` preserve bounded queued work, counters, dedup identities, and explicit interrupted records; C++ proves v0→v1 migration and atomic restart recovery in `test_durable_scheduler`. Opt-in auto-resume is deterministic at-least-once. The Go ML gateway separately stores terminal results. Exactly-once external effects, channel/session buffers, unsupported migrations, and consensus remain unavailable. |
+| Native execution | The C++ bounded jthread worker and cpp-ml job path are real and concurrently tested. C++ also has a provider-gated OpenSSL TLS 1.3/mTLS transport and common `CspDispatcher` receive path behind `HANDOFFKIT_WITH_TLS=ON`; cpp-ml supports both the legacy Go-terminated gateway and the direct C++ TLS worker, neither implying exactly-once effects. |
+| Artifact provenance | Maintained Ed25519 providers verify a shared vector. The Go ML gateway rejects input gates unless hash, required signature, producer, signer, and trust policy are all configured; Go/C++ snapshot gates are mandatory on the remote cpp-ml route, while unrelated consumers remain outside this enforcement boundary. |
+| Keys/credentials | Python/Node development file stores check lifecycle/path/POSIX permissions. Four TLS runtimes support tested credential/trust reload; C++ can select Windows Credential Manager, macOS Keychain, or Linux Secret Service when detected, and OpenSSL can enforce PEM CRL plus signed OCSP response files. Global zeroization and cross-runtime OS-store adapters remain absent. |
 | Hybrid TLS | Compatible Node and Go providers prove X25519MLKEM768 handshakes, including Node 24 to Go 1.26 mTLS interoperability. Other providers fail closed and report unavailable. |
+| Edge deployment | Profiles apply bounded runtime limits. Native Linux ARM64 and macOS ARM64 CI jobs are configured for the named runtime, security, memory, C++, and cpp-ml routes, but those hosted jobs have not run from this working tree. No ARM64 release or unstable-network guarantee is claimed. |
+| Studio visibility | The optional Go gateway emits a private, bounded, validated event file. Studio reads it read-only, accepts only all-Go gateway event sources, and rejects unsafe, mixed-runtime, or corrupt files; no Studio action can alter security policy, credentials, dispatch, or runtime state. |
 
 ## Threat/control ledger
 
 | Threat | Required control | Current status |
 |---|---|---|
-| Eavesdropping | TLS 1.3 on public remote transport | experimental in Python/Node/Go/Rust; unavailable in C++ |
+| Eavesdropping | TLS 1.3 on public remote transport | experimental in Python/Node/Go/Rust; provider-dependent in C++ with OpenSSL |
 | Frame bombing | Bounds before allocation | stable baseline |
 | Server impersonation | Trusted roots and hostname/SAN verification | integration-tested in four TLS runtimes |
 | Client/node/worker impersonation | mTLS plus certificate-derived identity | integration-tested in four TLS runtimes |
 | Capability escalation | Local authorized grants, never JSON claims | integrated on four secure receive paths |
-| Replay/reordering | Peer/session nonce, sequence, timestamp | integrated but process-local; restart durability unavailable |
-| Security-profile downgrade | Exact selection plus authenticated transcript | exact local selection implemented; authenticated transcript planned |
-| Artifact tampering/forgery | SHA-256 plus trusted Ed25519 signer policy | implemented APIs/shared vectors; universal ingestion gate incomplete |
-| Revoked/stale credentials | Expiry, revocation, reload | expiry/local denylist implemented; CRL/OCSP/reload/rotation unavailable |
-| State poisoning | Authenticated/checksummed state, migration, quarantine | unavailable |
+| Replay/reordering | Peer/session nonce, sequence, timestamp | integrated; durable when configured in four secure runtimes |
+| Security-profile downgrade | Exact selection plus authenticated transcript | integrated on Python/Node/Go/Rust TLS framed paths and C++ shared-vector verification; C++ dispatcher enforces the exact provider profile and authenticated peer path, while provider/session qualification remains experimental |
+| Artifact tampering/forgery | SHA-256 plus trusted Ed25519 signer policy | mandatory on remote cpp-ml; universal ingestion remains incomplete |
+| Revoked/stale credentials | Expiry, revocation, reload | durable local policy and reload/rotation integrated; C++ OpenSSL file CRL and signed OCSP GOOD/REVOKED response checks are tested; OCSP responder fetch remains unavailable |
+| State poisoning | Checksums, bounds, atomic commit, quarantine | replay/revocation and four-runtime scheduler state implemented; ML result ledger implemented; general session state unavailable |
+| Observability deception | Validated private event schema and explicit empty/invalid state | experimental Go gateway emitter and Studio parser; no mock runtime claims |
 | Harvest-now-decrypt-later | Provider-backed hybrid group with proof | provider-dependent in compatible Node/Go environments |
 
 ## Non-goals

@@ -8,6 +8,8 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::{DurableRevocationPolicy, RevocationKind};
+
 #[derive(Debug, Clone)]
 pub struct ArtifactSigningCredential {
     pub signer_identity: String,
@@ -43,6 +45,7 @@ pub struct ArtifactTrustPolicy {
     pub credentials: HashMap<String, ArtifactSigningCredential>,
     pub allowed_algorithms: HashSet<String>,
     pub max_future_skew_seconds: u64,
+    pub revocation_policy: Option<DurableRevocationPolicy>,
 }
 
 impl ArtifactTrustPolicy {
@@ -54,6 +57,7 @@ impl ArtifactTrustPolicy {
                 .collect(),
             allowed_algorithms: HashSet::from(["ed25519".to_string()]),
             max_future_skew_seconds: 10,
+            revocation_policy: None,
         }
     }
 }
@@ -129,6 +133,15 @@ pub fn verify_signed_artifact(
     policy: &ArtifactTrustPolicy,
     now: u64,
 ) -> RuntimeResult<()> {
+    if artifact.algorithm != "ed25519" {
+        return Err(RuntimeError::new(
+            "artifact_algorithm_unsupported",
+            format!(
+                "unsupported artifact signature algorithm: {}",
+                artifact.algorithm
+            ),
+        ));
+    }
     artifact
         .validate()
         .map_err(|error| RuntimeError::new("artifact_contract_invalid", error.0))?;
@@ -159,7 +172,16 @@ pub fn verify_signed_artifact(
             "artifact signer identity does not match local key policy",
         ));
     }
-    if credential.revoked {
+    let signer_revoked = if let Some(revocations) = &policy.revocation_policy {
+        revocations.is_revoked(
+            RevocationKind::SignerFingerprint,
+            &artifact.key_fingerprint,
+            now,
+        )? || revocations.is_revoked(RevocationKind::PeerId, &artifact.signer_identity, now)?
+    } else {
+        false
+    };
+    if credential.revoked || signer_revoked {
         return Err(RuntimeError::new(
             "artifact_signer_revoked",
             "artifact signer key is revoked",

@@ -9,7 +9,7 @@ int main() {
 #ifndef HANDOFFKIT_ML_WITH_CSP
     throw std::runtime_error("installed cpp-ml package lacks HK-CSP integration");
 #endif
-    if (std::string(handoffkit::ml::version()) != "0.5.0") {
+    if (std::string(handoffkit::ml::version()) != "0.6.0") {
         throw std::runtime_error("cpp-ml package version metadata mismatch");
     }
     const auto capabilities = handoffkit::ml::detect_ml_worker_capabilities("consumer", 1);

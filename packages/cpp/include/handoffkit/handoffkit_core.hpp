@@ -11,6 +11,11 @@
 #include <handoffkit/csp/artifact_security.hpp>
 #include <handoffkit/csp/native_compute.hpp>
 #include <handoffkit/csp/security.hpp>
+#include <handoffkit/csp/os_keystore.hpp>
+#include <handoffkit/csp/durable_scheduler.hpp>
+#include <handoffkit/csp/dispatcher.hpp>
+#include <handoffkit/csp/secure_memory.hpp>
+#include <handoffkit/csp/tls_transport.hpp>
 #include <handoffkit/evaluation/workflow_eval.hpp>
 #include <handoffkit/io/html_report.hpp>
 #include <handoffkit/io/reports.hpp>

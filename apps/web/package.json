@@ -10,25 +10,26 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:studio": "node --experimental-strip-types src/lib/studio/parse-rankings.test.mjs",
+    "test:studio": "node --experimental-strip-types --test src/lib/studio/parse-rankings.test.mjs src/lib/studio/security-events.test.mjs",
+    "test:studio:e2e": "node scripts/studio-security-smoke.mjs",
     "check": "pnpm run lint && pnpm run typecheck && pnpm run test:studio"
   },
   "dependencies": {
     "@handoffkit/core": "workspace:*",
-    "framer-motion": "^12.42.2",
-    "lucide-react": "^1.23.0",
-    "next": "16.2.10",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "framer-motion": "^12.43.0",
+    "lucide-react": "^1.28.0",
+    "next": "16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^26.1.1",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.10",
-    "tailwindcss": "^4",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "16.3.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3"
   },
   "engines": {

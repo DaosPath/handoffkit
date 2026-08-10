@@ -84,14 +84,21 @@ std::vector<BenchCase> load_or_builtin() {
         if (loaded && !loaded.value().empty()) return loaded.value();
     }
     // Optional well-known monorepo path (runtime only — not compiled into LOC)
-    const std::filesystem::path candidates[] = {
-        "packages/python/handoffkit/benchmarks/data/doctor_cases_30.json",
-        "../packages/python/handoffkit/benchmarks/data/doctor_cases_30.json",
-        "../../packages/python/handoffkit/benchmarks/data/doctor_cases_30.json",
-    };
-    for (const auto& p : candidates) {
-        auto loaded = load_bench_cases_json(p);
-        if (loaded && !loaded.value().empty()) return loaded.value();
+    const auto fixture = std::filesystem::path("handoffkit") / "benchmarks" / "data" /
+                         "doctor_cases_30.json";
+    auto search_root = std::filesystem::current_path();
+    for (std::size_t depth = 0; depth < 8; ++depth) {
+        const std::filesystem::path candidates[] = {
+            search_root / "packages" / "python" / fixture,
+            search_root / "python" / fixture,
+        };
+        for (const auto& path : candidates) {
+            auto loaded = load_bench_cases_json(path);
+            if (loaded && !loaded.value().empty()) return loaded.value();
+        }
+        const auto parent = search_root.parent_path();
+        if (parent.empty() || parent == search_root) break;
+        search_root = parent;
     }
     return builtin_sample_bench_cases();
 }

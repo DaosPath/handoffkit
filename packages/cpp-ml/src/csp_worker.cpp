@@ -219,8 +219,9 @@ std::chrono::system_clock::time_point parse_deadline(const std::string& timestam
         fraction.append(9 - fraction.size(), '0');
         nanos = std::stoll(fraction);
     }
+    const auto duration = std::chrono::seconds(seconds) + std::chrono::nanoseconds(nanos);
     return std::chrono::system_clock::time_point{
-        std::chrono::seconds(seconds) + std::chrono::nanoseconds(nanos)};
+        std::chrono::duration_cast<std::chrono::system_clock::duration>(duration)};
 }
 
 std::optional<std::chrono::system_clock::time_point> deadline_for(
@@ -242,6 +243,18 @@ bool supports_request(
         return false;
     }
     return true;
+}
+
+std::shared_ptr<csp::ArtifactIngestionGate> make_artifact_gate(
+    const MlWorkerOptions& options) {
+    if (options.artifact_policy) {
+        return std::make_shared<csp::ArtifactIngestionGate>(*options.artifact_policy);
+    }
+    csp::ArtifactIngestionPolicy policy;
+    policy.allowed_roots = {std::filesystem::current_path()};
+    policy.snapshot_directory =
+        std::filesystem::temp_directory_path() / "handoffkit-cpp-ml-artifact-snapshots";
+    return std::make_shared<csp::ArtifactIngestionGate>(std::move(policy));
 }
 
 csp::NativeSubmitResult rejected(
@@ -301,11 +314,21 @@ MlCspWorker::MlCspWorker(
     csp::NativeProgressHandler progress_handler,
     csp::NativeResultHandler result_handler)
     : capabilities_(detect_ml_worker_capabilities(options.worker_id, options.worker_threads)),
+      artifact_gate_(make_artifact_gate(options)),
       pool_(std::make_unique<csp::NativeComputePool>(
           options.worker_threads,
           options.queue_capacity,
           std::move(progress_handler),
-          std::move(result_handler))) {}
+          std::move(result_handler))) {
+    capabilities_.metadata["artifact_gate"] = "sha256-policy-snapshot";
+    capabilities_.metadata["artifact_signature_requirement"] =
+        artifact_gate_->policy().signature_requirement ==
+                csp::ArtifactSignatureRequirement::Required
+            ? "required"
+            : "optional";
+    capabilities_.metadata["artifact_allowed_roots"] =
+        artifact_gate_->policy().allowed_roots.size();
+}
 
 MlCspWorker::~MlCspWorker() = default;
 
@@ -329,10 +352,12 @@ csp::NativeSubmitResult MlCspWorker::submit_training(
         return pool_->submit(csp::NativeJob{
             job.job_id,
             message_id,
-            [job](csp::NativeJobContext& context) {
-                verify_artifact(job.dataset);
+            [job, gate = artifact_gate_](csp::NativeJobContext& context) {
+                auto dataset = gate->ingest(job.dataset);
                 context.throw_if_stopped();
-                auto adapted = adapt_training_job(job);
+                auto verified_job = job;
+                verified_job.dataset = dataset.snapshot();
+                auto adapted = adapt_training_job(verified_job);
                 adapted.config.stop_requested = [&context] { return context.stop_requested(); };
                 adapted.config.progress_callback = [&context](int step, int total, float loss) {
                     context.report_progress(
@@ -380,11 +405,14 @@ csp::NativeSubmitResult MlCspWorker::submit_evaluation(
         return pool_->submit(csp::NativeJob{
             job.job_id,
             message_id,
-            [job](csp::NativeJobContext& context) {
-                verify_artifact(job.model);
-                verify_artifact(job.dataset);
+            [job, gate = artifact_gate_](csp::NativeJobContext& context) {
+                auto model = gate->ingest(job.model);
+                auto dataset = gate->ingest(job.dataset);
                 context.throw_if_stopped();
-                auto adapted = adapt_evaluation_job(job);
+                auto verified_job = job;
+                verified_job.model = model.snapshot();
+                verified_job.dataset = dataset.snapshot();
+                auto adapted = adapt_evaluation_job(verified_job);
                 adapted.config.stop_requested = [&context] { return context.stop_requested(); };
                 adapted.config.progress_callback =
                     [&context](int examples, int total, float mean_loss) {

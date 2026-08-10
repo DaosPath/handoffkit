@@ -1,0 +1,57 @@
+{
+  "format": "handoffkit.edge-profiles",
+  "format_version": 1,
+  "profiles": [
+    {
+      "name": "edge-small",
+      "channel_capacity": 16,
+      "max_frame_bytes": 1048576,
+      "pending_ack_limit": 32,
+      "dedup_capacity": 512,
+      "durable_replay_capacity": 2048,
+      "connection_limit": 8,
+      "heartbeat_seconds": 30,
+      "reconnect": { "max_attempts": 5, "base_delay_ms": 250, "max_delay_ms": 5000 },
+      "timeout": { "connect_ms": 5000, "io_ms": 15000, "ack_ms": 10000 },
+      "artifact_limit_bytes": 16777216,
+      "memory_budget_bytes": 268435456,
+      "durable_state_limit_bytes": 8388608,
+      "logging": { "level": "warning", "include_payloads": false, "redact_paths": true },
+      "security_profile": "standard"
+    },
+    {
+      "name": "edge-standard",
+      "channel_capacity": 64,
+      "max_frame_bytes": 4194304,
+      "pending_ack_limit": 128,
+      "dedup_capacity": 2048,
+      "durable_replay_capacity": 10000,
+      "connection_limit": 32,
+      "heartbeat_seconds": 15,
+      "reconnect": { "max_attempts": 5, "base_delay_ms": 100, "max_delay_ms": 3000 },
+      "timeout": { "connect_ms": 5000, "io_ms": 30000, "ack_ms": 30000 },
+      "artifact_limit_bytes": 67108864,
+      "memory_budget_bytes": 1073741824,
+      "durable_state_limit_bytes": 33554432,
+      "logging": { "level": "info", "include_payloads": false, "redact_paths": true },
+      "security_profile": "standard"
+    },
+    {
+      "name": "server",
+      "channel_capacity": 256,
+      "max_frame_bytes": 8388608,
+      "pending_ack_limit": 1024,
+      "dedup_capacity": 16384,
+      "durable_replay_capacity": 100000,
+      "connection_limit": 256,
+      "heartbeat_seconds": 10,
+      "reconnect": { "max_attempts": 8, "base_delay_ms": 50, "max_delay_ms": 2000 },
+      "timeout": { "connect_ms": 5000, "io_ms": 60000, "ack_ms": 60000 },
+      "artifact_limit_bytes": 536870912,
+      "memory_budget_bytes": 4294967296,
+      "durable_state_limit_bytes": 268435456,
+      "logging": { "level": "info", "include_payloads": false, "redact_paths": true },
+      "security_profile": "standard"
+    }
+  ]
+}

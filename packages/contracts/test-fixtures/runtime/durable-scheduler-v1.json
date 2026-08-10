@@ -1,0 +1,71 @@
+{
+  "checksum": "sha256:267d62e47d35d93e10eded77fb6497a2af4bee98624c683f783bedd752084fbf",
+  "completed": 2,
+  "failed": 1,
+  "format": "handoffkit.scheduler.state",
+  "format_version": 1,
+  "generation": 7,
+  "inflight": [],
+  "interrupted": [
+    {
+      "assignment": {
+        "assigned_at": "2026-01-01T00:00:08Z",
+        "assignment_id": "assignment-scheduler-interrupted",
+        "attempt": 1,
+        "job_id": "job-scheduler-interrupted",
+        "lease_deadline": "2026-01-01T00:01:08Z",
+        "metadata": {},
+        "payload": {
+          "input": "artifact://interrupted"
+        },
+        "worker_id": "worker-conformance"
+      },
+      "job": {
+        "deadline": null,
+        "idempotency_key": "scheduler-interrupted",
+        "job_id": "job-scheduler-interrupted",
+        "metadata": {},
+        "operation": "evaluate",
+        "payload": {
+          "input": "artifact://interrupted"
+        },
+        "requested_capabilities": [
+          "evaluate"
+        ]
+      },
+      "reason": "scheduler_restart"
+    }
+  ],
+  "queued": [
+    {
+      "attempt": 1,
+      "job": {
+        "deadline": null,
+        "idempotency_key": "scheduler-queued",
+        "job_id": "job-scheduler-queued",
+        "metadata": {},
+        "operation": "evaluate",
+        "payload": {
+          "input": "artifact://queued"
+        },
+        "requested_capabilities": [
+          "evaluate"
+        ]
+      }
+    }
+  ],
+  "seen": [
+    {
+      "idempotency_key": "scheduler-completed",
+      "job_id": "job-scheduler-completed"
+    },
+    {
+      "idempotency_key": "scheduler-interrupted",
+      "job_id": "job-scheduler-interrupted"
+    },
+    {
+      "idempotency_key": "scheduler-queued",
+      "job_id": "job-scheduler-queued"
+    }
+  ]
+}

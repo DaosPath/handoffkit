@@ -6,15 +6,19 @@ from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+import handoffkit.csp.security as security_module
 from handoffkit.csp import (
+    ARTIFACT_ALGORITHM_ECDSA_P256_SHA256,
     ArtifactSignatureError,
     ArtifactSigner,
     ArtifactSigningCredential,
     ArtifactTrustPolicy,
     ArtifactVerifier,
     SignedArtifact,
+    detect_ecdsa_p256_sha256_support,
 )
 
 VECTOR_PATH = (
@@ -189,3 +193,92 @@ def test_signature_field_without_valid_crypto_is_never_verified(
             now=NOW,
         )
     assert caught.value.code == "artifact_signature_invalid"
+
+
+def _ecdsa_credential(
+    private_key: ec.EllipticCurvePrivateKey,
+    *,
+    valid_from: int = NOW - 100,
+    valid_until: int = NOW + 100,
+    revoked: bool = False,
+) -> ArtifactSigningCredential:
+    public_key_pem = private_key.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    return ArtifactSigningCredential(
+        signer_identity=IDENTITY,
+        public_key_pem=public_key_pem,
+        valid_from=valid_from,
+        valid_until=valid_until,
+        revoked=revoked,
+    )
+
+
+def test_ecdsa_p256_artifact_sign_verify_and_policy_failures() -> None:
+    if not detect_ecdsa_p256_sha256_support():
+        pytest.skip("cryptography provider does not expose ECDSA-P256")
+
+    data = b"handoffkit ecdsa artifact\n"
+    producer = ec.generate_private_key(ec.SECP256R1())
+    wrong_signer = ec.generate_private_key(ec.SECP256R1())
+    signed = ArtifactSigner(producer, IDENTITY).sign("artifact-ecdsa", data, created_at=NOW)
+    assert signed.algorithm == ARTIFACT_ALGORITHM_ECDSA_P256_SHA256
+    policy = ArtifactTrustPolicy(
+        [_ecdsa_credential(producer)],
+        allowed_algorithms=(ARTIFACT_ALGORITHM_ECDSA_P256_SHA256,),
+    )
+    assert ArtifactVerifier.verify_signed_artifact(data, signed, policy, now=NOW)
+
+    roundtrip = SignedArtifact.from_dict(signed.to_dict())
+    assert ArtifactVerifier.verify_signed_artifact(data, roundtrip, policy, now=NOW)
+
+    for candidate_data, candidate, candidate_policy, expected_code in [
+        (b"tampered", signed, policy, "artifact_integrity_mismatch"),
+        (
+            data,
+            SignedArtifact.from_dict({**signed.to_dict(), "signature": "AAAA"}),
+            policy,
+            "artifact_signature_invalid",
+        ),
+        (
+            data,
+            signed,
+            ArtifactTrustPolicy(
+                [_ecdsa_credential(wrong_signer)],
+                allowed_algorithms=(ARTIFACT_ALGORITHM_ECDSA_P256_SHA256,),
+            ),
+            "artifact_signer_untrusted",
+        ),
+        (
+            data,
+            signed,
+            ArtifactTrustPolicy(
+                [_ecdsa_credential(producer, valid_until=NOW - 1)],
+                allowed_algorithms=(ARTIFACT_ALGORITHM_ECDSA_P256_SHA256,),
+            ),
+            "artifact_signer_expired",
+        ),
+        (
+            data,
+            signed,
+            ArtifactTrustPolicy(
+                [_ecdsa_credential(producer, revoked=True)],
+                allowed_algorithms=(ARTIFACT_ALGORITHM_ECDSA_P256_SHA256,),
+            ),
+            "artifact_signer_revoked",
+        ),
+    ]:
+        with pytest.raises(ArtifactSignatureError) as caught:
+            ArtifactVerifier.verify_signed_artifact(
+                candidate_data, candidate, candidate_policy, now=NOW
+            )
+        assert caught.value.code == expected_code
+
+
+def test_ecdsa_provider_unavailable_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+    producer = ec.generate_private_key(ec.SECP256R1())
+    monkeypatch.setattr(security_module, "detect_ecdsa_p256_sha256_support", lambda: False)
+    with pytest.raises(ArtifactSignatureError) as caught:
+        ArtifactSigner(producer, IDENTITY)
+    assert caught.value.code == "artifact_algorithm_unsupported"

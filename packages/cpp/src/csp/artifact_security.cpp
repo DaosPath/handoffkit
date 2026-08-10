@@ -8,8 +8,11 @@
 #include <utility>
 
 #if defined(HANDOFFKIT_WITH_CRYPTO)
+#include <openssl/core_names.h>
+#include <openssl/ec.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
+#include <openssl/provider.h>
 #endif
 
 namespace handoffkit::csp {
@@ -32,26 +35,52 @@ std::int64_t unix_now() {
 
 using BioPtr = std::unique_ptr<BIO, decltype(&BIO_free)>;
 using KeyPtr = std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)>;
+using KeyCtxPtr = std::unique_ptr<EVP_PKEY_CTX, decltype(&EVP_PKEY_CTX_free)>;
 using DigestContextPtr = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>;
 
-KeyPtr load_public_key(const std::string& pem) {
+bool is_ed25519_key(EVP_PKEY* key) {
+    return EVP_PKEY_id(key) == EVP_PKEY_ED25519;
+}
+
+bool is_p256_ec_key(EVP_PKEY* key) {
+    if (EVP_PKEY_id(key) != EVP_PKEY_EC) return false;
+    char group[64] = {0};
+    size_t size = 0;
+    if (EVP_PKEY_get_utf8_string_param(
+            key, OSSL_PKEY_PARAM_GROUP_NAME, group, sizeof(group), &size) != 1) {
+        return false;
+    }
+    return std::string_view(group) == "prime256v1" || std::string_view(group) == "P-256";
+}
+
+bool key_matches_algorithm(EVP_PKEY* key, std::string_view algorithm) {
+    if (algorithm == kArtifactAlgorithmEd25519) return is_ed25519_key(key);
+    if (algorithm == kArtifactAlgorithmEcdsaP256Sha256) return is_p256_ec_key(key);
+    return false;
+}
+
+KeyPtr load_public_key(const std::string& pem, std::string_view algorithm) {
     BioPtr bio(BIO_new_mem_buf(pem.data(), static_cast<int>(pem.size())), BIO_free);
     if (!bio) throw SecurityError("crypto_provider_error", "OpenSSL BIO allocation failed.");
     KeyPtr key(PEM_read_bio_PUBKEY(bio.get(), nullptr, nullptr, nullptr), EVP_PKEY_free);
-    if (!key || EVP_PKEY_id(key.get()) != EVP_PKEY_ED25519) {
+    if (!key || !key_matches_algorithm(key.get(), algorithm)) {
         throw SecurityError(
-            "artifact_key_invalid", "Artifact credential must contain an Ed25519 public key.");
+            "artifact_key_invalid",
+            "Artifact credential key material does not match algorithm '" +
+                std::string(algorithm) + "'.");
     }
     return key;
 }
 
-KeyPtr load_private_key(const std::string& pem) {
+KeyPtr load_private_key(std::string_view pem, std::string_view algorithm) {
     BioPtr bio(BIO_new_mem_buf(pem.data(), static_cast<int>(pem.size())), BIO_free);
     if (!bio) throw SecurityError("crypto_provider_error", "OpenSSL BIO allocation failed.");
     KeyPtr key(PEM_read_bio_PrivateKey(bio.get(), nullptr, nullptr, nullptr), EVP_PKEY_free);
-    if (!key || EVP_PKEY_id(key.get()) != EVP_PKEY_ED25519) {
+    if (!key || !key_matches_algorithm(key.get(), algorithm)) {
         throw SecurityError(
-            "artifact_key_invalid", "Artifact signer must contain an Ed25519 private key.");
+            "artifact_key_invalid",
+            "Artifact signer key material does not match algorithm '" +
+                std::string(algorithm) + "'.");
     }
     return key;
 }
@@ -77,23 +106,47 @@ std::string hex_lower(const std::vector<unsigned char>& bytes) {
     return output.str();
 }
 
-std::vector<unsigned char> raw_public_key(EVP_PKEY* key) {
-    std::size_t size = 0;
-    if (EVP_PKEY_get_raw_public_key(key, nullptr, &size) != 1 || size != 32) {
-        throw SecurityError(
-            "artifact_key_invalid", "OpenSSL could not extract the Ed25519 public key.");
+std::vector<unsigned char> public_key_bytes(EVP_PKEY* key) {
+    if (is_ed25519_key(key)) {
+        std::size_t size = 0;
+        if (EVP_PKEY_get_raw_public_key(key, nullptr, &size) != 1 || size != 32) {
+            throw SecurityError(
+                "artifact_key_invalid", "OpenSSL could not extract the Ed25519 public key.");
+        }
+        std::vector<unsigned char> raw(size);
+        if (EVP_PKEY_get_raw_public_key(key, raw.data(), &size) != 1) {
+            throw SecurityError(
+                "artifact_key_invalid", "OpenSSL could not extract the Ed25519 public key.");
+        }
+        raw.resize(size);
+        return raw;
     }
-    std::vector<unsigned char> raw(size);
-    if (EVP_PKEY_get_raw_public_key(key, raw.data(), &size) != 1) {
-        throw SecurityError(
-            "artifact_key_invalid", "OpenSSL could not extract the Ed25519 public key.");
+    if (is_p256_ec_key(key)) {
+        // Canonical ECDSA-P256 fingerprint input: the uncompressed EC point
+        // (0x04 || X || Y, 65 bytes) as exported by the EVP provider.
+        std::size_t size = 0;
+        if (EVP_PKEY_get_octet_string_param(
+                key, OSSL_PKEY_PARAM_PUB_KEY, nullptr, 0, &size) != 1 ||
+            size == 0) {
+            throw SecurityError(
+                "artifact_key_invalid", "OpenSSL could not extract the EC P-256 public key.");
+        }
+        std::vector<unsigned char> point(size);
+        std::size_t written = 0;
+        if (EVP_PKEY_get_octet_string_param(
+                key, OSSL_PKEY_PARAM_PUB_KEY, point.data(), point.size(), &written) != 1 ||
+            written == 0) {
+            throw SecurityError(
+                "artifact_key_invalid", "OpenSSL could not extract the EC P-256 public key.");
+        }
+        point.resize(written);
+        return point;
     }
-    raw.resize(size);
-    return raw;
+    throw SecurityError("artifact_key_invalid", "Unsupported artifact public key type.");
 }
 
 std::string key_fingerprint(EVP_PKEY* key) {
-    const auto raw = raw_public_key(key);
+    const auto raw = public_key_bytes(key);
     return "sha256:" + hex_lower(sha256(std::string_view(
                                       reinterpret_cast<const char*>(raw.data()), raw.size())));
 }
@@ -128,10 +181,21 @@ std::vector<unsigned char> base64_decode(const std::string& value) {
     return decoded;
 }
 
-std::vector<unsigned char> sign_payload(EVP_PKEY* key, std::string_view payload) {
+const EVP_MD* digest_for_algorithm(std::string_view algorithm) {
+    // Ed25519 hashes internally (no digest), ECDSA-P256 uses SHA-256.
+    if (algorithm == kArtifactAlgorithmEcdsaP256Sha256) return EVP_sha256();
+    return nullptr;
+}
+
+std::vector<unsigned char> sign_payload(
+    EVP_PKEY* key,
+    std::string_view payload,
+    std::string_view algorithm) {
     DigestContextPtr context(EVP_MD_CTX_new(), EVP_MD_CTX_free);
-    if (!context || EVP_DigestSignInit(context.get(), nullptr, nullptr, nullptr, key) != 1) {
-        throw SecurityError("crypto_provider_error", "OpenSSL Ed25519 sign init failed.");
+    if (!context ||
+        EVP_DigestSignInit(
+            context.get(), nullptr, digest_for_algorithm(algorithm), nullptr, key) != 1) {
+        throw SecurityError("crypto_provider_error", "OpenSSL sign init failed.");
     }
     std::size_t signature_size = 0;
     if (EVP_DigestSign(
@@ -140,7 +204,7 @@ std::vector<unsigned char> sign_payload(EVP_PKEY* key, std::string_view payload)
             &signature_size,
             reinterpret_cast<const unsigned char*>(payload.data()),
             payload.size()) != 1) {
-        throw SecurityError("crypto_provider_error", "OpenSSL Ed25519 sizing failed.");
+        throw SecurityError("crypto_provider_error", "OpenSSL signature sizing failed.");
     }
     std::vector<unsigned char> signature(signature_size);
     if (EVP_DigestSign(
@@ -149,16 +213,22 @@ std::vector<unsigned char> sign_payload(EVP_PKEY* key, std::string_view payload)
             &signature_size,
             reinterpret_cast<const unsigned char*>(payload.data()),
             payload.size()) != 1) {
-        throw SecurityError("crypto_provider_error", "OpenSSL Ed25519 signing failed.");
+        throw SecurityError("crypto_provider_error", "OpenSSL signing failed.");
     }
     signature.resize(signature_size);
     return signature;
 }
 
-void verify_payload(EVP_PKEY* key, std::string_view payload, const std::vector<unsigned char>& sig) {
+void verify_payload(
+    EVP_PKEY* key,
+    std::string_view payload,
+    const std::vector<unsigned char>& sig,
+    std::string_view algorithm) {
     DigestContextPtr context(EVP_MD_CTX_new(), EVP_MD_CTX_free);
-    if (!context || EVP_DigestVerifyInit(context.get(), nullptr, nullptr, nullptr, key) != 1) {
-        throw SecurityError("crypto_provider_error", "OpenSSL Ed25519 verify init failed.");
+    if (!context ||
+        EVP_DigestVerifyInit(
+            context.get(), nullptr, digest_for_algorithm(algorithm), nullptr, key) != 1) {
+        throw SecurityError("crypto_provider_error", "OpenSSL verify init failed.");
     }
     const auto verified = EVP_DigestVerify(
         context.get(),
@@ -168,7 +238,7 @@ void verify_payload(EVP_PKEY* key, std::string_view payload, const std::vector<u
         payload.size());
     if (verified != 1) {
         throw SecurityError(
-            "artifact_signature_invalid", "Ed25519 artifact signature verification failed.");
+            "artifact_signature_invalid", "Artifact signature verification failed.");
     }
 }
 
@@ -178,7 +248,35 @@ void verify_payload(EVP_PKEY* key, std::string_view payload, const std::vector<u
 
 bool artifact_signature_provider_available() noexcept {
 #if defined(HANDOFFKIT_WITH_CRYPTO)
-    return true;
+    // A compile-time OpenSSL link is not enough to claim Ed25519 support:
+    // probe the active EVP provider with a real key-generation operation.
+    KeyCtxPtr context(EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, nullptr), EVP_PKEY_CTX_free);
+    if (!context || EVP_PKEY_keygen_init(context.get()) != 1) return false;
+    EVP_PKEY* generated = nullptr;
+    const bool available = EVP_PKEY_keygen(context.get(), &generated) == 1;
+    EVP_PKEY_free(generated);
+    return available;
+#else
+    return false;
+#endif
+}
+
+bool artifact_ecdsa_p256_sha256_provider_available() noexcept {
+#if defined(HANDOFFKIT_WITH_CRYPTO)
+    // Detect the maintained OpenSSL EVP provider at runtime and fail closed
+    // otherwise: ECDSA support is only claimed when the default provider is
+    // actually present and can construct an EC P-256 key context.
+    if (OSSL_PROVIDER_available(nullptr, "default") != 1) return false;
+    KeyCtxPtr context(EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr), EVP_PKEY_CTX_free);
+    if (!context) return false;
+    if (EVP_PKEY_keygen_init(context.get()) != 1 ||
+        EVP_PKEY_CTX_set_ec_paramgen_curve_nid(context.get(), NID_X9_62_prime256v1) != 1) {
+        return false;
+    }
+    EVP_PKEY* generated = nullptr;
+    const bool available = EVP_PKEY_keygen(context.get(), &generated) == 1;
+    EVP_PKEY_free(generated);
+    return available;
 #else
     return false;
 #endif
@@ -186,7 +284,15 @@ bool artifact_signature_provider_available() noexcept {
 
 std::string artifact_public_key_fingerprint(const std::string& public_key_pem) {
 #if defined(HANDOFFKIT_WITH_CRYPTO)
-    auto key = load_public_key(public_key_pem);
+    // The fingerprint scheme is key-type agnostic (Ed25519 raw key or the
+    // uncompressed EC P-256 point); unsupported key types fail closed.
+    BioPtr bio(BIO_new_mem_buf(public_key_pem.data(), static_cast<int>(public_key_pem.size())), BIO_free);
+    if (!bio) throw SecurityError("crypto_provider_error", "OpenSSL BIO allocation failed.");
+    KeyPtr key(PEM_read_bio_PUBKEY(bio.get(), nullptr, nullptr, nullptr), EVP_PKEY_free);
+    if (!key) {
+        throw SecurityError(
+            "artifact_key_invalid", "Artifact credential must contain a public key.");
+    }
     return key_fingerprint(key.get());
 #else
     (void)public_key_pem;
@@ -232,12 +338,33 @@ std::int64_t ArtifactTrustPolicy::max_future_skew_seconds() const noexcept {
     return max_future_skew_seconds_;
 }
 
-ArtifactSigner::ArtifactSigner(std::string private_key_pem, std::string signer_identity)
+ArtifactSigner::ArtifactSigner(
+    std::string private_key_pem,
+    std::string signer_identity,
+    std::string algorithm)
     : private_key_pem_(std::move(private_key_pem)),
-      signer_identity_(std::move(signer_identity)) {
+      signer_identity_(std::move(signer_identity)),
+      algorithm_(std::move(algorithm)) {
     if (signer_identity_.empty()) throw std::invalid_argument("signer_identity must not be empty");
+    if (algorithm_ != kArtifactAlgorithmEd25519 &&
+        algorithm_ != kArtifactAlgorithmEcdsaP256Sha256) {
+        throw SecurityError(
+            "artifact_algorithm_unsupported",
+            "unsupported artifact signature algorithm: " + algorithm_);
+    }
 #if defined(HANDOFFKIT_WITH_CRYPTO)
-    static_cast<void>(load_private_key(private_key_pem_));
+    if (algorithm_ == kArtifactAlgorithmEd25519 && !artifact_signature_provider_available()) {
+        throw SecurityError(
+            "artifact_signature_provider_unavailable",
+            "C++ artifact signatures require an active OpenSSL Ed25519 provider.");
+    }
+    if (algorithm_ == kArtifactAlgorithmEcdsaP256Sha256 &&
+        !artifact_ecdsa_p256_sha256_provider_available()) {
+        throw SecurityError(
+            "artifact_algorithm_unsupported",
+            "ECDSA-P256-SHA256 artifact signing requires an active OpenSSL EVP provider.");
+    }
+    static_cast<void>(load_private_key(private_key_pem_.view(), algorithm_));
 #else
     provider_unavailable();
 #endif
@@ -248,16 +375,22 @@ SignedArtifact ArtifactSigner::sign(
     std::string_view data,
     std::int64_t created_at) const {
 #if defined(HANDOFFKIT_WITH_CRYPTO)
+    if (algorithm_ == kArtifactAlgorithmEcdsaP256Sha256 &&
+        !artifact_ecdsa_p256_sha256_provider_available()) {
+        throw SecurityError(
+            "artifact_algorithm_unsupported",
+            "ECDSA-P256-SHA256 artifact signing requires the OpenSSL EVP provider at runtime.");
+    }
     if (created_at == 0) created_at = unix_now();
-    auto key = load_private_key(private_key_pem_);
+    auto key = load_private_key(private_key_pem_.view(), algorithm_);
     SignedArtifact artifact;
     artifact.artifact_id = artifact_id;
     artifact.content_hash = hex_lower(sha256(data));
-    artifact.algorithm = "ed25519";
+    artifact.algorithm = algorithm_;
     artifact.signer_identity = signer_identity_;
     artifact.key_fingerprint = key_fingerprint(key.get());
     artifact.created_at = created_at;
-    artifact.signature = base64_encode(sign_payload(key.get(), artifact.canonical_payload()));
+    artifact.signature = base64_encode(sign_payload(key.get(), artifact.canonical_payload(), algorithm_));
     artifact.validate();
     return artifact;
 #else
@@ -279,6 +412,12 @@ void verify_signed_artifact(
         throw SecurityError(
             "artifact_algorithm_unsupported",
             "Artifact signature algorithm is not allowlisted.");
+    }
+    if (artifact.algorithm == kArtifactAlgorithmEcdsaP256Sha256 &&
+        !artifact_ecdsa_p256_sha256_provider_available()) {
+        throw SecurityError(
+            "artifact_algorithm_unsupported",
+            "ECDSA-P256-SHA256 artifact verification requires the OpenSSL EVP provider at runtime.");
     }
     if (hex_lower(sha256(data)) != artifact.content_hash) {
         throw SecurityError(
@@ -311,13 +450,13 @@ void verify_signed_artifact(
             "artifact_timestamp_invalid",
             "Artifact signature timestamp is outside the accepted window.");
     }
-    auto key = load_public_key(credential->public_key_pem);
+    auto key = load_public_key(credential->public_key_pem, artifact.algorithm);
     if (key_fingerprint(key.get()) != artifact.key_fingerprint) {
         throw SecurityError(
             "artifact_signer_untrusted", "Artifact signer fingerprint does not match key material.");
     }
     const auto signature = base64_decode(artifact.signature);
-    verify_payload(key.get(), artifact.canonical_payload(), signature);
+    verify_payload(key.get(), artifact.canonical_payload(), signature, artifact.algorithm);
 #else
     (void)data;
     (void)artifact;
