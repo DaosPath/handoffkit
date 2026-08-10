@@ -301,10 +301,15 @@ jobs:
 
       - name: Publish with Trusted Publishing
         if: steps.exists.outputs.exists != 'true'
-        run: >-
-          npm publish
-          "dist/npm/${{ matrix.archive }}-${{ steps.version.outputs.version }}.tgz"
-          --access public
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="dist/npm/${{ matrix.archive }}-${{ steps.version.outputs.version }}.tgz"
+          args=("$archive" --access public)
+          if [[ "${{ steps.version.outputs.version }}" == *-* ]]; then
+            args+=(--tag beta)
+          fi
+          npm publish "${args[@]}"
 
   publish-crates:
     name: Publish Rust crates with Trusted Publishing
