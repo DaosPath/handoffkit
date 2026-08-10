@@ -25,7 +25,16 @@ int main() {
     assert(dist_status().find("cpu_sim") != std::string::npos);
     assert(dist_status().find("NCCL backends unavailable") != std::string::npos);
 
-    // CUDA path must throw when moving without implementation
+#if defined(HANDOFFKIT_ML_WITH_CUDA) && HANDOFFKIT_ML_WITH_CUDA
+    // A CUDA build must exercise a real device transfer on the configured GPU.
+    auto cuda = to_device(t, Device::Cuda);
+    assert(cuda.device == Device::Cuda);
+    assert(cuda.device_data != nullptr);
+    auto roundtrip = cuda.to(Device::Cpu);
+    assert(roundtrip.device == Device::Cpu);
+    assert(roundtrip.data.size() == t.data.size());
+#else
+    // A CPU-only build must fail closed instead of pretending CUDA support.
     bool threw = false;
     try {
         to_device(t, Device::Cuda);
@@ -33,6 +42,7 @@ int main() {
         threw = true;
     }
     assert(threw);
+#endif
 
     std::cout << "test_ml_quant ok\n";
     return 0;
