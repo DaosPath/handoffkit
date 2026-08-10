@@ -66,6 +66,9 @@ def test_finalization_unavailable_fixture_is_fail_closed() -> None:
         assert item["fail_closed"] is True
         assert item.get("error_code") == expected[item["name"]]
         assert item["participants"] == ["python", "javascript", "go", "rust", "cpp"]
+        if item["name"] == "ecdsa":
+            assert item["available_in"] == ["python", "cpp"]
+            assert item["unavailable_in"] == ["javascript", "go", "rust"]
 
 
 @pytest.mark.parametrize("case", VECTORS["profile_negotiation"], ids=lambda case: case["id"])

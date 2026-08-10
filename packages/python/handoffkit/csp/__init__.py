@@ -73,6 +73,7 @@ from handoffkit.csp.scheduler_state import (
     SchedulerStateStore,
 )
 from handoffkit.csp.security import (
+    ARTIFACT_ALGORITHM_ECDSA_P256_SHA256,
     ArtifactSignatureError,
     ArtifactSigner,
     ArtifactSigningCredential,
@@ -100,6 +101,7 @@ from handoffkit.csp.security import (
     authenticate_ssl_peer,
     build_ssl_context,
     certificate_fingerprint,
+    detect_ecdsa_p256_sha256_support,
     detect_hybrid_pq_support,
     get_supported_crypto_capabilities,
     negotiate_security_profile,
@@ -190,6 +192,7 @@ __all__ = [
     "SecurityProfileUnavailableError",
     "SecurityTranscript",
     "SignedArtifact",
+    "ARTIFACT_ALGORITHM_ECDSA_P256_SHA256",
     "SessionConfig",
     "SessionDiagnostics",
     "SchedulerSnapshot",
@@ -211,6 +214,7 @@ __all__ = [
     "build_ssl_context",
     "certificate_fingerprint",
     "detect_hybrid_pq_support",
+    "detect_ecdsa_p256_sha256_support",
     "get_supported_crypto_capabilities",
     "negotiate_security_profile",
     "peer_identity_from_certificate",

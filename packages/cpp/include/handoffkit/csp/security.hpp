@@ -372,6 +372,14 @@ struct SecurityTranscript {
     void validate(bool require_hash) const;
 };
 
+// Explicitly allowlisted artifact signature algorithm ids. Only these values
+// are accepted by SignedArtifact::validate(); any other string is rejected.
+// Ed25519 is the historical default; ECDSA-P256-SHA256 is the only ECDSA
+// variant supported by the C++ OpenSSL EVP provider and is enabled only when
+// the provider is detected at runtime (see artifact_security.hpp).
+inline constexpr std::string_view kArtifactAlgorithmEd25519 = "ed25519";
+inline constexpr std::string_view kArtifactAlgorithmEcdsaP256Sha256 = "ecdsa-p256-sha256";
+
 struct SignedArtifact {
     std::string artifact_id;
     std::string content_hash;
@@ -394,7 +402,8 @@ struct SignedArtifact {
             throw SecurityError(
                 "invalid_signed_artifact", "artifact_id and signer_identity must not be empty");
         }
-        if (algorithm != "ed25519") {
+        if (algorithm != kArtifactAlgorithmEd25519 &&
+            algorithm != kArtifactAlgorithmEcdsaP256Sha256) {
             throw SecurityError(
                 "artifact_algorithm_unsupported",
                 "unsupported artifact signature algorithm: " + algorithm);

@@ -15,7 +15,7 @@ Native **C++20** multi-agent runtime with structured handoffs.
 | Contract types + all `packages/contracts/fixtures/*` round-trips | Done |
 | HK-CSP 1.0 contracts, exact security-profile selection, validation, and JSON codecs | Done; five-runtime conformance |
 | Bounded native HK-CSP worker (`std::jthread`/`std::stop_token`) | Experimental; concurrent tests and benchmark |
-| Ed25519 artifact sign/verify | Provider-dependent; OpenSSL Crypto and `HANDOFFKIT_WITH_CRYPTO=ON` |
+| Ed25519 + ECDSA-P256-SHA256 artifact sign/verify | Provider-dependent; OpenSSL Crypto (EVP provider) and `HANDOFFKIT_WITH_CRYPTO=ON`. Ed25519 is the default; ECDSA uses the explicit allowlisted id `ecdsa-p256-sha256` and is only claimed when the OpenSSL default provider is detected at runtime (fails closed otherwise) |
 | TLS/mTLS transport | Experimental/provider-dependent; OpenSSL TLS 1.3 client/listener, CA roots, hostname verification, mTLS, SAN identity, timeouts, and framed real-socket tests when `HANDOFFKIT_WITH_TLS=ON` |
 | CRL/OCSP | Experimental/provider-dependent; `SecurityConfig::crl_path` enables OpenSSL CRL checking and `ocsp_response_path` validates a signed response. OCSP responder fetch is unavailable and `ocsp_fetch=true` fails closed; Python/Node/Go/Rust remain local-policy-only |
 | Common C++ CSP dispatcher | Experimental/provider-dependent; `CspDispatcher` enforces certificate identity, replay, local authorization, and capability-claim rejection before handler dispatch on real TLS sockets |

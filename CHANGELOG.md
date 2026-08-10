@@ -42,6 +42,11 @@ baseline. It is not yet a complete or publishable 1.19 release.
 - Added maintained-provider Ed25519 artifact signing and verification in
   Python, Node, Go, Rust, and optional C++ Crypto, with one canonical shared
   vector and negative trust/tamper/expiry/revocation tests.
+- Added provider-detected ECDSA-P256-SHA256 artifact signing and verification
+  in Python (`cryptography`) and optional C++ OpenSSL Crypto. The explicit
+  `ecdsa-p256-sha256` id uses SHA-256/DER signatures and uncompressed-point
+  fingerprints; JS/Go/Rust and the common five-runtime vector remain
+  unavailable, so no cross-runtime ECDSA capability is claimed.
 - Added provider-detected, fail-closed `X25519MLKEM768` TLS in compatible Node
   and Go environments, including a Node 24 to Go 1.26 mTLS interoperability
   gate that checks the negotiated curve and certificate-bound client identity.
@@ -90,8 +95,9 @@ baseline. It is not yet a complete or publishable 1.19 release.
   scheduler/configuration paths: `metadata.require_exactly_once=true` is
   rejected with `exactly_once_unavailable`; OCSP fetch/responder/response
   configuration is rejected with `ocsp_fetch_unavailable` outside the scoped
-  C++ response-file validator; unsupported ECDSA, ML-DSA, and SLH-DSA artifact
-  algorithms now surface structured `artifact_algorithm_unsupported` errors.
+  C++ response-file validator; unsupported ML-DSA/SLH-DSA and non-provider
+  ECDSA artifact paths surface structured `artifact_algorithm_unsupported`
+  errors.
 - Added a checked, durable scheduler migration path for the supported legacy
   `v0` envelope and opt-in deterministic `auto_resume`/`AutoResumeInterrupted`
   in Python, Node, Go, and Rust. The mode is explicitly at-least-once; no
@@ -147,7 +153,7 @@ baseline. It is not yet a complete or publishable 1.19 release.
   scheduler implementations expose opt-in at-least-once auto-resume only.
   C++ OpenSSL file-CRL/response validation, provider-selected OS keystores, and
   scoped native wiping are provider-dependent and integration-tested;
-  artifact gates, Ed25519, the development keystore, C++ native
+  artifact gates, Ed25519, provider-gated Python/C++ ECDSA, the development keystore, C++ native
   worker, benchmarks, ARM64/edge, and durable scheduler recovery are now
   experimental within their named tested scopes. Studio visibility remains
   experimental and limited to the optional Go gateway event source. Reload,

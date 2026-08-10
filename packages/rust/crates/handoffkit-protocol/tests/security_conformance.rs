@@ -76,6 +76,13 @@ fn finalization_unavailable_fixture_is_fail_closed() {
         assert_eq!(item["fail_closed"], true);
         assert_eq!(item["error_code"].as_str().unwrap_or(""), code);
         assert_eq!(item["participants"], participants);
+        if name == "ecdsa" {
+            assert_eq!(item["available_in"], serde_json::json!(["python", "cpp"]));
+            assert_eq!(
+                item["unavailable_in"],
+                serde_json::json!(["javascript", "go", "rust"])
+            );
+        }
     }
 }
 

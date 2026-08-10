@@ -25,6 +25,11 @@ from urllib.parse import unquote, urlparse
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.ec import (
+    EllipticCurvePrivateKey,
+    EllipticCurvePublicKey,
+)
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
@@ -143,6 +148,15 @@ def negotiate_security_profile(
 
 HYBRID_PQ_GROUP = "X25519MLKEM768"
 CERTIFICATE_IDENTITY_SCHEME = "spiffe"
+
+# Explicitly allowlisted artifact signature algorithm ids. Only these values
+# are accepted by SignedArtifact validation; any other spelling (including
+# bare "ecdsa", "ecdsa-p384-sha384", or mixed case) is rejected with
+# artifact_algorithm_unsupported. Ed25519 is the historical default;
+# ECDSA-P256-SHA256 is the only ECDSA variant supported and is enabled only
+# when the maintained cryptography provider is detected at runtime.
+ARTIFACT_ALGORITHM_ECDSA_P256_SHA256 = "ecdsa-p256-sha256"
+_ARTIFACT_ALGORITHMS = frozenset({"ed25519", ARTIFACT_ALGORITHM_ECDSA_P256_SHA256})
 
 
 @dataclass(frozen=True)
@@ -1106,18 +1120,55 @@ class FileKeyStore(KeyStore):
         self._closed = True
 
 
-def artifact_public_key_fingerprint(public_key: Ed25519PublicKey) -> str:
-    """Return the canonical SHA-256 fingerprint of raw Ed25519 public-key bytes."""
-    raw = public_key.public_bytes(
-        serialization.Encoding.Raw,
-        serialization.PublicFormat.Raw,
-    )
+def detect_ecdsa_p256_sha256_support() -> bool:
+    """Return whether the active cryptography provider can perform ECDSA-P256-SHA256.
+
+    Probes the maintained provider with a throwaway P-256 key (generate, sign,
+    verify) so capability detection reflects the runtime backend rather than a
+    static assumption. Returns False when the provider cannot construct an EC
+    P-256 key context or perform ECDSA; signers and verifiers fail closed with
+    artifact_algorithm_unsupported in that case.
+    """
+    try:
+        private_key = ec.generate_private_key(ec.SECP256R1())
+        probe = b"handoffkit-ecdsa-p256-sha256-provider-probe"
+        signature = private_key.sign(probe, ec.ECDSA(hashes.SHA256()))
+        private_key.public_key().verify(signature, probe, ec.ECDSA(hashes.SHA256()))
+        return True
+    except Exception:
+        return False
+
+
+def artifact_public_key_fingerprint(
+    public_key: Ed25519PublicKey | EllipticCurvePublicKey,
+) -> str:
+    """Return the canonical SHA-256 fingerprint of raw public-key bytes.
+
+    Ed25519 hashes the raw 32-byte key; ECDSA-P256 hashes the uncompressed EC
+    point (0x04 || X || Y, 65 bytes) as exported by the cryptography provider.
+    The scheme is key-type agnostic so both algorithm ids share the
+    ``sha256:<64 hex>`` fingerprint wire format.
+    """
+    if isinstance(public_key, Ed25519PublicKey):
+        raw = public_key.public_bytes(
+            serialization.Encoding.Raw,
+            serialization.PublicFormat.Raw,
+        )
+    elif isinstance(public_key, EllipticCurvePublicKey) and isinstance(
+        public_key.curve, ec.SECP256R1
+    ):
+        raw = public_key.public_bytes(
+            serialization.Encoding.X962,
+            serialization.PublicFormat.UncompressedPoint,
+        )
+    else:
+        raise TypeError("artifact public key must be Ed25519 or EC P-256")
     return f"sha256:{hashlib.sha256(raw).hexdigest()}"
 
 
 @dataclass(frozen=True)
 class SignedArtifact:
-    """Canonical Ed25519 signature envelope for an artifact hash."""
+    """Canonical Ed25519/ECDSA-P256 signature envelope for an artifact hash."""
 
     artifact_id: str
     content_hash: str
@@ -1130,7 +1181,7 @@ class SignedArtifact:
     def __post_init__(self) -> None:
         if not self.artifact_id or not self.signer_identity:
             raise ValueError("artifact_id and signer_identity must not be empty")
-        if self.algorithm != "ed25519":
+        if self.algorithm not in _ARTIFACT_ALGORITHMS:
             raise ArtifactSignatureError(
                 f"unsupported artifact signature algorithm: {self.algorithm}",
                 code="artifact_algorithm_unsupported",
@@ -1197,7 +1248,7 @@ class SignedArtifact:
 
 @dataclass(frozen=True)
 class ArtifactSigningCredential:
-    """Locally trusted Ed25519 public key and lifecycle policy."""
+    """Locally trusted Ed25519 or ECDSA-P256 public key and lifecycle policy."""
 
     signer_identity: str
     public_key_pem: bytes | str
@@ -1205,16 +1256,20 @@ class ArtifactSigningCredential:
     valid_until: int = 0
     revoked: bool = False
 
-    def public_key(self) -> Ed25519PublicKey:
+    def public_key(self) -> Ed25519PublicKey | EllipticCurvePublicKey:
         encoded = (
             self.public_key_pem.encode("utf-8")
             if isinstance(self.public_key_pem, str)
             else self.public_key_pem
         )
         key = serialization.load_pem_public_key(encoded)
-        if not isinstance(key, Ed25519PublicKey):
-            raise TypeError("artifact signing credential must contain an Ed25519 public key")
-        return key
+        if isinstance(key, Ed25519PublicKey):
+            return key
+        if isinstance(key, EllipticCurvePublicKey) and isinstance(key.curve, ec.SECP256R1):
+            return key
+        raise TypeError(
+            "artifact signing credential must contain an Ed25519 or EC P-256 public key"
+        )
 
     @property
     def fingerprint(self) -> str:
@@ -1238,24 +1293,71 @@ class ArtifactTrustPolicy:
         self.revocation_policy = revocation_policy
 
 
-class ArtifactSigner:
-    """Ed25519 producer for canonical SignedArtifact envelopes."""
+def _artifact_algorithm_for_private_key(
+    private_key: Ed25519PrivateKey | EllipticCurvePrivateKey,
+) -> str:
+    """Map private key material to its allowlisted artifact algorithm id."""
+    if isinstance(private_key, Ed25519PrivateKey):
+        return "ed25519"
+    if isinstance(private_key, EllipticCurvePrivateKey) and isinstance(
+        private_key.curve, ec.SECP256R1
+    ):
+        return ARTIFACT_ALGORITHM_ECDSA_P256_SHA256
+    raise TypeError("artifact signer requires an Ed25519 or EC P-256 private key")
 
-    def __init__(self, private_key: Ed25519PrivateKey, signer_identity: str) -> None:
+
+class ArtifactSigner:
+    """Producer for canonical SignedArtifact envelopes (ed25519 or ecdsa-p256-sha256)."""
+
+    def __init__(
+        self,
+        private_key: Ed25519PrivateKey | EllipticCurvePrivateKey,
+        signer_identity: str,
+        *,
+        algorithm: str | None = None,
+    ) -> None:
         if not signer_identity:
             raise ValueError("signer_identity must not be empty")
+        inferred = _artifact_algorithm_for_private_key(private_key)
+        if algorithm is not None and algorithm != inferred:
+            raise ArtifactSignatureError(
+                f"artifact signer key material does not match algorithm '{algorithm}'",
+                code="artifact_key_invalid",
+                details={"algorithm": algorithm, "runtime": "python"},
+            )
+        if (
+            inferred == ARTIFACT_ALGORITHM_ECDSA_P256_SHA256
+            and not detect_ecdsa_p256_sha256_support()
+        ):
+            raise ArtifactSignatureError(
+                "ECDSA-P256-SHA256 artifact signing requires the maintained "
+                "cryptography provider at runtime.",
+                code="artifact_algorithm_unsupported",
+                details={
+                    "algorithm": inferred,
+                    "runtime": "python",
+                    "reason": "provider_unavailable",
+                },
+            )
         self.private_key = private_key
         self.signer_identity = signer_identity
+        self.algorithm = inferred
 
     @classmethod
-    def from_pem(cls, private_key_pem: bytes | str, signer_identity: str) -> ArtifactSigner:
+    def from_pem(
+        cls,
+        private_key_pem: bytes | str,
+        signer_identity: str,
+        *,
+        algorithm: str | None = None,
+    ) -> ArtifactSigner:
         encoded = (
             private_key_pem.encode("utf-8") if isinstance(private_key_pem, str) else private_key_pem
         )
         key = serialization.load_pem_private_key(encoded, password=None)
-        if not isinstance(key, Ed25519PrivateKey):
-            raise TypeError("artifact signer requires an Ed25519 private key")
-        return cls(key, signer_identity)
+        if not isinstance(key, (Ed25519PrivateKey, EllipticCurvePrivateKey)):
+            raise TypeError("artifact signer requires an Ed25519 or EC P-256 private key")
+        return cls(key, signer_identity, algorithm=algorithm)
 
     @property
     def key_fingerprint(self) -> str:
@@ -1268,18 +1370,36 @@ class ArtifactSigner:
         *,
         created_at: int | None = None,
     ) -> SignedArtifact:
+        if (
+            self.algorithm == ARTIFACT_ALGORITHM_ECDSA_P256_SHA256
+            and not detect_ecdsa_p256_sha256_support()
+        ):
+            raise ArtifactSignatureError(
+                "ECDSA-P256-SHA256 artifact signing requires the maintained "
+                "cryptography provider at runtime.",
+                code="artifact_algorithm_unsupported",
+                details={
+                    "algorithm": self.algorithm,
+                    "runtime": "python",
+                    "reason": "provider_unavailable",
+                },
+            )
         artifact = SignedArtifact(
             artifact_id=artifact_id,
             content_hash=ArtifactVerifier.compute_sha256(data),
             signature="",
-            algorithm="ed25519",
+            algorithm=self.algorithm,
             signer_identity=self.signer_identity,
             key_fingerprint=self.key_fingerprint,
             created_at=int(time.time()) if created_at is None else created_at,
         )
-        signature = base64.b64encode(self.private_key.sign(artifact.canonical_payload())).decode(
-            "ascii"
-        )
+        payload = artifact.canonical_payload()
+        if self.algorithm == ARTIFACT_ALGORITHM_ECDSA_P256_SHA256:
+            # cryptography emits a DER-encoded ECDSA signature by default.
+            signature_bytes = self.private_key.sign(payload, ec.ECDSA(hashes.SHA256()))
+        else:
+            signature_bytes = self.private_key.sign(payload)
+        signature = base64.b64encode(signature_bytes).decode("ascii")
         return SignedArtifact(**{**artifact.to_dict(), "signature": signature})
 
 
@@ -1318,6 +1438,20 @@ class ArtifactVerifier:
             raise ArtifactSignatureError(
                 "Artifact signature algorithm is not allowlisted.",
                 code="artifact_algorithm_unsupported",
+            )
+        if (
+            artifact.algorithm == ARTIFACT_ALGORITHM_ECDSA_P256_SHA256
+            and not detect_ecdsa_p256_sha256_support()
+        ):
+            raise ArtifactSignatureError(
+                "ECDSA-P256-SHA256 artifact verification requires the maintained "
+                "cryptography provider at runtime.",
+                code="artifact_algorithm_unsupported",
+                details={
+                    "algorithm": artifact.algorithm,
+                    "runtime": "python",
+                    "reason": "provider_unavailable",
+                },
             )
         if not ArtifactVerifier.verify_integrity(data, artifact.content_hash):
             raise ArtifactSignatureError(
@@ -1378,8 +1512,31 @@ class ArtifactVerifier:
             )
         try:
             signature = base64.b64decode(artifact.signature, validate=True)
-            credential.public_key().verify(signature, artifact.canonical_payload())
-        except (InvalidSignature, ValueError) as error:
+            public_key = credential.public_key()
+            if artifact.algorithm == ARTIFACT_ALGORITHM_ECDSA_P256_SHA256:
+                if not (
+                    isinstance(public_key, EllipticCurvePublicKey)
+                    and isinstance(public_key.curve, ec.SECP256R1)
+                ):
+                    raise ArtifactSignatureError(
+                        "Artifact signer key material does not match algorithm.",
+                        code="artifact_key_invalid",
+                        details={"algorithm": artifact.algorithm, "runtime": "python"},
+                    )
+                public_key.verify(
+                    signature,
+                    artifact.canonical_payload(),
+                    ec.ECDSA(hashes.SHA256()),
+                )
+            else:
+                if not isinstance(public_key, Ed25519PublicKey):
+                    raise ArtifactSignatureError(
+                        "Artifact signer key material does not match algorithm.",
+                        code="artifact_key_invalid",
+                        details={"algorithm": artifact.algorithm, "runtime": "python"},
+                    )
+                public_key.verify(signature, artifact.canonical_payload())
+        except (InvalidSignature, ValueError, TypeError) as error:
             raise ArtifactSignatureError(
                 "Artifact signature verification failed.",
                 code="artifact_signature_invalid",
@@ -1637,6 +1794,7 @@ def get_supported_crypto_capabilities() -> dict[str, Any]:
     """Return runtime supported cryptographic capabilities."""
     has_tls13 = _tls13_supported()
     has_hybrid_pq = detect_hybrid_pq_support()
+    has_ecdsa = detect_ecdsa_p256_sha256_support()
     profiles = [SecurityProfile.LOCAL.value]
     if has_tls13:
         profiles.append(SecurityProfile.STANDARD.value)
@@ -1648,7 +1806,9 @@ def get_supported_crypto_capabilities() -> dict[str, Any]:
         "profiles_supported": profiles,
         "profiles_recognized": [profile.value for profile in SecurityProfile],
         "digest_algorithms": ["sha256"],
-        "signature_algorithms": ["ed25519"],
+        "signature_algorithms": ["ed25519"] + (
+            [ARTIFACT_ALGORITHM_ECDSA_P256_SHA256] if has_ecdsa else []
+        ),
         "hybrid_pq_group": HYBRID_PQ_GROUP if has_hybrid_pq else None,
         "hybrid_pq_supported": has_hybrid_pq,
     }

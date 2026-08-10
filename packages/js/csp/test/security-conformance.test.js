@@ -54,6 +54,10 @@ test("finalization unavailable fixture is fail-closed", async () => {
     assert.equal(item.fail_closed, true);
     assert.equal(item.error_code, expected.get(item.name));
     assert.deepEqual(item.participants, ["python", "javascript", "go", "rust", "cpp"]);
+    if (item.name === "ecdsa") {
+      assert.deepEqual(item.available_in, ["python", "cpp"]);
+      assert.deepEqual(item.unavailable_in, ["javascript", "go", "rust"]);
+    }
   }
 });
 

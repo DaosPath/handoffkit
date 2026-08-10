@@ -210,6 +210,10 @@ func assertUnavailableCapabilities(t testing.TB, contractsRoot string, index una
 			requireStrings(t, capability.AvailableIn, []string{"javascript", "go"})
 			requireStrings(t, capability.UnavailableIn, []string{"python", "rust", "cpp"})
 		}
+		if capability.Name == "ecdsa" {
+			requireStrings(t, capability.AvailableIn, []string{"python", "cpp"})
+			requireStrings(t, capability.UnavailableIn, []string{"javascript", "go", "rust"})
+		}
 	}
 	if len(seen) != len(wantCodes) {
 		t.Fatalf("unavailable capability set incomplete: %#v", seen)

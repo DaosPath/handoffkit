@@ -20,6 +20,7 @@ from handoffkit.csp.security import (
     SecurityProfileUnavailableError,
     SignedArtifact,
     build_ssl_context,
+    detect_ecdsa_p256_sha256_support,
     detect_hybrid_pq_support,
     get_supported_crypto_capabilities,
 )
@@ -203,7 +204,9 @@ def test_get_supported_crypto_capabilities():
     caps = get_supported_crypto_capabilities()
     assert caps["tls13_supported"] is True
     assert caps["hybrid_pq_supported"] is detect_hybrid_pq_support()
-    assert caps["signature_algorithms"] == ["ed25519"]
+    assert caps["signature_algorithms"] == ["ed25519"] + (
+        ["ecdsa-p256-sha256"] if detect_ecdsa_p256_sha256_support() else []
+    )
     assert caps["digest_algorithms"] == ["sha256"]
     assert ("hybrid-pq" in caps["profiles_supported"]) is caps["hybrid_pq_supported"]
     assert "hybrid-pq" in caps["profiles_recognized"]
