@@ -1,5 +1,9 @@
 import { TransportRequest, defaultTransport } from "./transport.js";
 import { rankSearchHits } from "./rank.js";
+import {
+  USER_BROWSER_PROVIDER,
+  searchUserBrowser,
+} from "./user_browser.js";
 
 const STOPWORDS = new Set([
   "a", "an", "the", "of", "in", "on", "at", "to", "for", "and", "or", "that", "this", "was", "were",
@@ -103,6 +107,34 @@ function stripTags(s) {
 }
 
 export const DEFAULT_SEARCH_PROVIDERS = Object.freeze(["duckduckgo", "wikipedia"]);
+export const SUPPORTED_SEARCH_PROVIDERS = Object.freeze([
+  "duckduckgo",
+  "wikipedia",
+  USER_BROWSER_PROVIDER,
+]);
+
+function providerEngine(providers) {
+  const names = [];
+  for (const raw of providers ?? []) {
+    const value = String(raw ?? "").trim().toLowerCase();
+    const provider = value === "ddg"
+      ? "duckduckgo"
+      : value === "wiki"
+        ? "wikipedia"
+        : value === "user-browser"
+          ? USER_BROWSER_PROVIDER
+          : value;
+    const engine = provider === "duckduckgo"
+      ? "duckduckgo_html"
+      : provider === "wikipedia"
+        ? "wikipedia_opensearch"
+        : provider === USER_BROWSER_PROVIDER
+          ? "user_browser_bridge"
+          : "";
+    if (engine && !names.includes(engine)) names.push(engine);
+  }
+  return names.join("+") || "none";
+}
 
 function normalizeProviders(providers) {
   const requested = Array.isArray(providers) && providers.length ? providers : DEFAULT_SEARCH_PROVIDERS;
@@ -110,9 +142,15 @@ function normalizeProviders(providers) {
   const errors = [];
   for (const raw of requested) {
     const value = String(raw ?? "").trim().toLowerCase();
-    const provider = value === "ddg" ? "duckduckgo" : value === "wiki" ? "wikipedia" : value;
+    const provider = value === "ddg"
+      ? "duckduckgo"
+      : value === "wiki"
+        ? "wikipedia"
+        : value === "user-browser"
+          ? USER_BROWSER_PROVIDER
+          : value;
     if (!provider) continue;
-    if (!DEFAULT_SEARCH_PROVIDERS.includes(provider)) {
+    if (!SUPPORTED_SEARCH_PROVIDERS.includes(provider)) {
       errors.push(`unsupported provider: ${provider}`);
       continue;
     }
@@ -235,19 +273,30 @@ async function duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs) {
   return hits;
 }
 
-async function searchWithProviders(transport, query, maxResults, timeoutMs, providers) {
+async function searchWithProviders(transport, query, maxResults, timeoutMs, providers, userBrowser) {
   const normalized = normalizeProviders(providers);
   const hits = [];
   const providersUsed = [];
   const errors = [...normalized.errors];
+  const providerCodes = [];
   for (const provider of normalized.normalized) {
     try {
-      const providerHits = provider === "duckduckgo"
-        ? await duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs)
-        : await wikipediaOpensearch(transport, query, maxResults, timeoutMs);
+      let providerHits;
+      let providerResult = null;
+      if (provider === "duckduckgo") {
+        providerHits = await duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs);
+      } else if (provider === "wikipedia") {
+        providerHits = await wikipediaOpensearch(transport, query, maxResults, timeoutMs);
+      } else {
+        providerResult = await searchUserBrowser(userBrowser, query, { maxResults, timeoutMs });
+        providerHits = providerResult.hits;
+      }
       for (const h of providerHits) pushHit(hits, h.title, h.url, maxResults);
       if (providerHits.length) providersUsed.push(provider);
-      else errors.push(`${provider}: empty`);
+      else if (providerResult?.error_code) {
+        providerCodes.push(providerResult.error_code);
+        errors.push(`${provider}: ${providerResult.error}`.trim());
+      } else errors.push(`${provider}: empty`);
     } catch (error) {
       errors.push(`${provider}: ${String(error?.message ?? error)}`);
     }
@@ -271,6 +320,8 @@ async function searchWithProviders(transport, query, maxResults, timeoutMs, prov
     providersUsed,
     errors,
     providersRequested: normalized.requested,
+    providerCodes,
+    engine: providerEngine(normalized.requested),
   };
 }
 
@@ -280,13 +331,14 @@ export async function multiSearch(
   maxResults = 8,
   timeoutMs = 20000,
   providers = DEFAULT_SEARCH_PROVIDERS,
+  userBrowser = null,
 ) {
-  const result = await searchWithProviders(transport, query, maxResults, timeoutMs, providers);
+  const result = await searchWithProviders(transport, query, maxResults, timeoutMs, providers, userBrowser);
   return result.hits;
 }
 
 /**
- * Live web search (DuckDuckGo HTML + Wikipedia OpenSearch). No API key.
+ * Live web search through explicitly selected public or host-provided adapters.
  */
 export async function webSearch(query, opts = {}) {
   const q = String(query ?? "").trim();
@@ -296,6 +348,7 @@ export async function webSearch(query, opts = {}) {
   const allowHosts = opts.allowHosts ?? opts.allow_hosts ?? [];
   const denyHosts = opts.denyHosts ?? opts.deny_hosts ?? [];
   const providers = opts.providers ?? DEFAULT_SEARCH_PROVIDERS;
+  const userBrowser = opts.userBrowser ?? opts.user_browser ?? null;
 
   if (!q) {
     return {
@@ -307,13 +360,14 @@ export async function webSearch(query, opts = {}) {
       providers_requested: Array.isArray(providers) ? providers.map((p) => String(p)) : [],
       providers_used: [],
       errors: ["query is required"],
-      engine: "duckduckgo_html+wikipedia_opensearch",
+      provider_codes: [],
+      engine: providerEngine(providers),
       error_code: "query_required",
       error: "query is required",
     };
   }
 
-  const searched = await searchWithProviders(transport, q, maxResults, timeoutMs, providers);
+  const searched = await searchWithProviders(transport, q, maxResults, timeoutMs, providers, userBrowser);
   let results = searched.hits;
   if (allowHosts.length || denyHosts.length) {
     results = rankSearchHits(results, { allowHosts, denyHosts }).slice(0, maxResults);
@@ -334,10 +388,15 @@ export async function webSearch(query, opts = {}) {
     providers_requested: searched.providersRequested,
     providers_used: searched.providersUsed,
     errors: searched.errors,
-    engine: "duckduckgo_html+wikipedia_opensearch",
+    provider_codes: searched.providerCodes,
+    engine: searched.engine,
     error_code: results.length
       ? ""
-      : searched.errors.some((error) => String(error).startsWith("unsupported provider:"))
+      : searched.providerCodes.includes("user_browser_bridge_required")
+        ? "user_browser_bridge_required"
+        : searched.providerCodes.includes("user_browser_invalid_response")
+          ? "user_browser_invalid_response"
+          : searched.errors.some((error) => String(error).startsWith("unsupported provider:"))
         ? "provider_unavailable"
         : "no_results",
     error: results.length ? "" : "no search results",

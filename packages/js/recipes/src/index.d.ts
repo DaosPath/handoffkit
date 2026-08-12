@@ -360,6 +360,8 @@ export function runWebGroundedAnswer(options: {
   maxPages?: number;
   allowHosts?: string[];
   denyHosts?: string[];
+  providers?: string[];
+  userBrowser?: { search: (query: string, options?: Record<string, unknown>) => unknown } | null;
   provider?: { agenerate: (prompt: string, opts?: { temperature?: number }) => Promise<unknown>; model?: string } | null;
   model?: string;
   transport?: unknown;

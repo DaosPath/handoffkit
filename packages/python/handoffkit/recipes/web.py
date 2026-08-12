@@ -12,6 +12,8 @@ def run_web_grounded_answer(
     max_pages: int = 3,
     allow_hosts: list[str] | None = None,
     deny_hosts: list[str] | None = None,
+    providers: list[str] | None = None,
+    user_browser: Any | None = None,
     provider: Any | None = None,
     model: str = "",
     transport: Any | None = None,
@@ -37,6 +39,8 @@ def run_web_grounded_answer(
         max_pages=max_pages,
         allow_hosts=allow_hosts,
         deny_hosts=deny_hosts,
+        providers=providers,
+        user_browser=user_browser,
         transport=transport,
         format=format,
     )

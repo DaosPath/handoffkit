@@ -202,6 +202,86 @@ test("webSearch against fixture search endpoints", async () => {
   assert.match(unavailable.errors[0], /unsupported provider/);
 });
 
+test("user_browser provider uses an explicit host bridge", async () => {
+  let observed;
+  const bridge = {
+    async search(query, options) {
+      observed = { query, options };
+      return {
+        results: [
+          { title: "User result", url: "https://example.org/from-user#fragment" },
+          { title: "unsafe", url: "javascript:alert(1)" },
+          { title: "duplicate", url: "https://example.org/from-user" },
+        ],
+      };
+    },
+  };
+  const result = await webSearch("local browser query", {
+    providers: ["user_browser"],
+    userBrowser: bridge,
+    maxResults: 4,
+  });
+  assert.equal(result.success, true);
+  assert.deepEqual(result.providers_requested, ["user_browser"]);
+  assert.deepEqual(result.providers_used, ["user_browser"]);
+  assert.equal(result.engine, "user_browser_bridge");
+  assert.equal(result.results.length, 1);
+  assert.equal(result.results[0].url, "https://example.org/from-user");
+  assert.equal(observed.query, "local browser query");
+  assert.equal(observed.options.maxResults, 4);
+});
+
+test("user_browser fails closed without a bridge and never falls back", async () => {
+  const result = await webSearch("needs user session", { providers: ["user_browser"] });
+  assert.equal(result.success, false);
+  assert.equal(result.error_code, "user_browser_bridge_required");
+  assert.deepEqual(result.providers_used, []);
+  assert.match(result.errors[0], /injected search bridge/);
+});
+
+test("kit carries user_browser bridge and combines it only when explicitly requested", async () => {
+  const transport = makeFixtureMapTransport();
+  transport.setPage(
+    "https://html.duckduckgo.com/html/?q=OpenAI",
+    '<a class="result__a" href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fopenai.com%2F">OpenAI</a>',
+  );
+  const bridge = { search: () => [{ title: "Session", url: "https://example.org/session" }] };
+  const kit = createBrowserAgentKit({
+    transport,
+    providers: ["duckduckgo", "user_browser"],
+    userBrowser: bridge,
+  });
+  const result = await kit.search("OpenAI");
+  assert.equal(result.success, true);
+  assert.deepEqual(result.providers_used, ["duckduckgo", "user_browser"]);
+  const tool = await kit.registry.aexecute({
+    name: "web_search",
+    arguments: { query: "OpenAI", providers: ["user_browser"] },
+  });
+  assert.equal(tool.success, true);
+  assert.deepEqual(tool.output.providers_used, ["user_browser"]);
+});
+
+test("user_browser bridge feeds bounded research with explicit metadata", async () => {
+  const transport = makeFixtureMapTransport();
+  transport.setPage(
+    "https://example.org/session",
+    "<html><head><title>Session page</title></head><body><main><p>session evidence</p></main></body></html>",
+  );
+  const pack = await gatherWebResearch({
+    query: "session evidence",
+    transport,
+    providers: ["user_browser"],
+    userBrowser: { search: () => [{ title: "Session", url: "https://example.org/session" }] },
+    maxPages: 1,
+  });
+  assert.equal(pack.pages_ok, 1);
+  assert.equal(pack.metadata.execution_mode, "background_user_browser_bridge");
+  assert.equal(pack.metadata.user_browser_required, true);
+  assert.equal(pack.metadata.user_browser_bridge_configured, true);
+  assert.ok(pack.metadata.providers_used.includes("user_browser"));
+});
+
 test("gatherWebResearch + ResearchPack + cache", async () => {
   const transport = makeFixtureMapTransport();
   transport.setPage(

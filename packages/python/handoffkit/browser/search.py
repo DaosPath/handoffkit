@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, quote, quote_plus, unquote, urlparse
 from handoffkit.browser.rank import rank_search_hits
 from handoffkit.browser.transport import WebTransport, default_transport
 from handoffkit.browser.types import DEFAULT_UA
+from handoffkit.browser.user_browser import USER_BROWSER_PROVIDER, search_user_browser
 from handoffkit.browser.util import detect_soft_block
 
 STOPWORDS = {
@@ -54,6 +55,26 @@ _RESULT_RE = re.compile(
 _TAG_RE = re.compile(r"<[^>]+>")
 _UDDG_RE = re.compile(r'uddg=([^&"\'>\s]+)', re.I)
 DEFAULT_SEARCH_PROVIDERS = ("duckduckgo", "wikipedia")
+SUPPORTED_SEARCH_PROVIDERS = ("duckduckgo", "wikipedia", USER_BROWSER_PROVIDER)
+
+
+def provider_engine(providers: list[str] | tuple[str, ...] | None) -> str:
+    names: list[str] = []
+    for raw in providers or []:
+        value = str(raw or "").strip().lower()
+        provider = {
+            "ddg": "duckduckgo",
+            "wiki": "wikipedia",
+            "user-browser": USER_BROWSER_PROVIDER,
+        }.get(value, value)
+        engine = {
+            "duckduckgo": "duckduckgo_html",
+            "wikipedia": "wikipedia_opensearch",
+            USER_BROWSER_PROVIDER: "user_browser_bridge",
+        }.get(provider)
+        if engine and engine not in names:
+            names.append(engine)
+    return "+".join(names) or "none"
 
 
 def keyword_compress(query: str, max_words: int = 10) -> str:
@@ -178,6 +199,7 @@ def web_search(
     providers: list[str] | None = None,
     allow_hosts: list[str] | None = None,
     deny_hosts: list[str] | None = None,
+    user_browser: Any | None = None,
 ) -> dict[str, Any]:
     q = (query or "").strip()
     if not q:
@@ -190,7 +212,8 @@ def web_search(
             "providers_requested": [str(item) for item in (providers or DEFAULT_SEARCH_PROVIDERS)],
             "providers_used": [],
             "errors": ["query is required"],
-            "engine": "duckduckgo_html+wikipedia_opensearch",
+            "provider_codes": [],
+            "engine": provider_engine(providers or list(DEFAULT_SEARCH_PROVIDERS)),
             "error_code": "query_required",
             "error": "query is required",
         }
@@ -200,10 +223,14 @@ def web_search(
     errors: list[str] = []
     for raw in requested:
         value = str(raw or "").strip().lower()
-        provider = {"ddg": "duckduckgo", "wiki": "wikipedia"}.get(value, value)
+        provider = {
+            "ddg": "duckduckgo",
+            "wiki": "wikipedia",
+            "user-browser": USER_BROWSER_PROVIDER,
+        }.get(value, value)
         if not provider:
             continue
-        if provider not in DEFAULT_SEARCH_PROVIDERS:
+        if provider not in SUPPORTED_SEARCH_PROVIDERS:
             errors.append(f"unsupported provider: {provider}")
             continue
         if provider not in normalized:
@@ -213,35 +240,42 @@ def web_search(
     tr = transport or default_transport(True)
     raw: list[dict[str, str]] = []
     used: list[str] = []
+    provider_codes: list[str] = []
 
-    if "duckduckgo" in normalized:
+    for provider in normalized:
         try:
-            hits = search_duckduckgo(
-                kw, max_results=max_results, transport=tr, timeout_ms=timeout_ms
-            )
+            if provider == "duckduckgo":
+                hits = search_duckduckgo(
+                    kw, max_results=max_results, transport=tr, timeout_ms=timeout_ms
+                )
+                provider_result: dict[str, Any] | None = None
+            elif provider == "wikipedia":
+                hits = search_wikipedia(
+                    kw,
+                    max_results=max_results,
+                    transport=tr,
+                    timeout_ms=timeout_ms,
+                )
+                provider_result = None
+            else:
+                provider_result = search_user_browser(
+                    user_browser,
+                    q,
+                    max_results=max_results,
+                    timeout_ms=timeout_ms,
+                )
+                hits = provider_result.get("hits") or []
             if hits:
                 raw.extend(hits)
-                used.append("duckduckgo")
+                used.append(provider)
+            elif provider_result and provider_result.get("error_code"):
+                code = str(provider_result["error_code"])
+                provider_codes.append(code)
+                errors.append(f"{provider}: {provider_result.get('error') or code}")
             else:
-                errors.append("duckduckgo: empty")
+                errors.append(f"{provider}: empty")
         except Exception as exc:  # noqa: BLE001
-            errors.append(f"duckduckgo: {exc}")
-
-    if "wikipedia" in normalized and len(raw) < max_results:
-        try:
-            hits = search_wikipedia(
-                kw,
-                max_results=max_results,
-                transport=tr,
-                timeout_ms=timeout_ms,
-            )
-            if hits:
-                raw.extend(hits)
-                used.append("wikipedia")
-            else:
-                errors.append("wikipedia: empty")
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"wikipedia: {exc}")
+            errors.append(f"{provider}: {exc}")
 
     ranked = rank_search_hits(raw, allow_hosts=allow_hosts, deny_hosts=deny_hosts)
     results = [
@@ -257,10 +291,15 @@ def web_search(
         "providers_requested": [str(item) for item in requested],
         "providers_used": used,
         "errors": errors,
-        "engine": "duckduckgo_html+wikipedia_opensearch",
+        "engine": provider_engine(requested),
+        "provider_codes": provider_codes,
         "error_code": (
             ""
             if results
+            else "user_browser_bridge_required"
+            if "user_browser_bridge_required" in provider_codes
+            else "user_browser_invalid_response"
+            if "user_browser_invalid_response" in provider_codes
             else "provider_unavailable"
             if any(error.startswith("unsupported provider:") for error in errors)
             else "no_results"

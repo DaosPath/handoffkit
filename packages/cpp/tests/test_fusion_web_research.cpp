@@ -192,6 +192,19 @@ void test_registry_has_web_search() {
     assert(unavailable_result && unavailable_result.value().success);
     assert(unavailable_result.value().result.value("success", true) == false);
     assert(unavailable_result.value().result.value("error_code", "") == "provider_unavailable");
+
+    handoffkit::ToolCall user_browser_call;
+    user_browser_call.tool_name = "web_search";
+    user_browser_call.arguments = {
+        {"query", "OpenAI"},
+        {"providers", nlohmann::json::array({"user_browser"})},
+        {"transport", "map"},
+    };
+    const auto user_browser_result = wiki_reg.execute(user_browser_call);
+    assert(user_browser_result && user_browser_result.value().success);
+    assert(user_browser_result.value().result.value("success", true) == false);
+    assert(user_browser_result.value().result.value("error_code", "") ==
+           "user_browser_bridge_required");
     std::cout << "test_registry_has_web_search ok\n";
 }
 

@@ -181,6 +181,21 @@ export interface SearchHit {
   score?: number;
 }
 
+export interface UserBrowserSearchOptions {
+  maxResults?: number;
+  max_results?: number;
+  timeoutMs?: number;
+  timeout_ms?: number;
+  signal?: AbortSignal;
+}
+
+export interface UserBrowserBridge {
+  search(
+    query: string,
+    options?: UserBrowserSearchOptions,
+  ): Promise<SearchHit[] | { results: SearchHit[]; error_code?: string; error?: string }> | SearchHit[] | { results: SearchHit[]; error_code?: string; error?: string };
+}
+
 export interface SearchResult {
   success: boolean;
   query: string;
@@ -190,12 +205,24 @@ export interface SearchResult {
   providers_requested: string[];
   providers_used: string[];
   errors: string[];
+  provider_codes: string[];
   error_code: string;
   engine: string;
   error?: string;
 }
 
 export declare const DEFAULT_SEARCH_PROVIDERS: readonly ["duckduckgo", "wikipedia"];
+export declare const SUPPORTED_SEARCH_PROVIDERS: readonly ["duckduckgo", "wikipedia", "user_browser"];
+export declare const USER_BROWSER_PROVIDER: "user_browser";
+export declare class UserBrowserBridgeError extends Error {
+  code: string;
+}
+export declare function isUserBrowserBridge(bridge: unknown): bridge is UserBrowserBridge;
+export declare function searchUserBrowser(
+  bridge: UserBrowserBridge | null | undefined,
+  query: string,
+  options?: UserBrowserSearchOptions,
+): Promise<{ hits: SearchHit[]; error_code: string; error: string }>;
 
 export declare function webSearch(query: string, opts?: Record<string, unknown>): Promise<SearchResult>;
 export declare function multiSearch(
@@ -204,6 +231,7 @@ export declare function multiSearch(
   maxResults?: number,
   timeoutMs?: number,
   providers?: string[],
+  userBrowser?: UserBrowserBridge | null,
 ): Promise<SearchHit[]>;
 export declare function keywordCompress(query: string, maxWords?: number): string;
 export declare function urlEncodeComponent(s: string): string;

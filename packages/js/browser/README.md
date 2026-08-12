@@ -2,12 +2,16 @@
 
 First-party background web complement for HandoffKit agents: **search → fetch/explore → HTML parse → Markdown**.
 
-No Chrome, no Cheerio, no paid search APIs. Native `fetch`, first-party HTML extractor, and runtime-selectable public adapters (DuckDuckGo HTML and Wikipedia OpenSearch).
+No bundled browser engine, no Cheerio, and no paid search APIs. Native `fetch`,
+first-party HTML extraction, and runtime-selectable adapters (DuckDuckGo HTML,
+Wikipedia OpenSearch, or an explicit host-provided `user_browser` bridge).
 
 Connects to `@handoffkit/core` via `ToolRegistry` / `createBrowserAgentKit()`.
 
 The default runtime uses native HTTP transport in the current process. It does
-not open a user-browser tab, read cookies, or require a visible window.
+not open a user-browser tab or read cookies. `user_browser` is opt-in and only
+delegates a search to a bridge supplied by the host application; it is
+provider-dependent and unavailable without that bridge.
 
 ## Install
 
@@ -34,6 +38,31 @@ const hits = await kit.search("metformin mechanism");
 const pack = await kit.gather({ query: "metformin side effects", maxPages: 3 });
 console.log(pack.promptSection());
 ```
+
+### Optional user-browser provider
+
+An embedding application can expose its already-authorized browser session as a
+small bridge. HandoffKit never discovers profiles, exports cookies, or controls
+the browser implicitly:
+
+```js
+const userBrowser = {
+  async search(query, { maxResults, timeoutMs }) {
+    // The host owns this implementation and its permission boundary.
+    return { results: await hostBrowserSearch(query, { maxResults, timeoutMs }) };
+  },
+};
+
+const kit = createBrowserAgentKit({
+  providers: ["user_browser", "duckduckgo"], // explicit composition
+  userBrowser,
+});
+```
+
+Each bridge result must contain a title and an `http(s)` URL (or equivalent
+`href`/`link`). Invalid URLs are discarded. Requesting only `user_browser`
+without a bridge returns `error_code: "user_browser_bridge_required"`; it does
+not silently switch to DuckDuckGo.
 
 ## Agent tools
 
@@ -76,15 +105,16 @@ BROWSER_LIVE=1 pnpm --dir packages/js/browser test
 `gatherDeepWebResearch` records the transport, subqueries, candidates, depth,
 page budget, blocked/error steps, citations, and elapsed time in
 `ResearchPack.metadata`. `transport: "map"` keeps the same route fully offline
-for deterministic tests. The deeper route remains bounded HTTP research; it
-is not Browser Real and does not execute arbitrary page JavaScript. Pass
-`providers: ["wikipedia"]` or `providers: ["duckduckgo"]` to select an
+for deterministic tests. The deeper route remains bounded HTTP research plus
+an optional explicit search bridge; it is not Browser Real and does not execute
+arbitrary page JavaScript. Pass `providers: ["wikipedia"]`,
+`providers: ["duckduckgo"]`, or `providers: ["user_browser"]` to select an
 adapter. `createBrowserAgentKit({ providers: [...] })` carries the same
 selection into `search`, `gather`, `deepGather`, and registered tools. The CLI
-accepts repeated `--provider` flags or a comma-separated `--providers` value.
-Unknown or unreachable providers remain observable errors and never silently
-become another provider. Supplying `BrowserCache` also records cache hits,
-misses, and writes.
+can report `user_browser_bridge_required` unless an embedding host supplies a
+bridge; it cannot invent one. Unknown or unreachable providers remain
+observable errors and never silently become another provider. Supplying
+`BrowserCache` also records cache hits, misses, and writes.
 
 ## Python parity
 

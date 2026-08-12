@@ -40,6 +40,7 @@ from handoffkit.browser.research import (
 )
 from handoffkit.browser.search import (
     DEFAULT_SEARCH_PROVIDERS,
+    SUPPORTED_SEARCH_PROVIDERS,
     keyword_compress,
     search_duckduckgo,
     search_wikipedia,
@@ -78,6 +79,12 @@ from handoffkit.browser.types import (
     resolve_url,
     url_allowed,
 )
+from handoffkit.browser.user_browser import (
+    USER_BROWSER_PROVIDER,
+    UserBrowserBridge,
+    is_user_browser_bridge,
+    search_user_browser,
+)
 from handoffkit.browser.util import detect_soft_block, map_with_concurrency, smart_truncate
 
 
@@ -103,16 +110,23 @@ def web_fetch_markdown(
     return PageMarkdown.from_explore_result(result, max_chars=max_chars, format=format).to_dict()
 
 
-def browser_toolkit(transport: Any | None = None) -> dict[str, Any]:
+def browser_toolkit(
+    transport: Any | None = None,
+    user_browser: Any | None = None,
+) -> dict[str, Any]:
     """Return callables an agent/runtime can bind as tools."""
     t = transport or HttpTransport()
     return {
         "web_search": lambda query, max_results=6, providers=None: web_search(
-            query, transport=t, max_results=max_results, providers=providers
+            query,
+            transport=t,
+            max_results=max_results,
+            providers=providers,
+            user_browser=user_browser,
         ),
         "web_fetch_markdown": lambda url: web_fetch_markdown(url, transport=t),
         "web_research": lambda query, max_pages=3, providers=None: gather_web_research(
-            query, transport=t, max_pages=max_pages, providers=providers
+            query, transport=t, max_pages=max_pages, providers=providers, user_browser=user_browser
         ).to_dict(),
         "web_deep_research": lambda query, max_pages=8, max_depth=2, providers=None: (
             gather_deep_web_research(
@@ -121,6 +135,7 @@ def browser_toolkit(transport: Any | None = None) -> dict[str, Any]:
                 max_pages=max_pages,
                 max_depth=max_depth,
                 providers=providers,
+                user_browser=user_browser,
             ).to_dict()
         ),
     }
@@ -137,6 +152,8 @@ ResearchPack.__getitem__ = _research_getitem  # type: ignore[method-assign]
 __all__ = [
     "DEFAULT_UA",
     "DEFAULT_SEARCH_PROVIDERS",
+    "SUPPORTED_SEARCH_PROVIDERS",
+    "USER_BROWSER_PROVIDER",
     "BrowserCache",
     "ExplorePolicy",
     "ExploreResult",
@@ -196,4 +213,7 @@ __all__ = [
     "url_allowed",
     "web_fetch_markdown",
     "web_search",
+    "UserBrowserBridge",
+    "is_user_browser_bridge",
+    "search_user_browser",
 ]

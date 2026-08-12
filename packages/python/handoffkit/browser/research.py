@@ -147,6 +147,7 @@ def gather_deep_web_research(
     max_sub_queries: int = 3,
     max_results_per_query: int = 8,
     providers: list[str] | None = None,
+    user_browser: Any | None = None,
     auto_search: bool = True,
     timeout_ms: int = 20000,
     concurrency: int = 3,
@@ -161,8 +162,9 @@ def gather_deep_web_research(
 ) -> ResearchPack:
     """Run bounded multi-query/multi-hop research entirely in the background.
 
-    The browser user is not involved. Search, redirects and page exploration use
-    the selected WebTransport (HTTP by default, map transport in tests).
+    Search and page exploration use the selected WebTransport. When
+    ``user_browser`` is selected, only the injected search bridge participates;
+    fetch/explore still use the configured transport.
     """
     from time import monotonic
 
@@ -177,6 +179,10 @@ def gather_deep_web_research(
     allows = list(allow_hosts or [])
     denies = list(deny_hosts or [])
     provider_list = list(providers or DEFAULT_SEARCH_PROVIDERS)
+    user_browser_requested = any(
+        str(provider).strip().lower() in {"user_browser", "user-browser"}
+        for provider in provider_list
+    )
     browser_cache = cache
     if browser_cache is None and (use_cache or cache_root):
         browser_cache = BrowserCache(root=cache_root or str(default_cache_root()))
@@ -185,8 +191,11 @@ def gather_deep_web_research(
         transport=getattr(tr, "name", lambda: "unknown")(),
         mode="deep_search_then_explore",
         metadata={
-            "execution_mode": "background_http",
-            "user_browser_required": False,
+            "execution_mode": (
+                "background_user_browser_bridge" if user_browser_requested else "background_http"
+            ),
+            "user_browser_required": user_browser_requested,
+            "user_browser_bridge_configured": bool(user_browser),
             "max_pages": pages_limit,
             "max_depth": depth_limit,
             "max_sub_queries": subquery_limit,
@@ -223,6 +232,7 @@ def gather_deep_web_research(
             max_results=result_limit,
             timeout_ms=timeout,
             providers=provider_list,
+            user_browser=user_browser,
             allow_hosts=allows,
             deny_hosts=denies,
         )
@@ -359,6 +369,7 @@ def gather_web_research(
     allow_hosts: list[str] | None = None,
     deny_hosts: list[str] | None = None,
     providers: list[str] | None = None,
+    user_browser: Any | None = None,
     prefer_explore: bool = False,
     max_depth: int = 0,
     concurrency: int = 2,
@@ -374,10 +385,25 @@ def gather_web_research(
     q = (query or "").strip()
     task_s = (task or "").strip()
     auto = False if seed_only else auto_search
+    provider_list = list(providers or DEFAULT_SEARCH_PROVIDERS)
+    user_browser_requested = any(
+        str(provider).strip().lower() in {"user_browser", "user-browser"}
+        for provider in provider_list
+    )
     pack = ResearchPack(
         enabled=True,
         transport=getattr(tr, "name", lambda: "unknown")(),
         mode="seed_only" if seed_only else ("search_then_fetch" if auto else "urls_only"),
+        metadata={
+            "execution_mode": (
+                "background_user_browser_bridge" if user_browser_requested else "background_http"
+            ),
+            "user_browser_required": user_browser_requested,
+            "user_browser_bridge_configured": bool(user_browser),
+            "providers_requested": provider_list,
+            "providers_used": [],
+            "provider_errors": [],
+        },
     )
 
     browser_cache = cache
@@ -407,11 +433,20 @@ def gather_web_research(
                 transport=tr,
                 max_results=min(8, max(max_pages * 2, max_pages)),
                 timeout_ms=timeout_ms,
-                providers=providers,
+                providers=provider_list,
+                user_browser=user_browser,
                 allow_hosts=allow_hosts,
                 deny_hosts=deny_hosts,
             )
             pack.steps.append({"tool": "web_search", "query": search_q, "result": search})
+            for provider in search.get("providers_used") or []:
+                if provider not in pack.metadata["providers_used"]:
+                    pack.metadata["providers_used"].append(provider)
+            for error in search.get("errors") or []:
+                if error not in pack.metadata["provider_errors"]:
+                    pack.metadata["provider_errors"].append(error)
+            if search.get("error_code") and not pack.metadata.get("error_code"):
+                pack.metadata["error_code"] = search["error_code"]
             urls.extend(h["url"] for h in search.get("results") or [])
 
     urls = list(dict.fromkeys(urls))[: max(max_pages * 3, max_pages)]

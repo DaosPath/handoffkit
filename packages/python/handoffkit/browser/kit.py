@@ -50,9 +50,14 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
     fmt = opts.get("format") or "markdown"
     max_pages = int(opts.get("max_pages") or opts.get("maxPages") or 3)
     providers = list(opts.get("providers") or opts.get("provider") or DEFAULT_SEARCH_PROVIDERS)
+    user_browser = opts.get("user_browser") or opts.get("userBrowser")
 
     registry = ToolRegistry()
-    register_browser_tools(registry, transport, {"providers": providers})
+    register_browser_tools(
+        registry,
+        transport,
+        {"providers": providers, "user_browser": user_browser},
+    )
 
     def search(query: str, **kwargs: Any) -> dict[str, Any]:
         return web_search(
@@ -63,6 +68,7 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
             deny_hosts=kwargs.get("deny_hosts", deny_hosts),
             timeout_ms=kwargs.get("timeout_ms", 20000),
             providers=kwargs.get("providers", providers),
+            user_browser=kwargs.get("user_browser", kwargs.get("userBrowser", user_browser)),
         )
 
     def fetch_md(url: str, **kwargs: Any) -> PageMarkdown:
@@ -115,6 +121,7 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
             timeout_ms=int(kwargs.get("timeout_ms", 20000)),
             task=kwargs.get("task", ""),
             providers=kwargs.get("providers", providers),
+            user_browser=kwargs.get("user_browser", kwargs.get("userBrowser", user_browser)),
         )
 
     def deep_gather(**kwargs: Any) -> ResearchPack:
@@ -137,6 +144,7 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
             format=kwargs.get("format", fmt),
             use_cache=bool(cache),
             providers=kwargs.get("providers", providers),
+            user_browser=kwargs.get("user_browser", kwargs.get("userBrowser", user_browser)),
         )
 
     return {
@@ -151,4 +159,5 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
         "deep_gather": deep_gather,
         "options": dict(opts),
         "providers": providers,
+        "user_browser": user_browser,
     }

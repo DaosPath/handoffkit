@@ -27,10 +27,18 @@ export {
   webSearch,
   multiSearch,
   DEFAULT_SEARCH_PROVIDERS,
+  SUPPORTED_SEARCH_PROVIDERS,
   keywordCompress,
   urlEncodeComponent,
   urlDecodeBasic,
 } from "./search.js";
+
+export {
+  USER_BROWSER_PROVIDER,
+  UserBrowserBridgeError,
+  isUserBrowserBridge,
+  searchUserBrowser,
+} from "./user_browser.js";
 
 export {
   gatherWebResearch,

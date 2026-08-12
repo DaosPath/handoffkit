@@ -114,11 +114,10 @@ function pageFromExploreStep(step, format = "markdown") {
 }
 
 /**
- * Deep, background-only research over HTTP/fixtures.
- *
- * The browser user is not involved: search, fetch, redirects and exploration
- * all run through the configured WebTransport. Every limit is recorded in the
- * returned ResearchPack metadata and the route fails closed on missing data.
+ * Deep, bounded research over HTTP/fixtures plus an optional explicit search
+ * bridge. Fetch, redirects and exploration always use the configured
+ * WebTransport. Every limit is recorded in the returned ResearchPack metadata
+ * and the route fails closed on missing data.
  */
 export async function gatherDeepWebResearch(config = {}) {
   const started = Date.now();
@@ -138,6 +137,9 @@ export async function gatherDeepWebResearch(config = {}) {
   const allowHosts = config.allowHosts ?? config.allow_hosts ?? [];
   const denyHosts = config.denyHosts ?? config.deny_hosts ?? [];
   const providers = config.providers ?? DEFAULT_SEARCH_PROVIDERS;
+  const userBrowser = config.userBrowser ?? config.user_browser ?? null;
+  const userBrowserRequested = Array.isArray(providers)
+    && providers.some((provider) => ["user_browser", "user-browser"].includes(String(provider).toLowerCase()));
   const format = config.format ?? "markdown";
   const seedUrls = [...(config.seedUrls ?? config.seed_urls ?? [])];
   const cache = config.cache instanceof BrowserCache
@@ -154,8 +156,9 @@ export async function gatherDeepWebResearch(config = {}) {
     transport: transport?.name?.() ?? "none",
     mode: "deep_search_then_explore",
     metadata: {
-      execution_mode: "background_http",
-      user_browser_required: false,
+      execution_mode: userBrowserRequested ? "background_user_browser_bridge" : "background_http",
+      user_browser_required: userBrowserRequested,
+      user_browser_bridge_configured: Boolean(userBrowser),
       max_pages: maxPages,
       max_depth: maxDepth,
       max_sub_queries: maxSubQueries,
@@ -188,6 +191,7 @@ export async function gatherDeepWebResearch(config = {}) {
       maxResults: maxResultsPerQuery,
       timeoutMs,
       providers,
+      userBrowser,
       allowHosts,
       denyHosts,
     });
@@ -376,6 +380,9 @@ export async function gatherWebResearch(config = {}) {
   const allowHosts = config.allowHosts ?? config.allow_hosts ?? [];
   const denyHosts = config.denyHosts ?? config.deny_hosts ?? [];
   const providers = config.providers ?? DEFAULT_SEARCH_PROVIDERS;
+  const userBrowser = config.userBrowser ?? config.user_browser ?? null;
+  const userBrowserRequested = Array.isArray(providers)
+    && providers.some((provider) => ["user_browser", "user-browser"].includes(String(provider).toLowerCase()));
   const format = config.format ?? "markdown";
   const concurrency = Math.max(1, Number(config.concurrency ?? 2) || 2);
   const cache =
@@ -392,6 +399,14 @@ export async function gatherWebResearch(config = {}) {
     enabled: true,
     transport: transport?.name?.() ?? "none",
     mode: seedOnly ? "seed_only" : autoSearch ? "search_then_fetch" : "urls_only",
+    metadata: {
+      execution_mode: userBrowserRequested ? "background_user_browser_bridge" : "background_http",
+      user_browser_required: userBrowserRequested,
+      user_browser_bridge_configured: Boolean(userBrowser),
+      providers_requested: Array.isArray(providers) ? providers.map((p) => String(p)) : [],
+      providers_used: [],
+      provider_errors: [],
+    },
   });
 
   let urls = [...seedUrls, ...extractUrlsFromText(task), ...extractUrlsFromText(query)];
@@ -408,6 +423,7 @@ export async function gatherWebResearch(config = {}) {
         maxResults: Math.min(8, Math.max(4, maxPages * 2)),
         timeoutMs,
         providers,
+        userBrowser,
         allowHosts,
         denyHosts,
       });
@@ -427,6 +443,13 @@ export async function gatherWebResearch(config = {}) {
           error: search.error,
         },
       });
+      for (const provider of search.providers_used ?? []) {
+        if (!result.metadata.providers_used.includes(provider)) result.metadata.providers_used.push(provider);
+      }
+      for (const error of search.errors ?? []) {
+        if (!result.metadata.provider_errors.includes(error)) result.metadata.provider_errors.push(error);
+      }
+      if (search.error_code && !result.metadata.error_code) result.metadata.error_code = search.error_code;
       if (search.success) {
         for (const hit of search.results) {
           if (hit.url) urls.push(hit.url);

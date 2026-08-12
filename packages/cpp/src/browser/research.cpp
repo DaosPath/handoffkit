@@ -390,7 +390,29 @@ std::string canonical_provider(std::string value) {
     }
     if (value == "ddg") return "duckduckgo";
     if (value == "wiki") return "wikipedia";
+    if (value == "user-browser") return "user_browser";
     return value;
+}
+
+std::string provider_engine(const std::vector<std::string>& providers) {
+    std::vector<std::string> engines;
+    for (const auto& raw : providers) {
+        const auto provider = canonical_provider(raw);
+        const std::string engine = provider == "duckduckgo"
+                                ? "duckduckgo_html"
+                                : provider == "wikipedia"
+                                    ? "wikipedia_opensearch"
+                                    : provider == "user_browser" ? "user_browser_bridge" : "";
+        if (!engine.empty() && std::find(engines.begin(), engines.end(), engine) == engines.end()) {
+            engines.push_back(engine);
+        }
+    }
+    std::string out;
+    for (const auto& engine : engines) {
+        if (!out.empty()) out += "+";
+        out += engine;
+    }
+    return out.empty() ? "none" : out;
 }
 
 nlohmann::json web_search(std::string_view query, TransportPtr transport, int max_results, int timeout_ms,
@@ -403,10 +425,11 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
         providers.empty() ? std::vector<std::string>{"duckduckgo", "wikipedia"} : providers;
     std::vector<std::string> normalized;
     std::vector<std::string> provider_errors;
+    std::vector<std::string> provider_codes;
     for (const auto& raw : requested) {
         const auto provider = canonical_provider(raw);
         if (provider.empty()) continue;
-        if (provider != "duckduckgo" && provider != "wikipedia") {
+        if (provider != "duckduckgo" && provider != "wikipedia" && provider != "user_browser") {
             provider_errors.push_back("unsupported provider: " + provider);
             continue;
         }
@@ -427,7 +450,8 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
             {"providers_requested", requested},
             {"providers_used", nlohmann::json::array()},
             {"errors", nlohmann::json::array({"query is required"})},
-            {"engine", "duckduckgo_html+wikipedia_opensearch"},
+            {"provider_codes", nlohmann::json::array()},
+            {"engine", provider_engine(requested)},
             {"error_code", "query_required"},
             {"error", "query is required"},
         };
@@ -437,6 +461,11 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
     std::vector<std::pair<std::string, std::string>> raw_hits;
     std::vector<std::string> providers_used;
     for (const auto& provider : normalized) {
+        if (provider == "user_browser") {
+            provider_codes.push_back("user_browser_bridge_required");
+            provider_errors.push_back("user_browser: user_browser requires an injected search bridge");
+            continue;
+        }
         std::vector<std::pair<std::string, std::string>> hits;
         if (provider == "duckduckgo") {
             hits = duckduckgo_html_search(transport, q, max_results, timeout_ms);
@@ -476,9 +505,11 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
         {"providers_requested", requested},
         {"providers_used", providers_used},
         {"errors", provider_errors},
-        {"engine", "duckduckgo_html+wikipedia_opensearch"},
+        {"provider_codes", provider_codes},
+        {"engine", provider_engine(requested)},
         {"error_code", results.empty()
-                           ? (std::any_of(provider_errors.begin(), provider_errors.end(), [](const auto& error) {
+                           ? (!provider_codes.empty() ? provider_codes.front()
+                              : std::any_of(provider_errors.begin(), provider_errors.end(), [](const auto& error) {
                                  return error.rfind("unsupported provider:", 0) == 0;
                              })
                                   ? "provider_unavailable"
@@ -558,9 +589,14 @@ WebResearchResult gather_deep_web_research(const WebResearchConfig& config, Tran
     result.enabled = true;
     result.transport = transport ? transport->name() : "";
     result.mode = "deep_search_then_explore";
+    const bool user_browser_requested = std::any_of(
+        base.providers.begin(), base.providers.end(), [](const std::string& provider) {
+            return canonical_provider(provider) == "user_browser";
+        });
     result.metadata = {
-        {"execution_mode", "background_http"},
-        {"user_browser_required", false},
+        {"execution_mode", user_browser_requested ? "background_user_browser_bridge" : "background_http"},
+        {"user_browser_required", user_browser_requested},
+        {"user_browser_bridge_configured", false},
         {"max_pages", base.max_pages},
         {"max_depth", base.max_depth},
         {"max_sub_queries", base.max_sub_queries},
@@ -701,7 +737,14 @@ WebResearchResult gather_web_research(const WebResearchConfig& config, Transport
     const int max_pages = std::max(1, config.max_pages);
     const int context_max_chars = std::max(1000, config.context_max_chars);
     result.mode = seed_only ? "seed_only" : (auto_search ? "search_then_fetch" : "urls_only");
+    const bool user_browser_requested = std::any_of(
+        config.providers.begin(), config.providers.end(), [](const std::string& provider) {
+            return canonical_provider(provider) == "user_browser";
+        });
     result.metadata = {
+        {"execution_mode", user_browser_requested ? "background_user_browser_bridge" : "background_http"},
+        {"user_browser_required", user_browser_requested},
+        {"user_browser_bridge_configured", false},
         {"cache_enabled", config.cache != nullptr},
         {"cache_hits", 0},
         {"cache_misses", 0},
@@ -1016,7 +1059,7 @@ Tool make_deep_web_research_tool(TransportPtr default_transport, std::vector<std
     auto configured_providers = std::move(default_providers);
     return Tool(
         "web_deep_research",
-        "Run bounded multi-query, multi-hop web research in the background; no user browser tab is required.",
+        "Run bounded multi-query, multi-hop research; user_browser is explicit and unavailable without a host bridge.",
         [transport, configured_providers](const nlohmann::json& args) -> Result<nlohmann::json> {
             if (!args.contains("query") || !args["query"].is_string()) {
                 return Error::invalid_argument("query is required", "query");

@@ -44,13 +44,17 @@ export function createBrowserAgentKit(options = {}) {
     providers: Array.isArray(options.providers) && options.providers.length
       ? [...options.providers]
       : [...DEFAULT_SEARCH_PROVIDERS],
+    userBrowser: options.userBrowser ?? options.user_browser ?? null,
     format: options.format ?? "markdown",
     concurrency: options.concurrency ?? 2,
     contextMaxChars: options.contextMaxChars ?? 48000,
   };
 
   const registry = options.registry ?? new ToolRegistry();
-  registerBrowserTools(registry, transport, { providers: defaults.providers });
+  registerBrowserTools(registry, transport, {
+    providers: defaults.providers,
+    userBrowser: defaults.userBrowser,
+  });
 
   const explorer = new WebExplorer(transport, policy);
 
@@ -70,6 +74,7 @@ export function createBrowserAgentKit(options = {}) {
         allowHosts: opts.allowHosts ?? defaults.allowHosts,
         denyHosts: opts.denyHosts ?? defaults.denyHosts,
         providers: opts.providers ?? opts.provider ?? defaults.providers,
+        userBrowser: opts.userBrowser ?? opts.user_browser ?? defaults.userBrowser,
       });
     },
     async fetchMarkdown(url, opts = {}) {
@@ -97,6 +102,7 @@ export function createBrowserAgentKit(options = {}) {
         concurrency: defaults.concurrency,
         contextMaxChars: defaults.contextMaxChars,
         providers: defaults.providers,
+        userBrowser: defaults.userBrowser,
         ...config,
       });
     },
@@ -112,6 +118,7 @@ export function createBrowserAgentKit(options = {}) {
         concurrency: Math.max(defaults.concurrency, 3),
         contextMaxChars: Math.max(defaults.contextMaxChars, 96000),
         providers: defaults.providers,
+        userBrowser: defaults.userBrowser,
         ...config,
       });
     },

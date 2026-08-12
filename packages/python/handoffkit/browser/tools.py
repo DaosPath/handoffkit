@@ -36,6 +36,7 @@ def make_web_search_tool(
         allow_hosts: list[str] | None = None,
         deny_hosts: list[str] | None = None,
         providers: list[str] | None = None,
+        user_browser: Any = None,
         transport: Any = None,
     ) -> dict[str, Any]:
         if not query:
@@ -46,6 +47,7 @@ def make_web_search_tool(
             max_results=max_results,
             timeout_ms=timeout_ms,
             providers=providers if providers is not None else defaults.get("providers"),
+            user_browser=user_browser if user_browser is not None else defaults.get("user_browser"),
             allow_hosts=allow_hosts,
             deny_hosts=deny_hosts,
         )
@@ -55,7 +57,7 @@ def make_web_search_tool(
         name="web_search",
         description=(
             "Search the live web for a query. Returns ranked {title,url,score} hits. "
-            "Prefer authoritative hosts. Follow up with web_fetch_markdown on the best URLs."
+            "user_browser requires an explicitly injected host bridge."
         ),
     )
 
@@ -236,6 +238,7 @@ def make_web_research_tool(
         allow_hosts: list[str] | None = None,
         deny_hosts: list[str] | None = None,
         providers: list[str] | None = None,
+        user_browser: Any = None,
         seed_only: bool = False,
         seed_urls: list[str] | None = None,
         format: str = "markdown",
@@ -251,6 +254,7 @@ def make_web_research_tool(
             allow_hosts=allow_hosts,
             deny_hosts=deny_hosts,
             providers=providers if providers is not None else defaults.get("providers"),
+            user_browser=user_browser if user_browser is not None else defaults.get("user_browser"),
             seed_only=seed_only,
             seed_urls=seed_urls,
             format=format,
@@ -274,7 +278,7 @@ def make_deep_web_research_tool(
     default_transport_ref: Any = None,
     defaults: dict[str, Any] | None = None,
 ) -> Tool:
-    """Agent-facing bounded background research; no user browser is opened."""
+    """Agent-facing bounded research; user_browser is explicit and host-injected."""
     defaults = defaults or {}
 
     def run(
@@ -285,6 +289,7 @@ def make_deep_web_research_tool(
         max_sub_queries: int = 3,
         max_results_per_query: int = 8,
         providers: list[str] | None = None,
+        user_browser: Any = None,
         timeout_ms: int = 20000,
         concurrency: int = 3,
         allow_hosts: list[str] | None = None,
@@ -306,6 +311,7 @@ def make_deep_web_research_tool(
             max_sub_queries=max_sub_queries,
             max_results_per_query=max_results_per_query,
             providers=providers if providers is not None else defaults.get("providers"),
+            user_browser=user_browser if user_browser is not None else defaults.get("user_browser"),
             timeout_ms=timeout_ms,
             concurrency=concurrency,
             allow_hosts=allow_hosts,
@@ -323,8 +329,8 @@ def make_deep_web_research_tool(
         run,
         name="web_deep_research",
         description=(
-            "Run bounded multi-query, multi-hop web research in the background and return a "
-            "grounded ResearchPack; no user browser tab is required."
+            "Run bounded multi-query, multi-hop research and return a grounded ResearchPack; "
+            "user_browser is used only when explicitly configured."
         ),
     )
 

@@ -59,7 +59,9 @@ struct WebResearchResult {
 [[nodiscard]] std::string make_search_query_from_task(std::string_view task, std::size_t max_chars = 140);
 [[nodiscard]] std::string keyword_compress(std::string_view query, std::size_t max_words = 10);
 
-/// Live search: DuckDuckGo HTML + Wikipedia OpenSearch.
+/// Live search: DuckDuckGo HTML + Wikipedia OpenSearch. The explicit
+/// user_browser provider is recognized for conformance but unavailable in C++
+/// because this runtime has no host browser bridge.
 [[nodiscard]] nlohmann::json web_search(std::string_view query, TransportPtr transport,
                                         int max_results = 8, int timeout_ms = 20000,
                                         const std::vector<std::string>& allow_hosts = {},
@@ -70,7 +72,7 @@ struct WebResearchResult {
                                                     TransportPtr transport = nullptr);
 
 /// Bounded multi-query/multi-hop research over native HTTP or fixture transport.
-/// This is background-only and never launches a user browser window.
+/// This is background-only; C++ does not launch or control a user browser.
 [[nodiscard]] WebResearchResult gather_deep_web_research(const WebResearchConfig& config,
                                                          TransportPtr transport = nullptr);
 

@@ -41,6 +41,12 @@ The current 1.20 development line continues from the 1.19 beta baseline.
   search/research helpers and registered tools across JavaScript, Python, and
   C++; the JavaScript browse CLI accepts repeated or comma-separated provider
   flags and keeps option values out of the query.
+- Added an experimental, provider-dependent `user_browser` search adapter for
+  JavaScript and Python. Hosts must inject an explicit `search(query, options)`
+  bridge for an already-authorized browser session; results are reduced to
+  validated HTTP(S) URLs, and missing/invalid bridges return structured errors.
+  The default remains DuckDuckGo/Wikipedia, no cookies or credentials are read,
+  and no silent fallback occurs when only `user_browser` is requested.
 - Added real TLS 1.3 client/server transports for Python, Node, Go, and Rust,
   including configured/system roots, hostname verification, mTLS, structured
   failures, timeouts, and real-socket positive and negative tests. Added a

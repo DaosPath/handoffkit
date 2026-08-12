@@ -37,8 +37,8 @@ export function makeWebSearchTool(defaultTransportRef = null, defaults = {}) {
         deny_hosts: { type: "array", items: { type: "string" } },
         providers: {
           type: "array",
-          items: { type: "string", enum: ["duckduckgo", "ddg", "wikipedia", "wiki"] },
-          description: "Provider allowlist; availability depends on the selected transport.",
+          items: { type: "string", enum: ["duckduckgo", "ddg", "wikipedia", "wiki", "user_browser"] },
+          description: "Provider allowlist; user_browser requires an injected host bridge.",
         },
       },
       required: ["query"],
@@ -54,6 +54,7 @@ export function makeWebSearchTool(defaultTransportRef = null, defaults = {}) {
         allowHosts: args.allow_hosts,
         denyHosts: args.deny_hosts,
         providers: args.providers ?? defaults.providers,
+        userBrowser: defaults.userBrowser,
       });
     },
   });
@@ -228,8 +229,8 @@ export function makeWebResearchTool(defaultTransportRef = null, defaults = {}) {
         deny_hosts: { type: "array", items: { type: "string" } },
         providers: {
           type: "array",
-          items: { type: "string", enum: ["duckduckgo", "ddg", "wikipedia", "wiki"] },
-          description: "Provider allowlist; availability depends on the selected transport.",
+          items: { type: "string", enum: ["duckduckgo", "ddg", "wikipedia", "wiki", "user_browser"] },
+          description: "Provider allowlist; user_browser requires an injected host bridge.",
         },
         seed_only: { type: "boolean", default: false },
         seed_urls: { type: "array", items: { type: "string" } },
@@ -247,6 +248,7 @@ export function makeWebResearchTool(defaultTransportRef = null, defaults = {}) {
         allowHosts: args.allow_hosts,
         denyHosts: args.deny_hosts,
         providers: args.providers ?? defaults.providers,
+        userBrowser: defaults.userBrowser,
         seedOnly: args.seed_only,
         seedUrls: args.seed_urls,
         format: args.format ?? "markdown",
@@ -268,7 +270,7 @@ export function makeDeepWebResearchTool(defaultTransportRef = null, defaults = {
   return new Tool({
     name: "web_deep_research",
     description:
-      "Run bounded multi-query, multi-hop web research in the background and return a grounded ResearchPack; no user browser tab is required.",
+      "Run bounded multi-query, multi-hop research and return a grounded ResearchPack; user_browser is used only when explicitly configured.",
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -281,8 +283,8 @@ export function makeDeepWebResearchTool(defaultTransportRef = null, defaults = {
         max_results_per_query: { type: "integer", minimum: 1, maximum: 20, default: 8 },
         providers: {
           type: "array",
-          items: { type: "string", enum: ["duckduckgo", "ddg", "wikipedia", "wiki"] },
-          description: "Provider allowlist; availability depends on the selected transport.",
+          items: { type: "string", enum: ["duckduckgo", "ddg", "wikipedia", "wiki", "user_browser"] },
+          description: "Provider allowlist; user_browser requires an injected host bridge.",
         },
         timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, default: 20000 },
         concurrency: { type: "integer", minimum: 1, maximum: 8, default: 3 },
@@ -308,6 +310,7 @@ export function makeDeepWebResearchTool(defaultTransportRef = null, defaults = {
         maxSubQueries: args.max_sub_queries ?? 3,
         maxResultsPerQuery: args.max_results_per_query ?? 8,
         providers: args.providers ?? defaults.providers,
+        userBrowser: defaults.userBrowser,
         timeoutMs: args.timeout_ms ?? 20000,
         concurrency: args.concurrency ?? 3,
         allowHosts: args.allow_hosts,

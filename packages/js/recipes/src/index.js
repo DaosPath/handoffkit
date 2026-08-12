@@ -1722,6 +1722,8 @@ export async function runWebGroundedAnswer({
   maxPages = 3,
   allowHosts = [],
   denyHosts = [],
+  providers = undefined,
+  userBrowser = null,
   provider = null,
   model = "",
   transport = null,
@@ -1741,6 +1743,8 @@ export async function runWebGroundedAnswer({
     maxPages,
     allowHosts,
     denyHosts,
+    providers,
+    userBrowser,
     transport,
     format,
   });

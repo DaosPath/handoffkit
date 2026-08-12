@@ -117,6 +117,87 @@ def test_web_search_with_map_endpoints():
     assert "unsupported provider" in unavailable["errors"][0]
 
 
+def test_user_browser_provider_uses_explicit_host_bridge_and_sanitizes_hits():
+    class Bridge:
+        def __init__(self):
+            self.observed = None
+
+        def search(self, query, **options):
+            self.observed = (query, options)
+            return {
+                "results": [
+                    {"title": "User result", "url": "https://example.org/from-user#fragment"},
+                    {"title": "unsafe", "url": "javascript:alert(1)"},
+                    {"title": "duplicate", "url": "https://example.org/from-user"},
+                ]
+            }
+
+    bridge = Bridge()
+    result = web_search(
+        "local browser query",
+        providers=["user_browser"],
+        user_browser=bridge,
+        max_results=4,
+    )
+    assert result["success"] is True
+    assert result["providers_requested"] == ["user_browser"]
+    assert result["providers_used"] == ["user_browser"]
+    assert result["engine"] == "user_browser_bridge"
+    assert len(result["results"]) == 1
+    assert result["results"][0]["url"] == "https://example.org/from-user"
+    assert bridge.observed[0] == "local browser query"
+    assert bridge.observed[1]["max_results"] == 4
+
+
+def test_user_browser_fails_closed_without_bridge_and_never_falls_back():
+    result = web_search("needs user session", providers=["user_browser"])
+    assert result["success"] is False
+    assert result["error_code"] == "user_browser_bridge_required"
+    assert result["providers_used"] == []
+    assert "injected search bridge" in result["errors"][0]
+
+
+def test_kit_carries_user_browser_bridge_and_uses_it_only_when_requested():
+    class Bridge:
+        def search(self, query, **options):
+            return [{"title": "Session", "url": "https://example.org/session"}]
+
+    bridge = Bridge()
+    kit = create_browser_agent_kit({"providers": ["user_browser"], "user_browser": bridge})
+    direct = kit["search"]("OpenAI")
+    assert direct["success"] is True
+    assert direct["providers_used"] == ["user_browser"]
+    tool = kit["registry"].get("web_search").run(query="OpenAI")
+    assert tool["success"] is True
+    assert tool["providers_used"] == ["user_browser"]
+
+
+def test_user_browser_bridge_feeds_bounded_research_with_explicit_metadata():
+    transport = make_fixture_map_transport()
+    transport.set_page(
+        "https://example.org/session",
+        "<html><head><title>Session page</title></head>"
+        "<body><main><p>session evidence</p></main></body></html>",
+    )
+
+    class Bridge:
+        def search(self, query, **options):
+            return [{"title": "Session", "url": "https://example.org/session"}]
+
+    pack = gather_web_research(
+        "session evidence",
+        transport=transport,
+        providers=["user_browser"],
+        user_browser=Bridge(),
+        max_pages=1,
+    )
+    assert pack.pages_ok == 1
+    assert pack.metadata["execution_mode"] == "background_user_browser_bridge"
+    assert pack.metadata["user_browser_required"] is True
+    assert pack.metadata["user_browser_bridge_configured"] is True
+    assert "user_browser" in pack.metadata["providers_used"]
+
+
 def test_explore_bfs_fixture():
     transport = make_fixture_map_transport()
     result = explore_url(
