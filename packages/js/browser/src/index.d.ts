@@ -195,6 +195,8 @@ export interface SearchResult {
   error?: string;
 }
 
+export declare const DEFAULT_SEARCH_PROVIDERS: readonly ["duckduckgo", "wikipedia"];
+
 export declare function webSearch(query: string, opts?: Record<string, unknown>): Promise<SearchResult>;
 export declare function multiSearch(
   transport: WebTransport,
@@ -311,12 +313,12 @@ export declare function createBrowserAgentKit(options?: Record<string, unknown>)
   ResearchPack: typeof ResearchPack;
 };
 
-export declare function registerBrowserTools(registry: ToolRegistry, transport?: WebTransport | null): ToolRegistry;
-export declare function registerWebExplorerTools(registry: ToolRegistry, transport?: WebTransport | null): ToolRegistry;
-export declare function makeWebSearchTool(defaultTransportRef?: WebTransport | null): Tool;
+export declare function registerBrowserTools(registry: ToolRegistry, transport?: WebTransport | null, defaults?: Record<string, unknown>): ToolRegistry;
+export declare function registerWebExplorerTools(registry: ToolRegistry, transport?: WebTransport | null, defaults?: Record<string, unknown>): ToolRegistry;
+export declare function makeWebSearchTool(defaultTransportRef?: WebTransport | null, defaults?: Record<string, unknown>): Tool;
 export declare function makeWebFetchTool(defaultTransportRef?: WebTransport | null): Tool;
 export declare function makeWebExploreTool(defaultTransportRef?: WebTransport | null): Tool;
 export declare function makeHtmlToMarkdownTool(defaultTransportRef?: WebTransport | null): Tool;
 export declare function makeWebFetchMarkdownTool(defaultTransportRef?: WebTransport | null): Tool;
-export declare function makeWebResearchTool(defaultTransportRef?: WebTransport | null): Tool;
-export declare function makeDeepWebResearchTool(defaultTransportRef?: WebTransport | null): Tool;
+export declare function makeWebResearchTool(defaultTransportRef?: WebTransport | null, defaults?: Record<string, unknown>): Tool;
+export declare function makeDeepWebResearchTool(defaultTransportRef?: WebTransport | null, defaults?: Record<string, unknown>): Tool;

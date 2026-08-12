@@ -10,7 +10,7 @@ from handoffkit.browser.cache import BrowserCache, default_cache_root
 from handoffkit.browser.explorer import explore_url, fetch_markdown
 from handoffkit.browser.page import PageMarkdown
 from handoffkit.browser.rank import rank_search_hits
-from handoffkit.browser.search import keyword_compress, web_search
+from handoffkit.browser.search import DEFAULT_SEARCH_PROVIDERS, keyword_compress, web_search
 from handoffkit.browser.transport import WebTransport, default_transport
 from handoffkit.browser.types import ExplorePolicy, canonical_url
 from handoffkit.browser.util import map_with_concurrency, smart_truncate
@@ -176,7 +176,7 @@ def gather_deep_web_research(
     parallel = max(1, min(int(concurrency or 3), 8))
     allows = list(allow_hosts or [])
     denies = list(deny_hosts or [])
-    provider_list = list(providers or ["duckduckgo", "wikipedia"])
+    provider_list = list(providers or DEFAULT_SEARCH_PROVIDERS)
     browser_cache = cache
     if browser_cache is None and (use_cache or cache_root):
         browser_cache = BrowserCache(root=cache_root or str(default_cache_root()))

@@ -1,5 +1,6 @@
 #include <handoffkit/demos/fusion/engine.hpp>
 #include <handoffkit/demos/fusion/web_research.hpp>
+#include <handoffkit/browser/kit.hpp>
 #include <handoffkit/explore/transport.hpp>
 
 #include <cassert>
@@ -10,7 +11,7 @@ using namespace handoffkit::demos::fusion;
 using namespace handoffkit::explore;
 
 void test_extract_urls() {
-    auto u = extract_urls_from_text(
+    auto u = handoffkit::demos::fusion::extract_urls_from_text(
         "See https://example.com/a and also http://foo.org/x). End."
     );
     assert(u.size() >= 2);
@@ -24,7 +25,7 @@ void test_search_query_from_draco_wrapper() {
         "verifiable claims where possible.\n\n"
         "TASK:\nWhat was the name of the 5K race hosted at the old Great America theme park "
         "in California that had \"bubble gum\" in its title?";
-    auto q = make_search_query_from_task(wrapped);
+    auto q = handoffkit::demos::fusion::make_search_query_from_task(wrapped);
     assert(q.find("Great America") != std::string::npos);
     assert(q.find("bubble") != std::string::npos);
     assert(q.find("Deep research") == std::string::npos);
@@ -194,6 +195,29 @@ void test_registry_has_web_search() {
     std::cout << "test_registry_has_web_search ok\n";
 }
 
+void test_browser_kit_provider_defaults() {
+    handoffkit::browser::BrowserAgentKitOptions options;
+    auto map = handoffkit::browser::make_fixture_map_transport();
+    options.transport = map;
+    options.providers = {"wiki"};
+    auto kit = handoffkit::browser::create_browser_agent_kit(options);
+    map->set_page(
+        "https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=6&search=OpenAI",
+        R"(["OpenAI",["OpenAI"],[""],["https://en.wikipedia.org/wiki/OpenAI"]])");
+
+    const auto direct = kit.search("OpenAI");
+    assert(direct.value("providers_requested", nlohmann::json::array()).at(0) == "wiki");
+    assert(direct.value("providers_used", nlohmann::json::array()).at(0) == "wikipedia");
+
+    handoffkit::ToolCall call;
+    call.tool_name = "web_search";
+    call.arguments = {{"query", "OpenAI"}};
+    const auto tool = kit.registry.execute(call);
+    assert(tool && tool.value().success);
+    assert(tool.value().result.value("providers_requested", nlohmann::json::array()).at(0) == "wiki");
+    std::cout << "test_browser_kit_provider_defaults ok\n";
+}
+
 int main() {
     test_extract_urls();
     test_search_query_from_draco_wrapper();
@@ -201,6 +225,7 @@ int main() {
     test_fusion_deep_uses_browser_lite_route();
     test_fusion_echo_with_web_md();
     test_registry_has_web_search();
+    test_browser_kit_provider_defaults();
     std::cout << "ALL test_fusion_web_research PASSED\n";
     return 0;
 }

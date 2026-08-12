@@ -39,6 +39,7 @@ from handoffkit.browser.research import (
     research_prompt_section,
 )
 from handoffkit.browser.search import (
+    DEFAULT_SEARCH_PROVIDERS,
     keyword_compress,
     search_duckduckgo,
     search_wikipedia,
@@ -106,16 +107,22 @@ def browser_toolkit(transport: Any | None = None) -> dict[str, Any]:
     """Return callables an agent/runtime can bind as tools."""
     t = transport or HttpTransport()
     return {
-        "web_search": lambda query, max_results=6: web_search(
-            query, transport=t, max_results=max_results
+        "web_search": lambda query, max_results=6, providers=None: web_search(
+            query, transport=t, max_results=max_results, providers=providers
         ),
         "web_fetch_markdown": lambda url: web_fetch_markdown(url, transport=t),
-        "web_research": lambda query, max_pages=3: gather_web_research(
-            query, transport=t, max_pages=max_pages
+        "web_research": lambda query, max_pages=3, providers=None: gather_web_research(
+            query, transport=t, max_pages=max_pages, providers=providers
         ).to_dict(),
-        "web_deep_research": lambda query, max_pages=8, max_depth=2: gather_deep_web_research(
-            query, transport=t, max_pages=max_pages, max_depth=max_depth
-        ).to_dict(),
+        "web_deep_research": lambda query, max_pages=8, max_depth=2, providers=None: (
+            gather_deep_web_research(
+                query,
+                transport=t,
+                max_pages=max_pages,
+                max_depth=max_depth,
+                providers=providers,
+            ).to_dict()
+        ),
     }
 
 
@@ -129,6 +136,7 @@ ResearchPack.__getitem__ = _research_getitem  # type: ignore[method-assign]
 
 __all__ = [
     "DEFAULT_UA",
+    "DEFAULT_SEARCH_PROVIDERS",
     "BrowserCache",
     "ExplorePolicy",
     "ExploreResult",

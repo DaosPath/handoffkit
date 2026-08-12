@@ -24,7 +24,11 @@ def _resolve_transport(args: dict[str, Any] | None, fallback: Any) -> Any:
     return fallback if fallback is not None else default_transport(True)
 
 
-def make_web_search_tool(default_transport_ref: Any = None) -> Tool:
+def make_web_search_tool(
+    default_transport_ref: Any = None,
+    defaults: dict[str, Any] | None = None,
+) -> Tool:
+    defaults = defaults or {}
     def run(
         query: str,
         max_results: int = 6,
@@ -41,7 +45,7 @@ def make_web_search_tool(default_transport_ref: Any = None) -> Tool:
             transport=_resolve_transport({"transport": transport}, default_transport_ref),
             max_results=max_results,
             timeout_ms=timeout_ms,
-            providers=providers,
+            providers=providers if providers is not None else defaults.get("providers"),
             allow_hosts=allow_hosts,
             deny_hosts=deny_hosts,
         )
@@ -220,7 +224,11 @@ def make_web_fetch_markdown_tool(default_transport_ref: Any = None) -> Tool:
     )
 
 
-def make_web_research_tool(default_transport_ref: Any = None) -> Tool:
+def make_web_research_tool(
+    default_transport_ref: Any = None,
+    defaults: dict[str, Any] | None = None,
+) -> Tool:
+    defaults = defaults or {}
     def run(
         query: str,
         max_pages: int = 3,
@@ -242,7 +250,7 @@ def make_web_research_tool(default_transport_ref: Any = None) -> Tool:
             timeout_ms=timeout_ms,
             allow_hosts=allow_hosts,
             deny_hosts=deny_hosts,
-            providers=providers,
+            providers=providers if providers is not None else defaults.get("providers"),
             seed_only=seed_only,
             seed_urls=seed_urls,
             format=format,
@@ -262,8 +270,12 @@ def make_web_research_tool(default_transport_ref: Any = None) -> Tool:
     )
 
 
-def make_deep_web_research_tool(default_transport_ref: Any = None) -> Tool:
+def make_deep_web_research_tool(
+    default_transport_ref: Any = None,
+    defaults: dict[str, Any] | None = None,
+) -> Tool:
     """Agent-facing bounded background research; no user browser is opened."""
+    defaults = defaults or {}
 
     def run(
         query: str,
@@ -293,7 +305,7 @@ def make_deep_web_research_tool(default_transport_ref: Any = None) -> Tool:
             max_depth=max_depth,
             max_sub_queries=max_sub_queries,
             max_results_per_query=max_results_per_query,
-            providers=providers,
+            providers=providers if providers is not None else defaults.get("providers"),
             timeout_ms=timeout_ms,
             concurrency=concurrency,
             allow_hosts=allow_hosts,
@@ -317,22 +329,27 @@ def make_deep_web_research_tool(default_transport_ref: Any = None) -> Tool:
     )
 
 
-def register_browser_tools(registry: Any, transport: Any | None = None) -> Any:
+def register_browser_tools(
+    registry: Any,
+    transport: Any | None = None,
+    defaults: dict[str, Any] | None = None,
+) -> Any:
     if registry is None or not hasattr(registry, "register"):
         raise TypeError("register_browser_tools requires a ToolRegistry")
     t = transport if transport is not None else default_transport(True)
-    for maker in (
-        make_web_search_tool,
-        make_web_fetch_tool,
-        make_web_explore_tool,
-        make_html_to_markdown_tool,
-        make_web_fetch_markdown_tool,
-        make_web_research_tool,
-        make_deep_web_research_tool,
-    ):
-        registry.register(maker(t))
+    registry.register(make_web_search_tool(t, defaults))
+    registry.register(make_web_fetch_tool(t))
+    registry.register(make_web_explore_tool(t))
+    registry.register(make_html_to_markdown_tool(t))
+    registry.register(make_web_fetch_markdown_tool(t))
+    registry.register(make_web_research_tool(t, defaults))
+    registry.register(make_deep_web_research_tool(t, defaults))
     return registry
 
 
-def register_web_explorer_tools(registry: Any, transport: Any | None = None) -> Any:
-    return register_browser_tools(registry, transport)
+def register_web_explorer_tools(
+    registry: Any,
+    transport: Any | None = None,
+    defaults: dict[str, Any] | None = None,
+) -> Any:
+    return register_browser_tools(registry, transport, defaults)

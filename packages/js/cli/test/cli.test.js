@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { runBrowseCommand } from "../src/browse.js";
 
 import {
   VERSION,
@@ -75,6 +76,18 @@ test("providers list stays offline and supports JSON", async () => {
   assert.match(text, /Mode: providers-package/);
   assert.equal(json.providers[0].name, "echo");
   assert.equal(json.providers[0].offline, true);
+});
+
+test("browse provider flags stay out of query text", async () => {
+  const output = [];
+  const code = await runBrowseCommand(
+    ["search", "fixture", "--provider", "wiki", "--fixture", "--json"],
+    { stdout: (text) => output.push(text) },
+  );
+  assert.equal(code, 1);
+  const result = JSON.parse(output.at(-1));
+  assert.equal(result.query, "fixture");
+  assert.deepEqual(result.providers_requested, ["wiki"]);
 });
 
 test("init basic-agent writes JS project", async () => {

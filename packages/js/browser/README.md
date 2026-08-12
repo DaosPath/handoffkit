@@ -23,6 +23,7 @@ import { createBrowserAgentKit } from "@handoffkit/browser";
 const kit = createBrowserAgentKit({
   maxPages: 3,
   allowHosts: ["wikipedia.org", "nih.gov", "drugs.com"],
+  providers: ["duckduckgo", "wikipedia"], // default; applied to kit helpers and tools
   useCache: true, // .cache/handoffkit-browser
 });
 
@@ -51,6 +52,7 @@ console.log(pack.promptSection());
 
 ```bash
 pnpm --dir packages/js/cli exec handoffkit-js browse search "metformin"
+pnpm --dir packages/js/cli exec handoffkit-js browse search "metformin" --provider wikipedia
 pnpm --dir packages/js/cli exec handoffkit-js browse research "metformin" --max-pages 2 --markdown
 pnpm --dir packages/js/cli exec handoffkit-js browse deep "metformin side effects" --max-pages 8 --max-depth 2 --markdown
 pnpm --dir packages/js/cli exec handoffkit-js browse fixture
@@ -77,9 +79,12 @@ page budget, blocked/error steps, citations, and elapsed time in
 for deterministic tests. The deeper route remains bounded HTTP research; it
 is not Browser Real and does not execute arbitrary page JavaScript. Pass
 `providers: ["wikipedia"]` or `providers: ["duckduckgo"]` to select an
-adapter. Unknown or unreachable providers remain observable errors and never
-silently become another provider. Supplying `BrowserCache` also records cache
-hits, misses, and writes.
+adapter. `createBrowserAgentKit({ providers: [...] })` carries the same
+selection into `search`, `gather`, `deepGather`, and registered tools. The CLI
+accepts repeated `--provider` flags or a comma-separated `--providers` value.
+Unknown or unreachable providers remain observable errors and never silently
+become another provider. Supplying `BrowserCache` also records cache hits,
+misses, and writes.
 
 ## Python parity
 

@@ -26,6 +26,7 @@ struct BrowserAgentKit {
     int timeout_ms = 20000;
     std::vector<std::string> allow_hosts;
     std::vector<std::string> deny_hosts;
+    std::vector<std::string> providers{"duckduckgo", "wikipedia"};
     std::string format{"markdown"};
 
     [[nodiscard]] nlohmann::json search(std::string_view query, int max_results_override = -1) const;
@@ -43,6 +44,7 @@ struct BrowserAgentKitOptions {
     int timeout_ms = 20000;
     std::vector<std::string> allow_hosts;
     std::vector<std::string> deny_hosts;
+    std::vector<std::string> providers{"duckduckgo", "wikipedia"};
     std::string format{"markdown"};
 };
 

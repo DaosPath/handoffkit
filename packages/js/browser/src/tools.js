@@ -17,7 +17,7 @@ function resolveTransport(args = {}, fallback = null) {
   return fallback ?? defaultTransport(true);
 }
 
-export function makeWebSearchTool(defaultTransportRef = null) {
+export function makeWebSearchTool(defaultTransportRef = null, defaults = {}) {
   return new Tool({
     name: "web_search",
     description:
@@ -53,7 +53,7 @@ export function makeWebSearchTool(defaultTransportRef = null) {
         timeoutMs: args.timeout_ms,
         allowHosts: args.allow_hosts,
         denyHosts: args.deny_hosts,
-        providers: args.providers,
+        providers: args.providers ?? defaults.providers,
       });
     },
   });
@@ -212,7 +212,7 @@ export function makeWebFetchMarkdownTool(defaultTransportRef = null) {
   });
 }
 
-export function makeWebResearchTool(defaultTransportRef = null) {
+export function makeWebResearchTool(defaultTransportRef = null, defaults = {}) {
   return new Tool({
     name: "web_research",
     description:
@@ -246,7 +246,7 @@ export function makeWebResearchTool(defaultTransportRef = null) {
         timeoutMs: args.timeout_ms,
         allowHosts: args.allow_hosts,
         denyHosts: args.deny_hosts,
-        providers: args.providers,
+        providers: args.providers ?? defaults.providers,
         seedOnly: args.seed_only,
         seedUrls: args.seed_urls,
         format: args.format ?? "markdown",
@@ -264,7 +264,7 @@ export function makeWebResearchTool(defaultTransportRef = null) {
  * (HTTP or an explicit fixture/map transport) and returns its limits and
  * provider in ResearchPack.metadata.
  */
-export function makeDeepWebResearchTool(defaultTransportRef = null) {
+export function makeDeepWebResearchTool(defaultTransportRef = null, defaults = {}) {
   return new Tool({
     name: "web_deep_research",
     description:
@@ -307,7 +307,7 @@ export function makeDeepWebResearchTool(defaultTransportRef = null) {
         maxDepth: args.max_depth ?? 2,
         maxSubQueries: args.max_sub_queries ?? 3,
         maxResultsPerQuery: args.max_results_per_query ?? 8,
-        providers: args.providers,
+        providers: args.providers ?? defaults.providers,
         timeoutMs: args.timeout_ms ?? 20000,
         concurrency: args.concurrency ?? 3,
         allowHosts: args.allow_hosts,
@@ -323,22 +323,22 @@ export function makeDeepWebResearchTool(defaultTransportRef = null) {
 }
 
 /** Register all browser tools on a @handoffkit/core ToolRegistry. */
-export function registerBrowserTools(registry, transport = null) {
+export function registerBrowserTools(registry, transport = null, defaults = {}) {
   if (!registry || typeof registry.register !== "function") {
     throw new TypeError("registerBrowserTools requires a ToolRegistry");
   }
   const t = transport ?? defaultTransport(true);
-  registry.register(makeWebSearchTool(t));
+  registry.register(makeWebSearchTool(t, defaults));
   registry.register(makeWebFetchTool(t));
   registry.register(makeWebExploreTool(t));
   registry.register(makeHtmlToMarkdownTool(t));
   registry.register(makeWebFetchMarkdownTool(t));
-  registry.register(makeWebResearchTool(t));
-  registry.register(makeDeepWebResearchTool(t));
+  registry.register(makeWebResearchTool(t, defaults));
+  registry.register(makeDeepWebResearchTool(t, defaults));
   return registry;
 }
 
 /** Alias matching C++ naming. */
-export function registerWebExplorerTools(registry, transport = null) {
-  return registerBrowserTools(registry, transport);
+export function registerWebExplorerTools(registry, transport = null, defaults = {}) {
+  return registerBrowserTools(registry, transport, defaults);
 }

@@ -9,6 +9,7 @@
 #include <cctype>
 #include <regex>
 #include <sstream>
+#include <utility>
 
 namespace handoffkit {
 namespace browser {
@@ -885,13 +886,14 @@ WebResearchResult gather_web_research(const WebResearchConfig& config, Transport
     return result;
 }
 
-Tool make_web_search_tool(TransportPtr default_transport) {
+Tool make_web_search_tool(TransportPtr default_transport, std::vector<std::string> default_providers) {
     auto transport = default_transport;
+    auto configured_providers = std::move(default_providers);
     return Tool(
         "web_search",
         "Search the live web for a query. Returns ranked {title,url,score} hits. Follow up with "
         "web_fetch_markdown on the best URLs.",
-        [transport](const nlohmann::json& args) -> Result<nlohmann::json> {
+        [transport, configured_providers](const nlohmann::json& args) -> Result<nlohmann::json> {
             if (!args.contains("query") || !args["query"].is_string()) {
                 return Error::invalid_argument("query is required", "query");
             }
@@ -905,7 +907,7 @@ Tool make_web_search_tool(TransportPtr default_transport) {
             }
             std::vector<std::string> allow_hosts;
             std::vector<std::string> deny_hosts;
-            std::vector<std::string> providers;
+            std::vector<std::string> providers = configured_providers;
             if (args.contains("allow_hosts") && args["allow_hosts"].is_array()) {
                 for (const auto& h : args["allow_hosts"]) {
                     if (h.is_string()) allow_hosts.push_back(h.get<std::string>());
@@ -939,17 +941,19 @@ Tool make_web_search_tool(TransportPtr default_transport) {
         });
 }
 
-Tool make_web_research_tool(TransportPtr default_transport) {
+Tool make_web_research_tool(TransportPtr default_transport, std::vector<std::string> default_providers) {
     auto transport = default_transport;
+    auto configured_providers = std::move(default_providers);
     return Tool(
         "web_research",
         "Run search-then-fetch research and return markdown_context and citations for grounded "
         "answers.",
-        [transport](const nlohmann::json& args) -> Result<nlohmann::json> {
+        [transport, configured_providers](const nlohmann::json& args) -> Result<nlohmann::json> {
             if (!args.contains("query") || !args["query"].is_string()) {
                 return Error::invalid_argument("query is required", "query");
             }
             WebResearchConfig cfg;
+            if (!configured_providers.empty()) cfg.providers = configured_providers;
             cfg.query = args["query"].get<std::string>();
             if (args.contains("max_pages") && args["max_pages"].is_number_integer()) {
                 cfg.max_pages = std::max(1, std::min(8, args["max_pages"].get<int>()));
@@ -1007,16 +1011,18 @@ Tool make_web_research_tool(TransportPtr default_transport) {
         });
 }
 
-Tool make_deep_web_research_tool(TransportPtr default_transport) {
+Tool make_deep_web_research_tool(TransportPtr default_transport, std::vector<std::string> default_providers) {
     auto transport = default_transport;
+    auto configured_providers = std::move(default_providers);
     return Tool(
         "web_deep_research",
         "Run bounded multi-query, multi-hop web research in the background; no user browser tab is required.",
-        [transport](const nlohmann::json& args) -> Result<nlohmann::json> {
+        [transport, configured_providers](const nlohmann::json& args) -> Result<nlohmann::json> {
             if (!args.contains("query") || !args["query"].is_string()) {
                 return Error::invalid_argument("query is required", "query");
             }
             WebResearchConfig cfg;
+            if (!configured_providers.empty()) cfg.providers = configured_providers;
             cfg.query = args["query"].get<std::string>();
             if (args.contains("task") && args["task"].is_string()) cfg.task = args["task"].get<std::string>();
             if (args.contains("max_pages") && args["max_pages"].is_number_integer()) {

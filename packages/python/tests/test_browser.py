@@ -156,6 +156,20 @@ def test_create_browser_agent_kit_registers_tools():
     assert deep["metadata"]["user_browser_required"] is False
 
 
+def test_create_browser_agent_kit_carries_provider_defaults_into_helpers_and_tools():
+    kit = create_browser_agent_kit({"fixture": True, "providers": ["wiki"]})
+    kit["transport"].set_page(
+        "https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=6&search=OpenAI",
+        '["OpenAI", ["OpenAI"], [""], ["https://en.wikipedia.org/wiki/OpenAI"]]',
+    )
+    direct = kit["search"]("OpenAI")
+    assert direct["providers_requested"] == ["wiki"]
+    assert direct["providers_used"] == ["wikipedia"]
+    tool = kit["registry"].get("web_search").run(query="OpenAI")
+    assert tool["success"] is True
+    assert tool["providers_requested"] == ["wiki"]
+
+
 def test_rank_and_soft_block_helpers():
     ranked = rank_search_hits(
         [

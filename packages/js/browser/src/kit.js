@@ -4,6 +4,7 @@ import { defaultTransport, makeTransport, makeFixtureMapTransport } from "./tran
 import { registerBrowserTools } from "./tools.js";
 import { gatherDeepWebResearch, gatherWebResearch, ResearchPack } from "./research.js";
 import { webSearch } from "./search.js";
+import { DEFAULT_SEARCH_PROVIDERS } from "./search.js";
 import { WebExplorer } from "./explorer.js";
 import { BrowserCache, defaultCacheRoot } from "./cache.js";
 import { PageMarkdown } from "./page.js";
@@ -40,13 +41,16 @@ export function createBrowserAgentKit(options = {}) {
     timeoutMs: options.timeoutMs ?? policy.timeoutMs ?? 20000,
     allowHosts: options.allowHosts ?? [],
     denyHosts: options.denyHosts ?? [],
+    providers: Array.isArray(options.providers) && options.providers.length
+      ? [...options.providers]
+      : [...DEFAULT_SEARCH_PROVIDERS],
     format: options.format ?? "markdown",
     concurrency: options.concurrency ?? 2,
     contextMaxChars: options.contextMaxChars ?? 48000,
   };
 
   const registry = options.registry ?? new ToolRegistry();
-  registerBrowserTools(registry, transport);
+  registerBrowserTools(registry, transport, { providers: defaults.providers });
 
   const explorer = new WebExplorer(transport, policy);
 
@@ -65,6 +69,7 @@ export function createBrowserAgentKit(options = {}) {
         timeoutMs: opts.timeoutMs ?? opts.timeout_ms ?? defaults.timeoutMs,
         allowHosts: opts.allowHosts ?? defaults.allowHosts,
         denyHosts: opts.denyHosts ?? defaults.denyHosts,
+        providers: opts.providers ?? opts.provider ?? defaults.providers,
       });
     },
     async fetchMarkdown(url, opts = {}) {
@@ -91,6 +96,7 @@ export function createBrowserAgentKit(options = {}) {
         format: defaults.format,
         concurrency: defaults.concurrency,
         contextMaxChars: defaults.contextMaxChars,
+        providers: defaults.providers,
         ...config,
       });
     },
@@ -105,6 +111,7 @@ export function createBrowserAgentKit(options = {}) {
         format: defaults.format,
         concurrency: Math.max(defaults.concurrency, 3),
         contextMaxChars: Math.max(defaults.contextMaxChars, 96000),
+        providers: defaults.providers,
         ...config,
       });
     },

@@ -53,7 +53,7 @@ _RESULT_RE = re.compile(
 )
 _TAG_RE = re.compile(r"<[^>]+>")
 _UDDG_RE = re.compile(r'uddg=([^&"\'>\s]+)', re.I)
-_DEFAULT_PROVIDERS = ("duckduckgo", "wikipedia")
+DEFAULT_SEARCH_PROVIDERS = ("duckduckgo", "wikipedia")
 
 
 def keyword_compress(query: str, max_words: int = 10) -> str:
@@ -187,7 +187,7 @@ def web_search(
             "keywords": "",
             "results": [],
             "count": 0,
-            "providers_requested": [str(item) for item in (providers or _DEFAULT_PROVIDERS)],
+            "providers_requested": [str(item) for item in (providers or DEFAULT_SEARCH_PROVIDERS)],
             "providers_used": [],
             "errors": ["query is required"],
             "engine": "duckduckgo_html+wikipedia_opensearch",
@@ -195,7 +195,7 @@ def web_search(
             "error": "query is required",
         }
     kw = keyword_compress(q) or q
-    requested = list(providers or _DEFAULT_PROVIDERS)
+    requested = list(providers or DEFAULT_SEARCH_PROVIDERS)
     normalized: list[str] = []
     errors: list[str] = []
     for raw in requested:
@@ -203,7 +203,7 @@ def web_search(
         provider = {"ddg": "duckduckgo", "wiki": "wikipedia"}.get(value, value)
         if not provider:
             continue
-        if provider not in _DEFAULT_PROVIDERS:
+        if provider not in DEFAULT_SEARCH_PROVIDERS:
             errors.append(f"unsupported provider: {provider}")
             continue
         if provider not in normalized:

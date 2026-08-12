@@ -102,17 +102,17 @@ function stripTags(s) {
     .trim();
 }
 
-const DEFAULT_PROVIDERS = ["duckduckgo", "wikipedia"];
+export const DEFAULT_SEARCH_PROVIDERS = Object.freeze(["duckduckgo", "wikipedia"]);
 
 function normalizeProviders(providers) {
-  const requested = Array.isArray(providers) && providers.length ? providers : DEFAULT_PROVIDERS;
+  const requested = Array.isArray(providers) && providers.length ? providers : DEFAULT_SEARCH_PROVIDERS;
   const normalized = [];
   const errors = [];
   for (const raw of requested) {
     const value = String(raw ?? "").trim().toLowerCase();
     const provider = value === "ddg" ? "duckduckgo" : value === "wiki" ? "wikipedia" : value;
     if (!provider) continue;
-    if (!DEFAULT_PROVIDERS.includes(provider)) {
+    if (!DEFAULT_SEARCH_PROVIDERS.includes(provider)) {
       errors.push(`unsupported provider: ${provider}`);
       continue;
     }
@@ -279,7 +279,7 @@ export async function multiSearch(
   query,
   maxResults = 8,
   timeoutMs = 20000,
-  providers = DEFAULT_PROVIDERS,
+  providers = DEFAULT_SEARCH_PROVIDERS,
 ) {
   const result = await searchWithProviders(transport, query, maxResults, timeoutMs, providers);
   return result.hits;
@@ -295,7 +295,7 @@ export async function webSearch(query, opts = {}) {
   const transport = opts.transport ?? defaultTransport(true);
   const allowHosts = opts.allowHosts ?? opts.allow_hosts ?? [];
   const denyHosts = opts.denyHosts ?? opts.deny_hosts ?? [];
-  const providers = opts.providers ?? ["duckduckgo", "wikipedia"];
+  const providers = opts.providers ?? DEFAULT_SEARCH_PROVIDERS;
 
   if (!q) {
     return {

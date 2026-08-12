@@ -1,7 +1,7 @@
 import { ExplorePolicy } from "./types.js";
 import { defaultTransport } from "./transport.js";
 import { WebExplorer } from "./explorer.js";
-import { webSearch, keywordCompress } from "./search.js";
+import { webSearch, keywordCompress, DEFAULT_SEARCH_PROVIDERS } from "./search.js";
 import { rankSearchHits } from "./rank.js";
 import { BrowserCache, defaultCacheRoot } from "./cache.js";
 import { PageMarkdown } from "./page.js";
@@ -137,7 +137,7 @@ export async function gatherDeepWebResearch(config = {}) {
   const concurrency = Math.max(1, Math.min(Number(config.concurrency ?? 3) || 3, 8));
   const allowHosts = config.allowHosts ?? config.allow_hosts ?? [];
   const denyHosts = config.denyHosts ?? config.deny_hosts ?? [];
-  const providers = config.providers ?? ["duckduckgo", "wikipedia"];
+  const providers = config.providers ?? DEFAULT_SEARCH_PROVIDERS;
   const format = config.format ?? "markdown";
   const seedUrls = [...(config.seedUrls ?? config.seed_urls ?? [])];
   const cache = config.cache instanceof BrowserCache
@@ -375,7 +375,7 @@ export async function gatherWebResearch(config = {}) {
     Number(config.contextMaxChars ?? config.web_context_max_chars ?? 48000) || 48000;
   const allowHosts = config.allowHosts ?? config.allow_hosts ?? [];
   const denyHosts = config.denyHosts ?? config.deny_hosts ?? [];
-  const providers = config.providers ?? ["duckduckgo", "wikipedia"];
+  const providers = config.providers ?? DEFAULT_SEARCH_PROVIDERS;
   const format = config.format ?? "markdown";
   const concurrency = Math.max(1, Number(config.concurrency ?? 2) || 2);
   const cache =

@@ -7,10 +7,14 @@ Separate from core — import explicitly:
 ```python
 from handoffkit.browser import (
     create_browser_agent_kit,
+    DEFAULT_SEARCH_PROVIDERS,
     gather_web_research,
     make_fixture_map_transport,
     web_search,
 )
+
+kit = create_browser_agent_kit({"providers": ["wikipedia"]})
+hits = kit["search"]("metformin")
 ```
 
 Wire JSON uses **snake_case** (parity with `@handoffkit/browser` and C++ `handoffkit::browser`).
@@ -52,6 +56,8 @@ HANDOFFKIT_BROWSER_LIVE=1 pytest packages/python/tests/test_browser.py -q -k liv
 `gather_deep_web_research` records subqueries, candidates, limits, transport,
 depth, citations, errors and duration in `ResearchPack.metadata`. It is a
 bounded HTTP/fixture route, not a JavaScript-capable Browser Real engine.
+`DEFAULT_SEARCH_PROVIDERS` is the explicit DuckDuckGo/Wikipedia default; kit
+provider settings propagate to direct helpers and registered tools.
 
 ## Recipe
 

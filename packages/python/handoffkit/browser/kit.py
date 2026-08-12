@@ -12,7 +12,7 @@ from handoffkit.browser.research import (
     gather_deep_web_research,
     gather_web_research,
 )
-from handoffkit.browser.search import web_search
+from handoffkit.browser.search import DEFAULT_SEARCH_PROVIDERS, web_search
 from handoffkit.browser.tools import register_browser_tools
 from handoffkit.browser.transport import (
     default_transport,
@@ -49,9 +49,10 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
     deny_hosts = list(opts.get("deny_hosts") or opts.get("denyHosts") or [])
     fmt = opts.get("format") or "markdown"
     max_pages = int(opts.get("max_pages") or opts.get("maxPages") or 3)
+    providers = list(opts.get("providers") or opts.get("provider") or DEFAULT_SEARCH_PROVIDERS)
 
     registry = ToolRegistry()
-    register_browser_tools(registry, transport)
+    register_browser_tools(registry, transport, {"providers": providers})
 
     def search(query: str, **kwargs: Any) -> dict[str, Any]:
         return web_search(
@@ -61,6 +62,7 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
             allow_hosts=kwargs.get("allow_hosts", allow_hosts),
             deny_hosts=kwargs.get("deny_hosts", deny_hosts),
             timeout_ms=kwargs.get("timeout_ms", 20000),
+            providers=kwargs.get("providers", providers),
         )
 
     def fetch_md(url: str, **kwargs: Any) -> PageMarkdown:
@@ -112,6 +114,7 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
             use_cache=bool(cache),
             timeout_ms=int(kwargs.get("timeout_ms", 20000)),
             task=kwargs.get("task", ""),
+            providers=kwargs.get("providers", providers),
         )
 
     def deep_gather(**kwargs: Any) -> ResearchPack:
@@ -133,6 +136,7 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
             context_max_chars=int(kwargs.get("context_max_chars", max(96000, 2 * 48000))),
             format=kwargs.get("format", fmt),
             use_cache=bool(cache),
+            providers=kwargs.get("providers", providers),
         )
 
     return {
@@ -146,4 +150,5 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
         "gather": gather,
         "deep_gather": deep_gather,
         "options": dict(opts),
+        "providers": providers,
     }

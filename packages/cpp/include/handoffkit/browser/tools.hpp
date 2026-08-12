@@ -4,6 +4,8 @@
 #include <handoffkit/runtime/tool.hpp>
 
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace handoffkit {
 namespace browser {
@@ -29,7 +31,9 @@ namespace browser {
 void register_web_explorer_tools(ToolRegistry& registry, TransportPtr default_transport = nullptr);
 
 /// Register explorer tools + web_search + web_research + web_deep_research.
-void register_browser_tools(ToolRegistry& registry, TransportPtr default_transport = nullptr);
+void register_browser_tools(ToolRegistry& registry,
+                            TransportPtr default_transport = nullptr,
+                            std::vector<std::string> default_providers = {});
 
 /// Parse ExplorePolicy from tool args object (optional nested "policy" or flat keys).
 [[nodiscard]] ExplorePolicy policy_from_tool_args(const nlohmann::json& args);

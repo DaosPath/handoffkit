@@ -248,11 +248,13 @@ void register_web_explorer_tools(ToolRegistry& registry, TransportPtr default_tr
     registry.add(make_web_fetch_markdown_tool(default_transport));
 }
 
-void register_browser_tools(ToolRegistry& registry, TransportPtr default_transport) {
+void register_browser_tools(ToolRegistry& registry,
+                            TransportPtr default_transport,
+                            std::vector<std::string> default_providers) {
     register_web_explorer_tools(registry, default_transport);
-    registry.add(make_web_search_tool(default_transport));
-    registry.add(make_web_research_tool(default_transport));
-    registry.add(make_deep_web_research_tool(default_transport));
+    registry.add(make_web_search_tool(default_transport, default_providers));
+    registry.add(make_web_research_tool(default_transport, default_providers));
+    registry.add(make_deep_web_research_tool(default_transport, default_providers));
 }
 
 }  // namespace browser

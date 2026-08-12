@@ -19,6 +19,7 @@ BrowserAgentKit create_browser_agent_kit(const BrowserAgentKitOptions& options) 
     kit.timeout_ms = options.timeout_ms;
     kit.allow_hosts = options.allow_hosts;
     kit.deny_hosts = options.deny_hosts;
+    kit.providers = options.providers;
     kit.format = options.format;
 
     if (options.use_cache) {
@@ -26,13 +27,13 @@ BrowserAgentKit create_browser_agent_kit(const BrowserAgentKitOptions& options) 
             options.cache_root.empty() ? default_cache_root() : options.cache_root);
     }
 
-    register_browser_tools(kit.registry, kit.transport);
+    register_browser_tools(kit.registry, kit.transport, kit.providers);
     return kit;
 }
 
 nlohmann::json BrowserAgentKit::search(std::string_view query, int max_results_override) const {
     const int max_results = max_results_override >= 0 ? max_results_override : this->max_results;
-    return web_search(query, transport, max_results, timeout_ms, allow_hosts, deny_hosts);
+    return web_search(query, transport, max_results, timeout_ms, allow_hosts, deny_hosts, providers);
 }
 
 WebResearchResult BrowserAgentKit::gather(const WebResearchConfig& config) const {
@@ -41,6 +42,7 @@ WebResearchResult BrowserAgentKit::gather(const WebResearchConfig& config) const
     if (cfg.timeout_ms <= 0) cfg.timeout_ms = timeout_ms;
     if (cfg.allow_hosts.empty()) cfg.allow_hosts = allow_hosts;
     if (cfg.deny_hosts.empty()) cfg.deny_hosts = deny_hosts;
+    if (cfg.providers.empty()) cfg.providers = providers;
     if (cfg.format.empty()) cfg.format = format;
     if (!cfg.cache && cache) cfg.cache = cache.get();
     return gather_web_research(cfg, transport);

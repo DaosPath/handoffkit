@@ -26,6 +26,7 @@ export { WebExplorer, webFetch, webExplore } from "./explorer.js";
 export {
   webSearch,
   multiSearch,
+  DEFAULT_SEARCH_PROVIDERS,
   keywordCompress,
   urlEncodeComponent,
   urlDecodeBasic,

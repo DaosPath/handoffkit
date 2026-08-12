@@ -37,6 +37,10 @@ The current 1.20 development line continues from the 1.19 beta baseline.
   Python, and C++. Deep research now reports cache hits/misses/writes and
   reuses cached Markdown pages when a cache is supplied. Provider names do not
   imply live reachability or an independent search index.
+- Browser agent kits now propagate an explicit provider allowlist through direct
+  search/research helpers and registered tools across JavaScript, Python, and
+  C++; the JavaScript browse CLI accepts repeated or comma-separated provider
+  flags and keeps option values out of the query.
 - Added real TLS 1.3 client/server transports for Python, Node, Go, and Rust,
   including configured/system roots, hostname verification, mTLS, structured
   failures, timeouts, and real-socket positive and negative tests. Added a

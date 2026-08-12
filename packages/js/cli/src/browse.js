@@ -16,10 +16,10 @@ export async function runBrowseCommand(argv = [], io = {}) {
     stdout([
       "handoffkit-js browse",
       "",
-      "  browse search <query> [--max 6] [--json] [--allow host] [--deny host]",
+      "  browse search <query> [--max 6] [--provider duckduckgo|wikipedia] [--json] [--allow host] [--deny host]",
       "  browse fetch <url> [--markdown|--json] [--format markdown|readme]",
-      "  browse research <query> [--max-pages 3] [--json|--markdown] [--cache] [--allow host]",
-      "  browse deep <query> [--max-pages 8] [--max-depth 2] [--json|--markdown] [--cache]",
+      "  browse research <query> [--max-pages 3] [--provider duckduckgo|wikipedia] [--json|--markdown] [--cache] [--allow host]",
+      "  browse deep <query> [--max-pages 8] [--max-depth 2] [--provider duckduckgo|wikipedia] [--json|--markdown] [--cache]",
       "  browse fixture",
       "  browse tools",
     ].join("\n"));
@@ -35,12 +35,14 @@ export async function runBrowseCommand(argv = [], io = {}) {
   const format = readBrowseFlag(rest, "--format") || "markdown";
   const allowHosts = collectBrowseFlags(rest, "--allow");
   const denyHosts = collectBrowseFlags(rest, "--deny");
+  const providers = collectBrowseProviders(rest);
 
   const kit = createBrowserAgentKit({
     fixture: useFixture,
     useCache,
     allowHosts,
     denyHosts,
+    ...(providers.length ? { providers } : {}),
     format,
     maxPages: max || 3,
   });
@@ -65,13 +67,14 @@ export async function runBrowseCommand(argv = [], io = {}) {
   }
 
   if (sub === "search") {
-    const query = rest.filter((a) => !a.startsWith("--")).join(" ").trim();
+    const query = collectBrowseQuery(rest).join(" ").trim();
     if (!query) throw new Error("browse search requires a query.");
     const result = await webSearch(query, {
       transport: kit.transport,
       maxResults: max || 6,
       allowHosts,
       denyHosts,
+      providers,
     });
     if (asJson) stdout(JSON.stringify(result, null, 2));
     else {
@@ -94,7 +97,7 @@ export async function runBrowseCommand(argv = [], io = {}) {
   }
 
   if (sub === "research") {
-    const query = rest.filter((a) => !a.startsWith("--")).join(" ").trim();
+    const query = collectBrowseQuery(rest).join(" ").trim();
     if (!query) throw new Error("browse research requires a query.");
     const pack = await kit.gather({
       query,
@@ -111,7 +114,7 @@ export async function runBrowseCommand(argv = [], io = {}) {
   }
 
   if (sub === "deep") {
-    const query = rest.filter((a) => !a.startsWith("--")).join(" ").trim();
+    const query = collectBrowseQuery(rest).join(" ").trim();
     if (!query) throw new Error("browse deep requires a query.");
     const pack = await kit.deepGather({
       query,
@@ -152,4 +155,43 @@ function collectBrowseFlags(argv, name) {
     }
   }
   return out;
+}
+
+function collectBrowseProviders(argv) {
+  const out = [];
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--provider" || arg === "--providers") {
+      const value = argv[i + 1];
+      if (!value || value.startsWith("--")) throw new Error(`${arg} requires a value.`);
+      out.push(...value.split(",").map((item) => item.trim()).filter(Boolean));
+      i += 1;
+    } else if (arg.startsWith("--provider=") || arg.startsWith("--providers=")) {
+      out.push(...arg.slice(arg.indexOf("=") + 1).split(",").map((item) => item.trim()).filter(Boolean));
+    }
+  }
+  return [...new Set(out)];
+}
+
+function collectBrowseQuery(argv) {
+  const valueFlags = new Set([
+    "--max",
+    "--max-pages",
+    "--max-depth",
+    "--format",
+    "--allow",
+    "--deny",
+    "--provider",
+    "--providers",
+  ]);
+  const query = [];
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg.startsWith("--")) {
+      if (!arg.includes("=") && valueFlags.has(arg)) i += 1;
+      continue;
+    }
+    query.push(arg);
+  }
+  return query;
 }

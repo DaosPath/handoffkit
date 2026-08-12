@@ -79,9 +79,15 @@ struct WebResearchResult {
                                                               std::string_view task,
                                                               int max_sub_queries = 3);
 
-[[nodiscard]] Tool make_web_search_tool(TransportPtr default_transport = nullptr);
-[[nodiscard]] Tool make_web_research_tool(TransportPtr default_transport = nullptr);
-[[nodiscard]] Tool make_deep_web_research_tool(TransportPtr default_transport = nullptr);
+[[nodiscard]] Tool make_web_search_tool(
+    TransportPtr default_transport = nullptr,
+    std::vector<std::string> default_providers = {});
+[[nodiscard]] Tool make_web_research_tool(
+    TransportPtr default_transport = nullptr,
+    std::vector<std::string> default_providers = {});
+[[nodiscard]] Tool make_deep_web_research_tool(
+    TransportPtr default_transport = nullptr,
+    std::vector<std::string> default_providers = {});
 
 }  // namespace browser
 }  // namespace handoffkit

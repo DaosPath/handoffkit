@@ -127,6 +127,23 @@ test("createBrowserAgentKit registers tools including web_research", async () =>
   assert.equal(deep.output.metadata.user_browser_required, false);
 });
 
+test("createBrowserAgentKit carries provider defaults into helpers and tools", async () => {
+  const kit = createBrowserAgentKit({ fixture: true, providers: ["wiki"] });
+  kit.transport.setPage(
+    "https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=6&search=OpenAI",
+    JSON.stringify(["OpenAI", ["OpenAI"], [""], ["https://en.wikipedia.org/wiki/OpenAI"]]),
+  );
+  const direct = await kit.search("OpenAI");
+  assert.deepEqual(direct.providers_requested, ["wiki"]);
+  assert.deepEqual(direct.providers_used, ["wikipedia"]);
+  const tool = await kit.registry.aexecute({
+    name: "web_search",
+    arguments: { query: "OpenAI" },
+  });
+  assert.equal(tool.success, true);
+  assert.deepEqual(tool.output.providers_requested, ["wiki"]);
+});
+
 test("keywordCompress drops stopwords", () => {
   assert.equal(keywordCompress("What is the name of the capital of France?"), "capital France");
 });
