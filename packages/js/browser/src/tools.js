@@ -38,7 +38,7 @@ export function makeWebSearchTool(defaultTransportRef = null, defaults = {}) {
         providers: {
           type: "array",
           items: { type: "string", enum: ["duckduckgo", "ddg", "wikipedia", "wiki", "user_browser"] },
-          description: "Provider allowlist; user_browser requires an injected host bridge.",
+          description: "Provider allowlist; user_browser requires injected search and page bridge methods for research.",
         },
       },
       required: ["query"],
@@ -230,7 +230,7 @@ export function makeWebResearchTool(defaultTransportRef = null, defaults = {}) {
         providers: {
           type: "array",
           items: { type: "string", enum: ["duckduckgo", "ddg", "wikipedia", "wiki", "user_browser"] },
-          description: "Provider allowlist; user_browser requires an injected host bridge.",
+          description: "Provider allowlist; user_browser requires injected search and page bridge methods for research.",
         },
         seed_only: { type: "boolean", default: false },
         seed_urls: { type: "array", items: { type: "string" } },
@@ -261,16 +261,15 @@ export function makeWebResearchTool(defaultTransportRef = null, defaults = {}) {
 }
 
 /**
- * Run bounded multi-query/multi-hop research without opening a user browser
- * window. This is the agent-facing deep route; it always uses WebTransport
- * (HTTP or an explicit fixture/map transport) and returns its limits and
- * provider in ResearchPack.metadata.
+ * Run bounded multi-query/multi-hop research without opening a browser window.
+ * HTTP/fixture providers use WebTransport; user_browser uses only its explicit
+ * host page bridge and returns its limits and provider in metadata.
  */
 export function makeDeepWebResearchTool(defaultTransportRef = null, defaults = {}) {
   return new Tool({
     name: "web_deep_research",
     description:
-      "Run bounded multi-query, multi-hop research and return a grounded ResearchPack; user_browser is used only when explicitly configured.",
+      "Run bounded multi-query, multi-hop research and return a grounded ResearchPack; user_browser needs an explicit search plus fetch/open host bridge.",
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -284,7 +283,7 @@ export function makeDeepWebResearchTool(defaultTransportRef = null, defaults = {
         providers: {
           type: "array",
           items: { type: "string", enum: ["duckduckgo", "ddg", "wikipedia", "wiki", "user_browser"] },
-          description: "Provider allowlist; user_browser requires an injected host bridge.",
+          description: "Provider allowlist; user_browser requires injected search and page bridge methods for research.",
         },
         timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, default: 20000 },
         concurrency: { type: "integer", minimum: 1, maximum: 8, default: 3 },

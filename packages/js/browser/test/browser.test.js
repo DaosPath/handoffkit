@@ -268,11 +268,18 @@ test("user_browser bridge feeds bounded research with explicit metadata", async 
     "https://example.org/session",
     "<html><head><title>Session page</title></head><body><main><p>session evidence</p></main></body></html>",
   );
+  const calls = [];
   const pack = await gatherWebResearch({
     query: "session evidence",
     transport,
     providers: ["user_browser"],
-    userBrowser: { search: () => [{ title: "Session", url: "https://example.org/session" }] },
+    userBrowser: {
+      search: () => [{ title: "Session", url: "https://example.org/session" }],
+      fetch: async (url) => {
+        calls.push(url);
+        return { url, title: "Session page", markdown: "session evidence", links: [] };
+      },
+    },
     maxPages: 1,
   });
   assert.equal(pack.pages_ok, 1);
@@ -280,6 +287,60 @@ test("user_browser bridge feeds bounded research with explicit metadata", async 
   assert.equal(pack.metadata.user_browser_required, true);
   assert.equal(pack.metadata.user_browser_bridge_configured, true);
   assert.ok(pack.metadata.providers_used.includes("user_browser"));
+  assert.deepEqual(calls, ["https://example.org/session"]);
+  assert.match(pack.toAgentMarkdown(), /## Evidence/);
+  assert.match(pack.toDict().agent_markdown, /session evidence/);
+});
+
+test("user_browser exploration is bounded, follows links, and never falls back to HTTP", async () => {
+  const transport = makeFixtureMapTransport();
+  transport.setPage("https://example.org/session", "<p>HTTP fallback must not be used</p>");
+  const pages = new Map([
+    ["https://example.org/session", {
+      title: "Session root",
+      markdown: "root evidence",
+      links: [{ href: "/next", text: "Next" }, { href: "javascript:bad" }],
+    }],
+    ["https://example.org/next", {
+      title: "Session next",
+      markdown: "next evidence",
+      links: [{ href: "/session#again", text: "Root" }],
+    }],
+  ]);
+  const bridge = {
+    search: () => [{ title: "Session", url: "https://example.org/session" }],
+    fetch: async (url) => ({ url, ...(pages.get(url) ?? { error_code: "missing" }) }),
+  };
+  const pack = await gatherWebResearch({
+    query: "session",
+    transport,
+    providers: ["user_browser"],
+    userBrowser: bridge,
+    maxPages: 2,
+    preferExplore: true,
+    maxDepth: 1,
+  });
+  assert.equal(pack.pages_ok, 2);
+  assert.equal(pack.metadata.page_transport, "user_browser_bridge");
+  assert.deepEqual(pack.urls_fetched, ["https://example.org/session", "https://example.org/next"]);
+  assert.equal(pack.pages.some((page) => page.markdown.includes("HTTP fallback")), false);
+  assert.ok(pack.steps.some((step) => step.tool === "user_browser_explore_step" && step.depth === 1));
+});
+
+test("user_browser research fails closed when page access is not exposed", async () => {
+  const transport = makeFixtureMapTransport();
+  transport.setPage("https://example.org/session", "<p>must not be read</p>");
+  const pack = await gatherWebResearch({
+    seedUrls: ["https://example.org/session"],
+    seedOnly: true,
+    transport,
+    providers: ["user_browser"],
+    userBrowser: { search: () => [] },
+    maxPages: 1,
+  });
+  assert.equal(pack.pages_ok, 0);
+  assert.equal(pack.metadata.error_code, "user_browser_fetch_bridge_required");
+  assert.match(pack.error, /injected fetch/);
 });
 
 test("gatherWebResearch + ResearchPack + cache", async () => {

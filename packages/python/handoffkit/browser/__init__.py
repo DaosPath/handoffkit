@@ -82,7 +82,11 @@ from handoffkit.browser.types import (
 from handoffkit.browser.user_browser import (
     USER_BROWSER_PROVIDER,
     UserBrowserBridge,
+    UserBrowserPageBridge,
+    explore_user_browser,
+    fetch_user_browser_page,
     is_user_browser_bridge,
+    is_user_browser_page_bridge,
     search_user_browser,
 )
 from handoffkit.browser.util import detect_soft_block, map_with_concurrency, smart_truncate
@@ -214,6 +218,10 @@ __all__ = [
     "web_fetch_markdown",
     "web_search",
     "UserBrowserBridge",
+    "UserBrowserPageBridge",
+    "explore_user_browser",
+    "fetch_user_browser_page",
     "is_user_browser_bridge",
+    "is_user_browser_page_bridge",
     "search_user_browser",
 ]

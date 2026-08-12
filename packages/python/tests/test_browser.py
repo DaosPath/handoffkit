@@ -180,9 +180,20 @@ def test_user_browser_bridge_feeds_bounded_research_with_explicit_metadata():
         "<body><main><p>session evidence</p></main></body></html>",
     )
 
+    calls = []
+
     class Bridge:
         def search(self, query, **options):
             return [{"title": "Session", "url": "https://example.org/session"}]
+
+        def fetch(self, url, **options):
+            calls.append(url)
+            return {
+                "url": url,
+                "title": "Session page",
+                "markdown": "session evidence",
+                "links": [],
+            }
 
     pack = gather_web_research(
         "session evidence",
@@ -196,6 +207,71 @@ def test_user_browser_bridge_feeds_bounded_research_with_explicit_metadata():
     assert pack.metadata["user_browser_required"] is True
     assert pack.metadata["user_browser_bridge_configured"] is True
     assert "user_browser" in pack.metadata["providers_used"]
+    assert calls == ["https://example.org/session"]
+    assert "## Evidence" in pack.to_agent_markdown()
+    assert "session evidence" in pack.to_dict()["agent_markdown"]
+
+
+def test_user_browser_exploration_is_bounded_and_never_falls_back_to_http():
+    transport = make_fixture_map_transport()
+    transport.set_page("https://example.org/session", "<p>HTTP fallback must not be used</p>")
+    pages = {
+        "https://example.org/session": {
+            "title": "Session root",
+            "markdown": "root evidence",
+            "links": [{"href": "/next", "text": "Next"}, {"href": "javascript:bad"}],
+        },
+        "https://example.org/next": {
+            "title": "Session next",
+            "markdown": "next evidence",
+            "links": [{"href": "/session#again", "text": "Root"}],
+        },
+    }
+
+    class Bridge:
+        def search(self, query, **options):
+            return [{"title": "Session", "url": "https://example.org/session"}]
+
+        def fetch(self, url, **options):
+            return {"url": url, **pages.get(url, {"error_code": "missing"})}
+
+    pack = gather_web_research(
+        "session",
+        transport=transport,
+        providers=["user_browser"],
+        user_browser=Bridge(),
+        max_pages=2,
+        prefer_explore=True,
+        max_depth=1,
+    )
+    assert pack.pages_ok == 2
+    assert pack.metadata["page_transport"] == "user_browser_bridge"
+    assert pack.urls_fetched == ["https://example.org/session", "https://example.org/next"]
+    assert all("HTTP fallback" not in page.markdown for page in pack.pages)
+    assert any(
+        step["tool"] == "user_browser_explore_step" and step["depth"] == 1 for step in pack.steps
+    )
+
+
+def test_user_browser_research_fails_closed_without_page_bridge():
+    transport = make_fixture_map_transport()
+    transport.set_page("https://example.org/session", "<p>must not be read</p>")
+
+    class Bridge:
+        def search(self, query, **options):
+            return []
+
+    pack = gather_web_research(
+        seed_urls=["https://example.org/session"],
+        seed_only=True,
+        transport=transport,
+        providers=["user_browser"],
+        user_browser=Bridge(),
+        max_pages=1,
+    )
+    assert pack.pages_ok == 0
+    assert pack.metadata["error_code"] == "user_browser_fetch_bridge_required"
+    assert "injected fetch" in pack.error
 
 
 def test_explore_bfs_fixture():

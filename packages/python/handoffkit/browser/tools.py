@@ -57,7 +57,7 @@ def make_web_search_tool(
         name="web_search",
         description=(
             "Search the live web for a query. Returns ranked {title,url,score} hits. "
-            "user_browser requires an explicitly injected host bridge."
+            "user_browser requires an explicitly injected search bridge; page research also needs fetch/open."
         ),
     )
 
@@ -278,7 +278,7 @@ def make_deep_web_research_tool(
     default_transport_ref: Any = None,
     defaults: dict[str, Any] | None = None,
 ) -> Tool:
-    """Agent-facing bounded research; user_browser is explicit and host-injected."""
+    """Agent-facing bounded research with an explicit user-browser page bridge."""
     defaults = defaults or {}
 
     def run(
@@ -330,7 +330,7 @@ def make_deep_web_research_tool(
         name="web_deep_research",
         description=(
             "Run bounded multi-query, multi-hop research and return a grounded ResearchPack; "
-            "user_browser is used only when explicitly configured."
+            "user_browser requires an explicit search plus fetch/open host bridge."
         ),
     )
 

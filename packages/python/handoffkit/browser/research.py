@@ -13,6 +13,7 @@ from handoffkit.browser.rank import rank_search_hits
 from handoffkit.browser.search import DEFAULT_SEARCH_PROVIDERS, keyword_compress, web_search
 from handoffkit.browser.transport import WebTransport, default_transport
 from handoffkit.browser.types import ExplorePolicy, canonical_url
+from handoffkit.browser.user_browser import explore_user_browser
 from handoffkit.browser.util import map_with_concurrency, smart_truncate
 
 _URL_RE = re.compile(r"https?://[^\s<>\"')\]]+", re.I)
@@ -74,24 +75,70 @@ class ResearchPack:
             "error": self.error,
             "transport": self.transport,
             "mode": self.mode,
+            "agent_markdown": self.to_agent_markdown(),
             "metadata": dict(self.metadata),
         }
 
     def prompt_section(self) -> str:
         return research_prompt_section(self)
 
+    def to_agent_markdown(self, *, max_chars: int = 96000) -> str:
+        """Return a bounded source-labelled Markdown bundle for agent context."""
+        lines = ["# HandoffKit Research", ""]
+        if self.queries:
+            lines.extend(["## Queries", "", *[f"- {query}" for query in self.queries], ""])
+        if self.citations:
+            lines.extend(["## Sources", ""])
+            for citation in self.citations:
+                title = citation.get("title") or citation.get("url") or "Source"
+                url = citation.get("url") or ""
+                lines.append(f"- [{title}]({url})" if url else f"- {title}")
+            lines.append("")
+        if self.pages:
+            lines.extend(["## Evidence", ""])
+            for index, raw_page in enumerate(self.pages, 1):
+                if isinstance(raw_page, PageMarkdown):
+                    page = raw_page
+                else:
+                    data = raw_page if isinstance(raw_page, dict) else {}
+                    page = PageMarkdown(
+                        url=str(data.get("url") or ""),
+                        final_url=str(data.get("final_url") or data.get("finalUrl") or ""),
+                        title=str(data.get("title") or ""),
+                        markdown=str(data.get("markdown") or ""),
+                        text=str(data.get("text") or ""),
+                        excerpt=str(data.get("excerpt") or ""),
+                        links=list(data.get("links") or []),
+                        success=bool(data.get("success", True)),
+                    )
+                source = page.final_url or page.url
+                lines.extend([f"### {index}. {page.title or source or 'Untitled page'}", ""])
+                if source:
+                    lines.extend([f"Source: {source}", ""])
+                lines.extend(
+                    [smart_truncate(page.markdown or page.text or page.excerpt or "", 20000), ""]
+                )
+        if self.error:
+            lines.extend(["## Errors", "", f"- {self.error}", ""])
+        if not self.pages and not self.error:
+            lines.extend(["No page evidence was returned.", ""])
+        return smart_truncate("\n".join(lines).strip() + "\n", max_chars)
+
 
 def research_prompt_section(research: ResearchPack | dict[str, Any]) -> str:
     if isinstance(research, ResearchPack):
         md = research.markdown_context or ""
+        bundle = research.to_agent_markdown() if md else ""
     else:
         md = research.get("markdown_context") or ""
+        bundle = research.get("agent_markdown") or md
     if not md:
         return ""
     return (
         "### Live web research (Markdown from HandoffKit browser)\n"
         "Use the following fetched page content as evidence. Prefer these sources over invention.\n"
-        + md
+        "Tools used: web_search, web_fetch_markdown, user_browser_bridge, html_to_markdown.\n\n"
+        + bundle
     )
 
 
@@ -162,9 +209,9 @@ def gather_deep_web_research(
 ) -> ResearchPack:
     """Run bounded multi-query/multi-hop research entirely in the background.
 
-    Search and page exploration use the selected WebTransport. When
-    ``user_browser`` is selected, only the injected search bridge participates;
-    fetch/explore still use the configured transport.
+    Search and page exploration use the selected route. When ``user_browser``
+    is selected, page access requires the injected ``fetch``/``open`` bridge;
+    the function never silently uses the configured HTTP transport instead.
     """
     from time import monotonic
 
@@ -258,6 +305,10 @@ def gather_deep_web_research(
         for error in search.get("errors") or []:
             if error not in pack.metadata["provider_errors"]:
                 pack.metadata["provider_errors"].append(error)
+        if search.get("error") and not pack.error:
+            pack.error = str(search["error"])
+        if search.get("error_code") and not pack.metadata.get("error_code"):
+            pack.metadata["error_code"] = search["error_code"]
         urls.extend(canonical_url(hit.get("url", "")) for hit in search.get("results") or [])
 
     ranked = rank_search_hits(
@@ -272,6 +323,129 @@ def gather_deep_web_research(
         pack.metadata["error_code"] = "no_urls_to_explore"
         pack.used = bool(pack.queries)
         pack.metadata["duration_ms"] = int((monotonic() - started) * 1000)
+        return pack
+
+    if user_browser_requested:
+        pack.metadata["page_transport"] = "user_browser_bridge"
+        branch_pages = max(1, min(depth_limit + 1, pages_limit))
+
+        def user_browser_explore_one(url: str) -> tuple[str, dict[str, Any]]:
+            return url, explore_user_browser(
+                user_browser,
+                [url],
+                max_pages=branch_pages,
+                max_depth=depth_limit,
+                timeout_ms=timeout,
+                max_body_bytes=int(
+                    policy.max_body_bytes
+                    if isinstance(policy, ExplorePolicy)
+                    else 2 * 1024 * 1024
+                ),
+                max_text_chars=int(
+                    policy.max_text_chars if isinstance(policy, ExplorePolicy) else 50000
+                ),
+                max_links_per_page=int(
+                    policy.max_links_per_page if isinstance(policy, ExplorePolicy) else 100
+                ),
+                max_markdown_chars=int(
+                    policy.max_markdown_chars if isinstance(policy, ExplorePolicy) else 60000
+                ),
+                same_host_only=bool(
+                    policy.same_host_only if isinstance(policy, ExplorePolicy) else True
+                ),
+                allow_hosts=allows,
+                deny_hosts=denies,
+            )
+
+        for seed_url, explored in map_with_concurrency(
+            candidates, parallel, user_browser_explore_one
+        ):
+            pack.tool_calls += 1
+            pack.steps.append(
+                {
+                    "tool": "user_browser_explore",
+                    "seed_url": seed_url,
+                    "success": bool(explored.get("success")),
+                    "pages_fetched": int(explored.get("pages_fetched") or 0),
+                    "max_depth_reached": int(explored.get("max_depth_reached") or 0),
+                    "error": explored.get("error", ""),
+                    "error_code": next(
+                        (
+                            step.get("error_code", "")
+                            for step in explored.get("steps", [])
+                            if step.get("error_code")
+                        ),
+                        "",
+                    ),
+                }
+            )
+            for step in explored.get("steps", []):
+                pack.steps.append(
+                    {
+                        "tool": "user_browser_explore_step",
+                        "seed_url": seed_url,
+                        "depth": step.get("depth", 0),
+                        "url": step.get("url", ""),
+                        "final_url": step.get("final_url", ""),
+                        "status": step.get("status", 0),
+                        "success": bool(step.get("success")),
+                        "error": step.get("error", ""),
+                        "error_code": step.get("error_code", ""),
+                        "links": len(step.get("links") or []),
+                    }
+                )
+                if not step.get("success") or pack.pages_ok >= pages_limit:
+                    continue
+                page = PageMarkdown(
+                    url=str(step.get("url") or ""),
+                    final_url=str(step.get("final_url") or step.get("url") or ""),
+                    title=str(step.get("title") or ""),
+                    markdown=str(step.get("markdown") or step.get("text") or ""),
+                    text=str(step.get("text") or ""),
+                    links=list(step.get("links") or []),
+                    format=format if format in {"markdown", "readme"} else "markdown",
+                    success=True,
+                    fetched_at="",
+                    metadata={"depth": step.get("depth", 0), "source": "user_browser_bridge"},
+                )
+                if format == "readme":
+                    page.markdown = page.to_readme()
+                pack.pages.append(page)
+                pack.pages_ok += 1
+                final_url = page.final_url or page.url
+                pack.urls_fetched.append(final_url)
+                pack.citations.append({"title": page.title or final_url, "url": final_url})
+            if explored.get("error") and not pack.error:
+                pack.error = str(explored["error"])
+            code = next(
+                (
+                    str(step.get("error_code"))
+                    for step in explored.get("steps", [])
+                    if step.get("error_code")
+                ),
+                "",
+            )
+            if code and not pack.metadata.get("error_code"):
+                pack.metadata["error_code"] = code
+
+        pack.markdown_context = smart_truncate(
+            "\n\n---\n\n".join(page.markdown for page in pack.pages if page.markdown),
+            context_max_chars,
+        )
+        pack.used = pack.pages_ok > 0 or bool(pack.queries)
+        if not pack.pages_ok and not pack.error:
+            pack.error = "no user-browser pages explored successfully"
+        if not pack.pages_ok and not pack.metadata.get("error_code"):
+            pack.metadata["error_code"] = "no_pages_explored"
+        pack.metadata["candidates"] = candidates
+        pack.metadata["duration_ms"] = int((monotonic() - started) * 1000)
+        pack.steps.append(
+            {
+                "tool": "deep_research_done",
+                "pages_ok": pack.pages_ok,
+                "ms": pack.metadata["duration_ms"],
+            }
+        )
         return pack
 
     branch_pages = max(1, min(depth_limit + 1, pages_limit))
@@ -453,6 +627,113 @@ def gather_web_research(
     if not urls:
         pack.error = "no urls to fetch"
         pack.used = bool(pack.queries)
+        return pack
+
+    if user_browser_requested:
+        pack.metadata["page_transport"] = "user_browser_bridge"
+        branch_pages = max(1, min(max_depth + 1, max_pages)) if prefer_explore else 1
+
+        def user_browser_fetch_one(url: str) -> tuple[str, dict[str, Any]]:
+            return url, explore_user_browser(
+                user_browser,
+                [url],
+                max_pages=branch_pages,
+                max_depth=max_depth if prefer_explore else 0,
+                timeout_ms=timeout_ms,
+                max_text_chars=int(
+                    policy.max_text_chars if isinstance(policy, ExplorePolicy) else 50000
+                ),
+                max_links_per_page=int(
+                    policy.max_links_per_page if isinstance(policy, ExplorePolicy) else 100
+                ),
+                max_markdown_chars=int(
+                    policy.max_markdown_chars if isinstance(policy, ExplorePolicy) else 60000
+                ),
+                same_host_only=bool(
+                    policy.same_host_only if isinstance(policy, ExplorePolicy) else True
+                ),
+                allow_hosts=list(allow_hosts or []),
+                deny_hosts=list(deny_hosts or []),
+            )
+
+        fetched = map_with_concurrency(urls[:max_pages], concurrency, user_browser_fetch_one)
+        for seed_url, explored in fetched:
+            pack.tool_calls += 1
+            pack.steps.append(
+                {
+                    "tool": "user_browser_explore",
+                    "seed_url": seed_url,
+                    "success": bool(explored.get("success")),
+                    "pages_fetched": int(explored.get("pages_fetched") or 0),
+                    "max_depth_reached": int(explored.get("max_depth_reached") or 0),
+                    "error": explored.get("error", ""),
+                    "error_code": next(
+                        (
+                            step.get("error_code", "")
+                            for step in explored.get("steps", [])
+                            if step.get("error_code")
+                        ),
+                        "",
+                    ),
+                }
+            )
+            for step in explored.get("steps", []):
+                pack.steps.append(
+                    {
+                        "tool": "user_browser_explore_step",
+                        "seed_url": seed_url,
+                        "depth": step.get("depth", 0),
+                        "url": step.get("url", ""),
+                        "final_url": step.get("final_url", ""),
+                        "status": step.get("status", 0),
+                        "success": bool(step.get("success")),
+                        "error": step.get("error", ""),
+                        "error_code": step.get("error_code", ""),
+                        "links": len(step.get("links") or []),
+                    }
+                )
+                if not step.get("success") or pack.pages_ok >= max_pages:
+                    continue
+                page = PageMarkdown(
+                    url=str(step.get("url") or ""),
+                    final_url=str(step.get("final_url") or step.get("url") or ""),
+                    title=str(step.get("title") or ""),
+                    markdown=str(step.get("markdown") or step.get("text") or ""),
+                    text=str(step.get("text") or ""),
+                    links=list(step.get("links") or []),
+                    format=format if format in {"markdown", "readme"} else "markdown",
+                    success=True,
+                    metadata={"depth": step.get("depth", 0), "source": "user_browser_bridge"},
+                )
+                if format == "readme":
+                    page.markdown = page.to_readme()
+                pack.pages.append(page)
+                pack.pages_ok += 1
+                final_url = page.final_url or page.url
+                pack.urls_fetched.append(final_url)
+                pack.citations.append({"title": page.title or final_url, "url": final_url})
+            if explored.get("error") and not pack.error:
+                pack.error = str(explored["error"])
+            code = next(
+                (
+                    str(step.get("error_code"))
+                    for step in explored.get("steps", [])
+                    if step.get("error_code")
+                ),
+                "",
+            )
+            if code and not pack.metadata.get("error_code"):
+                pack.metadata["error_code"] = code
+        pack.markdown_context = smart_truncate(
+            "\n\n---\n\n".join(page.markdown for page in pack.pages if page.markdown),
+            context_max_chars,
+        )
+        pack.used = pack.pages_ok > 0 or bool(pack.queries)
+        if pack.pages_ok == 0 and not pack.error:
+            pack.error = "no user-browser pages fetched successfully"
+        if pack.pages_ok == 0 and not pack.metadata.get("error_code"):
+            pack.metadata["error_code"] = "no_pages_fetched"
+        pack.metadata["candidates"] = urls[:max_pages]
         return pack
 
     pol = policy if isinstance(policy, ExplorePolicy) else ExplorePolicy.from_dict(policy)

@@ -138,6 +138,7 @@ export interface ExploreStep {
   links: ExtractedLink[];
   rawBodyBytes: number;
   blockedLinks: string[];
+  errorCode?: string;
 }
 
 export interface ExploreResult {
@@ -189,11 +190,45 @@ export interface UserBrowserSearchOptions {
   signal?: AbortSignal;
 }
 
+export interface UserBrowserPageOptions extends UserBrowserSearchOptions {
+  maxBodyBytes?: number;
+  max_body_bytes?: number;
+  maxTextChars?: number;
+  max_text_chars?: number;
+  maxMarkdownChars?: number;
+  max_markdown_chars?: number;
+  maxLinksPerPage?: number;
+  max_links_per_page?: number;
+  [key: string]: unknown;
+}
+
+export interface UserBrowserPage {
+  success: boolean;
+  url: string;
+  finalUrl: string;
+  status: number;
+  title: string;
+  text: string;
+  markdown: string;
+  links: ExtractedLink[];
+  errorCode: string;
+  error: string;
+  metadata: Record<string, unknown>;
+}
+
 export interface UserBrowserBridge {
   search(
     query: string,
     options?: UserBrowserSearchOptions,
   ): Promise<SearchHit[] | { results: SearchHit[]; error_code?: string; error?: string }> | SearchHit[] | { results: SearchHit[]; error_code?: string; error?: string };
+  fetch?(
+    url: string,
+    options?: UserBrowserPageOptions,
+  ): Promise<Record<string, unknown> | UserBrowserPage> | Record<string, unknown> | UserBrowserPage;
+  open?(
+    url: string,
+    options?: UserBrowserPageOptions,
+  ): Promise<Record<string, unknown> | UserBrowserPage> | Record<string, unknown> | UserBrowserPage;
 }
 
 export interface SearchResult {
@@ -218,11 +253,22 @@ export declare class UserBrowserBridgeError extends Error {
   code: string;
 }
 export declare function isUserBrowserBridge(bridge: unknown): bridge is UserBrowserBridge;
+export declare function isUserBrowserPageBridge(bridge: unknown): bridge is UserBrowserBridge;
 export declare function searchUserBrowser(
   bridge: UserBrowserBridge | null | undefined,
   query: string,
   options?: UserBrowserSearchOptions,
 ): Promise<{ hits: SearchHit[]; error_code: string; error: string }>;
+export declare function fetchUserBrowserPage(
+  bridge: UserBrowserBridge | null | undefined,
+  url: string,
+  options?: UserBrowserPageOptions,
+): Promise<UserBrowserPage>;
+export declare function exploreUserBrowser(
+  bridge: UserBrowserBridge | null | undefined,
+  startUrls: string | string[],
+  options?: ExplorePolicy | UserBrowserPageOptions | Record<string, unknown>,
+): Promise<ExploreResult>;
 
 export declare function webSearch(query: string, opts?: Record<string, unknown>): Promise<SearchResult>;
 export declare function multiSearch(
@@ -281,6 +327,7 @@ export declare class ResearchPack {
   metadata: Record<string, unknown>;
   constructor(init?: Record<string, unknown>);
   toDict(): Record<string, unknown>;
+  toAgentMarkdown(opts?: { maxChars?: number }): string;
   promptSection(): string;
 }
 

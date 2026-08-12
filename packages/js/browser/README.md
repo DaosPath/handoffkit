@@ -9,9 +9,12 @@ Wikipedia OpenSearch, or an explicit host-provided `user_browser` bridge).
 Connects to `@handoffkit/core` via `ToolRegistry` / `createBrowserAgentKit()`.
 
 The default runtime uses native HTTP transport in the current process. It does
-not open a user-browser tab or read cookies. `user_browser` is opt-in and only
-delegates a search to a bridge supplied by the host application; it is
-provider-dependent and unavailable without that bridge.
+not open a user-browser tab or read cookies. `user_browser` is opt-in and uses
+only an explicit bridge supplied by the host application. A full bridge can
+search and return page content through `fetch(url, options)` or
+`open(url, options)`; the library then performs bounded link exploration and
+emits source-labelled Markdown. It is provider-dependent and unavailable
+without the required bridge methods.
 
 ## Install
 
@@ -51,6 +54,10 @@ const userBrowser = {
     // The host owns this implementation and its permission boundary.
     return { results: await hostBrowserSearch(query, { maxResults, timeoutMs }) };
   },
+  async fetch(url, options) {
+    // Return DOM/reader content from the already-authorized session.
+    return hostBrowserPage(url, options);
+  },
 };
 
 const kit = createBrowserAgentKit({
@@ -59,10 +66,17 @@ const kit = createBrowserAgentKit({
 });
 ```
 
-Each bridge result must contain a title and an `http(s)` URL (or equivalent
-`href`/`link`). Invalid URLs are discarded. Requesting only `user_browser`
-without a bridge returns `error_code: "user_browser_bridge_required"`; it does
-not silently switch to DuckDuckGo.
+Search bridge results must contain a title and an `http(s)` URL (or equivalent
+`href`/`link`). Page responses may contain `html`, `text`, `markdown`, and
+`links`; HTML is normalized with the first-party extractor. Invalid URLs and
+links are discarded. `gather`/`deepGather` enforce page, depth, host, link, and
+timeout bounds and return `user_browser_fetch_bridge_required` when page
+access is not exposed. They do not silently read pages with the HTTP
+transport. `ResearchPack.toAgentMarkdown()` and the `agent_markdown` wire
+field provide a bounded bundle with queries, citations, evidence, and errors.
+Requesting only `user_browser` without a search bridge returns
+`error_code: "user_browser_bridge_required"`; it does not silently switch to
+DuckDuckGo.
 
 ## Agent tools
 
@@ -104,10 +118,10 @@ BROWSER_LIVE=1 pnpm --dir packages/js/browser test
 
 `gatherDeepWebResearch` records the transport, subqueries, candidates, depth,
 page budget, blocked/error steps, citations, and elapsed time in
-`ResearchPack.metadata`. `transport: "map"` keeps the same route fully offline
-for deterministic tests. The deeper route remains bounded HTTP research plus
-an optional explicit search bridge; it is not Browser Real and does not execute
-arbitrary page JavaScript. Pass `providers: ["wikipedia"]`,
+`ResearchPack.metadata`. `transport: "map"` keeps the HTTP route fully offline
+for deterministic tests. The user-browser route is a host-controlled bridge;
+it does not discover profiles or execute arbitrary page JavaScript itself.
+Pass `providers: ["wikipedia"]`,
 `providers: ["duckduckgo"]`, or `providers: ["user_browser"]` to select an
 adapter. `createBrowserAgentKit({ providers: [...] })` carries the same
 selection into `search`, `gather`, `deepGather`, and registered tools. The CLI

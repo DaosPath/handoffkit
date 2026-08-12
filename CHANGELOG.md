@@ -24,6 +24,13 @@ The current 1.20 development line continues from the 1.19 beta baseline.
 
 ### Added
 
+- Expanded the experimental `user_browser` provider in JavaScript and Python
+  from search-only to an explicit host page bridge (`fetch`/`open`). The bridge
+  normalizes HTML/Markdown/links, supports bounded multi-page same-host
+  exploration with depth/page/link/timeout limits, fails closed when page
+  access is absent, and emits `ResearchPack.agent_markdown` with queries,
+  citations, evidence, and structured errors. No browser profile, cookie, or
+  HTTP fallback is used by this route.
 - Added an experimental, background-only `web_deep_research` route to the
   JavaScript, Python, and C++ Browser Lite surfaces. It expands bounded
   subqueries, ranks candidates, explores/fetches through the configured HTTP or

@@ -6,6 +6,7 @@ import { rankSearchHits } from "./rank.js";
 import { BrowserCache, defaultCacheRoot } from "./cache.js";
 import { PageMarkdown } from "./page.js";
 import { canonicalUrl, mapWithConcurrency, smartTruncate } from "./util.js";
+import { exploreUserBrowser } from "./user_browser.js";
 
 const URL_RE = /https?:\/\/[^\s<>"')\]]+/gi;
 
@@ -65,8 +66,42 @@ export class ResearchPack {
       error: this.error,
       transport: this.transport,
       mode: this.mode,
+      agent_markdown: this.toAgentMarkdown(),
       metadata: { ...this.metadata },
     };
+  }
+
+  /**
+   * Stable, source-labelled Markdown bundle intended for agent context.
+   * Content is bounded so a large browser session cannot exhaust a prompt.
+   */
+  toAgentMarkdown({ maxChars = 96000 } = {}) {
+    const lines = ["# HandoffKit Research", ""];
+    if (this.queries.length) {
+      lines.push("## Queries", "", ...this.queries.map((query) => `- ${query}`), "");
+    }
+    if (this.citations.length) {
+      lines.push("## Sources", "");
+      for (const citation of this.citations) {
+        const title = citation.title || citation.url || "Source";
+        if (citation.url) lines.push(`- [${title}](${citation.url})`);
+        else lines.push(`- ${title}`);
+      }
+      lines.push("");
+    }
+    if (this.pages.length) {
+      lines.push("## Evidence", "");
+      for (const [index, rawPage] of this.pages.entries()) {
+        const page = rawPage instanceof PageMarkdown ? rawPage : PageMarkdown.fromDict(rawPage ?? {});
+        const source = page.url || "";
+        lines.push(`### ${index + 1}. ${page.title || source || "Untitled page"}`, "");
+        if (source) lines.push(`Source: ${source}`, "");
+        lines.push(smartTruncate(page.markdown || page.text || page.excerpt || "", 20000), "");
+      }
+    }
+    if (this.error) lines.push("## Errors", "", `- ${this.error}`, "");
+    if (!this.pages.length && !this.error) lines.push("No page evidence was returned.", "");
+    return smartTruncate(lines.join("\n").trim() + "\n", maxChars);
   }
 
   promptSection() {
@@ -113,11 +148,67 @@ function pageFromExploreStep(step, format = "markdown") {
   });
 }
 
+function userBrowserExploreOptions(config, maxPages, maxDepth, timeoutMs, allowHosts, denyHosts) {
+  return {
+    maxPages,
+    maxDepth,
+    timeoutMs,
+    maxBodyBytes: config.maxBodyBytes ?? config.max_body_bytes,
+    maxTextChars: config.maxTextChars ?? config.max_text_chars,
+    maxLinksPerPage: config.maxLinksPerPage ?? config.max_links_per_page,
+    maxMarkdownChars: config.maxMarkdownChars ?? config.max_markdown_chars ?? 60000,
+    sameHostOnly: config.sameHostOnly ?? config.same_host_only ?? true,
+    allowHosts,
+    denyHosts,
+  };
+}
+
+function appendUserBrowserOutcome(pack, seedUrl, outcome, format, maxPages) {
+  const result = outcome.result;
+  pack.tool_calls += 1;
+  pack.steps.push({
+    tool: "user_browser_explore",
+    seed_url: seedUrl,
+    success: result.success,
+    pages_fetched: result.pagesFetched,
+    max_depth_reached: result.maxDepthReached,
+    error_code: result.steps?.find((step) => step.errorCode)?.errorCode || "",
+    error: result.error || "",
+    ms: outcome.ms,
+  });
+  for (const step of result.steps ?? []) {
+    pack.steps.push({
+      tool: "user_browser_explore_step",
+      seed_url: seedUrl,
+      depth: step.depth,
+      url: step.url,
+      final_url: step.finalUrl,
+      status: step.status,
+      success: step.success,
+      error_code: step.errorCode || "",
+      error: step.error || "",
+      links: step.links?.length ?? 0,
+    });
+    if (!step.success || pack.pages_ok >= maxPages) continue;
+    const page = pageFromExploreStep(step, format);
+    if (!page.success) continue;
+    pack.pages.push(page);
+    pack.pages_ok += 1;
+    const finalUrl = page.url || step.url;
+    pack.urls_fetched.push(finalUrl);
+    pack.citations.push({ title: page.title || finalUrl, url: finalUrl });
+  }
+  if (!pack.metadata.page_transport) pack.metadata.page_transport = "user_browser_bridge";
+  if (result.error && !pack.error) pack.error = result.error;
+  const code = result.steps?.find((step) => step.errorCode)?.errorCode || "";
+  if (code && !pack.metadata.error_code) pack.metadata.error_code = code;
+}
+
 /**
- * Deep, bounded research over HTTP/fixtures plus an optional explicit search
- * bridge. Fetch, redirects and exploration always use the configured
- * WebTransport. Every limit is recorded in the returned ResearchPack metadata
- * and the route fails closed on missing data.
+ * Deep, bounded research over HTTP/fixtures or an explicit user-browser
+ * bridge. The selected page route is recorded in metadata and fails closed on
+ * missing bridge methods; browser-session content is never fetched by an
+ * unrelated HTTP transport.
  */
 export async function gatherDeepWebResearch(config = {}) {
   const started = Date.now();
@@ -217,6 +308,10 @@ export async function gatherDeepWebResearch(config = {}) {
     for (const error of outcome.result.errors ?? []) {
       if (!pack.metadata.provider_errors.includes(error)) pack.metadata.provider_errors.push(error);
     }
+    if (outcome.result.error && !pack.error) pack.error = outcome.result.error;
+    if (outcome.result.error_code && !pack.metadata.error_code) {
+      pack.metadata.error_code = outcome.result.error_code;
+    }
     for (const hit of outcome.result.results ?? []) {
       if (hit.url) urls.push(canonicalUrl(hit.url));
     }
@@ -239,6 +334,36 @@ export async function gatherDeepWebResearch(config = {}) {
   const branchPages = Math.max(1, Math.min(maxDepth + 1, maxPages));
   const branchCount = Math.max(1, Math.ceil(maxPages / branchPages));
   const candidates = ranked.slice(0, branchCount);
+  if (userBrowserRequested) {
+    pack.metadata.page_transport = "user_browser_bridge";
+    const browserOptions = userBrowserExploreOptions(
+      config,
+      branchPages,
+      maxDepth,
+      timeoutMs,
+      allowHosts,
+      denyHosts,
+    );
+    const outcomes = await mapWithConcurrency(candidates, concurrency, async (url) => {
+      const t0 = Date.now();
+      const result = await exploreUserBrowser(userBrowser, [url], browserOptions);
+      return { url, result, ms: Date.now() - t0 };
+    });
+    for (const outcome of outcomes) {
+      appendUserBrowserOutcome(pack, outcome.url, outcome, format, maxPages);
+    }
+    pack.markdown_context = smartTruncate(
+      pack.pages.map((page) => page.markdown).filter(Boolean).join("\n\n---\n\n"),
+      config.contextMaxChars ?? config.context_max_chars ?? 96000,
+    );
+    pack.used = pack.pages_ok > 0 || Boolean(pack.queries.length);
+    if (!pack.pages_ok && !pack.error) pack.error = "no user-browser pages explored successfully";
+    if (!pack.pages_ok && !pack.metadata.error_code) pack.metadata.error_code = "no_pages_explored";
+    pack.metadata.candidates = candidates;
+    pack.metadata.duration_ms = Date.now() - started;
+    pack.steps.push({ tool: "deep_research_done", pages_ok: pack.pages_ok, ms: pack.metadata.duration_ms });
+    return pack;
+  }
   const policy = new ExplorePolicy({
     maxDepth,
     maxPages: branchPages,
@@ -472,6 +597,42 @@ export async function gatherWebResearch(config = {}) {
     return result;
   }
 
+  if (userBrowserRequested) {
+    result.metadata.page_transport = "user_browser_bridge";
+    const branchPages = preferExplore ? Math.max(1, Math.min(maxDepth + 1, maxPages)) : 1;
+    const browserOptions = userBrowserExploreOptions(
+      config,
+      branchPages,
+      preferExplore ? maxDepth : 0,
+      timeoutMs,
+      allowHosts,
+      denyHosts,
+    );
+    const outcomes = await mapWithConcurrency(
+      candidates.slice(0, maxPages),
+      concurrency,
+      async (url) => {
+        const t0 = Date.now();
+        const explored = await exploreUserBrowser(userBrowser, [url], browserOptions);
+        return { url, result: explored, ms: Date.now() - t0 };
+      },
+    );
+    for (const outcome of outcomes) {
+      appendUserBrowserOutcome(result, outcome.url, outcome, format, maxPages);
+    }
+    result.markdown_context = smartTruncate(
+      result.pages.map((page) => page.markdown).filter(Boolean).join("\n\n---\n\n"),
+      contextMaxChars,
+    );
+    result.used = result.pages_ok > 0 || result.queries.length > 0;
+    if (result.pages_ok === 0 && !result.error) result.error = "no user-browser pages fetched successfully";
+    if (result.pages_ok === 0 && !result.metadata.error_code) result.metadata.error_code = "no_pages_fetched";
+    result.metadata.candidates = candidates.slice(0, maxPages);
+    result.metadata.duration_ms = Date.now() - started;
+    result.steps.push({ tool: "research_done", ms: result.metadata.duration_ms, pages_ok: result.pages_ok });
+    return result;
+  }
+
   const explorer = new WebExplorer(transport);
   const policy = new ExplorePolicy({
     maxDepth,
@@ -551,14 +712,13 @@ export async function gatherWebResearch(config = {}) {
 export function researchPromptSection(research) {
   const md = research?.markdown_context ?? "";
   if (!md) return "";
-  const citations = (research?.citations ?? [])
-    .map((c) => `- [${c.title || c.url}](${c.url})`)
-    .join("\n");
+  const bundle = typeof research?.toAgentMarkdown === "function"
+    ? research.toAgentMarkdown()
+    : research?.agent_markdown || md;
   return (
     "### Live web research (Markdown from HandoffKit browser)\n" +
     "Use the following fetched page content as evidence. Prefer these sources over invention.\n" +
-    "Tools used: web_search, web_fetch_markdown, html_to_markdown.\n" +
-    (citations ? `\nCitations:\n${citations}\n\n` : "\n") +
-    md
+    "Tools used: web_search, web_fetch_markdown, user_browser_bridge, html_to_markdown.\n\n" +
+    bundle
   );
 }

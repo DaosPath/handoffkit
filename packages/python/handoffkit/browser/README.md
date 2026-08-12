@@ -21,7 +21,10 @@ Wire JSON uses **snake_case** (parity with `@handoffkit/browser` and C++ `handof
 
 The default transport is bounded native HTTP in the current process. No user
 browser tab or cookies are read. `user_browser` is an opt-in,
-provider-dependent bridge supplied by the host application.
+provider-dependent bridge supplied by the host application. A full bridge
+exposes `search(...)` and `fetch(url, ...)` (or `open(url, ...)`) for page
+content; bounded link exploration and source-labelled Markdown then stay in
+the library.
 
 ## Features
 
@@ -56,12 +59,18 @@ HANDOFFKIT_BROWSER_LIVE=1 pytest packages/python/tests/test_browser.py -q -k liv
 
 `gather_deep_web_research` records subqueries, candidates, limits, transport,
 depth, citations, errors and duration in `ResearchPack.metadata`. It is a
-bounded HTTP/fixture route with an optional explicit search bridge, not a
-JavaScript-capable Browser Real engine. The bridge must expose
-`search(query, max_results=..., timeout_ms=...)` and return a list or
-`{"results": [...]}`. Invalid URLs are dropped. Selecting only
-`user_browser` without a bridge returns `error_code ==
-"user_browser_bridge_required"`; it never silently falls back to DuckDuckGo.
+bounded HTTP/fixture route unless `user_browser` is selected; that route uses
+only the explicit page bridge and is not a JavaScript-capable Browser Real
+engine. The bridge must expose `search(query, max_results=..., timeout_ms=...)`
+and return a list or `{"results": [...]}`. For page research it must also
+expose `fetch(url, ...)` or `open(url, ...)`, returning `html`, `text`,
+`markdown`, and/or `links`. Invalid URLs/links are dropped. Missing page
+access returns `error_code == "user_browser_fetch_bridge_required"` and never
+silently falls back to HTTP. `ResearchPack.to_agent_markdown()` and the
+`agent_markdown` wire field provide bounded queries, citations, evidence, and
+errors for agent context. Selecting only `user_browser` without a search
+bridge returns `error_code == "user_browser_bridge_required"` and never
+silently falls back to DuckDuckGo.
 `DEFAULT_SEARCH_PROVIDERS` is the explicit DuckDuckGo/Wikipedia default; kit
 provider settings propagate to direct helpers and registered tools. Use
 `create_browser_agent_kit({"providers": ["user_browser"], "user_browser": bridge})`

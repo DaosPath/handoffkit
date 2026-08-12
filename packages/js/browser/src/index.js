@@ -37,7 +37,10 @@ export {
   USER_BROWSER_PROVIDER,
   UserBrowserBridgeError,
   isUserBrowserBridge,
+  isUserBrowserPageBridge,
   searchUserBrowser,
+  fetchUserBrowserPage,
+  exploreUserBrowser,
 } from "./user_browser.js";
 
 export {
