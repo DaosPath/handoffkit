@@ -76,6 +76,18 @@ provider settings propagate to direct helpers and registered tools. Use
 `create_browser_agent_kit({"providers": ["user_browser"], "user_browser": bridge})`
 to opt in.
 
+### Visibilidad y atribución
+
+`user_browser` no oculta una pestaña. HandoffKit solo orquesta las llamadas
+`search`/`fetch`/`open` del puente inyectado; la aplicación host controla la
+interfaz, la sesión, los permisos y si el navegador funciona en primer plano
+o en segundo plano. Un puente que conduce una pestaña visible debe informarse
+como arnés visible del host, no como navegador en segundo plano de HandoffKit.
+Para operar sin interfaz usando la sesión del usuario se necesita un puente
+del host basado en service worker, documento offscreen o equivalente. Si no
+existe, usa el transporte HTTP predeterminado para investigación invisible o
+falla cerrado con `user_browser_bridge_required`.
+
 `kit["search_many"]([...])` runs bounded focused searches, merges duplicate
 URLs, and preserves query provenance and scores. `gather_web_research` also
 expands up to `max_sub_queries` variants when no seed URL exists. Bridge

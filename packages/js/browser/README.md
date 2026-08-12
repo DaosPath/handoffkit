@@ -138,6 +138,18 @@ bridge; it cannot invent one. Unknown or unreachable providers remain
 observable errors and never silently become another provider. Supplying
 `BrowserCache` also records cache hits, misses, and writes.
 
+### Visibility and attribution
+
+`user_browser` does not make a browser tab invisible. HandoffKit only
+orchestrates the injected `search`/`fetch`/`open` calls; the embedding host
+owns the browser UI, session, permissions, and foreground/background policy.
+A bridge implemented by driving a visible tab must be reported as a visible
+host harness, not as a background HandoffKit browser. Invisible operation with
+the user's session requires a host-provided extension service worker,
+offscreen document, or equivalent background bridge. If that bridge is not
+available, use the default HTTP transport for background research or fail
+closed with `user_browser_bridge_required`.
+
 ## Python parity
 
 ```python

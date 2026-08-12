@@ -35,6 +35,9 @@ The current 1.20 development line continues from the 1.19 beta baseline.
   provenance and deterministic scoring. Browser-bridge traversal now ranks
   links against the research query, skips likely state-changing action links by
   default, and records traversal/action-skip metadata in agent Markdown.
+- Clarified that `user_browser` visibility belongs to the embedding host:
+  HandoffKit does not hide or foreground tabs, and a visible host harness is
+  not evidence of an invisible HandoffKit browser integration.
 - Added an experimental, background-only `web_deep_research` route to the
   JavaScript, Python, and C++ Browser Lite surfaces. It expands bounded
   subqueries, ranks candidates, explores/fetches through the configured HTTP or
