@@ -4,7 +4,6 @@
 #include <handoffkit/browser/html_extract.hpp>
 #include <handoffkit/browser/tools.hpp>
 #include <handoffkit/browser/research.hpp>
-#include <handoffkit/browser/ultra_browser.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -465,23 +464,31 @@ WebResearchResult gather_web_research(const FusionConfig& config, browser::Trans
     }
 
     if (config.web_max_depth >= 2 || config.web_max_pages >= 6) {
-        browser::UltraBrowserConfig ucfg;
-        ucfg.task = config.task;
-        ucfg.max_depth = std::max(6, config.web_max_depth);
-        ucfg.max_pages_per_hop = std::max(5, config.web_max_pages / std::max(1, ucfg.max_depth));
-        ucfg.timeout_ms = config.web_timeout_ms > 0 ? config.web_timeout_ms : 35000;
-        ucfg.context_max_chars = std::max(128000, config.web_context_max_chars);
-        ucfg.enable_reflection = true;
+        // Deep Fusion research uses the canonical Browser Lite route. The old
+        // UltraBrowser implementation remains available as an explicitly
+        // experimental API, but is no longer a second Fusion data path.
+        browser::WebResearchConfig bcfg;
+        bcfg.query = config.web_search_query;
+        bcfg.task = config.task;
+        bcfg.seed_urls = config.seed_urls;
+        bcfg.auto_search = config.web_auto_search;
+        bcfg.max_pages = config.web_max_pages;
+        bcfg.max_depth = config.web_max_depth;
+        bcfg.timeout_ms = config.web_timeout_ms > 0 ? config.web_timeout_ms : 20000;
+        bcfg.context_max_chars = std::max(1000, config.web_context_max_chars);
+        bcfg.prefer_explore = true;
+        bcfg.max_sub_queries = 3;
+        bcfg.max_results_per_query = 8;
 
-        auto ures = browser::gather_ultra_web_research(ucfg, transport);
-        r.used = ures.used;
-        r.queries = ures.queries;
-        r.urls_fetched = ures.urls_fetched;
-        r.markdown_context = ures.markdown_context;
-        r.steps = ures.steps;
-        r.pages_ok = ures.pages_ok;
-        r.tool_calls = ures.tool_calls;
-        r.error = ures.error;
+        auto deep = browser::gather_deep_web_research(bcfg, transport);
+        r.used = deep.used;
+        r.queries = deep.queries;
+        r.urls_fetched = deep.urls_fetched;
+        r.markdown_context = deep.markdown_context;
+        r.steps = deep.steps;
+        r.pages_ok = deep.pages_ok;
+        r.tool_calls = deep.tool_calls;
+        r.error = deep.error;
         return r;
     }
 

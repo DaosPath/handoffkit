@@ -170,7 +170,7 @@ std::vector<std::string> UltraBrowser::generate_reflection_queries(
 WebResearchResult UltraBrowser::execute() {
     WebResearchResult res;
     res.enabled = true;
-    res.used = true;
+    res.used = false;
     res.mode = "ultra_pro_deep_research";
     res.transport = transport_ ? transport_->name() : "http";
 
@@ -196,10 +196,12 @@ WebResearchResult UltraBrowser::execute() {
             nlohmann::json search_res = web_search(q, transport_, 8, config_.timeout_ms);
             res.tool_calls++;
 
-            if (!search_res.contains("hits") || !search_res["hits"].is_array()) continue;
+            // The canonical Browser Lite search contract is `results`; the old
+            // `hits` spelling made this experimental route silently empty.
+            if (!search_res.contains("results") || !search_res["results"].is_array()) continue;
 
             std::vector<std::string> hop_urls;
-            for (const auto& hit : search_res["hits"]) {
+            for (const auto& hit : search_res["results"]) {
                 if (hit.contains("url") && hit["url"].is_string()) {
                     std::string url = hit["url"].get<std::string>();
                     if (visited_urls.find(url) == visited_urls.end()) {
@@ -294,6 +296,10 @@ WebResearchResult UltraBrowser::execute() {
     }
 
     res.markdown_context = std::move(context);
+    res.used = res.pages_ok > 0 || !res.queries.empty();
+    if (res.pages_ok == 0 && res.error.empty()) {
+        res.error = "no pages fetched successfully";
+    }
     return res;
 }
 

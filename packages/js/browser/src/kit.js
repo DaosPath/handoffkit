@@ -2,7 +2,7 @@ import { ToolRegistry } from "@handoffkit/core";
 import { ExplorePolicy } from "./types.js";
 import { defaultTransport, makeTransport, makeFixtureMapTransport } from "./transport.js";
 import { registerBrowserTools } from "./tools.js";
-import { gatherWebResearch, ResearchPack } from "./research.js";
+import { gatherDeepWebResearch, gatherWebResearch, ResearchPack } from "./research.js";
 import { webSearch } from "./search.js";
 import { WebExplorer } from "./explorer.js";
 import { BrowserCache, defaultCacheRoot } from "./cache.js";
@@ -91,6 +91,20 @@ export function createBrowserAgentKit(options = {}) {
         format: defaults.format,
         concurrency: defaults.concurrency,
         contextMaxChars: defaults.contextMaxChars,
+        ...config,
+      });
+    },
+    deepGather(config = {}) {
+      return gatherDeepWebResearch({
+        transport,
+        cache,
+        maxPages: Math.max(defaults.maxPages, 8),
+        timeoutMs: defaults.timeoutMs,
+        allowHosts: defaults.allowHosts,
+        denyHosts: defaults.denyHosts,
+        format: defaults.format,
+        concurrency: Math.max(defaults.concurrency, 3),
+        contextMaxChars: Math.max(defaults.contextMaxChars, 96000),
         ...config,
       });
     },

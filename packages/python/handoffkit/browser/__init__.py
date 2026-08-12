@@ -32,7 +32,9 @@ from handoffkit.browser.rank import host_score, rank_search_hits
 from handoffkit.browser.research import (
     ResearchPack,
     extract_urls_from_text,
+    gather_deep_web_research,
     gather_web_research,
+    make_research_queries,
     make_search_query_from_task,
     research_prompt_section,
 )
@@ -43,6 +45,7 @@ from handoffkit.browser.search import (
     web_search,
 )
 from handoffkit.browser.tools import (
+    make_deep_web_research_tool,
     make_html_to_markdown_tool,
     make_web_explore_tool,
     make_web_fetch_markdown_tool,
@@ -110,6 +113,9 @@ def browser_toolkit(transport: Any | None = None) -> dict[str, Any]:
         "web_research": lambda query, max_pages=3: gather_web_research(
             query, transport=t, max_pages=max_pages
         ).to_dict(),
+        "web_deep_research": lambda query, max_pages=8, max_depth=2: gather_deep_web_research(
+            query, transport=t, max_pages=max_pages, max_depth=max_depth
+        ).to_dict(),
     }
 
 
@@ -148,13 +154,16 @@ __all__ = [
     "fetch_markdown",
     "format_readme_bundle",
     "gather_web_research",
+    "gather_deep_web_research",
     "host_allowed",
     "host_score",
     "html_to_markdown",
     "keyword_compress",
     "make_fixture_map_transport",
     "make_html_to_markdown_tool",
+    "make_deep_web_research_tool",
     "make_search_query_from_task",
+    "make_research_queries",
     "make_transport",
     "make_web_explore_tool",
     "make_web_fetch_markdown_tool",

@@ -28,7 +28,7 @@ namespace browser {
 /// Register web_fetch, web_explore, html_to_markdown, web_fetch_markdown.
 void register_web_explorer_tools(ToolRegistry& registry, TransportPtr default_transport = nullptr);
 
-/// Register explorer tools + web_search + web_research.
+/// Register explorer tools + web_search + web_research + web_deep_research.
 void register_browser_tools(ToolRegistry& registry, TransportPtr default_transport = nullptr);
 
 /// Parse ExplorePolicy from tool args object (optional nested "policy" or flat keys).

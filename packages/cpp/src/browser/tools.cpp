@@ -252,6 +252,7 @@ void register_browser_tools(ToolRegistry& registry, TransportPtr default_transpo
     register_web_explorer_tools(registry, default_transport);
     registry.add(make_web_search_tool(default_transport));
     registry.add(make_web_research_tool(default_transport));
+    registry.add(make_deep_web_research_tool(default_transport));
 }
 
 }  // namespace browser

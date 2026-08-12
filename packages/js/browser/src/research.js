@@ -46,6 +46,7 @@ export class ResearchPack {
     this.error = init.error ?? "";
     this.transport = init.transport ?? "";
     this.mode = init.mode ?? "search_then_fetch";
+    this.metadata = { ...(init.metadata ?? {}) };
   }
 
   toDict() {
@@ -64,12 +65,218 @@ export class ResearchPack {
       error: this.error,
       transport: this.transport,
       mode: this.mode,
+      metadata: { ...this.metadata },
     };
   }
 
   promptSection() {
     return researchPromptSection(this);
   }
+}
+
+/**
+ * Derive a small deterministic set of focused queries for background research.
+ * This never opens a browser tab; providers are called through the injected
+ * transport only.
+ */
+export function makeResearchQueries({ query = "", task = "", maxSubQueries = 3 } = {}) {
+  const limit = Math.max(1, Math.min(Number(maxSubQueries) || 3, 8));
+  const candidates = [String(query ?? "").trim()];
+  const taskText = String(task ?? "").trim();
+  if (taskText) candidates.push(...taskText.split(/[.!?\n]+/));
+  const out = [];
+  const seen = new Set();
+  for (const candidate of candidates) {
+    const focused = makeSearchQueryFromTask(candidate, 140);
+    if (!focused) continue;
+    const key = focused.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(focused);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function pageFromExploreStep(step, format = "markdown") {
+  return new PageMarkdown({
+    url: step.finalUrl || step.url || "",
+    title: step.title || "",
+    markdown: format === "readme"
+      ? `# ${step.title || "Untitled page"}\n\nSource: ${step.finalUrl || step.url || ""}\n\n${step.markdown || step.text || ""}`
+      : step.markdown || step.text || "",
+    text: step.text || "",
+    links: step.links || [],
+    format,
+    error: step.success ? "" : step.error || "fetch failed",
+    success: Boolean(step.success),
+  });
+}
+
+/**
+ * Deep, background-only research over HTTP/fixtures.
+ *
+ * The browser user is not involved: search, fetch, redirects and exploration
+ * all run through the configured WebTransport. Every limit is recorded in the
+ * returned ResearchPack metadata and the route fails closed on missing data.
+ */
+export async function gatherDeepWebResearch(config = {}) {
+  const started = Date.now();
+  const transport = config.transport ?? defaultTransport(true);
+  const query = String(config.query ?? config.web_search_query ?? "").trim();
+  const task = String(config.task ?? "").trim();
+  const maxPages = Math.max(1, Math.min(Number(config.maxPages ?? config.max_pages ?? 8) || 8, 100));
+  const maxDepth = Math.max(0, Math.min(Number(config.maxDepth ?? config.max_depth ?? 2) || 2, 4));
+  const maxSubQueries = Math.max(1, Math.min(Number(config.maxSubQueries ?? config.max_sub_queries ?? 3) || 3, 8));
+  const maxResultsPerQuery = Math.max(1, Math.min(Number(config.maxResultsPerQuery ?? config.max_results_per_query ?? 8) || 8, 20));
+  const autoSearch = config.autoSearch ?? config.auto_search ?? true;
+  const timeoutMs = Math.max(1000, Number(config.timeoutMs ?? config.timeout_ms ?? 20000) || 20000);
+  const concurrency = Math.max(1, Math.min(Number(config.concurrency ?? 3) || 3, 8));
+  const allowHosts = config.allowHosts ?? config.allow_hosts ?? [];
+  const denyHosts = config.denyHosts ?? config.deny_hosts ?? [];
+  const format = config.format ?? "markdown";
+  const seedUrls = [...(config.seedUrls ?? config.seed_urls ?? [])];
+  const cache = config.cache instanceof BrowserCache
+    ? config.cache
+    : config.cacheRoot || config.cache_root || config.useCache || config.use_cache
+      ? new BrowserCache({
+          root: config.cacheRoot || config.cache_root || defaultCacheRoot(),
+          ttlMs: config.cacheTtlMs ?? config.cache_ttl_ms ?? 24 * 60 * 60 * 1000,
+        })
+      : null;
+
+  const pack = new ResearchPack({
+    enabled: true,
+    transport: transport?.name?.() ?? "none",
+    mode: "deep_search_then_explore",
+    metadata: {
+      execution_mode: "background_http",
+      user_browser_required: false,
+      max_pages: maxPages,
+      max_depth: maxDepth,
+      max_sub_queries: maxSubQueries,
+      max_results_per_query: maxResultsPerQuery,
+      timeout_ms: timeoutMs,
+      concurrency,
+      allow_hosts: [...allowHosts],
+      deny_hosts: [...denyHosts],
+      cache_enabled: Boolean(cache),
+      provider_transport: transport?.name?.() ?? "none",
+      auto_search: Boolean(autoSearch),
+    },
+  });
+
+  const queries = autoSearch ? makeResearchQueries({ query, task, maxSubQueries }) : [];
+  pack.queries.push(...queries);
+  const rawUrls = [...seedUrls, ...extractUrlsFromText(task), ...extractUrlsFromText(query)];
+  const urls = [...new Set(rawUrls.map(canonicalUrl).filter(Boolean))];
+  const searchOutcomes = await mapWithConcurrency(queries, concurrency, async (subquery) => {
+    const t0 = Date.now();
+    const result = await webSearch(subquery, {
+      transport,
+      maxResults: maxResultsPerQuery,
+      timeoutMs,
+      allowHosts,
+      denyHosts,
+    });
+    return { subquery, result, ms: Date.now() - t0 };
+  });
+  for (const outcome of searchOutcomes) {
+    pack.tool_calls += 1;
+    pack.steps.push({
+      tool: "web_search",
+      query: outcome.subquery,
+      success: outcome.result.success,
+      count: outcome.result.count,
+      engine: outcome.result.engine,
+      ms: outcome.ms,
+      error: outcome.result.error || "",
+    });
+    for (const hit of outcome.result.results ?? []) {
+      if (hit.url) urls.push(canonicalUrl(hit.url));
+    }
+  }
+
+  const ranked = rankSearchHits(
+    [...new Set(urls)].map((url) => ({ title: "", url })),
+    { allowHosts, denyHosts },
+  ).map((hit) => hit.url);
+  if (!ranked.length) {
+    pack.error = "no urls to explore";
+    pack.used = Boolean(pack.queries.length);
+    pack.metadata.duration_ms = Date.now() - started;
+    return pack;
+  }
+
+  // Each seed gets a bounded BFS branch. The global page cap is enforced while
+  // flattening successful steps, so a deep run cannot grow without bound.
+  const branchPages = Math.max(1, Math.min(maxDepth + 1, maxPages));
+  const branchCount = Math.max(1, Math.ceil(maxPages / branchPages));
+  const candidates = ranked.slice(0, branchCount);
+  const policy = new ExplorePolicy({
+    maxDepth,
+    maxPages: branchPages,
+    timeoutMs,
+    maxBodyBytes: config.maxBodyBytes ?? config.max_body_bytes,
+    maxTextChars: config.maxTextChars ?? config.max_text_chars,
+    maxLinksPerPage: config.maxLinksPerPage ?? config.max_links_per_page,
+    sameHostOnly: config.sameHostOnly ?? config.same_host_only ?? true,
+    followRedirects: config.followRedirects ?? config.follow_redirects ?? true,
+    maxRedirects: config.maxRedirects ?? config.max_redirects ?? 5,
+    allowHosts,
+    denyHosts,
+    emitMarkdown: true,
+    maxMarkdownChars: config.maxMarkdownChars ?? config.max_markdown_chars ?? 60000,
+  });
+  const explorer = new WebExplorer(transport, policy);
+  const outcomes = await mapWithConcurrency(candidates, concurrency, async (url) => {
+    const t0 = Date.now();
+    const result = await explorer.explore(url, policy);
+    return { url, result, ms: Date.now() - t0 };
+  });
+
+  for (const outcome of outcomes) {
+    pack.tool_calls += 1;
+    pack.steps.push({
+      tool: "web_explore",
+      seed_url: outcome.url,
+      success: outcome.result.success,
+      pages_fetched: outcome.result.pagesFetched,
+      max_depth_reached: outcome.result.maxDepthReached,
+      ms: outcome.ms,
+      error: outcome.result.error || "",
+    });
+    for (const step of outcome.result.steps ?? []) {
+      pack.steps.push({
+        tool: "web_explore_step",
+        seed_url: outcome.url,
+        depth: step.depth,
+        url: step.url,
+        final_url: step.finalUrl,
+        status: step.status,
+        success: step.success,
+        error: step.error || "",
+      });
+      if (!step.success || pack.pages_ok >= maxPages) continue;
+      const page = pageFromExploreStep(step, format);
+      if (!page.success) continue;
+      pack.pages.push(page);
+      pack.pages_ok += 1;
+      const finalUrl = page.url || step.url;
+      pack.urls_fetched.push(finalUrl);
+      pack.citations.push({ title: page.title || finalUrl, url: finalUrl });
+    }
+  }
+  pack.markdown_context = smartTruncate(
+    pack.pages.map((page) => page.markdown).filter(Boolean).join("\n\n---\n\n"),
+    config.contextMaxChars ?? config.context_max_chars ?? 96000,
+  );
+  pack.used = pack.pages_ok > 0 || Boolean(pack.queries.length);
+  if (!pack.pages_ok && !pack.error) pack.error = "no pages explored successfully";
+  pack.metadata.candidates = candidates;
+  pack.metadata.duration_ms = Date.now() - started;
+  pack.steps.push({ tool: "deep_research_done", pages_ok: pack.pages_ok, ms: pack.metadata.duration_ms });
+  return pack;
 }
 
 /**

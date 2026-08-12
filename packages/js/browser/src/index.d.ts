@@ -243,15 +243,23 @@ export declare class ResearchPack {
   error: string;
   transport: string;
   mode: string;
+  metadata: Record<string, unknown>;
   constructor(init?: Record<string, unknown>);
   toDict(): Record<string, unknown>;
   promptSection(): string;
 }
 
 export declare function gatherWebResearch(config?: Record<string, unknown>): Promise<ResearchPack>;
+export declare function gatherDeepWebResearch(config?: Record<string, unknown>): Promise<ResearchPack>;
 export declare function researchPromptSection(research: ResearchPack | Record<string, unknown>): string;
 export declare function extractUrlsFromText(text: string): string[];
 export declare function makeSearchQueryFromTask(task: string, maxChars?: number): string;
+export declare function makeResearchQueries(opts?: {
+  query?: string;
+  task?: string;
+  maxSubQueries?: number;
+  max_sub_queries?: number;
+}): string[];
 
 export declare class BrowserCache {
   constructor(opts?: { root?: string; ttlMs?: number });
@@ -294,6 +302,7 @@ export declare function createBrowserAgentKit(options?: Record<string, unknown>)
   search: (query: string, opts?: Record<string, unknown>) => Promise<SearchResult>;
   fetchMarkdown: (url: string, opts?: Record<string, unknown>) => Promise<PageMarkdown>;
   gather: (config?: Record<string, unknown>) => Promise<ResearchPack>;
+  deepGather: (config?: Record<string, unknown>) => Promise<ResearchPack>;
   ResearchPack: typeof ResearchPack;
 };
 
@@ -305,3 +314,4 @@ export declare function makeWebExploreTool(defaultTransportRef?: WebTransport | 
 export declare function makeHtmlToMarkdownTool(defaultTransportRef?: WebTransport | null): Tool;
 export declare function makeWebFetchMarkdownTool(defaultTransportRef?: WebTransport | null): Tool;
 export declare function makeWebResearchTool(defaultTransportRef?: WebTransport | null): Tool;
+export declare function makeDeepWebResearchTool(defaultTransportRef?: WebTransport | null): Tool;

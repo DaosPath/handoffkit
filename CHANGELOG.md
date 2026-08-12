@@ -24,6 +24,13 @@ The current 1.20 development line continues from the 1.19 beta baseline.
 
 ### Added
 
+- Added an experimental, background-only `web_deep_research` route to the
+  JavaScript, Python, and C++ Browser Lite surfaces. It expands bounded
+  subqueries, ranks candidates, explores/fetches through the configured HTTP or
+  fixture transport, and returns citations, limits, timings, and partial errors
+  without opening a user browser window. This does not claim Browser Real,
+  Chromium, page JavaScript, cookies, credentials, screenshots, or a complete
+  local web index.
 - Added real TLS 1.3 client/server transports for Python, Node, Go, and Rust,
   including configured/system roots, hostname verification, mTLS, structured
   failures, timeouts, and real-socket positive and negative tests. Added a

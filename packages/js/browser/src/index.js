@@ -33,9 +33,11 @@ export {
 
 export {
   gatherWebResearch,
+  gatherDeepWebResearch,
   researchPromptSection,
   extractUrlsFromText,
   makeSearchQueryFromTask,
+  makeResearchQueries,
   ResearchPack,
 } from "./research.js";
 
@@ -48,6 +50,7 @@ export {
   makeHtmlToMarkdownTool,
   makeWebFetchMarkdownTool,
   makeWebResearchTool,
+  makeDeepWebResearchTool,
 } from "./tools.js";
 
 export { createBrowserAgentKit } from "./kit.js";

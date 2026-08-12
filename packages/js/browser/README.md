@@ -1,10 +1,13 @@
 # @handoffkit/browser
 
-First-party web complement for HandoffKit agents: **search → fetch/explore → HTML parse → Markdown**.
+First-party background web complement for HandoffKit agents: **search → fetch/explore → HTML parse → Markdown**.
 
 No Chrome, no Cheerio, no paid search APIs. Native `fetch`, first-party HTML extractor, public search endpoints (DuckDuckGo HTML + Wikipedia OpenSearch).
 
 Connects to `@handoffkit/core` via `ToolRegistry` / `createBrowserAgentKit()`.
+
+The default runtime uses native HTTP transport in the current process. It does
+not open a user-browser tab, read cookies, or require a visible window.
 
 ## Install
 
@@ -41,12 +44,15 @@ console.log(pack.promptSection());
 | `html_to_markdown` | HTML (or URL) → Markdown / readme |
 | `web_fetch_markdown` | Fetch → `PageMarkdown` |
 | `web_research` | Search-then-fetch `ResearchPack` |
+| `web_deep_research` | Bounded multi-query, multi-hop background research tool |
+| `gatherDeepWebResearch` / `kit.deepGather` | Same deep route as a library helper |
 
 ## CLI
 
 ```bash
 pnpm --dir packages/js/cli exec handoffkit-js browse search "metformin"
 pnpm --dir packages/js/cli exec handoffkit-js browse research "metformin" --max-pages 2 --markdown
+pnpm --dir packages/js/cli exec handoffkit-js browse deep "metformin side effects" --max-pages 8 --max-depth 2 --markdown
 pnpm --dir packages/js/cli exec handoffkit-js browse fixture
 pnpm --dir packages/js/cli exec handoffkit-js browse tools
 ```
@@ -64,6 +70,12 @@ const out = await runWebGroundedAnswer({ query: "metformin", maxPages: 2 });
 pnpm --dir packages/js/browser test
 BROWSER_LIVE=1 pnpm --dir packages/js/browser test
 ```
+
+`gatherDeepWebResearch` records the transport, subqueries, candidates, depth,
+page budget, blocked/error steps, citations, and elapsed time in
+`ResearchPack.metadata`. `transport: "map"` keeps the same route fully offline
+for deterministic tests. The deeper route remains bounded HTTP research; it
+is not Browser Real and does not execute arbitrary page JavaScript.
 
 ## Python parity
 

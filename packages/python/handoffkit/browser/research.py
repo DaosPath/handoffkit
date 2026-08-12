@@ -9,6 +9,7 @@ from typing import Any
 from handoffkit.browser.cache import BrowserCache, default_cache_root
 from handoffkit.browser.explorer import explore_url, fetch_markdown
 from handoffkit.browser.page import PageMarkdown
+from handoffkit.browser.rank import rank_search_hits
 from handoffkit.browser.search import keyword_compress, web_search
 from handoffkit.browser.transport import WebTransport, default_transport
 from handoffkit.browser.types import ExplorePolicy, canonical_url
@@ -55,6 +56,7 @@ class ResearchPack:
     error: str = ""
     transport: str = ""
     mode: str = "search_then_fetch"
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -72,6 +74,7 @@ class ResearchPack:
             "error": self.error,
             "transport": self.transport,
             "mode": self.mode,
+            "metadata": dict(self.metadata),
         }
 
     def prompt_section(self) -> str:
@@ -90,6 +93,236 @@ def research_prompt_section(research: ResearchPack | dict[str, Any]) -> str:
         "Use the following fetched page content as evidence. Prefer these sources over invention.\n"
         + md
     )
+
+
+def make_research_queries(
+    *, query: str = "", task: str = "", max_sub_queries: int = 3
+) -> list[str]:
+    """Derive focused, deterministic subqueries without opening a browser."""
+    limit = max(1, min(int(max_sub_queries or 3), 8))
+    candidates = [(query or "").strip()]
+    candidates.extend(part.strip() for part in re.split(r"[.!?\n]+", task or ""))
+    out: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        focused = make_search_query_from_task(candidate, 140)
+        key = focused.lower()
+        if not focused or key in seen:
+            continue
+        seen.add(key)
+        out.append(focused)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _page_from_explore_step(step: Any, *, format: str = "markdown") -> PageMarkdown:
+    markdown = step.markdown or step.text or ""
+    if format == "readme":
+        source = step.final_url or step.url
+        markdown = f"# {step.title or 'Untitled page'}\n\nSource: {source}\n\n{markdown}"
+    return PageMarkdown(
+        url=step.url,
+        final_url=step.final_url or step.url,
+        title=step.title,
+        markdown=markdown,
+        text=step.text,
+        links=[link.to_dict() for link in step.links],
+        format=format if format in {"markdown", "readme"} else "markdown",
+        success=bool(step.success),
+        error="" if step.success else step.error or "fetch failed",
+        status=step.status,
+        metadata={"depth": step.depth, "source": "background_http"},
+    )
+
+
+def gather_deep_web_research(
+    query: str = "",
+    *,
+    task: str = "",
+    transport: WebTransport | None = None,
+    seed_urls: list[str] | None = None,
+    max_pages: int = 8,
+    max_depth: int = 2,
+    max_sub_queries: int = 3,
+    max_results_per_query: int = 8,
+    auto_search: bool = True,
+    timeout_ms: int = 20000,
+    concurrency: int = 3,
+    allow_hosts: list[str] | None = None,
+    deny_hosts: list[str] | None = None,
+    context_max_chars: int = 96000,
+    format: str = "markdown",
+    cache: BrowserCache | None = None,
+    use_cache: bool = False,
+    cache_root: str = "",
+    policy: ExplorePolicy | dict[str, Any] | None = None,
+) -> ResearchPack:
+    """Run bounded multi-query/multi-hop research entirely in the background.
+
+    The browser user is not involved. Search, redirects and page exploration use
+    the selected WebTransport (HTTP by default, map transport in tests).
+    """
+    from time import monotonic
+
+    started = monotonic()
+    tr = transport or default_transport(True)
+    pages_limit = max(1, min(int(max_pages or 8), 100))
+    depth_limit = max(0, min(int(max_depth or 2), 4))
+    subquery_limit = max(1, min(int(max_sub_queries or 3), 8))
+    result_limit = max(1, min(int(max_results_per_query or 8), 20))
+    timeout = max(1000, int(timeout_ms or 20000))
+    parallel = max(1, min(int(concurrency or 3), 8))
+    allows = list(allow_hosts or [])
+    denies = list(deny_hosts or [])
+    browser_cache = cache
+    if browser_cache is None and (use_cache or cache_root):
+        browser_cache = BrowserCache(root=cache_root or str(default_cache_root()))
+
+    pack = ResearchPack(
+        enabled=True,
+        transport=getattr(tr, "name", lambda: "unknown")(),
+        mode="deep_search_then_explore",
+        metadata={
+            "execution_mode": "background_http",
+            "user_browser_required": False,
+            "max_pages": pages_limit,
+            "max_depth": depth_limit,
+            "max_sub_queries": subquery_limit,
+            "max_results_per_query": result_limit,
+            "timeout_ms": timeout,
+            "concurrency": parallel,
+            "allow_hosts": allows,
+            "deny_hosts": denies,
+            "cache_enabled": browser_cache is not None,
+            "provider_transport": getattr(tr, "name", lambda: "unknown")(),
+            "auto_search": bool(auto_search),
+        },
+    )
+    queries = (
+        make_research_queries(query=query, task=task, max_sub_queries=subquery_limit)
+        if auto_search
+        else []
+    )
+    pack.queries.extend(queries)
+    urls = [*list(seed_urls or []), *extract_urls_from_text(task), *extract_urls_from_text(query)]
+    urls = list(dict.fromkeys(canonical_url(url) for url in urls if url))
+
+    def search_one(subquery: str) -> tuple[str, dict[str, Any]]:
+        return subquery, web_search(
+            subquery,
+            transport=tr,
+            max_results=result_limit,
+            timeout_ms=timeout,
+            allow_hosts=allows,
+            deny_hosts=denies,
+        )
+
+    for subquery, search in map_with_concurrency(queries, parallel, search_one):
+        pack.tool_calls += 1
+        pack.steps.append(
+            {
+                "tool": "web_search",
+                "query": subquery,
+                "success": bool(search.get("success")),
+                "count": int(search.get("count") or 0),
+                "engine": search.get("engine", ""),
+                "error": search.get("error", ""),
+            }
+        )
+        urls.extend(canonical_url(hit.get("url", "")) for hit in search.get("results") or [])
+
+    ranked = rank_search_hits(
+        [{"title": "", "url": url} for url in dict.fromkeys(urls) if url],
+        allow_hosts=allows,
+        deny_hosts=denies,
+    )
+    candidate_limit = max(1, (pages_limit + depth_limit) // max(1, depth_limit + 1))
+    candidates = [str(hit["url"]) for hit in ranked[:candidate_limit]]
+    if not candidates:
+        pack.error = "no urls to explore"
+        pack.used = bool(pack.queries)
+        pack.metadata["duration_ms"] = int((monotonic() - started) * 1000)
+        return pack
+
+    branch_pages = max(1, min(depth_limit + 1, pages_limit))
+    base_policy = policy if isinstance(policy, ExplorePolicy) else ExplorePolicy.from_dict(policy)
+    explore_policy = ExplorePolicy.from_dict(
+        {
+            **base_policy.to_dict(),
+            "max_depth": depth_limit,
+            "max_pages": branch_pages,
+            "timeout_ms": timeout,
+            "same_host_only": True,
+            "allow_hosts": allows or base_policy.allow_hosts,
+            "deny_hosts": denies or base_policy.deny_hosts,
+            "emit_markdown": True,
+        }
+    )
+
+    def explore_one(url: str) -> tuple[str, Any]:
+        return url, explore_url(
+            url,
+            policy=explore_policy,
+            transport=tr,
+            cache=browser_cache,
+        )
+
+    for seed_url, explored in map_with_concurrency(candidates, parallel, explore_one):
+        pack.tool_calls += 1
+        elapsed = int((monotonic() - started) * 1000)
+        pack.steps.append(
+            {
+                "tool": "web_explore",
+                "seed_url": seed_url,
+                "success": explored.success,
+                "pages_fetched": explored.pages_fetched,
+                "max_depth_reached": explored.max_depth_reached,
+                "ms": elapsed,
+                "error": explored.error,
+            }
+        )
+        for step in explored.steps:
+            pack.steps.append(
+                {
+                    "tool": "web_explore_step",
+                    "seed_url": seed_url,
+                    "depth": step.depth,
+                    "url": step.url,
+                    "final_url": step.final_url,
+                    "status": step.status,
+                    "success": step.success,
+                    "error": step.error,
+                }
+            )
+            if not step.success or pack.pages_ok >= pages_limit:
+                continue
+            page = _page_from_explore_step(step, format=format)
+            if not page.success:
+                continue
+            pack.pages.append(page)
+            pack.pages_ok += 1
+            final_url = page.final_url or page.url
+            pack.urls_fetched.append(final_url)
+            pack.citations.append({"title": page.title or final_url, "url": final_url})
+
+    pack.markdown_context = smart_truncate(
+        "\n\n---\n\n".join(page.markdown for page in pack.pages if page.markdown),
+        context_max_chars,
+    )
+    pack.used = pack.pages_ok > 0 or bool(pack.queries)
+    if not pack.pages_ok:
+        pack.error = "no pages explored successfully"
+    pack.metadata["candidates"] = candidates
+    pack.metadata["duration_ms"] = int((monotonic() - started) * 1000)
+    pack.steps.append(
+        {
+            "tool": "deep_research_done",
+            "pages_ok": pack.pages_ok,
+            "ms": pack.metadata["duration_ms"],
+        }
+    )
+    return pack
 
 
 def gather_web_research(

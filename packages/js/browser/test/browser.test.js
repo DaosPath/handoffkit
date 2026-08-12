@@ -15,6 +15,7 @@ import {
   WebExplorer,
   webSearch,
   gatherWebResearch,
+  gatherDeepWebResearch,
   registerBrowserTools,
   keywordCompress,
   resultToDict,
@@ -97,6 +98,7 @@ test("createBrowserAgentKit registers tools including web_research", async () =>
   const names = kit.tools.map((t) => t.name).sort();
   assert.deepEqual(names, [
     "html_to_markdown",
+    "web_deep_research",
     "web_explore",
     "web_fetch",
     "web_fetch_markdown",
@@ -111,6 +113,18 @@ test("createBrowserAgentKit registers tools including web_research", async () =>
   assert.match(String(out.output.markdown), /About/);
   assert.ok(out.output.excerpt);
   assert.ok(out.output.fetched_at);
+  const deep = await kit.registry.aexecute({
+    name: "web_deep_research",
+    arguments: {
+      query: "fixture",
+      seed_urls: ["https://fixture.local/"],
+      auto_search: false,
+      max_pages: 2,
+      max_depth: 1,
+    },
+  });
+  assert.equal(deep.success, true);
+  assert.equal(deep.output.metadata.user_browser_required, false);
 });
 
 test("keywordCompress drops stopwords", () => {
@@ -183,6 +197,50 @@ test("gatherWebResearch + ResearchPack + cache", async () => {
   } finally {
     await rm(cacheRoot, { recursive: true, force: true });
   }
+});
+
+test("gatherDeepWebResearch stays background-only and bounded", async () => {
+  const transport = makeFixtureMapTransport();
+  const pack = await gatherDeepWebResearch({
+    task: "Explain the fixture guide.",
+    seedUrls: ["https://fixture.local/"],
+    transport,
+    maxPages: 3,
+    maxDepth: 1,
+    maxSubQueries: 2,
+    autoSearch: false,
+  });
+  assert.equal(pack.mode, "deep_search_then_explore");
+  assert.equal(pack.metadata.execution_mode, "background_http");
+  assert.equal(pack.metadata.user_browser_required, false);
+  assert.equal(pack.metadata.max_depth, 1);
+  assert.ok(pack.pages_ok >= 2);
+  assert.ok(pack.steps.some((step) => step.tool === "web_explore_step"));
+  assert.match(pack.markdown_context, /Fixture|Guide/);
+});
+
+test("gatherDeepWebResearch expands queries through the background transport", async () => {
+  const transport = makeFixtureMapTransport();
+  transport.setPage(
+    "https://html.duckduckgo.com/html/?q=OpenAI+product+docs",
+    '<a class="result__a" href="https://fixture.local/">Fixture</a>',
+  );
+  transport.setPage(
+    "https://html.duckduckgo.com/html/?q=OpenAI+security",
+    '<a class="result__a" href="https://fixture.local/about.html">About</a>',
+  );
+  const pack = await gatherDeepWebResearch({
+    task: "OpenAI product docs. OpenAI security.",
+    transport,
+    maxPages: 3,
+    maxDepth: 1,
+    maxSubQueries: 2,
+    maxResultsPerQuery: 2,
+  });
+  assert.deepEqual(pack.queries, ["OpenAI product docs", "OpenAI security"]);
+  assert.equal(pack.steps.filter((step) => step.tool === "web_search").length, 2);
+  assert.equal(pack.metadata.candidates.length, 2);
+  assert.ok(pack.pages_ok >= 2);
 });
 
 test("PageMarkdown from explore", async () => {

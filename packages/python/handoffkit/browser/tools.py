@@ -7,7 +7,7 @@ from typing import Any
 from handoffkit.browser.explorer import explore_url, fetch_markdown
 from handoffkit.browser.html_extract import extract_title, html_to_markdown
 from handoffkit.browser.page import PageMarkdown, to_readme_markdown
-from handoffkit.browser.research import gather_web_research
+from handoffkit.browser.research import gather_deep_web_research, gather_web_research
 from handoffkit.browser.search import web_search
 from handoffkit.browser.transport import default_transport, make_transport
 from handoffkit.browser.types import ExplorePolicy, policy_from_args
@@ -258,6 +258,59 @@ def make_web_research_tool(default_transport_ref: Any = None) -> Tool:
     )
 
 
+def make_deep_web_research_tool(default_transport_ref: Any = None) -> Tool:
+    """Agent-facing bounded background research; no user browser is opened."""
+
+    def run(
+        query: str,
+        task: str = "",
+        max_pages: int = 8,
+        max_depth: int = 2,
+        max_sub_queries: int = 3,
+        max_results_per_query: int = 8,
+        timeout_ms: int = 20000,
+        concurrency: int = 3,
+        allow_hosts: list[str] | None = None,
+        deny_hosts: list[str] | None = None,
+        seed_urls: list[str] | None = None,
+        auto_search: bool = True,
+        context_max_chars: int = 96000,
+        format: str = "markdown",
+        transport: Any = None,
+    ) -> dict[str, Any]:
+        if not query:
+            return {"success": False, "error": "query is required"}
+        pack = gather_deep_web_research(
+            query,
+            task=task,
+            transport=_resolve_transport({"transport": transport}, default_transport_ref),
+            max_pages=max_pages,
+            max_depth=max_depth,
+            max_sub_queries=max_sub_queries,
+            max_results_per_query=max_results_per_query,
+            timeout_ms=timeout_ms,
+            concurrency=concurrency,
+            allow_hosts=allow_hosts,
+            deny_hosts=deny_hosts,
+            seed_urls=seed_urls,
+            auto_search=auto_search,
+            context_max_chars=context_max_chars,
+            format=format,
+        )
+        data = pack.to_dict()
+        data["success"] = pack.pages_ok > 0
+        return data
+
+    return Tool(
+        run,
+        name="web_deep_research",
+        description=(
+            "Run bounded multi-query, multi-hop web research in the background and return a "
+            "grounded ResearchPack; no user browser tab is required."
+        ),
+    )
+
+
 def register_browser_tools(registry: Any, transport: Any | None = None) -> Any:
     if registry is None or not hasattr(registry, "register"):
         raise TypeError("register_browser_tools requires a ToolRegistry")
@@ -269,6 +322,7 @@ def register_browser_tools(registry: Any, transport: Any | None = None) -> Any:
         make_html_to_markdown_tool,
         make_web_fetch_markdown_tool,
         make_web_research_tool,
+        make_deep_web_research_tool,
     ):
         registry.register(maker(t))
     return registry

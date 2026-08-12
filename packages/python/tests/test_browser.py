@@ -3,6 +3,7 @@ from handoffkit.browser import (
     detect_soft_block,
     explore_url,
     extract_title,
+    gather_deep_web_research,
     gather_web_research,
     html_to_markdown,
     make_fixture_map_transport,
@@ -44,6 +45,50 @@ def test_gather_web_research_seed_only():
     assert pack["urls_fetched"]
 
 
+def test_gather_deep_web_research_is_background_only_and_bounded():
+    transport = make_fixture_map_transport()
+    pack = gather_deep_web_research(
+        task="Explain the fixture guide.",
+        seed_urls=["https://fixture.local/"],
+        transport=transport,
+        max_pages=3,
+        max_depth=1,
+        max_sub_queries=2,
+        auto_search=False,
+    )
+    assert pack.mode == "deep_search_then_explore"
+    assert pack.metadata["execution_mode"] == "background_http"
+    assert pack.metadata["user_browser_required"] is False
+    assert pack.metadata["max_depth"] == 1
+    assert pack.pages_ok >= 2
+    assert any(step["tool"] == "web_explore_step" for step in pack.steps)
+    assert "Fixture" in pack.markdown_context or "Guide" in pack.markdown_context
+
+
+def test_gather_deep_web_research_expands_queries_through_background_transport():
+    transport = make_fixture_map_transport()
+    transport.set_page(
+        "https://html.duckduckgo.com/html/?q=OpenAI+product+docs",
+        '<a class="result__a" href="https://fixture.local/">Fixture</a>',
+    )
+    transport.set_page(
+        "https://html.duckduckgo.com/html/?q=OpenAI+security",
+        '<a class="result__a" href="https://fixture.local/about.html">About</a>',
+    )
+    pack = gather_deep_web_research(
+        task="OpenAI product docs. OpenAI security.",
+        transport=transport,
+        max_pages=3,
+        max_depth=1,
+        max_sub_queries=2,
+        max_results_per_query=2,
+    )
+    assert pack.queries == ["OpenAI product docs", "OpenAI security"]
+    assert sum(step.get("tool") == "web_search" for step in pack.steps) == 2
+    assert len(pack.metadata["candidates"]) == 2
+    assert pack.pages_ok >= 2
+
+
 def test_web_search_with_map_endpoints():
     transport = make_fixture_map_transport()
     transport.set_page(
@@ -76,6 +121,7 @@ def test_create_browser_agent_kit_registers_tools():
     names = sorted(t.name for t in kit["tools"])
     assert names == [
         "html_to_markdown",
+        "web_deep_research",
         "web_explore",
         "web_fetch",
         "web_fetch_markdown",
@@ -86,6 +132,15 @@ def test_create_browser_agent_kit_registers_tools():
     register_browser_tools(registry, kit["transport"])
     page = registry.get("web_fetch_markdown").run(url="https://fixture.local/")
     assert page["success"] is True
+    deep = registry.get("web_deep_research").run(
+        query="fixture",
+        seed_urls=["https://fixture.local/"],
+        auto_search=False,
+        max_pages=2,
+        max_depth=1,
+    )
+    assert deep["success"] is True
+    assert deep["metadata"]["user_browser_required"] is False
 
 
 def test_rank_and_soft_block_helpers():

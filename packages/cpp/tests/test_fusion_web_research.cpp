@@ -59,6 +59,30 @@ void test_gather_seed_fixture() {
               << " md_chars=" << wr.markdown_context.size() << "\n";
 }
 
+void test_fusion_deep_uses_browser_lite_route() {
+    FusionConfig cfg;
+    cfg.task = "Deeply summarize the fixture site.";
+    cfg.enable_web_tools = true;
+    cfg.web_transport = "map";
+    cfg.web_auto_search = false;
+    cfg.seed_urls = {"https://fixture.local/"};
+    cfg.web_max_pages = 6;
+    cfg.web_max_depth = 2;
+    cfg.web_context_max_chars = 12000;
+
+    auto wr = gather_web_research(cfg, make_fixture_map_transport());
+    assert(wr.enabled);
+    assert(wr.used);
+    assert(wr.pages_ok >= 1);
+    assert(wr.markdown_context.find("Fixture") != std::string::npos);
+    bool saw_done = false;
+    for (const auto& step : wr.steps) {
+        if (step.value("tool", "") == "deep_research_done") saw_done = true;
+    }
+    assert(saw_done);
+    std::cout << "test_fusion_deep_uses_browser_lite_route ok pages=" << wr.pages_ok << "\n";
+}
+
 void test_fusion_echo_with_web_md() {
     FusionConfig cfg;
     cfg.task = "Using only the provided web research, name the fixture site title.";
@@ -97,6 +121,47 @@ void test_registry_has_web_search() {
     assert(reg.contains("web_explore"));
     assert(reg.contains("html_to_markdown"));
     assert(reg.contains("web_search"));
+    assert(reg.contains("web_deep_research"));
+    handoffkit::ToolCall deep;
+    deep.tool_name = "web_deep_research";
+    deep.arguments = {
+        {"query", "fixture"},
+        {"auto_search", false},
+        {"seed_urls", nlohmann::json::array({"https://fixture.local/"})},
+        {"max_pages", 2},
+        {"max_depth", 1},
+        {"transport", "map"},
+    };
+    auto dr = reg.execute(deep);
+    assert(dr && dr.value().success);
+    assert(dr.value().result.value("success", false));
+    assert(dr.value().result.value("mode", "") == "deep_search_then_explore");
+    assert(dr.value().result.value("metadata", nlohmann::json::object()).value("user_browser_required", true) == false);
+
+    auto search_map = make_fixture_map_transport();
+    search_map->set_page(
+        "https://html.duckduckgo.com/html/?q=OpenAI+product+docs",
+        R"(<a class="result__a" href="https://fixture.local/">Fixture</a>)");
+    search_map->set_page(
+        "https://html.duckduckgo.com/html/?q=OpenAI+security",
+        R"(<a class="result__a" href="https://fixture.local/about.html">About</a>)");
+    auto search_reg = make_fusion_web_tool_registry(search_map);
+    handoffkit::ToolCall expanded;
+    expanded.tool_name = "web_deep_research";
+    expanded.arguments = {
+        {"query", "OpenAI product docs"},
+        {"task", "OpenAI security."},
+        {"max_pages", 3},
+        {"max_depth", 1},
+        {"max_sub_queries", 2},
+        {"max_results_per_query", 2},
+        {"transport", "map"},
+    };
+    auto expanded_result = search_reg.execute(expanded);
+    assert(expanded_result && expanded_result.value().success);
+    assert(expanded_result.value().result.value("success", false));
+    assert(expanded_result.value().result.value("queries", nlohmann::json::array()).size() == 2);
+    assert(expanded_result.value().result.value("pages_ok", 0) >= 2);
     std::cout << "test_registry_has_web_search ok\n";
 }
 
@@ -104,6 +169,7 @@ int main() {
     test_extract_urls();
     test_search_query_from_draco_wrapper();
     test_gather_seed_fixture();
+    test_fusion_deep_uses_browser_lite_route();
     test_fusion_echo_with_web_md();
     test_registry_has_web_search();
     std::cout << "ALL test_fusion_web_research PASSED\n";

@@ -29,6 +29,8 @@ struct WebResearchConfig {
     std::vector<std::string> deny_hosts;
     std::string format{"markdown"};
     int concurrency = 2;  // sequential in C++ v1; reserved
+    int max_sub_queries = 3;
+    int max_results_per_query = 8;
     BrowserCache* cache = nullptr;
 };
 
@@ -46,6 +48,7 @@ struct WebResearchResult {
     std::string error;
     std::string transport;
     std::string mode{"search_then_fetch"};
+    nlohmann::json metadata = nlohmann::json::object();
 
     [[nodiscard]] nlohmann::json to_json() const;
     [[nodiscard]] std::string prompt_section() const;
@@ -64,8 +67,19 @@ struct WebResearchResult {
 [[nodiscard]] WebResearchResult gather_web_research(const WebResearchConfig& config,
                                                     TransportPtr transport = nullptr);
 
+/// Bounded multi-query/multi-hop research over native HTTP or fixture transport.
+/// This is background-only and never launches a user browser window.
+[[nodiscard]] WebResearchResult gather_deep_web_research(const WebResearchConfig& config,
+                                                         TransportPtr transport = nullptr);
+
+/// Deterministic bounded query expansion shared by deep research adapters.
+[[nodiscard]] std::vector<std::string> make_research_queries(std::string_view query,
+                                                              std::string_view task,
+                                                              int max_sub_queries = 3);
+
 [[nodiscard]] Tool make_web_search_tool(TransportPtr default_transport = nullptr);
 [[nodiscard]] Tool make_web_research_tool(TransportPtr default_transport = nullptr);
+[[nodiscard]] Tool make_deep_web_research_tool(TransportPtr default_transport = nullptr);
 
 }  // namespace browser
 }  // namespace handoffkit

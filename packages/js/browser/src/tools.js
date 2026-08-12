@@ -5,7 +5,7 @@ import { htmlToMarkdown, extractTitle } from "./html_extract.js";
 import { WebExplorer } from "./explorer.js";
 import { webSearch } from "./search.js";
 import { PageMarkdown, toReadmeMarkdown } from "./page.js";
-import { gatherWebResearch } from "./research.js";
+import { gatherDeepWebResearch, gatherWebResearch } from "./research.js";
 
 function resolveTransport(args = {}, fallback = null) {
   if (args.transport && typeof args.transport === "object" && typeof args.transport.get === "function") {
@@ -246,6 +246,64 @@ export function makeWebResearchTool(defaultTransportRef = null) {
   });
 }
 
+/**
+ * Run bounded multi-query/multi-hop research without opening a user browser
+ * window. This is the agent-facing deep route; it always uses WebTransport
+ * (HTTP or an explicit fixture/map transport) and returns its limits and
+ * provider in ResearchPack.metadata.
+ */
+export function makeDeepWebResearchTool(defaultTransportRef = null) {
+  return new Tool({
+    name: "web_deep_research",
+    description:
+      "Run bounded multi-query, multi-hop web research in the background and return a grounded ResearchPack; no user browser tab is required.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        query: { type: "string" },
+        task: { type: "string" },
+        max_pages: { type: "integer", minimum: 1, maximum: 100, default: 8 },
+        max_depth: { type: "integer", minimum: 0, maximum: 4, default: 2 },
+        max_sub_queries: { type: "integer", minimum: 1, maximum: 8, default: 3 },
+        max_results_per_query: { type: "integer", minimum: 1, maximum: 20, default: 8 },
+        timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, default: 20000 },
+        concurrency: { type: "integer", minimum: 1, maximum: 8, default: 3 },
+        allow_hosts: { type: "array", items: { type: "string" } },
+        deny_hosts: { type: "array", items: { type: "string" } },
+        seed_urls: { type: "array", items: { type: "string" } },
+        auto_search: { type: "boolean", default: true },
+        context_max_chars: { type: "integer", minimum: 1000, maximum: 200000, default: 96000 },
+        format: { type: "string", enum: ["markdown", "readme"], default: "markdown" },
+      },
+      required: ["query"],
+    },
+    async execute(args = {}) {
+      if (!args.query || typeof args.query !== "string") {
+        return { success: false, error: "query is required" };
+      }
+      const pack = await gatherDeepWebResearch({
+        query: args.query,
+        task: args.task,
+        transport: resolveTransport(args, defaultTransportRef),
+        maxPages: args.max_pages ?? 8,
+        maxDepth: args.max_depth ?? 2,
+        maxSubQueries: args.max_sub_queries ?? 3,
+        maxResultsPerQuery: args.max_results_per_query ?? 8,
+        timeoutMs: args.timeout_ms ?? 20000,
+        concurrency: args.concurrency ?? 3,
+        allowHosts: args.allow_hosts,
+        denyHosts: args.deny_hosts,
+        seedUrls: args.seed_urls,
+        autoSearch: args.auto_search ?? true,
+        contextMaxChars: args.context_max_chars ?? 96000,
+        format: args.format ?? "markdown",
+      });
+      return { success: pack.pages_ok > 0, ...pack.toDict() };
+    },
+  });
+}
+
 /** Register all browser tools on a @handoffkit/core ToolRegistry. */
 export function registerBrowserTools(registry, transport = null) {
   if (!registry || typeof registry.register !== "function") {
@@ -258,6 +316,7 @@ export function registerBrowserTools(registry, transport = null) {
   registry.register(makeHtmlToMarkdownTool(t));
   registry.register(makeWebFetchMarkdownTool(t));
   registry.register(makeWebResearchTool(t));
+  registry.register(makeDeepWebResearchTool(t));
   return registry;
 }
 

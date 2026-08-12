@@ -243,7 +243,15 @@ std::vector<std::pair<std::string, std::string>> multi_search(TransportPtr trans
 
 TransportPtr resolve_tool_transport(const nlohmann::json& args, TransportPtr default_transport) {
     if (args.contains("transport") && args["transport"].is_string()) {
-        return make_transport(args["transport"].get<std::string>());
+        const auto kind = args["transport"].get<std::string>();
+        // Preserve an injected fixture/map transport. Creating a fresh map
+        // here would discard its pages and make `transport: map` appear to
+        // fail even though the registry was configured with fixtures.
+        if ((kind == "map" || kind == "fixture" || kind == "stub" || kind == "offline") &&
+            default_transport && default_transport->name() == "map") {
+            return default_transport;
+        }
+        return make_transport(kind);
     }
     return default_transport ? default_transport : make_transport("http");
 }
@@ -456,7 +464,138 @@ nlohmann::json WebResearchResult::to_json() const {
         {"error", error},
         {"transport", transport},
         {"mode", mode},
+        {"metadata", metadata},
     };
+}
+
+std::vector<std::string> make_research_queries(std::string_view query,
+                                               std::string_view task,
+                                               int max_sub_queries) {
+    const int limit = std::max(1, std::min(8, max_sub_queries));
+    std::vector<std::string> out;
+    auto add = [&](std::string value) {
+        if (value.empty()) return;
+        if (std::find(out.begin(), out.end(), value) == out.end() &&
+            static_cast<int>(out.size()) < limit) {
+            out.push_back(std::move(value));
+        }
+    };
+    std::vector<std::string> candidates;
+    if (!std::string(query).empty()) candidates.emplace_back(query);
+    std::string task_part(task);
+    std::string sentence;
+    for (const char c : task_part) {
+        if (c == '.' || c == '!' || c == '?' || c == '\n') {
+            if (!sentence.empty()) candidates.push_back(std::move(sentence));
+            sentence.clear();
+        } else {
+            sentence.push_back(c);
+        }
+    }
+    if (!sentence.empty()) candidates.push_back(std::move(sentence));
+    for (const auto& candidate : candidates) {
+        add(make_search_query_from_task(candidate, 140));
+        if (static_cast<int>(out.size()) >= limit) break;
+    }
+    return out;
+}
+
+WebResearchResult gather_deep_web_research(const WebResearchConfig& config, TransportPtr transport) {
+    const auto started = Clock::now();
+    WebResearchConfig base = config;
+    base.max_pages = std::max(1, std::min(100, config.max_pages));
+    base.max_depth = std::max(0, std::min(4, config.max_depth));
+    base.max_sub_queries = std::max(1, std::min(8, config.max_sub_queries));
+    base.max_results_per_query = std::max(1, std::min(20, config.max_results_per_query));
+    base.prefer_explore = true;
+    base.auto_search = false;
+    base.seed_only = false;
+    if (!transport) transport = make_transport("http");
+
+    WebResearchResult result;
+    result.enabled = true;
+    result.transport = transport ? transport->name() : "";
+    result.mode = "deep_search_then_explore";
+    result.metadata = {
+        {"execution_mode", "background_http"},
+        {"user_browser_required", false},
+        {"max_pages", base.max_pages},
+        {"max_depth", base.max_depth},
+        {"max_sub_queries", base.max_sub_queries},
+        {"max_results_per_query", base.max_results_per_query},
+        {"timeout_ms", base.timeout_ms},
+        {"context_max_chars", base.context_max_chars},
+        {"concurrency", 1},
+        {"cache_enabled", base.cache != nullptr},
+        {"allow_hosts", base.allow_hosts},
+        {"deny_hosts", base.deny_hosts},
+        {"provider_transport", result.transport},
+        {"auto_search", config.auto_search},
+    };
+
+    const bool auto_search = config.auto_search;
+    const std::vector<std::string> auto_queries = auto_search
+        ? make_research_queries(config.query, config.task, base.max_sub_queries)
+        : std::vector<std::string>{};
+    result.queries = auto_queries;
+
+    std::vector<std::string> seeds;
+    for (const auto& u : config.seed_urls) append_unique_url(seeds, u);
+    for (const auto& u : extract_urls_from_text(config.task)) append_unique_url(seeds, u);
+    for (const auto& u : extract_urls_from_text(config.query)) append_unique_url(seeds, u);
+
+    if (auto_search) {
+        for (const auto& subquery : auto_queries) {
+            ++result.tool_calls;
+            const auto t0 = Clock::now();
+            const auto search = web_search(subquery, transport, base.max_results_per_query,
+                                           base.timeout_ms, base.allow_hosts, base.deny_hosts);
+            nlohmann::json step = {
+                {"tool", "web_search"},
+                {"query", subquery},
+                {"success", search.value("success", false)},
+                {"count", search.value("count", 0)},
+                {"ms", elapsed_ms(t0)},
+                {"engine", search.value("engine", "")},
+                {"error", search.value("error", "")},
+            };
+            if (search.contains("results") && search["results"].is_array()) {
+                for (const auto& hit : search["results"]) {
+                    if (hit.contains("url") && hit["url"].is_string()) {
+                        append_unique_url(seeds, hit["url"].get<std::string>());
+                    }
+                }
+            }
+            result.steps.push_back(std::move(step));
+        }
+    }
+
+    base.query.clear();
+    base.task.clear();
+    base.seed_urls = std::move(seeds);
+    const int candidate_cap = std::max(base.max_pages * 3, base.max_pages);
+    if (static_cast<int>(base.seed_urls.size()) > candidate_cap) {
+        base.seed_urls.resize(static_cast<std::size_t>(candidate_cap));
+    }
+    WebResearchResult fetched = gather_web_research(base, transport);
+    result.used = fetched.used || !result.queries.empty();
+    result.urls_fetched = std::move(fetched.urls_fetched);
+    result.markdown_context = std::move(fetched.markdown_context);
+    result.pages = std::move(fetched.pages);
+    result.citations = std::move(fetched.citations);
+    for (auto& step : fetched.steps) result.steps.push_back(std::move(step));
+    result.pages_ok = fetched.pages_ok;
+    result.tool_calls += fetched.tool_calls;
+    result.error = fetched.error;
+    result.metadata["candidates"] = base.seed_urls;
+    result.metadata["duration_ms"] = elapsed_ms(started);
+    result.steps.push_back({
+        {"tool", "deep_research_done"},
+        {"pages_ok", result.pages_ok},
+        {"ms", result.metadata["duration_ms"]},
+    });
+    if (result.pages_ok == 0 && result.error.empty()) result.error = "no pages explored successfully";
+    return result;
 }
 
 std::string WebResearchResult::prompt_section() const {
@@ -746,6 +885,71 @@ Tool make_web_research_tool(TransportPtr default_transport) {
               {"seed_only", {{"type", "boolean"}}},
               {"seed_urls", {{"type", "array"}}},
               {"format", {{"type", "string"}}}}},
+            {"required", nlohmann::json::array({"query"})},
+        });
+}
+
+Tool make_deep_web_research_tool(TransportPtr default_transport) {
+    auto transport = default_transport;
+    return Tool(
+        "web_deep_research",
+        "Run bounded multi-query, multi-hop web research in the background; no user browser tab is required.",
+        [transport](const nlohmann::json& args) -> Result<nlohmann::json> {
+            if (!args.contains("query") || !args["query"].is_string()) {
+                return Error::invalid_argument("query is required", "query");
+            }
+            WebResearchConfig cfg;
+            cfg.query = args["query"].get<std::string>();
+            if (args.contains("task") && args["task"].is_string()) cfg.task = args["task"].get<std::string>();
+            if (args.contains("max_pages") && args["max_pages"].is_number_integer()) {
+                cfg.max_pages = std::max(1, std::min(100, args["max_pages"].get<int>()));
+            }
+            if (args.contains("max_depth") && args["max_depth"].is_number_integer()) {
+                cfg.max_depth = std::max(0, std::min(4, args["max_depth"].get<int>()));
+            }
+            if (args.contains("max_sub_queries") && args["max_sub_queries"].is_number_integer()) {
+                cfg.max_sub_queries = args["max_sub_queries"].get<int>();
+            }
+            if (args.contains("max_results_per_query") && args["max_results_per_query"].is_number_integer()) {
+                cfg.max_results_per_query = args["max_results_per_query"].get<int>();
+            }
+            if (args.contains("timeout_ms") && args["timeout_ms"].is_number_integer()) cfg.timeout_ms = args["timeout_ms"].get<int>();
+            if (args.contains("context_max_chars") && args["context_max_chars"].is_number_integer()) cfg.context_max_chars = args["context_max_chars"].get<int>();
+            if (args.contains("auto_search") && args["auto_search"].is_boolean()) cfg.auto_search = args["auto_search"].get<bool>();
+            if (args.contains("allow_hosts") && args["allow_hosts"].is_array()) {
+                for (const auto& h : args["allow_hosts"]) if (h.is_string()) cfg.allow_hosts.push_back(h.get<std::string>());
+            }
+            if (args.contains("deny_hosts") && args["deny_hosts"].is_array()) {
+                for (const auto& h : args["deny_hosts"]) if (h.is_string()) cfg.deny_hosts.push_back(h.get<std::string>());
+            }
+            if (args.contains("seed_urls") && args["seed_urls"].is_array()) {
+                for (const auto& u : args["seed_urls"]) if (u.is_string()) cfg.seed_urls.push_back(u.get<std::string>());
+            }
+            if (args.contains("format") && args["format"].is_string()) cfg.format = args["format"].get<std::string>();
+            const auto t = resolve_tool_transport(args, transport);
+            WebResearchResult pack = gather_deep_web_research(cfg, t);
+            auto out = pack.to_json();
+            out["success"] = pack.pages_ok > 0;
+            return out;
+        },
+        nlohmann::json{
+            {"type", "object"},
+            {"properties", {
+                {"query", {{"type", "string"}}},
+                {"task", {{"type", "string"}}},
+                {"max_pages", {{"type", "integer"}, {"minimum", 1}, {"maximum", 100}}},
+                {"max_depth", {{"type", "integer"}, {"minimum", 0}, {"maximum", 4}}},
+                {"max_sub_queries", {{"type", "integer"}}},
+                {"max_results_per_query", {{"type", "integer"}}},
+                {"timeout_ms", {{"type", "integer"}}},
+                {"context_max_chars", {{"type", "integer"}}},
+                {"auto_search", {{"type", "boolean"}}},
+                {"allow_hosts", {{"type", "array"}}},
+                {"deny_hosts", {{"type", "array"}}},
+                {"seed_urls", {{"type", "array"}}},
+                {"format", {{"type", "string"}}},
+                {"transport", {{"type", "string"}}},
+            }},
             {"required", nlohmann::json::array({"query"})},
         });
 }

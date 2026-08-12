@@ -19,6 +19,7 @@ export async function runBrowseCommand(argv = [], io = {}) {
       "  browse search <query> [--max 6] [--json] [--allow host] [--deny host]",
       "  browse fetch <url> [--markdown|--json] [--format markdown|readme]",
       "  browse research <query> [--max-pages 3] [--json|--markdown] [--cache] [--allow host]",
+      "  browse deep <query> [--max-pages 8] [--max-depth 2] [--json|--markdown] [--cache]",
       "  browse fixture",
       "  browse tools",
     ].join("\n"));
@@ -30,6 +31,7 @@ export async function runBrowseCommand(argv = [], io = {}) {
   const useCache = rest.includes("--cache");
   const useFixture = rest.includes("--fixture") || rest.includes("--transport=fixture");
   const max = Number(readBrowseFlag(rest, "--max") || readBrowseFlag(rest, "--max-pages") || 0) || undefined;
+  const maxDepth = Number(readBrowseFlag(rest, "--max-depth") || 0) || undefined;
   const format = readBrowseFlag(rest, "--format") || "markdown";
   const allowHosts = collectBrowseFlags(rest, "--allow");
   const denyHosts = collectBrowseFlags(rest, "--deny");
@@ -105,6 +107,26 @@ export async function runBrowseCommand(argv = [], io = {}) {
     if (asJson) stdout(JSON.stringify(pack.toDict(), null, 2));
     else if (asMarkdown) stdout(pack.markdown_context);
     else stdout(researchPromptSection(pack) || pack.error || "no research");
+    return pack.pages_ok > 0 ? 0 : 1;
+  }
+
+  if (sub === "deep") {
+    const query = rest.filter((a) => !a.startsWith("--")).join(" ").trim();
+    if (!query) throw new Error("browse deep requires a query.");
+    const pack = await kit.deepGather({
+      query,
+      maxPages: max || 8,
+      maxDepth: maxDepth ?? 2,
+      seedUrls: useFixture ? ["https://fixture.local/"] : [],
+      autoSearch: !useFixture,
+      allowHosts,
+      denyHosts,
+      format,
+      useCache,
+    });
+    if (asJson) stdout(JSON.stringify(pack.toDict(), null, 2));
+    else if (asMarkdown) stdout(pack.markdown_context);
+    else stdout(researchPromptSection(pack) || pack.error || "no deep research");
     return pack.pages_ok > 0 ? 0 : 1;
   }
 

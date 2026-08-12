@@ -7,7 +7,11 @@ from typing import Any
 from handoffkit.browser.cache import BrowserCache, default_cache_root
 from handoffkit.browser.explorer import explore_url, fetch_markdown
 from handoffkit.browser.page import PageMarkdown
-from handoffkit.browser.research import ResearchPack, gather_web_research
+from handoffkit.browser.research import (
+    ResearchPack,
+    gather_deep_web_research,
+    gather_web_research,
+)
 from handoffkit.browser.search import web_search
 from handoffkit.browser.tools import register_browser_tools
 from handoffkit.browser.transport import (
@@ -110,6 +114,27 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
             task=kwargs.get("task", ""),
         )
 
+    def deep_gather(**kwargs: Any) -> ResearchPack:
+        return gather_deep_web_research(
+            kwargs.get("query", ""),
+            task=kwargs.get("task", ""),
+            transport=transport,
+            cache=cache,
+            max_pages=int(kwargs.get("max_pages", max(max_pages, 8))),
+            max_depth=int(kwargs.get("max_depth", 2)),
+            max_sub_queries=int(kwargs.get("max_sub_queries", 3)),
+            max_results_per_query=int(kwargs.get("max_results_per_query", 8)),
+            auto_search=bool(kwargs.get("auto_search", True)),
+            timeout_ms=int(kwargs.get("timeout_ms", 20000)),
+            concurrency=int(kwargs.get("concurrency", 3)),
+            allow_hosts=kwargs.get("allow_hosts", allow_hosts),
+            deny_hosts=kwargs.get("deny_hosts", deny_hosts),
+            seed_urls=kwargs.get("seed_urls"),
+            context_max_chars=int(kwargs.get("context_max_chars", max(96000, 2 * 48000))),
+            format=kwargs.get("format", fmt),
+            use_cache=bool(cache),
+        )
+
     return {
         "transport": transport,
         "cache": cache,
@@ -119,5 +144,6 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
         "fetch_markdown": fetch_md,
         "explore": explore,
         "gather": gather,
+        "deep_gather": deep_gather,
         "options": dict(opts),
     }
