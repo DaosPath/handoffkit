@@ -216,31 +216,6 @@ std::vector<std::pair<std::string, std::string>> duckduckgo_html_search(Transpor
     return hits;
 }
 
-std::vector<std::pair<std::string, std::string>> multi_search(TransportPtr transport, std::string_view query,
-                                                              int max_results, int timeout_ms) {
-    auto hits = duckduckgo_html_search(transport, query, max_results, timeout_ms);
-    if (static_cast<int>(hits.size()) < max_results) {
-        const auto wiki = wikipedia_opensearch(transport, query, max_results, timeout_ms);
-        for (const auto& h : wiki) {
-            push_hit(hits, h.first, h.second, max_results);
-        }
-    }
-    if (hits.empty()) {
-        const auto short_q = keyword_compress(query, 4);
-        if (!short_q.empty() && short_q != query) {
-            hits = wikipedia_opensearch(transport, short_q, max_results, timeout_ms);
-        }
-    }
-    std::sort(hits.begin(), hits.end(), [](const auto& a, const auto& b) {
-        if (a.first.empty() != b.first.empty()) return !a.first.empty();
-        return a.second < b.second;
-    });
-    if (static_cast<int>(hits.size()) > max_results) {
-        hits.resize(static_cast<std::size_t>(max_results));
-    }
-    return hits;
-}
-
 TransportPtr resolve_tool_transport(const nlohmann::json& args, TransportPtr default_transport) {
     if (args.contains("transport") && args["transport"].is_string()) {
         const auto kind = args["transport"].get<std::string>();
@@ -408,11 +383,39 @@ std::string make_search_query_from_task(std::string_view task, std::size_t max_c
     return out;
 }
 
+std::string canonical_provider(std::string value) {
+    for (char& c : value) {
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+    }
+    if (value == "ddg") return "duckduckgo";
+    if (value == "wiki") return "wikipedia";
+    return value;
+}
+
 nlohmann::json web_search(std::string_view query, TransportPtr transport, int max_results, int timeout_ms,
                           const std::vector<std::string>& allow_hosts,
-                          const std::vector<std::string>& deny_hosts) {
+                          const std::vector<std::string>& deny_hosts,
+                          const std::vector<std::string>& providers) {
     const std::string q(query);
     max_results = std::max(1, std::min(8, max_results));
+    const std::vector<std::string> requested =
+        providers.empty() ? std::vector<std::string>{"duckduckgo", "wikipedia"} : providers;
+    std::vector<std::string> normalized;
+    std::vector<std::string> provider_errors;
+    for (const auto& raw : requested) {
+        const auto provider = canonical_provider(raw);
+        if (provider.empty()) continue;
+        if (provider != "duckduckgo" && provider != "wikipedia") {
+            provider_errors.push_back("unsupported provider: " + provider);
+            continue;
+        }
+        if (std::find(normalized.begin(), normalized.end(), provider) == normalized.end()) {
+            normalized.push_back(provider);
+        }
+    }
+    if (normalized.empty() && provider_errors.empty()) {
+        provider_errors.push_back("no search providers configured");
+    }
     if (q.empty()) {
         return {
             {"success", false},
@@ -420,13 +423,41 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
             {"keywords", ""},
             {"results", nlohmann::json::array()},
             {"count", 0},
+            {"providers_requested", requested},
+            {"providers_used", nlohmann::json::array()},
+            {"errors", nlohmann::json::array({"query is required"})},
             {"engine", "duckduckgo_html+wikipedia_opensearch"},
+            {"error_code", "query_required"},
             {"error", "query is required"},
         };
     }
     if (!transport) transport = make_transport("http");
 
-    const auto raw_hits = multi_search(transport, q, max_results, timeout_ms);
+    std::vector<std::pair<std::string, std::string>> raw_hits;
+    std::vector<std::string> providers_used;
+    for (const auto& provider : normalized) {
+        std::vector<std::pair<std::string, std::string>> hits;
+        if (provider == "duckduckgo") {
+            hits = duckduckgo_html_search(transport, q, max_results, timeout_ms);
+        } else {
+            hits = wikipedia_opensearch(transport, q, max_results, timeout_ms);
+        }
+        for (const auto& hit : hits) push_hit(raw_hits, hit.first, hit.second, max_results);
+        if (!hits.empty()) providers_used.push_back(provider);
+        else provider_errors.push_back(provider + ": empty");
+    }
+    if (raw_hits.empty() &&
+        std::find(normalized.begin(), normalized.end(), "wikipedia") != normalized.end()) {
+        const auto short_q = keyword_compress(q, 4);
+        if (!short_q.empty() && short_q != q) {
+            const auto fallback = wikipedia_opensearch(transport, short_q, max_results, timeout_ms);
+            for (const auto& hit : fallback) push_hit(raw_hits, hit.first, hit.second, max_results);
+            if (!fallback.empty() &&
+                std::find(providers_used.begin(), providers_used.end(), "wikipedia") == providers_used.end()) {
+                providers_used.push_back("wikipedia");
+            }
+        }
+    }
     const auto ranked = rank_search_hits(raw_hits, allow_hosts, deny_hosts);
     nlohmann::json results = nlohmann::json::array();
     const int n = std::min(max_results, static_cast<int>(ranked.size()));
@@ -441,7 +472,17 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
         {"keywords", keyword_compress(q)},
         {"results", results},
         {"count", results.size()},
+        {"providers_requested", requested},
+        {"providers_used", providers_used},
+        {"errors", provider_errors},
         {"engine", "duckduckgo_html+wikipedia_opensearch"},
+        {"error_code", results.empty()
+                           ? (std::any_of(provider_errors.begin(), provider_errors.end(), [](const auto& error) {
+                                 return error.rfind("unsupported provider:", 0) == 0;
+                             })
+                                  ? "provider_unavailable"
+                                  : "no_results")
+                           : ""},
         {"error", results.empty() ? "no search results" : ""},
     };
 }
@@ -529,6 +570,10 @@ WebResearchResult gather_deep_web_research(const WebResearchConfig& config, Tran
         {"cache_enabled", base.cache != nullptr},
         {"allow_hosts", base.allow_hosts},
         {"deny_hosts", base.deny_hosts},
+        {"providers_requested", base.providers},
+        {"providers_used", nlohmann::json::array()},
+        {"provider_errors", nlohmann::json::array()},
+        {"error_code", ""},
         {"provider_transport", result.transport},
         {"auto_search", config.auto_search},
     };
@@ -549,7 +594,8 @@ WebResearchResult gather_deep_web_research(const WebResearchConfig& config, Tran
             ++result.tool_calls;
             const auto t0 = Clock::now();
             const auto search = web_search(subquery, transport, base.max_results_per_query,
-                                           base.timeout_ms, base.allow_hosts, base.deny_hosts);
+                                           base.timeout_ms, base.allow_hosts, base.deny_hosts,
+                                           base.providers);
             nlohmann::json step = {
                 {"tool", "web_search"},
                 {"query", subquery},
@@ -557,8 +603,25 @@ WebResearchResult gather_deep_web_research(const WebResearchConfig& config, Tran
                 {"count", search.value("count", 0)},
                 {"ms", elapsed_ms(t0)},
                 {"engine", search.value("engine", "")},
+                {"providers_requested", search.value("providers_requested", nlohmann::json::array())},
+                {"providers_used", search.value("providers_used", nlohmann::json::array())},
+                {"provider_errors", search.value("errors", nlohmann::json::array())},
                 {"error", search.value("error", "")},
             };
+            for (const auto& provider : search.value("providers_used", nlohmann::json::array())) {
+                if (std::find(result.metadata["providers_used"].begin(),
+                              result.metadata["providers_used"].end(), provider) ==
+                    result.metadata["providers_used"].end()) {
+                    result.metadata["providers_used"].push_back(provider);
+                }
+            }
+            for (const auto& error : search.value("errors", nlohmann::json::array())) {
+                if (std::find(result.metadata["provider_errors"].begin(),
+                              result.metadata["provider_errors"].end(), error) ==
+                    result.metadata["provider_errors"].end()) {
+                    result.metadata["provider_errors"].push_back(error);
+                }
+            }
             if (search.contains("results") && search["results"].is_array()) {
                 for (const auto& hit : search["results"]) {
                     if (hit.contains("url") && hit["url"].is_string()) {
@@ -587,6 +650,14 @@ WebResearchResult gather_deep_web_research(const WebResearchConfig& config, Tran
     result.pages_ok = fetched.pages_ok;
     result.tool_calls += fetched.tool_calls;
     result.error = fetched.error;
+    if (!result.pages_ok) {
+        result.metadata["error_code"] = fetched.error == "no urls to fetch"
+                                              ? "no_urls_to_explore"
+                                              : "no_pages_explored";
+    }
+    for (const char* key : {"cache_hits", "cache_misses", "cache_writes"}) {
+        result.metadata[key] = fetched.metadata.value(key, 0);
+    }
     result.metadata["candidates"] = base.seed_urls;
     result.metadata["duration_ms"] = elapsed_ms(started);
     result.steps.push_back({
@@ -629,6 +700,16 @@ WebResearchResult gather_web_research(const WebResearchConfig& config, Transport
     const int max_pages = std::max(1, config.max_pages);
     const int context_max_chars = std::max(1000, config.context_max_chars);
     result.mode = seed_only ? "seed_only" : (auto_search ? "search_then_fetch" : "urls_only");
+    result.metadata = {
+        {"cache_enabled", config.cache != nullptr},
+        {"cache_hits", 0},
+        {"cache_misses", 0},
+        {"cache_writes", 0},
+        {"providers_requested", config.providers},
+        {"providers_used", nlohmann::json::array()},
+        {"provider_errors", nlohmann::json::array()},
+        {"error_code", ""},
+    };
 
     std::vector<std::string> urls;
     for (const auto& u : config.seed_urls) append_unique_url(urls, u);
@@ -643,7 +724,8 @@ WebResearchResult gather_web_research(const WebResearchConfig& config, Transport
             ++result.tool_calls;
             const auto t0 = Clock::now();
             const auto search = web_search(q, transport, std::min(8, std::max(4, max_pages * 2)),
-                                           config.timeout_ms, config.allow_hosts, config.deny_hosts);
+                                           config.timeout_ms, config.allow_hosts, config.deny_hosts,
+                                           config.providers);
             nlohmann::json step = {{"tool", "web_search"},
                                    {"query", q},
                                    {"success", search.value("success", false)},
@@ -664,6 +746,20 @@ WebResearchResult gather_web_research(const WebResearchConfig& config, Transport
             } else if (search.contains("error") && search["error"].is_string()) {
                 result.error = search["error"].get<std::string>();
             }
+            for (const auto& provider : search.value("providers_used", nlohmann::json::array())) {
+                if (std::find(result.metadata["providers_used"].begin(),
+                              result.metadata["providers_used"].end(), provider) ==
+                    result.metadata["providers_used"].end()) {
+                    result.metadata["providers_used"].push_back(provider);
+                }
+            }
+            for (const auto& error : search.value("errors", nlohmann::json::array())) {
+                if (std::find(result.metadata["provider_errors"].begin(),
+                              result.metadata["provider_errors"].end(), error) ==
+                    result.metadata["provider_errors"].end()) {
+                    result.metadata["provider_errors"].push_back(error);
+                }
+            }
             result.steps.push_back(std::move(step));
         }
     }
@@ -682,6 +778,7 @@ WebResearchResult gather_web_research(const WebResearchConfig& config, Transport
 
     if (candidates.empty()) {
         if (result.error.empty()) result.error = "no urls to fetch";
+        result.metadata["error_code"] = "no_urls_to_fetch";
         result.used = !result.queries.empty();
         result.steps.push_back(
             {{"tool", "research_done"}, {"ms", elapsed_ms(started)}, {"pages_ok", result.pages_ok}});
@@ -703,6 +800,7 @@ WebResearchResult gather_web_research(const WebResearchConfig& config, Transport
             if (const auto hit = config.cache->get(url)) {
                 if (hit->contains("markdown") && (*hit)["markdown"].is_string() &&
                     !(*hit)["markdown"].get<std::string>().empty()) {
+                    result.metadata["cache_hits"] = result.metadata.value("cache_hits", 0) + 1;
                     PageMarkdown page = page_from_cache_json(*hit);
                     if (page.url.empty()) page.url = url;
                     page.markdown = smart_truncate(page.markdown, context_max_chars);
@@ -726,6 +824,7 @@ WebResearchResult gather_web_research(const WebResearchConfig& config, Transport
                     continue;
                 }
             }
+            result.metadata["cache_misses"] = result.metadata.value("cache_misses", 0) + 1;
         }
 
         Result<ExploreResult> fetched = config.prefer_explore ? explorer.explore(url, policy)
@@ -757,7 +856,9 @@ WebResearchResult gather_web_research(const WebResearchConfig& config, Transport
         }
 
         if (config.cache) {
-            config.cache->set(url, page.to_json());
+            if (config.cache->set(url, page.to_json())) {
+                result.metadata["cache_writes"] = result.metadata.value("cache_writes", 0) + 1;
+            }
         }
 
         result.pages_ok += 1;
@@ -775,6 +876,9 @@ WebResearchResult gather_web_research(const WebResearchConfig& config, Transport
     result.used = result.pages_ok > 0 || !result.queries.empty();
     if (result.pages_ok == 0 && result.error.empty()) {
         result.error = "no pages fetched successfully";
+    }
+    if (result.pages_ok == 0 && result.metadata.value("error_code", std::string{}).empty()) {
+        result.metadata["error_code"] = "no_pages_fetched";
     }
     result.steps.push_back(
         {{"tool", "research_done"}, {"ms", elapsed_ms(started)}, {"pages_ok", result.pages_ok}});
@@ -801,6 +905,7 @@ Tool make_web_search_tool(TransportPtr default_transport) {
             }
             std::vector<std::string> allow_hosts;
             std::vector<std::string> deny_hosts;
+            std::vector<std::string> providers;
             if (args.contains("allow_hosts") && args["allow_hosts"].is_array()) {
                 for (const auto& h : args["allow_hosts"]) {
                     if (h.is_string()) allow_hosts.push_back(h.get<std::string>());
@@ -811,9 +916,14 @@ Tool make_web_search_tool(TransportPtr default_transport) {
                     if (h.is_string()) deny_hosts.push_back(h.get<std::string>());
                 }
             }
+            if (args.contains("providers") && args["providers"].is_array()) {
+                for (const auto& provider : args["providers"]) {
+                    if (provider.is_string()) providers.push_back(provider.get<std::string>());
+                }
+            }
             const auto t = resolve_tool_transport(args, transport);
             return web_search(args["query"].get<std::string>(), t, max_results, timeout_ms,
-                              allow_hosts, deny_hosts);
+                              allow_hosts, deny_hosts, providers);
         },
         nlohmann::json{
             {"type", "object"},
@@ -823,7 +933,8 @@ Tool make_web_search_tool(TransportPtr default_transport) {
               {"timeout_ms", {{"type", "integer"}}},
               {"transport", {{"type", "string"}}},
               {"allow_hosts", {{"type", "array"}}},
-              {"deny_hosts", {{"type", "array"}}}}},
+              {"deny_hosts", {{"type", "array"}}},
+              {"providers", {{"type", "array"}}}}},
             {"required", nlohmann::json::array({"query"})},
         });
 }
@@ -856,6 +967,12 @@ Tool make_web_research_tool(TransportPtr default_transport) {
                     if (h.is_string()) cfg.deny_hosts.push_back(h.get<std::string>());
                 }
             }
+            if (args.contains("providers") && args["providers"].is_array()) {
+                cfg.providers.clear();
+                for (const auto& provider : args["providers"]) {
+                    if (provider.is_string()) cfg.providers.push_back(provider.get<std::string>());
+                }
+            }
             if (args.contains("seed_only") && args["seed_only"].is_boolean()) {
                 cfg.seed_only = args["seed_only"].get<bool>();
             }
@@ -882,6 +999,7 @@ Tool make_web_research_tool(TransportPtr default_transport) {
               {"transport", {{"type", "string"}}},
               {"allow_hosts", {{"type", "array"}}},
               {"deny_hosts", {{"type", "array"}}},
+              {"providers", {{"type", "array"}}},
               {"seed_only", {{"type", "boolean"}}},
               {"seed_urls", {{"type", "array"}}},
               {"format", {{"type", "string"}}}}},
@@ -922,6 +1040,10 @@ Tool make_deep_web_research_tool(TransportPtr default_transport) {
             if (args.contains("deny_hosts") && args["deny_hosts"].is_array()) {
                 for (const auto& h : args["deny_hosts"]) if (h.is_string()) cfg.deny_hosts.push_back(h.get<std::string>());
             }
+            if (args.contains("providers") && args["providers"].is_array()) {
+                cfg.providers.clear();
+                for (const auto& provider : args["providers"]) if (provider.is_string()) cfg.providers.push_back(provider.get<std::string>());
+            }
             if (args.contains("seed_urls") && args["seed_urls"].is_array()) {
                 for (const auto& u : args["seed_urls"]) if (u.is_string()) cfg.seed_urls.push_back(u.get<std::string>());
             }
@@ -946,6 +1068,7 @@ Tool make_deep_web_research_tool(TransportPtr default_transport) {
                 {"auto_search", {{"type", "boolean"}}},
                 {"allow_hosts", {{"type", "array"}}},
                 {"deny_hosts", {{"type", "array"}}},
+                {"providers", {{"type", "array"}}},
                 {"seed_urls", {{"type", "array"}}},
                 {"format", {{"type", "string"}}},
                 {"transport", {{"type", "string"}}},

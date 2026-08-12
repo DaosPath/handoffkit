@@ -162,6 +162,35 @@ void test_registry_has_web_search() {
     assert(expanded_result.value().result.value("success", false));
     assert(expanded_result.value().result.value("queries", nlohmann::json::array()).size() == 2);
     assert(expanded_result.value().result.value("pages_ok", 0) >= 2);
+
+    auto wiki_map = make_fixture_map_transport();
+    wiki_map->set_page(
+        "https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=6&search=OpenAI",
+        R"(["OpenAI",["OpenAI"],[""],["https://en.wikipedia.org/wiki/OpenAI"]])");
+    auto wiki_reg = make_fusion_web_tool_registry(wiki_map);
+    handoffkit::ToolCall wiki_call;
+    wiki_call.tool_name = "web_search";
+    wiki_call.arguments = {
+        {"query", "OpenAI"},
+        {"providers", nlohmann::json::array({"wiki"})},
+        {"transport", "map"},
+    };
+    auto wiki_result = wiki_reg.execute(wiki_call);
+    assert(wiki_result && wiki_result.value().success);
+    assert(wiki_result.value().result.value("providers_requested", nlohmann::json::array()).size() == 1);
+    assert(wiki_result.value().result.value("providers_used", nlohmann::json::array()).at(0) == "wikipedia");
+
+    handoffkit::ToolCall unavailable_call;
+    unavailable_call.tool_name = "web_search";
+    unavailable_call.arguments = {
+        {"query", "OpenAI"},
+        {"providers", nlohmann::json::array({"bing"})},
+        {"transport", "map"},
+    };
+    auto unavailable_result = wiki_reg.execute(unavailable_call);
+    assert(unavailable_result && unavailable_result.value().success);
+    assert(unavailable_result.value().result.value("success", true) == false);
+    assert(unavailable_result.value().result.value("error_code", "") == "provider_unavailable");
     std::cout << "test_registry_has_web_search ok\n";
 }
 

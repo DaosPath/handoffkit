@@ -53,6 +53,7 @@ _RESULT_RE = re.compile(
 )
 _TAG_RE = re.compile(r"<[^>]+>")
 _UDDG_RE = re.compile(r'uddg=([^&"\'>\s]+)', re.I)
+_DEFAULT_PROVIDERS = ("duckduckgo", "wikipedia")
 
 
 def keyword_compress(query: str, max_words: int = 10) -> str:
@@ -186,19 +187,34 @@ def web_search(
             "keywords": "",
             "results": [],
             "count": 0,
+            "providers_requested": [str(item) for item in (providers or _DEFAULT_PROVIDERS)],
             "providers_used": [],
             "errors": ["query is required"],
             "engine": "duckduckgo_html+wikipedia_opensearch",
+            "error_code": "query_required",
             "error": "query is required",
         }
     kw = keyword_compress(q) or q
-    providers = providers or ["duckduckgo", "wikipedia"]
+    requested = list(providers or _DEFAULT_PROVIDERS)
+    normalized: list[str] = []
+    errors: list[str] = []
+    for raw in requested:
+        value = str(raw or "").strip().lower()
+        provider = {"ddg": "duckduckgo", "wiki": "wikipedia"}.get(value, value)
+        if not provider:
+            continue
+        if provider not in _DEFAULT_PROVIDERS:
+            errors.append(f"unsupported provider: {provider}")
+            continue
+        if provider not in normalized:
+            normalized.append(provider)
+    if not normalized and not errors:
+        errors.append("no search providers configured")
     tr = transport or default_transport(True)
     raw: list[dict[str, str]] = []
     used: list[str] = []
-    errors: list[str] = []
 
-    if "duckduckgo" in providers or "ddg" in providers:
+    if "duckduckgo" in normalized:
         try:
             hits = search_duckduckgo(
                 kw, max_results=max_results, transport=tr, timeout_ms=timeout_ms
@@ -211,7 +227,7 @@ def web_search(
         except Exception as exc:  # noqa: BLE001
             errors.append(f"duckduckgo: {exc}")
 
-    if ("wikipedia" in providers or "wiki" in providers) and len(raw) < max_results:
+    if "wikipedia" in normalized and len(raw) < max_results:
         try:
             hits = search_wikipedia(
                 kw,
@@ -238,8 +254,16 @@ def web_search(
         "keywords": kw,
         "results": results,
         "count": len(results),
+        "providers_requested": [str(item) for item in requested],
         "providers_used": used,
         "errors": errors,
         "engine": "duckduckgo_html+wikipedia_opensearch",
+        "error_code": (
+            ""
+            if results
+            else "provider_unavailable"
+            if any(error.startswith("unsupported provider:") for error in errors)
+            else "no_results"
+        ),
         "error": "" if results else "no search results",
     }

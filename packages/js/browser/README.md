@@ -2,7 +2,7 @@
 
 First-party background web complement for HandoffKit agents: **search → fetch/explore → HTML parse → Markdown**.
 
-No Chrome, no Cheerio, no paid search APIs. Native `fetch`, first-party HTML extractor, public search endpoints (DuckDuckGo HTML + Wikipedia OpenSearch).
+No Chrome, no Cheerio, no paid search APIs. Native `fetch`, first-party HTML extractor, and runtime-selectable public adapters (DuckDuckGo HTML and Wikipedia OpenSearch).
 
 Connects to `@handoffkit/core` via `ToolRegistry` / `createBrowserAgentKit()`.
 
@@ -75,7 +75,11 @@ BROWSER_LIVE=1 pnpm --dir packages/js/browser test
 page budget, blocked/error steps, citations, and elapsed time in
 `ResearchPack.metadata`. `transport: "map"` keeps the same route fully offline
 for deterministic tests. The deeper route remains bounded HTTP research; it
-is not Browser Real and does not execute arbitrary page JavaScript.
+is not Browser Real and does not execute arbitrary page JavaScript. Pass
+`providers: ["wikipedia"]` or `providers: ["duckduckgo"]` to select an
+adapter. Unknown or unreachable providers remain observable errors and never
+silently become another provider. Supplying `BrowserCache` also records cache
+hits, misses, and writes.
 
 ## Python parity
 

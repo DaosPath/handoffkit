@@ -46,6 +46,9 @@ def explore_url(
     all_links: list[ExtractedLink] = []
     max_depth = 0
     pages = 0
+    cache_hits = 0
+    cache_misses = 0
+    cache_writes = 0
 
     while queue and pages < pol.max_pages:
         url, depth = queue.popleft()
@@ -60,12 +63,15 @@ def explore_url(
 
         cached = cache.get(url) if cache else None
         if cached and cached.get("body"):
+            cache_hits += 1
             body = str(cached.get("body") or "")
             status = int(cached.get("status") or 200)
             final_url = str(cached.get("final_url") or url)
             content_type = str(cached.get("content_type") or "text/html")
             err = ""
         else:
+            if cache:
+                cache_misses += 1
             resp = tr.get(
                 url,
                 timeout_ms=pol.timeout_ms,
@@ -78,7 +84,7 @@ def explore_url(
             content_type = resp.content_type
             err = resp.error
             if cache and not err and body:
-                cache.set(
+                if cache.set(
                     url,
                     {
                         "body": body,
@@ -86,7 +92,8 @@ def explore_url(
                         "final_url": final_url,
                         "content_type": content_type,
                     },
-                )
+                ):
+                    cache_writes += 1
 
         step.status = status
         step.final_url = final_url
@@ -162,6 +169,9 @@ def explore_url(
     result.metadata = {
         "transport": getattr(tr, "name", lambda: "unknown")(),
         "origin_host": origin,
+        "cache_hits": cache_hits,
+        "cache_misses": cache_misses,
+        "cache_writes": cache_writes,
     }
     return result
 

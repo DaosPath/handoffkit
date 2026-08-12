@@ -31,6 +31,7 @@ struct WebResearchConfig {
     int concurrency = 2;  // sequential in C++ v1; reserved
     int max_sub_queries = 3;
     int max_results_per_query = 8;
+    std::vector<std::string> providers{"duckduckgo", "wikipedia"};
     BrowserCache* cache = nullptr;
 };
 
@@ -62,7 +63,8 @@ struct WebResearchResult {
 [[nodiscard]] nlohmann::json web_search(std::string_view query, TransportPtr transport,
                                         int max_results = 8, int timeout_ms = 20000,
                                         const std::vector<std::string>& allow_hosts = {},
-                                        const std::vector<std::string>& deny_hosts = {});
+                                        const std::vector<std::string>& deny_hosts = {},
+                                        const std::vector<std::string>& providers = {});
 
 [[nodiscard]] WebResearchResult gather_web_research(const WebResearchConfig& config,
                                                     TransportPtr transport = nullptr);

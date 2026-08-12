@@ -146,6 +146,7 @@ def gather_deep_web_research(
     max_depth: int = 2,
     max_sub_queries: int = 3,
     max_results_per_query: int = 8,
+    providers: list[str] | None = None,
     auto_search: bool = True,
     timeout_ms: int = 20000,
     concurrency: int = 3,
@@ -168,17 +169,17 @@ def gather_deep_web_research(
     started = monotonic()
     tr = transport or default_transport(True)
     pages_limit = max(1, min(int(max_pages or 8), 100))
-    depth_limit = max(0, min(int(max_depth or 2), 4))
+    depth_limit = max(0, min(int(2 if max_depth is None else max_depth), 4))
     subquery_limit = max(1, min(int(max_sub_queries or 3), 8))
     result_limit = max(1, min(int(max_results_per_query or 8), 20))
     timeout = max(1000, int(timeout_ms or 20000))
     parallel = max(1, min(int(concurrency or 3), 8))
     allows = list(allow_hosts or [])
     denies = list(deny_hosts or [])
+    provider_list = list(providers or ["duckduckgo", "wikipedia"])
     browser_cache = cache
     if browser_cache is None and (use_cache or cache_root):
         browser_cache = BrowserCache(root=cache_root or str(default_cache_root()))
-
     pack = ResearchPack(
         enabled=True,
         transport=getattr(tr, "name", lambda: "unknown")(),
@@ -196,6 +197,13 @@ def gather_deep_web_research(
             "deny_hosts": denies,
             "cache_enabled": browser_cache is not None,
             "provider_transport": getattr(tr, "name", lambda: "unknown")(),
+            "providers_requested": provider_list,
+            "providers_used": [],
+            "provider_errors": [],
+            "cache_hits": 0,
+            "cache_misses": 0,
+            "cache_writes": 0,
+            "error_code": "",
             "auto_search": bool(auto_search),
         },
     )
@@ -214,6 +222,7 @@ def gather_deep_web_research(
             transport=tr,
             max_results=result_limit,
             timeout_ms=timeout,
+            providers=provider_list,
             allow_hosts=allows,
             deny_hosts=denies,
         )
@@ -227,9 +236,18 @@ def gather_deep_web_research(
                 "success": bool(search.get("success")),
                 "count": int(search.get("count") or 0),
                 "engine": search.get("engine", ""),
+                "providers_requested": search.get("providers_requested", []),
+                "providers_used": search.get("providers_used", []),
+                "provider_errors": search.get("errors", []),
                 "error": search.get("error", ""),
             }
         )
+        for provider in search.get("providers_used") or []:
+            if provider not in pack.metadata["providers_used"]:
+                pack.metadata["providers_used"].append(provider)
+        for error in search.get("errors") or []:
+            if error not in pack.metadata["provider_errors"]:
+                pack.metadata["provider_errors"].append(error)
         urls.extend(canonical_url(hit.get("url", "")) for hit in search.get("results") or [])
 
     ranked = rank_search_hits(
@@ -241,6 +259,7 @@ def gather_deep_web_research(
     candidates = [str(hit["url"]) for hit in ranked[:candidate_limit]]
     if not candidates:
         pack.error = "no urls to explore"
+        pack.metadata["error_code"] = "no_urls_to_explore"
         pack.used = bool(pack.queries)
         pack.metadata["duration_ms"] = int((monotonic() - started) * 1000)
         return pack
@@ -269,6 +288,8 @@ def gather_deep_web_research(
         )
 
     for seed_url, explored in map_with_concurrency(candidates, parallel, explore_one):
+        for key in ("cache_hits", "cache_misses", "cache_writes"):
+            pack.metadata[key] += int(explored.metadata.get(key, 0) or 0)
         pack.tool_calls += 1
         elapsed = int((monotonic() - started) * 1000)
         pack.steps.append(
@@ -313,6 +334,7 @@ def gather_deep_web_research(
     pack.used = pack.pages_ok > 0 or bool(pack.queries)
     if not pack.pages_ok:
         pack.error = "no pages explored successfully"
+        pack.metadata["error_code"] = "no_pages_explored"
     pack.metadata["candidates"] = candidates
     pack.metadata["duration_ms"] = int((monotonic() - started) * 1000)
     pack.steps.append(
@@ -336,6 +358,7 @@ def gather_web_research(
     seed_only: bool = False,
     allow_hosts: list[str] | None = None,
     deny_hosts: list[str] | None = None,
+    providers: list[str] | None = None,
     prefer_explore: bool = False,
     max_depth: int = 0,
     concurrency: int = 2,
@@ -360,6 +383,14 @@ def gather_web_research(
     browser_cache = cache
     if browser_cache is None and (use_cache or cache_root):
         browser_cache = BrowserCache(root=cache_root or str(default_cache_root()))
+    pack.metadata.update(
+        {
+            "cache_enabled": browser_cache is not None,
+            "cache_hits": 0,
+            "cache_misses": 0,
+            "cache_writes": 0,
+        }
+    )
 
     urls = list(seed_urls or [])
     urls.extend(extract_urls_from_text(task_s))
@@ -376,6 +407,7 @@ def gather_web_research(
                 transport=tr,
                 max_results=min(8, max(max_pages * 2, max_pages)),
                 timeout_ms=timeout_ms,
+                providers=providers,
                 allow_hosts=allow_hosts,
                 deny_hosts=deny_hosts,
             )
@@ -422,6 +454,9 @@ def gather_web_research(
             "url": url,
             "success": page.success,
             "error": page.error,
+            "cache_hits": int(result.metadata.get("cache_hits", 0) or 0),
+            "cache_misses": int(result.metadata.get("cache_misses", 0) or 0),
+            "cache_writes": int(result.metadata.get("cache_writes", 0) or 0),
         }
         return url, page, step
 
@@ -429,6 +464,8 @@ def gather_web_research(
     md_parts: list[str] = []
     for _url, page, step in fetched_pairs:
         pack.tool_calls += 1
+        for key in ("cache_hits", "cache_misses", "cache_writes"):
+            pack.metadata[key] += step.get(key, 0)
         pack.steps.append(step)
         if not page.success and not page.markdown:
             continue

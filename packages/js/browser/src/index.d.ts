@@ -187,6 +187,10 @@ export interface SearchResult {
   keywords: string;
   results: SearchHit[];
   count: number;
+  providers_requested: string[];
+  providers_used: string[];
+  errors: string[];
+  error_code: string;
   engine: string;
   error?: string;
 }
@@ -197,6 +201,7 @@ export declare function multiSearch(
   query: string,
   maxResults?: number,
   timeoutMs?: number,
+  providers?: string[],
 ): Promise<SearchHit[]>;
 export declare function keywordCompress(query: string, maxWords?: number): string;
 export declare function urlEncodeComponent(s: string): string;

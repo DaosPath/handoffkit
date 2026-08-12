@@ -157,12 +157,32 @@ test("webSearch against fixture search endpoints", async () => {
 </body></html>`,
   );
   transport.setPage(
-    "https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=8&search=OpenAI",
+    "https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=4&search=OpenAI",
     JSON.stringify(["OpenAI", ["OpenAI"], [""], ["https://en.wikipedia.org/wiki/OpenAI"]]),
   );
   const result = await webSearch("OpenAI", { transport, maxResults: 4 });
   assert.equal(result.success, true);
   assert.ok(result.results.some((r) => r.title));
+  assert.deepEqual(result.providers_requested, ["duckduckgo", "wikipedia"]);
+  assert.ok(result.providers_used.includes("duckduckgo"));
+
+  const wikiOnly = await webSearch("OpenAI", {
+    transport,
+    maxResults: 4,
+    providers: ["wiki"],
+  });
+  assert.equal(wikiOnly.success, true);
+  assert.deepEqual(wikiOnly.providers_requested, ["wiki"]);
+  assert.deepEqual(wikiOnly.providers_used, ["wikipedia"]);
+  assert.deepEqual(wikiOnly.errors, []);
+
+  const unavailable = await webSearch("OpenAI", {
+    transport,
+    providers: ["bing"],
+  });
+  assert.equal(unavailable.success, false);
+  assert.equal(unavailable.error_code, "provider_unavailable");
+  assert.match(unavailable.errors[0], /unsupported provider/);
 });
 
 test("gatherWebResearch + ResearchPack + cache", async () => {
@@ -241,6 +261,39 @@ test("gatherDeepWebResearch expands queries through the background transport", a
   assert.equal(pack.steps.filter((step) => step.tool === "web_search").length, 2);
   assert.equal(pack.metadata.candidates.length, 2);
   assert.ok(pack.pages_ok >= 2);
+});
+
+test("gatherDeepWebResearch cache is observable and reused", async () => {
+  const transport = makeFixtureMapTransport();
+  const cacheRoot = await mkdtemp(path.join(tmpdir(), "hk-deep-cache-"));
+  try {
+    const first = await gatherDeepWebResearch({
+      query: "fixture",
+      seedUrls: ["https://fixture.local/"],
+      autoSearch: false,
+      maxPages: 2,
+      maxDepth: 0,
+      transport,
+      cache: new BrowserCache({ root: cacheRoot }),
+    });
+    assert.equal(first.pages_ok, 1);
+    assert.equal(first.metadata.cache_writes, 1);
+
+    const second = await gatherDeepWebResearch({
+      query: "fixture",
+      seedUrls: ["https://fixture.local/"],
+      autoSearch: false,
+      maxPages: 2,
+      maxDepth: 0,
+      transport,
+      cache: new BrowserCache({ root: cacheRoot }),
+    });
+    assert.equal(second.pages_ok, 1);
+    assert.equal(second.metadata.cache_hits, 1);
+    assert.ok(second.steps.some((step) => step.cache_hit === true));
+  } finally {
+    await rm(cacheRoot, { recursive: true, force: true });
+  }
 });
 
 test("PageMarkdown from explore", async () => {

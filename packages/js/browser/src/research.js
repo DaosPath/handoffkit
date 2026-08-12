@@ -126,7 +126,10 @@ export async function gatherDeepWebResearch(config = {}) {
   const query = String(config.query ?? config.web_search_query ?? "").trim();
   const task = String(config.task ?? "").trim();
   const maxPages = Math.max(1, Math.min(Number(config.maxPages ?? config.max_pages ?? 8) || 8, 100));
-  const maxDepth = Math.max(0, Math.min(Number(config.maxDepth ?? config.max_depth ?? 2) || 2, 4));
+  const requestedDepth = Number(config.maxDepth ?? config.max_depth ?? 2);
+  const maxDepth = Number.isFinite(requestedDepth)
+    ? Math.max(0, Math.min(requestedDepth, 4))
+    : 2;
   const maxSubQueries = Math.max(1, Math.min(Number(config.maxSubQueries ?? config.max_sub_queries ?? 3) || 3, 8));
   const maxResultsPerQuery = Math.max(1, Math.min(Number(config.maxResultsPerQuery ?? config.max_results_per_query ?? 8) || 8, 20));
   const autoSearch = config.autoSearch ?? config.auto_search ?? true;
@@ -134,6 +137,7 @@ export async function gatherDeepWebResearch(config = {}) {
   const concurrency = Math.max(1, Math.min(Number(config.concurrency ?? 3) || 3, 8));
   const allowHosts = config.allowHosts ?? config.allow_hosts ?? [];
   const denyHosts = config.denyHosts ?? config.deny_hosts ?? [];
+  const providers = config.providers ?? ["duckduckgo", "wikipedia"];
   const format = config.format ?? "markdown";
   const seedUrls = [...(config.seedUrls ?? config.seed_urls ?? [])];
   const cache = config.cache instanceof BrowserCache
@@ -162,6 +166,13 @@ export async function gatherDeepWebResearch(config = {}) {
       deny_hosts: [...denyHosts],
       cache_enabled: Boolean(cache),
       provider_transport: transport?.name?.() ?? "none",
+      providers_requested: Array.isArray(providers) ? providers.map((p) => String(p)) : [],
+      providers_used: [],
+      provider_errors: [],
+      cache_hits: 0,
+      cache_misses: 0,
+      cache_writes: 0,
+      error_code: "",
       auto_search: Boolean(autoSearch),
     },
   });
@@ -176,6 +187,7 @@ export async function gatherDeepWebResearch(config = {}) {
       transport,
       maxResults: maxResultsPerQuery,
       timeoutMs,
+      providers,
       allowHosts,
       denyHosts,
     });
@@ -189,9 +201,18 @@ export async function gatherDeepWebResearch(config = {}) {
       success: outcome.result.success,
       count: outcome.result.count,
       engine: outcome.result.engine,
+      providers_requested: outcome.result.providers_requested ?? [],
+      providers_used: outcome.result.providers_used ?? [],
+      provider_errors: outcome.result.errors ?? [],
       ms: outcome.ms,
       error: outcome.result.error || "",
     });
+    for (const provider of outcome.result.providers_used ?? []) {
+      if (!pack.metadata.providers_used.includes(provider)) pack.metadata.providers_used.push(provider);
+    }
+    for (const error of outcome.result.errors ?? []) {
+      if (!pack.metadata.provider_errors.includes(error)) pack.metadata.provider_errors.push(error);
+    }
     for (const hit of outcome.result.results ?? []) {
       if (hit.url) urls.push(canonicalUrl(hit.url));
     }
@@ -203,6 +224,7 @@ export async function gatherDeepWebResearch(config = {}) {
   ).map((hit) => hit.url);
   if (!ranked.length) {
     pack.error = "no urls to explore";
+    pack.metadata.error_code = "no_urls_to_explore";
     pack.used = Boolean(pack.queries.length);
     pack.metadata.duration_ms = Date.now() - started;
     return pack;
@@ -231,7 +253,60 @@ export async function gatherDeepWebResearch(config = {}) {
   const explorer = new WebExplorer(transport, policy);
   const outcomes = await mapWithConcurrency(candidates, concurrency, async (url) => {
     const t0 = Date.now();
+    if (cache) {
+      const cached = await cache.get(url);
+      if (cached?.markdown) {
+        const cachedPage = PageMarkdown.fromDict({ ...cached, success: true });
+        pack.metadata.cache_hits += 1;
+        const cachedStep = {
+          stepIndex: 0,
+          depth: 0,
+          url,
+          finalUrl: cachedPage.url || url,
+          status: Number(cached.status ?? 200),
+          success: true,
+          error: "",
+          title: cachedPage.title || "",
+          text: cachedPage.text || "",
+          markdown: cachedPage.markdown || "",
+          links: cachedPage.links || [],
+          rawBodyBytes: Number(cached.raw_body_bytes ?? 0),
+          blockedLinks: [],
+          cache_hit: true,
+        };
+        return {
+          url,
+          result: {
+            success: true,
+            startUrl: url,
+            finalUrl: cachedStep.finalUrl,
+            pagesFetched: 1,
+            maxDepthReached: 0,
+            title: cachedStep.title,
+            text: cachedStep.text,
+            markdown: cachedStep.markdown,
+            links: cachedStep.links,
+            steps: [cachedStep],
+            policy,
+            error: "",
+            metadata: { transport: transport?.name?.() ?? "none", mode: "explore", cache_hit: true },
+          },
+          ms: Date.now() - t0,
+        };
+      }
+      pack.metadata.cache_misses += 1;
+    }
     const result = await explorer.explore(url, policy);
+    if (result.success && cache) {
+      const first = (result.steps ?? []).find((step) => step.success);
+      if (first) {
+        const page = pageFromExploreStep(first, format);
+        if (page.success) {
+          await cache.set(url, page.toDict());
+          pack.metadata.cache_writes += 1;
+        }
+      }
+    }
     return { url, result, ms: Date.now() - t0 };
   });
 
@@ -256,6 +331,7 @@ export async function gatherDeepWebResearch(config = {}) {
         status: step.status,
         success: step.success,
         error: step.error || "",
+        cache_hit: Boolean(step.cache_hit),
       });
       if (!step.success || pack.pages_ok >= maxPages) continue;
       const page = pageFromExploreStep(step, format);
@@ -273,6 +349,7 @@ export async function gatherDeepWebResearch(config = {}) {
   );
   pack.used = pack.pages_ok > 0 || Boolean(pack.queries.length);
   if (!pack.pages_ok && !pack.error) pack.error = "no pages explored successfully";
+  if (!pack.pages_ok) pack.metadata.error_code = "no_pages_explored";
   pack.metadata.candidates = candidates;
   pack.metadata.duration_ms = Date.now() - started;
   pack.steps.push({ tool: "deep_research_done", pages_ok: pack.pages_ok, ms: pack.metadata.duration_ms });
@@ -298,6 +375,7 @@ export async function gatherWebResearch(config = {}) {
     Number(config.contextMaxChars ?? config.web_context_max_chars ?? 48000) || 48000;
   const allowHosts = config.allowHosts ?? config.allow_hosts ?? [];
   const denyHosts = config.denyHosts ?? config.deny_hosts ?? [];
+  const providers = config.providers ?? ["duckduckgo", "wikipedia"];
   const format = config.format ?? "markdown";
   const concurrency = Math.max(1, Number(config.concurrency ?? 2) || 2);
   const cache =
@@ -329,6 +407,7 @@ export async function gatherWebResearch(config = {}) {
         transport,
         maxResults: Math.min(8, Math.max(4, maxPages * 2)),
         timeoutMs,
+        providers,
         allowHosts,
         denyHosts,
       });
@@ -342,6 +421,9 @@ export async function gatherWebResearch(config = {}) {
           success: search.success,
           count: search.count,
           results: search.results,
+          providers_requested: search.providers_requested,
+          providers_used: search.providers_used,
+          provider_errors: search.errors,
           error: search.error,
         },
       });

@@ -31,6 +31,12 @@ The current 1.20 development line continues from the 1.19 beta baseline.
   without opening a user browser window. This does not claim Browser Real,
   Chromium, page JavaScript, cookies, credentials, screenshots, or a complete
   local web index.
+- Added runtime-selectable DuckDuckGo/Wikipedia provider adapters to the
+  Browser Lite search, with canonical `providers_requested`,
+  `providers_used`, `errors`, and `error_code` fields across JavaScript,
+  Python, and C++. Deep research now reports cache hits/misses/writes and
+  reuses cached Markdown pages when a cache is supplied. Provider names do not
+  imply live reachability or an independent search index.
 - Added real TLS 1.3 client/server transports for Python, Node, Go, and Rust,
   including configured/system roots, hostname verification, mTLS, structured
   failures, timeouts, and real-socket positive and negative tests. Added a

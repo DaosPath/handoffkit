@@ -96,12 +96,25 @@ def test_web_search_with_map_endpoints():
         '<a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fopenai.com%2F">x</a>',
     )
     transport.set_page(
-        "https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=8&search=OpenAI",
+        "https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=4&search=OpenAI",
         '["OpenAI", ["OpenAI"], [""], ["https://en.wikipedia.org/wiki/OpenAI"]]',
     )
     result = web_search("OpenAI", transport=transport, max_results=4)
     assert result["success"] is True
     assert result["count"] >= 1
+    assert result["providers_requested"] == ["duckduckgo", "wikipedia"]
+    assert "duckduckgo" in result["providers_used"]
+
+    wiki_only = web_search("OpenAI", transport=transport, max_results=4, providers=["wiki"])
+    assert wiki_only["success"] is True
+    assert wiki_only["providers_requested"] == ["wiki"]
+    assert wiki_only["providers_used"] == ["wikipedia"]
+    assert wiki_only["errors"] == []
+
+    unavailable = web_search("OpenAI", transport=transport, providers=["bing"])
+    assert unavailable["success"] is False
+    assert unavailable["error_code"] == "provider_unavailable"
+    assert "unsupported provider" in unavailable["errors"][0]
 
 
 def test_explore_bfs_fixture():

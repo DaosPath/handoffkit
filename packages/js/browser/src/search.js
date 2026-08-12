@@ -102,6 +102,28 @@ function stripTags(s) {
     .trim();
 }
 
+const DEFAULT_PROVIDERS = ["duckduckgo", "wikipedia"];
+
+function normalizeProviders(providers) {
+  const requested = Array.isArray(providers) && providers.length ? providers : DEFAULT_PROVIDERS;
+  const normalized = [];
+  const errors = [];
+  for (const raw of requested) {
+    const value = String(raw ?? "").trim().toLowerCase();
+    const provider = value === "ddg" ? "duckduckgo" : value === "wiki" ? "wikipedia" : value;
+    if (!provider) continue;
+    if (!DEFAULT_PROVIDERS.includes(provider)) {
+      errors.push(`unsupported provider: ${provider}`);
+      continue;
+    }
+    if (!normalized.includes(provider)) normalized.push(provider);
+  }
+  if (!normalized.length && !errors.length) {
+    errors.push("no search providers configured");
+  }
+  return { requested: [...requested].map((p) => String(p)), normalized, errors };
+}
+
 async function wikipediaOpensearch(transport, query, maxResults, timeoutMs) {
   const hits = [];
   if (!transport || !query || maxResults < 1) return hits;
@@ -213,19 +235,54 @@ async function duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs) {
   return hits;
 }
 
-export async function multiSearch(transport, query, maxResults = 8, timeoutMs = 20000) {
-  let hits = await duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs);
-  const wiki = await wikipediaOpensearch(transport, query, maxResults, timeoutMs);
-  for (const h of wiki) pushHit(hits, h.title, h.url, maxResults);
-  if (hits.length === 0) {
+async function searchWithProviders(transport, query, maxResults, timeoutMs, providers) {
+  const normalized = normalizeProviders(providers);
+  const hits = [];
+  const providersUsed = [];
+  const errors = [...normalized.errors];
+  for (const provider of normalized.normalized) {
+    try {
+      const providerHits = provider === "duckduckgo"
+        ? await duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs)
+        : await wikipediaOpensearch(transport, query, maxResults, timeoutMs);
+      for (const h of providerHits) pushHit(hits, h.title, h.url, maxResults);
+      if (providerHits.length) providersUsed.push(provider);
+      else errors.push(`${provider}: empty`);
+    } catch (error) {
+      errors.push(`${provider}: ${String(error?.message ?? error)}`);
+    }
+  }
+  if (hits.length === 0 && normalized.normalized.includes("wikipedia")) {
     const shortQ = keywordCompress(query, 4);
     if (shortQ && shortQ !== query) {
-      hits = await wikipediaOpensearch(transport, shortQ, maxResults, timeoutMs);
+      try {
+        const fallback = await wikipediaOpensearch(transport, shortQ, maxResults, timeoutMs);
+        for (const h of fallback) pushHit(hits, h.title, h.url, maxResults);
+        if (fallback.length && !providersUsed.includes("wikipedia")) providersUsed.push("wikipedia");
+      } catch (error) {
+        errors.push(`wikipedia: ${String(error?.message ?? error)}`);
+      }
     }
   }
   // Prefer titled hits first when trimming.
   hits.sort((a, b) => Number(Boolean(b.title)) - Number(Boolean(a.title)));
-  return hits.slice(0, maxResults);
+  return {
+    hits: hits.slice(0, maxResults),
+    providersUsed,
+    errors,
+    providersRequested: normalized.requested,
+  };
+}
+
+export async function multiSearch(
+  transport,
+  query,
+  maxResults = 8,
+  timeoutMs = 20000,
+  providers = DEFAULT_PROVIDERS,
+) {
+  const result = await searchWithProviders(transport, query, maxResults, timeoutMs, providers);
+  return result.hits;
 }
 
 /**
@@ -238,6 +295,7 @@ export async function webSearch(query, opts = {}) {
   const transport = opts.transport ?? defaultTransport(true);
   const allowHosts = opts.allowHosts ?? opts.allow_hosts ?? [];
   const denyHosts = opts.denyHosts ?? opts.deny_hosts ?? [];
+  const providers = opts.providers ?? ["duckduckgo", "wikipedia"];
 
   if (!q) {
     return {
@@ -246,12 +304,17 @@ export async function webSearch(query, opts = {}) {
       keywords: "",
       results: [],
       count: 0,
+      providers_requested: Array.isArray(providers) ? providers.map((p) => String(p)) : [],
+      providers_used: [],
+      errors: ["query is required"],
       engine: "duckduckgo_html+wikipedia_opensearch",
+      error_code: "query_required",
       error: "query is required",
     };
   }
 
-  let results = await multiSearch(transport, q, maxResults, timeoutMs);
+  const searched = await searchWithProviders(transport, q, maxResults, timeoutMs, providers);
+  let results = searched.hits;
   if (allowHosts.length || denyHosts.length) {
     results = rankSearchHits(results, { allowHosts, denyHosts }).slice(0, maxResults);
   } else {
@@ -268,7 +331,15 @@ export async function webSearch(query, opts = {}) {
       ...(score != null ? { score } : {}),
     })),
     count: results.length,
+    providers_requested: searched.providersRequested,
+    providers_used: searched.providersUsed,
+    errors: searched.errors,
     engine: "duckduckgo_html+wikipedia_opensearch",
+    error_code: results.length
+      ? ""
+      : searched.errors.some((error) => String(error).startsWith("unsupported provider:"))
+        ? "provider_unavailable"
+        : "no_results",
     error: results.length ? "" : "no search results",
   };
 }
