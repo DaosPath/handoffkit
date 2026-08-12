@@ -1720,6 +1720,7 @@ export async function runWebGroundedAnswer({
   query,
   question = "",
   maxPages = 3,
+  maxSubQueries = 3,
   allowHosts = [],
   denyHosts = [],
   providers = undefined,
@@ -1741,6 +1742,7 @@ export async function runWebGroundedAnswer({
   const pack = await browser.gatherWebResearch({
     query: q,
     maxPages,
+    maxSubQueries,
     allowHosts,
     denyHosts,
     providers,

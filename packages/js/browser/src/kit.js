@@ -5,6 +5,7 @@ import { registerBrowserTools } from "./tools.js";
 import { gatherDeepWebResearch, gatherWebResearch, ResearchPack } from "./research.js";
 import { webSearch } from "./search.js";
 import { DEFAULT_SEARCH_PROVIDERS } from "./search.js";
+import { searchUserBrowserMany } from "./user_browser.js";
 import { WebExplorer } from "./explorer.js";
 import { BrowserCache, defaultCacheRoot } from "./cache.js";
 import { PageMarkdown } from "./page.js";
@@ -38,6 +39,7 @@ export function createBrowserAgentKit(options = {}) {
   const defaults = {
     maxPages: options.maxPages ?? 4,
     maxResults: options.maxResults ?? 6,
+    maxSubQueries: options.maxSubQueries ?? options.max_sub_queries ?? 3,
     timeoutMs: options.timeoutMs ?? policy.timeoutMs ?? 20000,
     allowHosts: options.allowHosts ?? [],
     denyHosts: options.denyHosts ?? [],
@@ -76,6 +78,18 @@ export function createBrowserAgentKit(options = {}) {
         providers: opts.providers ?? opts.provider ?? defaults.providers,
         userBrowser: opts.userBrowser ?? opts.user_browser ?? defaults.userBrowser,
       });
+    },
+    searchMany(queries, opts = {}) {
+      return searchUserBrowserMany(
+        opts.userBrowser ?? opts.user_browser ?? defaults.userBrowser,
+        queries,
+        {
+          maxQueries: opts.maxQueries ?? opts.max_queries ?? defaults.maxSubQueries ?? 3,
+          maxResultsPerQuery: opts.maxResultsPerQuery ?? opts.max_results_per_query ?? defaults.maxResults,
+          timeoutMs: opts.timeoutMs ?? opts.timeout_ms ?? defaults.timeoutMs,
+          concurrency: opts.concurrency ?? defaults.concurrency,
+        },
+      );
     },
     async fetchMarkdown(url, opts = {}) {
       const result = await explorer.fetch(url, {

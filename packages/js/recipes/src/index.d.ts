@@ -358,6 +358,7 @@ export function runWebGroundedAnswer(options: {
   query?: string;
   question?: string;
   maxPages?: number;
+  maxSubQueries?: number;
   allowHosts?: string[];
   denyHosts?: string[];
   providers?: string[];

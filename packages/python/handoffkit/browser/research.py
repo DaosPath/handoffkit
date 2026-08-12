@@ -94,6 +94,26 @@ class ResearchPack:
                 url = citation.get("url") or ""
                 lines.append(f"- [{title}]({url})" if url else f"- {title}")
             lines.append("")
+        traversal = [
+            step
+            for step in self.steps
+            if isinstance(step, dict)
+            and step.get("tool") in {"user_browser_explore", "user_browser_explore_step"}
+        ]
+        if traversal:
+            lines.extend(["## Traversal", ""])
+            for step in traversal[:40]:
+                label = "page" if step.get("tool") == "user_browser_explore_step" else "seed"
+                target = step.get("url") or step.get("seed_url") or ""
+                state = (
+                    "ok"
+                    if step.get("success")
+                    else f"error ({step.get('error_code')})"
+                    if step.get("error_code")
+                    else "error"
+                )
+                lines.append(f"- {label} depth={step.get('depth', '-')} {state}: {target}")
+            lines.append("")
         if self.pages:
             lines.extend(["## Evidence", ""])
             for index, raw_page in enumerate(self.pages, 1):
@@ -118,6 +138,25 @@ class ResearchPack:
                 lines.extend(
                     [smart_truncate(page.markdown or page.text or page.excerpt or "", 20000), ""]
                 )
+                related = [
+                    link
+                    for link in page.links
+                    if isinstance(link, dict) and (link.get("absolute") or link.get("href"))
+                ][:8]
+                if related:
+                    related_lines = []
+                    for link in related:
+                        link_url = link.get("absolute") or link.get("href")
+                        link_label = link.get("text") or link_url
+                        related_lines.append(f"- [{link_label}]({link_url})")
+                    lines.extend(
+                        [
+                            "Related links:",
+                            "",
+                            *related_lines,
+                            "",
+                        ]
+                    )
         if self.error:
             lines.extend(["## Errors", "", f"- {self.error}", ""])
         if not self.pages and not self.error:
@@ -337,9 +376,7 @@ def gather_deep_web_research(
                 max_depth=depth_limit,
                 timeout_ms=timeout,
                 max_body_bytes=int(
-                    policy.max_body_bytes
-                    if isinstance(policy, ExplorePolicy)
-                    else 2 * 1024 * 1024
+                    policy.max_body_bytes if isinstance(policy, ExplorePolicy) else 2 * 1024 * 1024
                 ),
                 max_text_chars=int(
                     policy.max_text_chars if isinstance(policy, ExplorePolicy) else 50000
@@ -353,6 +390,8 @@ def gather_deep_web_research(
                 same_host_only=bool(
                     policy.same_host_only if isinstance(policy, ExplorePolicy) else True
                 ),
+                query=query or task,
+                skip_action_links=True,
                 allow_hosts=allows,
                 deny_hosts=denies,
             )
@@ -360,6 +399,16 @@ def gather_deep_web_research(
         for seed_url, explored in map_with_concurrency(
             candidates, parallel, user_browser_explore_one
         ):
+            pack.metadata["user_browser_attempts"] = pack.metadata.get(
+                "user_browser_attempts", 0
+            ) + int(explored.get("metadata", {}).get("attempts", 0) or 0)
+            pack.metadata["user_browser_action_links_skipped"] = pack.metadata.get(
+                "user_browser_action_links_skipped", 0
+            ) + int(explored.get("metadata", {}).get("action_links_skipped", 0) or 0)
+            pack.metadata["user_browser_max_depth_reached"] = max(
+                int(pack.metadata.get("user_browser_max_depth_reached", 0) or 0),
+                int(explored.get("max_depth_reached", 0) or 0),
+            )
             pack.tool_calls += 1
             pack.steps.append(
                 {
@@ -546,6 +595,7 @@ def gather_web_research(
     user_browser: Any | None = None,
     prefer_explore: bool = False,
     max_depth: int = 0,
+    max_sub_queries: int = 3,
     concurrency: int = 2,
     context_max_chars: int = 48000,
     format: str = "markdown",
@@ -560,6 +610,7 @@ def gather_web_research(
     task_s = (task or "").strip()
     auto = False if seed_only else auto_search
     provider_list = list(providers or DEFAULT_SEARCH_PROVIDERS)
+    subquery_limit = max(1, min(int(max_sub_queries or 3), 8))
     user_browser_requested = any(
         str(provider).strip().lower() in {"user_browser", "user-browser"}
         for provider in provider_list
@@ -577,6 +628,8 @@ def gather_web_research(
             "providers_requested": provider_list,
             "providers_used": [],
             "provider_errors": [],
+            "max_sub_queries": subquery_limit,
+            "search_query_count": 0,
         },
     )
 
@@ -600,28 +653,42 @@ def gather_web_research(
     if not urls and auto:
         search_q = q or make_search_query_from_task(task_s)
         if search_q:
-            pack.queries.append(search_q)
-            pack.tool_calls += 1
-            search = web_search(
-                search_q,
-                transport=tr,
-                max_results=min(8, max(max_pages * 2, max_pages)),
-                timeout_ms=timeout_ms,
-                providers=provider_list,
-                user_browser=user_browser,
-                allow_hosts=allow_hosts,
-                deny_hosts=deny_hosts,
+            search_queries = make_research_queries(
+                query=search_q,
+                task=task_s,
+                max_sub_queries=subquery_limit,
             )
-            pack.steps.append({"tool": "web_search", "query": search_q, "result": search})
-            for provider in search.get("providers_used") or []:
-                if provider not in pack.metadata["providers_used"]:
-                    pack.metadata["providers_used"].append(provider)
-            for error in search.get("errors") or []:
-                if error not in pack.metadata["provider_errors"]:
-                    pack.metadata["provider_errors"].append(error)
-            if search.get("error_code") and not pack.metadata.get("error_code"):
-                pack.metadata["error_code"] = search["error_code"]
-            urls.extend(h["url"] for h in search.get("results") or [])
+            pack.queries.extend(search_queries)
+            pack.metadata["search_query_count"] = len(search_queries)
+
+            def search_one(subquery: str) -> tuple[str, dict[str, Any]]:
+                return subquery, web_search(
+                    subquery,
+                    transport=tr,
+                    max_results=min(8, max(max_pages * 2, max_pages)),
+                    timeout_ms=timeout_ms,
+                    providers=provider_list,
+                    user_browser=user_browser,
+                    allow_hosts=allow_hosts,
+                    deny_hosts=deny_hosts,
+                )
+
+            for subquery, search in map_with_concurrency(
+                search_queries, min(concurrency, 4), search_one
+            ):
+                pack.tool_calls += 1
+                pack.steps.append({"tool": "web_search", "query": subquery, "result": search})
+                for provider in search.get("providers_used") or []:
+                    if provider not in pack.metadata["providers_used"]:
+                        pack.metadata["providers_used"].append(provider)
+                for error in search.get("errors") or []:
+                    if error not in pack.metadata["provider_errors"]:
+                        pack.metadata["provider_errors"].append(error)
+                if search.get("error") and not pack.error:
+                    pack.error = str(search["error"])
+                if search.get("error_code") and not pack.metadata.get("error_code"):
+                    pack.metadata["error_code"] = search["error_code"]
+                urls.extend(h["url"] for h in search.get("results") or [])
 
     urls = list(dict.fromkeys(urls))[: max(max_pages * 3, max_pages)]
     if not urls:
@@ -652,12 +719,24 @@ def gather_web_research(
                 same_host_only=bool(
                     policy.same_host_only if isinstance(policy, ExplorePolicy) else True
                 ),
+                query=q or task_s,
+                skip_action_links=True,
                 allow_hosts=list(allow_hosts or []),
                 deny_hosts=list(deny_hosts or []),
             )
 
         fetched = map_with_concurrency(urls[:max_pages], concurrency, user_browser_fetch_one)
         for seed_url, explored in fetched:
+            pack.metadata["user_browser_attempts"] = pack.metadata.get(
+                "user_browser_attempts", 0
+            ) + int(explored.get("metadata", {}).get("attempts", 0) or 0)
+            pack.metadata["user_browser_action_links_skipped"] = pack.metadata.get(
+                "user_browser_action_links_skipped", 0
+            ) + int(explored.get("metadata", {}).get("action_links_skipped", 0) or 0)
+            pack.metadata["user_browser_max_depth_reached"] = max(
+                int(pack.metadata.get("user_browser_max_depth_reached", 0) or 0),
+                int(explored.get("max_depth_reached", 0) or 0),
+            )
             pack.tool_calls += 1
             pack.steps.append(
                 {

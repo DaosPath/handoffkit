@@ -89,6 +89,19 @@ export class ResearchPack {
       }
       lines.push("");
     }
+    const traversal = this.steps.filter((step) =>
+      ["user_browser_explore", "user_browser_explore_step"].includes(step?.tool),
+    );
+    if (traversal.length) {
+      lines.push("## Traversal", "");
+      for (const step of traversal.slice(0, 40)) {
+        const label = step.tool === "user_browser_explore_step" ? "page" : "seed";
+        const target = step.url || step.seed_url || "";
+        const state = step.success ? "ok" : `error${step.error_code ? ` (${step.error_code})` : ""}`;
+        lines.push(`- ${label} depth=${step.depth ?? "-"} ${state}: ${target}`);
+      }
+      lines.push("");
+    }
     if (this.pages.length) {
       lines.push("## Evidence", "");
       for (const [index, rawPage] of this.pages.entries()) {
@@ -97,6 +110,13 @@ export class ResearchPack {
         lines.push(`### ${index + 1}. ${page.title || source || "Untitled page"}`, "");
         if (source) lines.push(`Source: ${source}`, "");
         lines.push(smartTruncate(page.markdown || page.text || page.excerpt || "", 20000), "");
+        const related = (page.links ?? [])
+          .map((link) => ({ url: link.absolute || link.href || "", text: link.text || "" }))
+          .filter((link) => link.url)
+          .slice(0, 8);
+        if (related.length) {
+          lines.push("Related links:", "", ...related.map((link) => `- [${link.text || link.url}](${link.url})`), "");
+        }
       }
     }
     if (this.error) lines.push("## Errors", "", `- ${this.error}`, "");
@@ -158,6 +178,8 @@ function userBrowserExploreOptions(config, maxPages, maxDepth, timeoutMs, allowH
     maxLinksPerPage: config.maxLinksPerPage ?? config.max_links_per_page,
     maxMarkdownChars: config.maxMarkdownChars ?? config.max_markdown_chars ?? 60000,
     sameHostOnly: config.sameHostOnly ?? config.same_host_only ?? true,
+    query: String(config.query ?? config.web_search_query ?? config.task ?? "").trim(),
+    skipActionLinks: config.skipActionLinks ?? config.skip_action_links ?? true,
     allowHosts,
     denyHosts,
   };
@@ -165,6 +187,13 @@ function userBrowserExploreOptions(config, maxPages, maxDepth, timeoutMs, allowH
 
 function appendUserBrowserOutcome(pack, seedUrl, outcome, format, maxPages) {
   const result = outcome.result;
+  pack.metadata.user_browser_attempts = (pack.metadata.user_browser_attempts ?? 0) + Number(result.metadata?.attempts ?? 0);
+  pack.metadata.user_browser_action_links_skipped =
+    (pack.metadata.user_browser_action_links_skipped ?? 0) + Number(result.metadata?.action_links_skipped ?? 0);
+  pack.metadata.user_browser_max_depth_reached = Math.max(
+    Number(pack.metadata.user_browser_max_depth_reached ?? 0),
+    Number(result.maxDepthReached ?? 0),
+  );
   pack.tool_calls += 1;
   pack.steps.push({
     tool: "user_browser_explore",
@@ -188,6 +217,7 @@ function appendUserBrowserOutcome(pack, seedUrl, outcome, format, maxPages) {
       error_code: step.errorCode || "",
       error: step.error || "",
       links: step.links?.length ?? 0,
+      relevance: step.relevance ?? 0,
     });
     if (!step.success || pack.pages_ok >= maxPages) continue;
     const page = pageFromExploreStep(step, format);
@@ -497,6 +527,7 @@ export async function gatherWebResearch(config = {}) {
   const autoSearch = seedOnly ? false : (config.autoSearch ?? config.web_auto_search ?? true);
   const maxPages = Number(config.maxPages ?? config.web_max_pages ?? 4) || 4;
   const maxDepth = Number(config.maxDepth ?? config.web_max_depth ?? 0) || 0;
+  const maxSubQueries = Math.max(1, Math.min(Number(config.maxSubQueries ?? config.max_sub_queries ?? 3) || 3, 8));
   const timeoutMs = Number(config.timeoutMs ?? config.web_timeout_ms ?? 20000) || 20000;
   const preferExplore = config.preferExplore ?? config.web_prefer_explore ?? false;
   const seedUrls = [...(config.seedUrls ?? config.seed_urls ?? [])];
@@ -531,6 +562,8 @@ export async function gatherWebResearch(config = {}) {
       providers_requested: Array.isArray(providers) ? providers.map((p) => String(p)) : [],
       providers_used: [],
       provider_errors: [],
+      max_sub_queries: maxSubQueries,
+      search_query_count: 0,
     },
   });
 
@@ -540,47 +573,55 @@ export async function gatherWebResearch(config = {}) {
   if (urls.length === 0 && autoSearch) {
     const q = query || makeSearchQueryFromTask(task) || query;
     if (q) {
-      result.queries.push(q);
-      result.tool_calls += 1;
-      const t0 = Date.now();
-      const search = await webSearch(q, {
-        transport,
-        maxResults: Math.min(8, Math.max(4, maxPages * 2)),
-        timeoutMs,
-        providers,
-        userBrowser,
-        allowHosts,
-        denyHosts,
+      const searchQueries = makeResearchQueries({ query: q, task, maxSubQueries });
+      result.queries.push(...searchQueries);
+      result.metadata.search_query_count = searchQueries.length;
+      const searches = await mapWithConcurrency(searchQueries, Math.min(concurrency, 4), async (subquery) => {
+        const t0 = Date.now();
+        const search = await webSearch(subquery, {
+          transport,
+          maxResults: Math.min(8, Math.max(4, maxPages * 2)),
+          timeoutMs,
+          providers,
+          userBrowser,
+          allowHosts,
+          denyHosts,
+        });
+        return { subquery, search, ms: Date.now() - t0 };
       });
-      result.steps.push({
-        tool: "web_search",
-        query: q,
-        success: search.success,
-        count: search.count,
-        ms: Date.now() - t0,
-        result: {
+      for (const { subquery, search, ms } of searches) {
+        result.tool_calls += 1;
+        result.steps.push({
+          tool: "web_search",
+          query: subquery,
           success: search.success,
           count: search.count,
-          results: search.results,
-          providers_requested: search.providers_requested,
-          providers_used: search.providers_used,
-          provider_errors: search.errors,
-          error: search.error,
-        },
-      });
-      for (const provider of search.providers_used ?? []) {
-        if (!result.metadata.providers_used.includes(provider)) result.metadata.providers_used.push(provider);
-      }
-      for (const error of search.errors ?? []) {
-        if (!result.metadata.provider_errors.includes(error)) result.metadata.provider_errors.push(error);
-      }
-      if (search.error_code && !result.metadata.error_code) result.metadata.error_code = search.error_code;
-      if (search.success) {
-        for (const hit of search.results) {
-          if (hit.url) urls.push(hit.url);
+          ms,
+          result: {
+            success: search.success,
+            count: search.count,
+            results: search.results,
+            providers_requested: search.providers_requested,
+            providers_used: search.providers_used,
+            provider_errors: search.errors,
+            error_code: search.error_code,
+            error: search.error,
+          },
+        });
+        for (const provider of search.providers_used ?? []) {
+          if (!result.metadata.providers_used.includes(provider)) result.metadata.providers_used.push(provider);
         }
-      } else if (search.error) {
-        result.error = search.error;
+        for (const error of search.errors ?? []) {
+          if (!result.metadata.provider_errors.includes(error)) result.metadata.provider_errors.push(error);
+        }
+        if (search.error_code && !result.metadata.error_code) result.metadata.error_code = search.error_code;
+        if (search.success) {
+          for (const hit of search.results) {
+            if (hit.url) urls.push(hit.url);
+          }
+        } else if (search.error && !result.error) {
+          result.error = search.error;
+        }
       }
     }
   }

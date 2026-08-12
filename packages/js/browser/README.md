@@ -78,6 +78,14 @@ Requesting only `user_browser` without a search bridge returns
 `error_code: "user_browser_bridge_required"`; it does not silently switch to
 DuckDuckGo.
 
+For several focused searches, `kit.searchMany([...])` uses bounded
+concurrency, merges duplicate URLs, and records matching query variants plus
+a deterministic score. `gather`/`deepGather` use focused query variants
+automatically (`maxSubQueries`, default 3) when no seed URL exists. During
+bridge exploration, links are ranked against the query and likely action URLs
+(`logout`, `delete`, `unsubscribe`, etc.) are skipped by default; traversal
+metadata exposes skipped actions and visited depths.
+
 ## Agent tools
 
 | Tool | Purpose |

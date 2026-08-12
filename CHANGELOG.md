@@ -31,6 +31,10 @@ The current 1.20 development line continues from the 1.19 beta baseline.
   access is absent, and emits `ResearchPack.agent_markdown` with queries,
   citations, evidence, and structured errors. No browser profile, cookie, or
   HTTP fallback is used by this route.
+- Added bounded multi-query user-session search with duplicate-source
+  provenance and deterministic scoring. Browser-bridge traversal now ranks
+  links against the research query, skips likely state-changing action links by
+  default, and records traversal/action-skip metadata in agent Markdown.
 - Added an experimental, background-only `web_deep_research` route to the
   JavaScript, Python, and C++ Browser Lite surfaces. It expands bounded
   subqueries, ranks candidates, explores/fetches through the configured HTTP or

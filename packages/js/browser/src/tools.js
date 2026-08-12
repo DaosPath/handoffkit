@@ -223,7 +223,9 @@ export function makeWebResearchTool(defaultTransportRef = null, defaults = {}) {
       additionalProperties: false,
       properties: {
         query: { type: "string" },
+        task: { type: "string" },
         max_pages: { type: "integer", minimum: 1, maximum: 8, default: 3 },
+        max_sub_queries: { type: "integer", minimum: 1, maximum: 8, default: 3 },
         timeout_ms: { type: "integer" },
         allow_hosts: { type: "array", items: { type: "string" } },
         deny_hosts: { type: "array", items: { type: "string" } },
@@ -242,8 +244,10 @@ export function makeWebResearchTool(defaultTransportRef = null, defaults = {}) {
       if (!args.query) return { success: false, error: "query is required" };
       const pack = await gatherWebResearch({
         query: args.query,
+        task: args.task,
         transport: resolveTransport(args, defaultTransportRef),
         maxPages: args.max_pages ?? 3,
+        maxSubQueries: args.max_sub_queries ?? 3,
         timeoutMs: args.timeout_ms,
         allowHosts: args.allow_hosts,
         denyHosts: args.deny_hosts,

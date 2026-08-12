@@ -19,7 +19,7 @@ import {
   parseUrl,
   urlAllowed,
 } from "./types.js";
-import { canonicalUrl, smartTruncate } from "./util.js";
+import { canonicalUrl, mapWithConcurrency, smartTruncate } from "./util.js";
 
 export const USER_BROWSER_PROVIDER = "user_browser";
 
@@ -60,10 +60,44 @@ function normalizeHit(raw) {
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
   parsed.hash = "";
   const title = String(raw.title ?? raw.name ?? raw.text ?? "").trim();
-  return {
+  const hit = {
     title: title || parsed.href,
     url: parsed.href,
   };
+  const snippet = String(raw.snippet ?? raw.description ?? raw.excerpt ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 600);
+  const source = String(raw.source ?? raw.provider ?? "").trim().slice(0, 120);
+  if (snippet) hit.snippet = snippet;
+  if (source) hit.source = source;
+  return hit;
+}
+
+function queryTerms(query) {
+  return [...new Set(
+    String(query ?? "")
+      .toLowerCase()
+      .match(/[a-z0-9][a-z0-9_-]{2,}/g) ?? [],
+  )];
+}
+
+function linkRelevance(link, query) {
+  const terms = queryTerms(query);
+  if (!terms.length) return 0;
+  const haystack = `${link?.text ?? ""} ${link?.absolute ?? ""}`.toLowerCase();
+  const matches = terms.reduce((total, term) => total + (haystack.includes(term) ? 1 : 0), 0);
+  return matches / terms.length + (link?.text ? 0.02 : 0);
+}
+
+function likelyActionUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const value = `${parsed.pathname}${parsed.search}`.toLowerCase();
+    return /(?:^|[\/_?.=&-])(logout|log-out|signout|sign-out|delete|remove|unsubscribe)(?:$|[\/_?.=&-])/.test(value);
+  } catch {
+    return false;
+  }
 }
 
 function asBoundedInt(value, fallback, minimum, maximum) {
@@ -297,6 +331,9 @@ export async function exploreUserBrowser(bridge, startUrls, options = {}) {
       attempts: 0,
       max_pages: policy.maxPages,
       max_depth: policy.maxDepth,
+      query: String(options.query ?? "").trim(),
+      link_ranking: String(options.query ?? "").trim() ? "query_relevance" : "document_order",
+      action_links_skipped: 0,
     },
   };
   if (!starts.length) {
@@ -309,11 +346,15 @@ export async function exploreUserBrowser(bridge, startUrls, options = {}) {
     return result;
   }
   const originHost = normalizeHost(firstParts.host);
-  const queue = starts.map((url) => ({ url, depth: 0 }));
+  const focusQuery = String(options.query ?? "").trim();
+  const skipActionLinks = options.skipActionLinks ?? options.skip_action_links ?? true;
+  let enqueueOrder = 0;
+  const queue = starts.map((url) => ({ url, depth: 0, score: 0, order: enqueueOrder++ }));
   const visited = new Set();
   const linkSeen = new Set();
   const maxAttempts = Math.max(policy.maxPages * 4, policy.maxPages);
   while (queue.length && result.pagesFetched < policy.maxPages && result.metadata.attempts < maxAttempts) {
+    queue.sort((a, b) => b.score - a.score || a.depth - b.depth || a.order - b.order);
     const item = queue.shift();
     if (!item || visited.has(item.url) || item.depth > policy.maxDepth) continue;
     visited.add(item.url);
@@ -335,6 +376,7 @@ export async function exploreUserBrowser(bridge, startUrls, options = {}) {
       links: page.links || [],
       rawBodyBytes: 0,
       blockedLinks: [],
+      relevance: item.score,
     };
     result.steps.push(step);
     if (!page.success) {
@@ -361,8 +403,18 @@ export async function exploreUserBrowser(bridge, startUrls, options = {}) {
         step.blockedLinks.push(link.absolute);
         continue;
       }
+      if (skipActionLinks && likelyActionUrl(link.absolute)) {
+        step.blockedLinks.push(link.absolute);
+        result.metadata.action_links_skipped += 1;
+        continue;
+      }
       if (!visited.has(link.absolute) && queue.length < policy.maxPages * 4) {
-        queue.push({ url: link.absolute, depth: item.depth + 1 });
+        queue.push({
+          url: link.absolute,
+          depth: item.depth + 1,
+          score: linkRelevance(link, focusQuery),
+          order: enqueueOrder++,
+        });
       }
     }
   }
@@ -429,4 +481,113 @@ export async function searchUserBrowser(bridge, query, options = {}) {
     const message = String(error?.message ?? error).replace(/\s+/g, " ").slice(0, 240);
     return { hits: [], error_code: code, error: message || code };
   }
+}
+
+/**
+ * Run several focused searches through one authorized session and merge hits
+ * deterministically. Duplicate URLs retain all matching queries so agents can
+ * see which query variants corroborated a source.
+ */
+export async function searchUserBrowserMany(bridge, queries, options = {}) {
+  const rawQueries = Array.isArray(queries) ? queries : [queries];
+  const maxQueries = asBoundedInt(options.maxQueries ?? options.max_queries, 3, 1, 8);
+  const maxResults = asPositiveInt(
+    options.maxResultsPerQuery ?? options.max_results_per_query ?? options.maxResults ?? options.max_results,
+    8,
+    8,
+  );
+  const concurrency = asBoundedInt(options.concurrency, 2, 1, 4);
+  const selected = [];
+  const seenQueries = new Set();
+  for (const raw of rawQueries) {
+    const query = String(raw ?? "").trim();
+    const key = query.toLowerCase();
+    if (!query || seenQueries.has(key)) continue;
+    seenQueries.add(key);
+    selected.push(query);
+    if (selected.length >= maxQueries) break;
+  }
+  if (!selected.length) {
+    return {
+      success: false,
+      queries: [],
+      hits: [],
+      count: 0,
+      query_results: [],
+      errors: ["query is required"],
+      error_codes: ["query_required"],
+      error_code: "query_required",
+      error: "query is required",
+      metadata: { transport: "user_browser_bridge", max_queries: maxQueries },
+    };
+  }
+  const queryResults = await mapWithConcurrency(selected, concurrency, async (query) => ({
+    query,
+    result: await searchUserBrowser(bridge, query, {
+      ...options,
+      maxResults,
+      maxResultsPerQuery: maxResults,
+    }),
+  }));
+  const merged = new Map();
+  const errors = [];
+  const errorCodes = [];
+  const wireResults = [];
+  for (const { query, result } of queryResults) {
+    const queryHits = [];
+    for (const [index, rawHit] of (result.hits ?? []).entries()) {
+      const url = canonicalUrl(rawHit.url);
+      if (!url) continue;
+      let hit = merged.get(url);
+      if (!hit) {
+        hit = {
+          title: rawHit.title || url,
+          url,
+          snippet: rawHit.snippet || "",
+          source: rawHit.source || "",
+          queries: [],
+          score: 0,
+        };
+        merged.set(url, hit);
+      }
+      if (rawHit.title && (!hit.title || hit.title === url)) hit.title = rawHit.title;
+      if (rawHit.snippet && rawHit.snippet.length > hit.snippet.length) hit.snippet = rawHit.snippet;
+      if (rawHit.source && !hit.source) hit.source = rawHit.source;
+      if (!hit.queries.includes(query)) hit.queries.push(query);
+      // Earlier ranks and query coverage both matter; cap keeps scores stable.
+      hit.score = Math.min(10, hit.score + 1 / (index + 1) + 1);
+      queryHits.push({ ...rawHit, url, rank: index + 1 });
+    }
+    if (result.error) errors.push(`${query}: ${result.error}`);
+    if (result.error_code) errorCodes.push(result.error_code);
+    wireResults.push({
+      query,
+      hits: queryHits,
+      count: queryHits.length,
+      error_code: result.error_code || "",
+      error: result.error || "",
+    });
+  }
+  const hits = [...merged.values()]
+    .sort((a, b) => b.score - a.score || a.url.localeCompare(b.url))
+    .slice(0, Math.min(maxResults * maxQueries, 40));
+  return {
+    success: hits.length > 0,
+    queries: selected,
+    hits,
+    count: hits.length,
+    query_results: wireResults,
+    errors,
+    error_codes: [...new Set(errorCodes)],
+    error_code: hits.length ? "" : errorCodes[0] || "user_browser_no_results",
+    error: hits.length ? (errors.length ? errors.join("; ") : "") : errors[0] || "user_browser returned no results",
+    metadata: {
+      transport: "user_browser_bridge",
+      max_queries: maxQueries,
+      max_results_per_query: maxResults,
+      queries_executed: selected.length,
+      unique_hits: hits.length,
+      partial: Boolean(hits.length && errors.length),
+    },
+  };
 }

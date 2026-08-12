@@ -28,6 +28,8 @@ import {
   smartTruncate,
   BrowserCache,
   ResearchPack,
+  searchUserBrowserMany,
+  exploreUserBrowser,
   HANDOFFKIT_BROWSER_VERSION,
 } from "../src/index.js";
 
@@ -231,6 +233,59 @@ test("user_browser provider uses an explicit host bridge", async () => {
   assert.equal(observed.options.maxResults, 4);
 });
 
+test("user_browser searchMany merges query provenance and partial errors", async () => {
+  const calls = [];
+  const bridge = {
+    async search(query) {
+      calls.push(query);
+      if (query === "missing") return { results: [], error_code: "empty", error: "no session hit" };
+      return {
+        results: [
+          { title: `Result ${query}`, url: "https://example.org/shared", snippet: query },
+          { title: query, url: `https://example.org/${query}` },
+        ],
+      };
+    },
+  };
+  const result = await searchUserBrowserMany(bridge, ["alpha", "beta", "missing"], {
+    maxQueries: 3,
+    maxResultsPerQuery: 3,
+    concurrency: 2,
+  });
+  assert.equal(result.success, true);
+  assert.deepEqual(result.queries, ["alpha", "beta", "missing"]);
+  assert.deepEqual(calls, ["alpha", "beta", "missing"]);
+  const shared = result.hits.find((hit) => hit.url === "https://example.org/shared");
+  assert.deepEqual(shared.queries, ["alpha", "beta"]);
+  assert.equal(result.metadata.partial, true);
+  assert.ok(result.errors.some((error) => error.includes("missing")));
+});
+
+test("user_browser exploration prioritizes relevant links and skips action links", async () => {
+  const pages = {
+    "https://example.org/root": {
+      title: "Root",
+      markdown: "root",
+      links: [
+        { href: "/logout", text: "logout" },
+        { href: "/misc", text: "misc" },
+        { href: "/guide", text: "guide" },
+      ],
+    },
+    "https://example.org/guide": { title: "Guide", markdown: "guide evidence", links: [] },
+    "https://example.org/misc": { title: "Misc", markdown: "misc evidence", links: [] },
+  };
+  const result = await exploreUserBrowser(
+    { fetch: async (url) => ({ url, ...(pages[url] ?? { error_code: "missing" }) }) },
+    "https://example.org/root",
+    { query: "guide", maxPages: 2, maxDepth: 1 },
+  );
+  assert.equal(result.pagesFetched, 2);
+  assert.equal(result.steps[1].url, "https://example.org/guide");
+  assert.equal(result.metadata.action_links_skipped, 1);
+  assert.equal(result.steps[0].blockedLinks.includes("https://example.org/logout"), true);
+});
+
 test("user_browser fails closed without a bridge and never falls back", async () => {
   const result = await webSearch("needs user session", { providers: ["user_browser"] });
   assert.equal(result.success, false);
@@ -260,6 +315,9 @@ test("kit carries user_browser bridge and combines it only when explicitly reque
   });
   assert.equal(tool.success, true);
   assert.deepEqual(tool.output.providers_used, ["user_browser"]);
+  const many = await kit.searchMany(["OpenAI", "session"], { maxQueries: 2 });
+  assert.equal(many.success, true);
+  assert.equal(many.metadata.queries_executed, 2);
 });
 
 test("user_browser bridge feeds bounded research with explicit metadata", async () => {
@@ -290,6 +348,35 @@ test("user_browser bridge feeds bounded research with explicit metadata", async 
   assert.deepEqual(calls, ["https://example.org/session"]);
   assert.match(pack.toAgentMarkdown(), /## Evidence/);
   assert.match(pack.toDict().agent_markdown, /session evidence/);
+});
+
+test("user_browser research expands focused query variants before fetching", async () => {
+  const calls = [];
+  const pages = {
+    "https://example.org/alpha": { title: "Alpha", markdown: "alpha evidence", links: [] },
+    "https://example.org/beta": { title: "Beta", markdown: "beta evidence", links: [] },
+  };
+  const bridge = {
+    search: async (query) => {
+      calls.push(query);
+      return [{ title: query, url: `https://example.org/${query}` }];
+    },
+    fetch: async (url) => ({ url, ...(pages[url] ?? { error_code: "missing" }) }),
+  };
+  const pack = await gatherWebResearch({
+    query: "alpha",
+    task: "beta",
+    providers: ["user_browser"],
+    userBrowser: bridge,
+    maxPages: 2,
+    maxSubQueries: 2,
+  });
+  assert.deepEqual(pack.queries, ["alpha", "beta"]);
+  assert.deepEqual(calls, ["alpha", "beta"]);
+  assert.equal(pack.pages_ok, 2);
+  assert.equal(pack.metadata.search_query_count, 2);
+  assert.match(pack.toAgentMarkdown(), /alpha evidence/);
+  assert.match(pack.toAgentMarkdown(), /beta evidence/);
 });
 
 test("user_browser exploration is bounded, follows links, and never falls back to HTTP", async () => {

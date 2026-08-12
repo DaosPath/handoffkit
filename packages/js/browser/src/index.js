@@ -39,6 +39,7 @@ export {
   isUserBrowserBridge,
   isUserBrowserPageBridge,
   searchUserBrowser,
+  searchUserBrowserMany,
   fetchUserBrowserPage,
   exploreUserBrowser,
 } from "./user_browser.js";

@@ -139,6 +139,7 @@ export interface ExploreStep {
   rawBodyBytes: number;
   blockedLinks: string[];
   errorCode?: string;
+  relevance?: number;
 }
 
 export interface ExploreResult {
@@ -180,6 +181,10 @@ export interface SearchHit {
   title: string;
   url: string;
   score?: number;
+  snippet?: string;
+  source?: string;
+  queries?: string[];
+  rank?: number;
 }
 
 export interface UserBrowserSearchOptions {
@@ -199,6 +204,14 @@ export interface UserBrowserPageOptions extends UserBrowserSearchOptions {
   max_markdown_chars?: number;
   maxLinksPerPage?: number;
   max_links_per_page?: number;
+  maxQueries?: number;
+  max_queries?: number;
+  maxResultsPerQuery?: number;
+  max_results_per_query?: number;
+  concurrency?: number;
+  query?: string;
+  skipActionLinks?: boolean;
+  skip_action_links?: boolean;
   [key: string]: unknown;
 }
 
@@ -259,6 +272,22 @@ export declare function searchUserBrowser(
   query: string,
   options?: UserBrowserSearchOptions,
 ): Promise<{ hits: SearchHit[]; error_code: string; error: string }>;
+export declare function searchUserBrowserMany(
+  bridge: UserBrowserBridge | null | undefined,
+  queries: string | string[],
+  options?: UserBrowserPageOptions,
+): Promise<{
+  success: boolean;
+  queries: string[];
+  hits: SearchHit[];
+  count: number;
+  query_results: unknown[];
+  errors: string[];
+  error_codes: string[];
+  error_code: string;
+  error: string;
+  metadata: Record<string, unknown>;
+}>;
 export declare function fetchUserBrowserPage(
   bridge: UserBrowserBridge | null | undefined,
   url: string,
@@ -382,6 +411,7 @@ export declare function createBrowserAgentKit(options?: Record<string, unknown>)
   defaults: Record<string, unknown>;
   tools: Tool[];
   search: (query: string, opts?: Record<string, unknown>) => Promise<SearchResult>;
+  searchMany: (queries: string | string[], opts?: Record<string, unknown>) => Promise<Record<string, unknown>>;
   fetchMarkdown: (url: string, opts?: Record<string, unknown>) => Promise<PageMarkdown>;
   gather: (config?: Record<string, unknown>) => Promise<ResearchPack>;
   deepGather: (config?: Record<string, unknown>) => Promise<ResearchPack>;

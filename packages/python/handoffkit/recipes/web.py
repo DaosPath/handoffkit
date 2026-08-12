@@ -10,6 +10,7 @@ def run_web_grounded_answer(
     *,
     question: str = "",
     max_pages: int = 3,
+    max_sub_queries: int = 3,
     allow_hosts: list[str] | None = None,
     deny_hosts: list[str] | None = None,
     providers: list[str] | None = None,
@@ -37,6 +38,7 @@ def run_web_grounded_answer(
     pack = gather_web_research(
         q,
         max_pages=max_pages,
+        max_sub_queries=max_sub_queries,
         allow_hosts=allow_hosts,
         deny_hosts=deny_hosts,
         providers=providers,

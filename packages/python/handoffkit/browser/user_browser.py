@@ -9,6 +9,7 @@ to an unrelated HTTP transport.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import Any, Protocol, runtime_checkable
 from urllib.parse import urlparse, urlunparse
@@ -23,7 +24,7 @@ from handoffkit.browser.types import (
     resolve_url,
     url_allowed,
 )
-from handoffkit.browser.util import smart_truncate
+from handoffkit.browser.util import map_with_concurrency, smart_truncate
 
 USER_BROWSER_PROVIDER = "user_browser"
 
@@ -81,7 +82,45 @@ def _normalize_hit(raw: Any) -> dict[str, str] | None:
         (parsed.scheme.lower(), parsed.netloc, parsed.path, parsed.params, parsed.query, "")
     )
     title = str(raw.get("title") or raw.get("name") or raw.get("text") or "").strip()
-    return {"title": title or url, "url": url}
+    hit: dict[str, str] = {"title": title or url, "url": url}
+    snippet = " ".join(
+        str(raw.get(key) or "") for key in ("snippet", "description", "excerpt") if raw.get(key)
+    ).strip()
+    source = str(raw.get("source") or raw.get("provider") or "").strip()[:120]
+    if snippet:
+        hit["snippet"] = " ".join(snippet.split())[:600]
+    if source:
+        hit["source"] = source
+    return hit
+
+
+def _query_terms(query: str) -> list[str]:
+    return list(dict.fromkeys(re.findall(r"[a-z0-9][a-z0-9_-]{2,}", (query or "").lower())))
+
+
+def _link_relevance(link: Mapping[str, Any], query: str) -> float:
+    terms = _query_terms(query)
+    if not terms:
+        return 0.0
+    haystack = f"{link.get('text', '')} {link.get('absolute', '')}".lower()
+    matches = sum(1 for term in terms if term in haystack)
+    return matches / len(terms) + (0.02 if link.get("text") else 0.0)
+
+
+def _likely_action_url(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    value = parsed.path.lower()
+    if parsed.query:
+        value += f"?{parsed.query}".lower()
+    return bool(
+        re.search(
+            r"(?:^|[\/_?.=&-])(logout|log-out|signout|sign-out|delete|remove|unsubscribe)(?:$|[\/_?.=&-])",
+            value,
+        )
+    )
 
 
 def search_user_browser(
@@ -139,6 +178,126 @@ def search_user_browser(
         code = str(getattr(exc, "code", "") or "user_browser_error")
         message = " ".join(str(exc).split())[:240]
         return {"hits": [], "error_code": code, "error": message or code}
+
+
+def search_user_browser_many(
+    bridge: Any,
+    queries: list[str] | tuple[str, ...] | str,
+    *,
+    max_queries: int = 3,
+    max_results_per_query: int = 8,
+    timeout_ms: int = 20000,
+    concurrency: int = 2,
+) -> dict[str, Any]:
+    """Search focused query variants and merge duplicate URLs with provenance."""
+    raw_queries = list(queries) if isinstance(queries, (list, tuple)) else [queries]
+    query_limit = _bounded(max_queries, 3, 1, 8)
+    result_limit = _bounded(max_results_per_query, 8, 1, 8)
+    parallel = _bounded(concurrency, 2, 1, 4)
+    selected: list[str] = []
+    seen_queries: set[str] = set()
+    for raw in raw_queries:
+        query = str(raw or "").strip()
+        key = query.lower()
+        if not query or key in seen_queries:
+            continue
+        seen_queries.add(key)
+        selected.append(query)
+        if len(selected) >= query_limit:
+            break
+    if not selected:
+        return {
+            "success": False,
+            "queries": [],
+            "hits": [],
+            "count": 0,
+            "query_results": [],
+            "errors": ["query is required"],
+            "error_codes": ["query_required"],
+            "error_code": "query_required",
+            "error": "query is required",
+            "metadata": {"transport": "user_browser_bridge", "max_queries": query_limit},
+        }
+
+    def run_one(query: str) -> tuple[str, dict[str, Any]]:
+        return query, search_user_browser(
+            bridge,
+            query,
+            max_results=result_limit,
+            timeout_ms=timeout_ms,
+        )
+
+    query_results = map_with_concurrency(selected, parallel, run_one)
+    merged: dict[str, dict[str, Any]] = {}
+    errors: list[str] = []
+    error_codes: list[str] = []
+    wire_results: list[dict[str, Any]] = []
+    for query, result in query_results:
+        query_hits: list[dict[str, Any]] = []
+        for index, raw_hit in enumerate(result.get("hits") or [], 1):
+            url = canonical_url(str(raw_hit.get("url") or ""))
+            if not url:
+                continue
+            hit = merged.setdefault(
+                url,
+                {
+                    "title": raw_hit.get("title") or url,
+                    "url": url,
+                    "snippet": raw_hit.get("snippet") or "",
+                    "source": raw_hit.get("source") or "",
+                    "queries": [],
+                    "score": 0.0,
+                },
+            )
+            if raw_hit.get("title") and hit["title"] == url:
+                hit["title"] = raw_hit["title"]
+            if len(str(raw_hit.get("snippet") or "")) > len(str(hit.get("snippet") or "")):
+                hit["snippet"] = raw_hit["snippet"]
+            if raw_hit.get("source") and not hit.get("source"):
+                hit["source"] = raw_hit["source"]
+            if query not in hit["queries"]:
+                hit["queries"].append(query)
+            hit["score"] = min(10.0, float(hit["score"]) + 1.0 / index + 1.0)
+            query_hits.append({**raw_hit, "url": url, "rank": index})
+        if result.get("error"):
+            errors.append(f"{query}: {result['error']}")
+        if result.get("error_code"):
+            error_codes.append(str(result["error_code"]))
+        wire_results.append(
+            {
+                "query": query,
+                "hits": query_hits,
+                "count": len(query_hits),
+                "error_code": result.get("error_code", ""),
+                "error": result.get("error", ""),
+            }
+        )
+    hits = sorted(merged.values(), key=lambda item: (-float(item["score"]), item["url"]))[
+        : min(result_limit * query_limit, 40)
+    ]
+    return {
+        "success": bool(hits),
+        "queries": selected,
+        "hits": hits,
+        "count": len(hits),
+        "query_results": wire_results,
+        "errors": errors,
+        "error_codes": list(dict.fromkeys(error_codes)),
+        "error_code": ""
+        if hits
+        else (error_codes[0] if error_codes else "user_browser_no_results"),
+        "error": "; ".join(errors)
+        if errors and hits
+        else (errors[0] if errors else "user_browser returned no results"),
+        "metadata": {
+            "transport": "user_browser_bridge",
+            "max_queries": query_limit,
+            "max_results_per_query": result_limit,
+            "queries_executed": len(selected),
+            "unique_hits": len(hits),
+            "partial": bool(hits and errors),
+        },
+    }
 
 
 def _normalize_page_link(raw: Any, base_url: str) -> dict[str, str] | None:
@@ -380,6 +539,11 @@ def explore_user_browser(
             "attempts": 0,
             "max_pages": policy.max_pages,
             "max_depth": policy.max_depth,
+            "query": str(options.get("query") or "").strip(),
+            "link_ranking": "query_relevance"
+            if str(options.get("query") or "").strip()
+            else "document_order",
+            "action_links_skipped": 0,
         },
     }
     if not starts:
@@ -394,7 +558,13 @@ def explore_user_browser(
         result["error"] = "invalid or denied start_url"
         return result
     origin = normalize_host(first_parts["host"])
-    queue: list[tuple[str, int]] = [(url, 0) for url in starts]
+    focus_query = str(options.get("query") or "").strip()
+    skip_action_links = options.get("skip_action_links", options.get("skipActionLinks", True))
+    enqueue_order = 0
+    queue: list[tuple[str, int, float, int]] = [
+        (url, 0, 0.0, enqueue_order + index) for index, url in enumerate(starts)
+    ]
+    enqueue_order += len(starts)
     visited: set[str] = set()
     seen_links: set[str] = set()
     max_attempts = max(policy.max_pages * 4, policy.max_pages)
@@ -403,7 +573,8 @@ def explore_user_browser(
         and result["pages_fetched"] < policy.max_pages
         and result["metadata"]["attempts"] < max_attempts
     ):
-        url, depth = queue.pop(0)
+        queue.sort(key=lambda item: (-item[2], item[1], item[3]))
+        url, depth, relevance, _order = queue.pop(0)
         if url in visited or depth > policy.max_depth:
             continue
         visited.add(url)
@@ -432,6 +603,7 @@ def explore_user_browser(
             "links": list(page.get("links") or []),
             "raw_body_bytes": 0,
             "blocked_links": [],
+            "relevance": relevance,
         }
         result["steps"].append(step)
         if not page.get("success"):
@@ -466,8 +638,20 @@ def explore_user_browser(
             if not url_allowed(absolute, policy, origin):
                 step["blocked_links"].append(absolute)
                 continue
+            if skip_action_links and _likely_action_url(absolute):
+                step["blocked_links"].append(absolute)
+                result["metadata"]["action_links_skipped"] += 1
+                continue
             if absolute not in visited and len(queue) < policy.max_pages * 4:
-                queue.append((absolute, depth + 1))
+                queue.append(
+                    (
+                        absolute,
+                        depth + 1,
+                        _link_relevance(link, focus_query),
+                        enqueue_order,
+                    )
+                )
+                enqueue_order += 1
     if not result["success"] and not result["error"]:
         result["error"] = "no pages fetched"
     result["metadata"].update({"queued": len(queue), "visited": len(visited)})

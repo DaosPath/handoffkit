@@ -76,6 +76,12 @@ provider settings propagate to direct helpers and registered tools. Use
 `create_browser_agent_kit({"providers": ["user_browser"], "user_browser": bridge})`
 to opt in.
 
+`kit["search_many"]([...])` runs bounded focused searches, merges duplicate
+URLs, and preserves query provenance and scores. `gather_web_research` also
+expands up to `max_sub_queries` variants when no seed URL exists. Bridge
+exploration ranks links against the query and skips likely action links such as
+logout/delete/unsubscribe by default; traversal metadata records these skips.
+
 ## Recipe
 
 ```python

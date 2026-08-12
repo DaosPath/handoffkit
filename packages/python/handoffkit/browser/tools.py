@@ -57,7 +57,8 @@ def make_web_search_tool(
         name="web_search",
         description=(
             "Search the live web for a query. Returns ranked {title,url,score} hits. "
-            "user_browser requires an explicitly injected search bridge; page research also needs fetch/open."
+            "user_browser requires an explicitly injected search bridge; page research "
+            "also needs fetch/open."
         ),
     )
 
@@ -233,7 +234,9 @@ def make_web_research_tool(
     defaults = defaults or {}
     def run(
         query: str,
+        task: str = "",
         max_pages: int = 3,
+        max_sub_queries: int = 3,
         timeout_ms: int = 20000,
         allow_hosts: list[str] | None = None,
         deny_hosts: list[str] | None = None,
@@ -248,8 +251,10 @@ def make_web_research_tool(
             return {"success": False, "error": "query is required"}
         pack = gather_web_research(
             query,
+            task=task,
             transport=_resolve_transport({"transport": transport}, default_transport_ref),
             max_pages=max_pages,
+            max_sub_queries=max_sub_queries,
             timeout_ms=timeout_ms,
             allow_hosts=allow_hosts,
             deny_hosts=deny_hosts,

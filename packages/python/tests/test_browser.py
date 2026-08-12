@@ -2,6 +2,7 @@ from handoffkit.browser import (
     create_browser_agent_kit,
     detect_soft_block,
     explore_url,
+    explore_user_browser,
     extract_title,
     gather_deep_web_research,
     gather_web_research,
@@ -9,6 +10,7 @@ from handoffkit.browser import (
     make_fixture_map_transport,
     rank_search_hits,
     register_browser_tools,
+    search_user_browser_many,
     smart_truncate,
     web_fetch_markdown,
     web_search,
@@ -149,6 +151,65 @@ def test_user_browser_provider_uses_explicit_host_bridge_and_sanitizes_hits():
     assert bridge.observed[1]["max_results"] == 4
 
 
+def test_user_browser_search_many_merges_query_provenance_and_partial_errors():
+    calls = []
+
+    class Bridge:
+        def search(self, query, **options):
+            calls.append(query)
+            if query == "missing":
+                return {"results": [], "error_code": "empty", "error": "no session hit"}
+            return {
+                "results": [
+                    {
+                        "title": f"Result {query}",
+                        "url": "https://example.org/shared",
+                        "snippet": query,
+                    },
+                    {"title": query, "url": f"https://example.org/{query}"},
+                ]
+            }
+
+    result = search_user_browser_many(
+        Bridge(), ["alpha", "beta", "missing"], max_queries=3, max_results_per_query=3
+    )
+    assert result["success"] is True
+    assert result["queries"] == ["alpha", "beta", "missing"]
+    assert calls == ["alpha", "beta", "missing"]
+    shared = next(hit for hit in result["hits"] if hit["url"] == "https://example.org/shared")
+    assert shared["queries"] == ["alpha", "beta"]
+    assert result["metadata"]["partial"] is True
+    assert any("missing" in error for error in result["errors"])
+
+
+def test_user_browser_exploration_prioritizes_relevant_links_and_skips_actions():
+    pages = {
+        "https://example.org/root": {
+            "title": "Root",
+            "markdown": "root",
+            "links": [
+                {"href": "/logout", "text": "logout"},
+                {"href": "/misc", "text": "misc"},
+                {"href": "/guide", "text": "guide"},
+            ],
+        },
+        "https://example.org/guide": {"title": "Guide", "markdown": "guide evidence", "links": []},
+        "https://example.org/misc": {"title": "Misc", "markdown": "misc evidence", "links": []},
+    }
+
+    class Bridge:
+        def fetch(self, url, **options):
+            return {"url": url, **pages.get(url, {"error_code": "missing"})}
+
+    result = explore_user_browser(
+        Bridge(), "https://example.org/root", max_pages=2, max_depth=1, query="guide"
+    )
+    assert result["pages_fetched"] == 2
+    assert result["steps"][1]["url"] == "https://example.org/guide"
+    assert result["metadata"]["action_links_skipped"] == 1
+    assert "https://example.org/logout" in result["steps"][0]["blocked_links"]
+
+
 def test_user_browser_fails_closed_without_bridge_and_never_falls_back():
     result = web_search("needs user session", providers=["user_browser"])
     assert result["success"] is False
@@ -170,6 +231,9 @@ def test_kit_carries_user_browser_bridge_and_uses_it_only_when_requested():
     tool = kit["registry"].get("web_search").run(query="OpenAI")
     assert tool["success"] is True
     assert tool["providers_used"] == ["user_browser"]
+    many = kit["search_many"](["OpenAI", "session"], max_queries=2)
+    assert many["success"] is True
+    assert many["metadata"]["queries_executed"] == 2
 
 
 def test_user_browser_bridge_feeds_bounded_research_with_explicit_metadata():
@@ -251,6 +315,37 @@ def test_user_browser_exploration_is_bounded_and_never_falls_back_to_http():
     assert any(
         step["tool"] == "user_browser_explore_step" and step["depth"] == 1 for step in pack.steps
     )
+
+
+def test_user_browser_research_expands_focused_query_variants_before_fetching():
+    calls = []
+    pages = {
+        "https://example.org/alpha": {"title": "Alpha", "markdown": "alpha evidence", "links": []},
+        "https://example.org/beta": {"title": "Beta", "markdown": "beta evidence", "links": []},
+    }
+
+    class Bridge:
+        def search(self, query, **options):
+            calls.append(query)
+            return [{"title": query, "url": f"https://example.org/{query}"}]
+
+        def fetch(self, url, **options):
+            return {"url": url, **pages.get(url, {"error_code": "missing"})}
+
+    pack = gather_web_research(
+        "alpha",
+        task="beta",
+        providers=["user_browser"],
+        user_browser=Bridge(),
+        max_pages=2,
+        max_sub_queries=2,
+    )
+    assert pack.queries == ["alpha", "beta"]
+    assert calls == ["alpha", "beta"]
+    assert pack.pages_ok == 2
+    assert pack.metadata["search_query_count"] == 2
+    assert "alpha evidence" in pack.to_agent_markdown()
+    assert "beta evidence" in pack.to_agent_markdown()
 
 
 def test_user_browser_research_fails_closed_without_page_bridge():

@@ -20,6 +20,7 @@ from handoffkit.browser.transport import (
     make_transport,
 )
 from handoffkit.browser.types import ExplorePolicy
+from handoffkit.browser.user_browser import search_user_browser_many
 from handoffkit.tool_execution import ToolRegistry
 
 
@@ -124,6 +125,18 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
             user_browser=kwargs.get("user_browser", kwargs.get("userBrowser", user_browser)),
         )
 
+    def search_many(queries: Any, **kwargs: Any) -> dict[str, Any]:
+        return search_user_browser_many(
+            kwargs.get("user_browser", kwargs.get("userBrowser", user_browser)),
+            queries,
+            max_queries=int(kwargs.get("max_queries", kwargs.get("maxQueries", 3))),
+            max_results_per_query=int(
+                kwargs.get("max_results_per_query", kwargs.get("maxResultsPerQuery", 8))
+            ),
+            timeout_ms=int(kwargs.get("timeout_ms", kwargs.get("timeoutMs", 20000))),
+            concurrency=int(kwargs.get("concurrency", 2)),
+        )
+
     def deep_gather(**kwargs: Any) -> ResearchPack:
         return gather_deep_web_research(
             kwargs.get("query", ""),
@@ -153,6 +166,7 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
         "registry": registry,
         "tools": [registry.get(n) for n in registry.list_tools()],
         "search": search,
+        "search_many": search_many,
         "fetch_markdown": fetch_md,
         "explore": explore,
         "gather": gather,
