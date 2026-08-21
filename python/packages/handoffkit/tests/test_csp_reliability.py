@@ -32,7 +32,7 @@ from handoffkit.csp import (
     validation_error_code,
 )
 
-CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
+CONTRACTS = Path(__file__).resolve().parents[4] / "shared" / "contracts"
 PROPERTY_SETTINGS = settings(
     max_examples=100,
     derandomize=True,

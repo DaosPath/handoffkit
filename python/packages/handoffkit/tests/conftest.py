@@ -10,7 +10,7 @@ from handoffkit.sandbox import reset_sandbox, set_sandbox
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PACKAGE_ROOT.parents[1]
-CONTRACTS_ROOT = REPO_ROOT / "packages" / "contracts"
+CONTRACTS_ROOT = REPO_ROOT / "shared" / "contracts"
 
 
 def is_monorepo_checkout() -> bool:

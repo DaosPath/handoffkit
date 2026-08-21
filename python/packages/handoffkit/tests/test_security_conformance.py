@@ -17,7 +17,7 @@ from handoffkit.csp import (
     negotiate_security_profile,
 )
 
-CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
+CONTRACTS = Path(__file__).resolve().parents[4] / "shared" / "contracts"
 VECTORS = json.loads(
     (CONTRACTS / "conformance/security-v1.json").read_text(encoding="utf-8")
 )

@@ -18,7 +18,8 @@ from handoffkit.csp import (
 )
 
 VECTOR_PATH = (
-    Path(__file__).resolve().parents[2]
+    Path(__file__).resolve().parents[4]
+    / "shared"
     / "contracts"
     / "test-fixtures"
     / "artifact-signing"

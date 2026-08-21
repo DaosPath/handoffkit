@@ -17,7 +17,7 @@ from handoffkit import (
     build_contract_parity_report,
 )
 
-CONTRACTS_ROOT = Path(__file__).resolve().parents[2] / "contracts"
+CONTRACTS_ROOT = Path(__file__).resolve().parents[4] / "shared" / "contracts"
 
 
 def load_fixture(name: str) -> dict[str, object]:

@@ -26,7 +26,7 @@ from handoffkit.csp import (
     make_envelope,
 )
 
-CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
+CONTRACTS = Path(__file__).resolve().parents[4] / "shared" / "contracts"
 
 
 @pytest.mark.monorepo
