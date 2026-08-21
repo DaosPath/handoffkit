@@ -12,7 +12,7 @@ foreach(item IN ITEMS
   cmake
   include
   src
-  validation/benchmarks
+  benchmarks
   examples
   tests
   scripts
@@ -41,7 +41,7 @@ file(COPY "${SOURCE_DIR}/test_package/src/example.cpp"
 # Include the complete small contract corpus so extracted source packages can
 # run fixture, security-conformance, and artifact-provider tests offline. Use a
 # whitelist so ignored/generated credentials can never leak into the tarball.
-set(CONTRACTS_SOURCE "${SOURCE_DIR}/../contracts")
+set(CONTRACTS_SOURCE "${SOURCE_DIR}/../../../shared/contracts")
 file(MAKE_DIRECTORY "${STAGE}/contracts")
 foreach(item IN ITEMS corpus fixtures schemas conformance)
   if(EXISTS "${CONTRACTS_SOURCE}/${item}")

@@ -14,7 +14,7 @@ from examples.demos.mai_clinical_targeted_rescue import (  # noqa: E402
     build_targeted_query,
     classify_specialist_domains,
 )
-from handoffkit.validation/benchmarks.mai import build_sequential_doctor_cases  # noqa: E402
+from handoffkit.benchmarks.mai import build_sequential_doctor_cases  # noqa: E402
 
 
 def test_classify_specialist_domains_detects_pathology() -> None:
@@ -96,3 +96,4 @@ def test_curated_clinical_alias_matches_iga_dominant_mpgn() -> None:
         "IgA-dominant MPGN",
         [],
     )
+

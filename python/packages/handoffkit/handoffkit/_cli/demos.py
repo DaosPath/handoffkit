@@ -12,12 +12,12 @@ from pathlib import Path
 from handoffkit._cli.project import load_dynamic_extensions
 from handoffkit._version import __version__
 from handoffkit.agent import Agent
-from handoffkit.validation/benchmarks.doctor import run_doctor_benchmark as execute_doctor_benchmark
-from handoffkit.validation/benchmarks.independent import (
+from handoffkit.benchmarks.doctor import run_doctor_benchmark as execute_doctor_benchmark
+from handoffkit.benchmarks.independent import (
     methodology_manifest,
     run_independent_benchmark,
 )
-from handoffkit.validation/benchmarks.mai import run_mai_style_benchmark
+from handoffkit.benchmarks.mai import run_mai_style_benchmark
 from handoffkit.evaluation import WorkflowEvaluator
 from handoffkit.extensions import Extension, ExtensionRegistry
 from handoffkit.handoff import HandoffState
@@ -554,3 +554,4 @@ def run_fusion_style_demo() -> str:
         f"JSON report: {json_path}\n\n"
         f"{report.to_markdown()}"
     )
+

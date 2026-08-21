@@ -227,5 +227,6 @@ def build_workflow_metrics(
         cost=cost,
         context_loss=ctx,
         recovery=rec,
-        metadata=metadata or {"method": "handoffkit.validation/benchmarks.metrics"},
+        metadata=metadata or {"method": "handoffkit.benchmarks.metrics"},
     )
+

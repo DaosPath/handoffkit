@@ -312,7 +312,7 @@ if(HANDOFFKIT_BUILD_TESTS)
 endif()
 
 if(HANDOFFKIT_BUILD_BENCHMARKS)
-  add_executable(native_compute_benchmark validation/benchmarks/native_compute_benchmark.cpp)
+  add_executable(native_compute_benchmark benchmarks/native_compute_benchmark.cpp)
   target_link_libraries(native_compute_benchmark PRIVATE handoffkit_core)
 endif()
 

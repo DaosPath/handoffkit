@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from handoffkit.validation/benchmarks.independent import (
+from handoffkit.benchmarks.independent import (
     METHODOLOGY_ID,
     METHODOLOGY_VERSION,
     PROTOCOL_TASKS_V1,
@@ -58,3 +58,4 @@ def test_task_id_filter() -> None:
     report = build_independent_benchmark(task_ids=["proto-001", "proto-003"])
     assert report.task_count == 2
     assert {t.task_id for t in report.tasks} == {"proto-001", "proto-003"}
+

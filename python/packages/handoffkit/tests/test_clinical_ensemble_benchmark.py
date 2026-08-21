@@ -13,7 +13,7 @@ from examples.demos.mai_clinical_ensemble_benchmark import (  # noqa: E402
     choose_vote_winner,
     labels_equivalent,
 )
-from handoffkit.validation/benchmarks.mai import build_sequential_doctor_cases  # noqa: E402
+from handoffkit.benchmarks.mai import build_sequential_doctor_cases  # noqa: E402
 
 
 def test_labels_equivalent_uses_clinical_aliases() -> None:
@@ -43,3 +43,4 @@ def test_build_retrieval_query_avoids_title_and_gold_label() -> None:
     assert query
     assert case.case.title.lower() not in query
     assert case.case.final_diagnosis.lower() not in query
+

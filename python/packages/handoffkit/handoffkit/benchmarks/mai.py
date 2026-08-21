@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from handoffkit.validation/benchmarks.doctor import (
+from handoffkit.benchmarks.doctor import (
     SAFETY_NOTE,
     SOURCE_NAME,
     SOURCE_PAPER,
@@ -604,3 +604,4 @@ def _make_trace(results: list[MAICaseResult]) -> RunTrace:
             "total_cost": sum(result.total_cost for result in results),
         },
     )
+

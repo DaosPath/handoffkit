@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from handoffkit.validation/benchmarks.mai import (
+from handoffkit.benchmarks.mai import (
     MAIAction,
     MAIGatekeeper,
     build_mai_style_benchmark,
@@ -62,3 +62,4 @@ def test_run_mai_style_benchmark_writes_reports(tmp_path: Path) -> None:
     assert (tmp_path / "runs" / "latest" / "trace.json").exists()
     assert (tmp_path / "reports" / "mai_style_doctor_benchmark_5.json").exists()
     assert (tmp_path / "reports" / "mai_style_doctor_benchmark_5.md").exists()
+

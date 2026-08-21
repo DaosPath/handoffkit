@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from handoffkit.validation/benchmarks.doctor import (
+from handoffkit.benchmarks.doctor import (
     build_doctor_benchmark,
     load_doctor_benchmark_cases,
     run_doctor_benchmark,
@@ -55,3 +55,4 @@ def test_run_doctor_benchmark_writes_reports(tmp_path: Path) -> None:
     assert (tmp_path / "runs" / "latest" / "trace.json").exists()
     assert (tmp_path / "reports" / "doctor_benchmark_5.json").exists()
     assert (tmp_path / "reports" / "doctor_benchmark_5.md").exists()
+
