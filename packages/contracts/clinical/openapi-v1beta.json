@@ -1,0 +1,26 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "HandoffKit Clinical Sequential Reasoning Lab",
+    "version": "1.20.0-v1beta",
+    "description": "experimental / research and education only / not clinically validated"
+  },
+  "paths": {
+    "/api/clinical/v1beta/manifests": { "get": { "operationId": "listManifests" } },
+    "/api/clinical/v1beta/runs": { "post": { "operationId": "createRun" } },
+    "/api/clinical/v1beta/runs/{id}": { "get": { "operationId": "getRun" } },
+    "/api/clinical/v1beta/runs/{id}/actions": { "post": { "operationId": "applyAction" } },
+    "/api/clinical/v1beta/runs/{id}/events": {
+      "get": {
+        "operationId": "runEvents",
+        "responses": {
+          "200": { "description": "JSON snapshot (not a live SSE stream)" },
+          "400": { "description": "Structured clinical error" }
+        }
+      }
+    },
+    "/api/clinical/v1beta/benchmarks": { "post": { "operationId": "createBenchmark" } },
+    "/api/clinical/v1beta/benchmarks/{id}": { "get": { "operationId": "getBenchmark" } },
+    "/api/clinical/v1beta/benchmarks/{id}/report": { "get": { "operationId": "getBenchmarkReport" } }
+  }
+}

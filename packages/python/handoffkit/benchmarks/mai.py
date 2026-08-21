@@ -144,13 +144,22 @@ class MAIStyleBenchmarkReport:
 
     @property
     def correct_count(self) -> int:
-        """Number of correct diagnoses."""
+        """Gold-replay fixture matches. Not diagnostic accuracy."""
         return sum(1 for result in self.results if result.correct)
 
     @property
-    def accuracy(self) -> float:
-        """Accuracy."""
+    def gold_replay_match_rate(self) -> float:
+        """Fixture regression rate. Never a published accuracy metric."""
         return self.correct_count / self.case_count if self.case_count else 0.0
+
+    @property
+    def accuracy(self) -> None:
+        """Gold replay is not scored as diagnostic accuracy."""
+        return None
+
+    @property
+    def scoring_eligible(self) -> bool:
+        return False
 
     @property
     def total_cost(self) -> float:
@@ -168,6 +177,10 @@ class MAIStyleBenchmarkReport:
         return {
             "name": self.name,
             "mode": "mai_style_gold_replay",
+            "scoring_eligible": False,
+            "status_public": (
+                "experimental / research and education only / not clinically validated"
+            ),
             "source": {
                 "name": SOURCE_NAME,
                 "url": SOURCE_URL,
@@ -176,10 +189,13 @@ class MAIStyleBenchmarkReport:
             },
             "safety_note": SAFETY_NOTE,
             "case_count": self.case_count,
-            "correct_count": self.correct_count,
-            "accuracy": round(self.accuracy, 3),
-            "total_cost": round(self.total_cost, 2),
-            "average_cost": round(self.average_cost, 2),
+            "gold_replay_match_count": self.correct_count,
+            "gold_replay_match_rate": round(self.gold_replay_match_rate, 3),
+            "accuracy": None,
+            "resource_units_total": round(self.total_cost, 2),
+            "resource_units_average": round(self.average_cost, 2),
+            "cost_profile": "resource_units_v1",
+            "usd_profile": None,
             "results": [result.to_dict() for result in self.results],
             "trace": self.trace.to_dict(),
             "replay": replay.to_dict(),
@@ -195,7 +211,7 @@ class MAIStyleBenchmarkReport:
     def to_markdown(self) -> str:
         """Serialize report as Markdown."""
         rows = "\n".join(
-            "| {case_id} | {pmcid} | {actions} | ${cost:.0f} | {diagnosis} |".format(
+            "| {case_id} | {pmcid} | {actions} | {cost:.0f} u | {diagnosis} |".format(
                 case_id=result.case.case_id,
                 pmcid=result.case.case.pmcid,
                 actions=len(result.observations),
@@ -218,15 +234,15 @@ class MAIStyleBenchmarkReport:
             "private NEJM SDBench data.\n\n"
             "## Summary\n\n"
             f"- Cases: `{self.case_count}`\n"
-            f"- Gold replay matches: `{self.correct_count}`\n"
-            f"- Accuracy: `{self.accuracy:.3f}`\n"
-            f"- Total simulated cost: `${self.total_cost:.0f}`\n"
-            f"- Average simulated cost: `${self.average_cost:.0f}`\n"
+            f"- Gold replay fixture matches (not scored): `{self.correct_count}`\n"
+            "- Published diagnostic accuracy: `not scored`\n"
+            f"- Total resource units (not clinical USD): `{self.total_cost:.0f}`\n"
+            f"- Average resource units: `{self.average_cost:.0f}`\n"
             f"- Handoffs: `{len(self.trace.handoffs)}`\n"
             f"- Handoff quality: `{self.quality.grade}` / `{self.quality.score:.3f}`\n"
             f"- Replay: `{ReplayRunner(self.trace).summary().step_count}` steps\n\n"
             "## Cases\n\n"
-            "| Case | PMCID | Actions | Cost | Final Diagnosis |\n"
+            "| Case | PMCID | Actions | Resource units | Final Diagnosis |\n"
             "| --- | --- | ---: | ---: | --- |\n"
             f"{rows}\n\n"
             "## Artifacts\n\n"
@@ -248,28 +264,37 @@ class MAIGatekeeper:
             content = "Final diagnosis submitted."
             section = "diagnosis_submission"
         else:
-            self.revealed.add(section)
-            content = self.case.sections.get(section) or self.case.sections["full_case"]
+            if _is_vague_query(action):
+                content = "evidence_not_available"
+                section = "not_available"
+            else:
+                self.revealed.add(section)
+                content = self.case.sections.get(section) or "evidence_not_available"
+                if content == "evidence_not_available":
+                    section = "not_available"
         return MAIObservation(action=action, content=content, revealed_section=section)
 
 
 class MAICostModel:
-    """Simple cost model for sequential diagnosis demos."""
+    """Versioned resource units. Not clinical USD."""
 
-    costs = {
-        "history": 0.0,
-        "physical_exam": 0.0,
-        "basic_labs": 85.0,
-        "imaging": 420.0,
-        "pathology": 1200.0,
-        "special_tests": 650.0,
-        "diagnosis_submission": 0.0,
+    units = {
+        "history": 1,
+        "physical_exam": 1,
+        "basic_labs": 3,
+        "imaging": 8,
+        "pathology": 12,
+        "special_tests": 10,
+        "diagnosis_submission": 0,
+        "not_available": 0,
     }
 
     def cost_for(self, action: MAIAction) -> float:
-        """Return cost for an action."""
+        """Return resource units for an action."""
+        if _is_vague_query(action):
+            return 0.0
         section = _route_query_to_section(action)
-        return self.costs.get(section, 100.0)
+        return float(self.units.get(section, 2))
 
 
 class MAIStyleDoctorOrchestrator:
@@ -510,6 +535,14 @@ def _derive_aliases(diagnosis: str) -> list[str]:
         for index, char in enumerate(normalized)
     )
     return sorted({diagnosis, normalized, spaced})
+
+
+def _is_vague_query(action: MAIAction) -> bool:
+    query = f"{action.name} {action.query}".lower()
+    return _has_any(
+        query,
+        ["everything", "full case", "whole case", "tell me all", "complete case", "entire case"],
+    )
 
 
 def _route_query_to_section(action: MAIAction) -> str:

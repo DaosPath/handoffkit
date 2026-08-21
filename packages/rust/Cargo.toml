@@ -5,6 +5,7 @@ members = [
   "crates/handoffkit-runtime",
   "crates/handoffkit-transport",
   "crates/handoffkit-cli",
+  "crates/handoffkit-browser-core",
   "handoffkit",
 ]
 resolver = "2"

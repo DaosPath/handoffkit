@@ -85,8 +85,16 @@ export class DoctorBenchmarkReport {
     return this.cases.filter(c => c.correct).length;
   }
 
-  get accuracy() {
+  get gold_replay_match_rate() {
     return this.case_count ? this.correct_count / this.case_count : 0.0;
+  }
+
+  get accuracy() {
+    return null;
+  }
+
+  get scoring_eligible() {
+    return false;
   }
 
   toDict() {
@@ -99,10 +107,13 @@ export class DoctorBenchmarkReport {
         license_note: "Dataset card lists MIT license; source reports are PMC OA.",
       },
       mode: "gold_replay",
+      scoring_eligible: false,
+      status_public: "experimental / research and education only / not clinically validated",
       safety_note: SAFETY_NOTE,
       case_count: this.case_count,
-      correct_count: this.correct_count,
-      accuracy: Number(this.accuracy.toFixed(3)),
+      gold_replay_match_count: this.correct_count,
+      gold_replay_match_rate: Number(this.gold_replay_match_rate.toFixed(3)),
+      accuracy: null,
       cases: this.cases.map(c => c.toDict()),
       trace: this.trace.toJSON ? this.trace.toJSON() : this.trace,
       validation: this.validation,
@@ -130,13 +141,13 @@ export class DoctorBenchmarkReport {
       `- Dataset: [${SOURCE_NAME}](${SOURCE_URL})`,
       `- Paper: [${SOURCE_PAPER}](${SOURCE_PAPER})`,
       "- Split: test",
-      "- Mode: `gold_replay` (replays known clinician-authored answers; does not claim model diagnostic accuracy)",
+      "- Mode: `gold_replay` (regression fixture only; never counts as diagnostic accuracy)",
       "",
       "## Summary",
       "",
       `- Cases: \`${this.case_count}\``,
-      `- Gold replay matches: \`${this.correct_count}\``,
-      `- Accuracy: \`${this.accuracy.toFixed(3)}\``,
+      `- Gold replay fixture matches (not scored): \`${this.correct_count}\``,
+      "- Published diagnostic accuracy: `not scored`",
       `- Validation: \`${this.validation.success}\``,
       `- Handoff quality: \`${this.quality.grade}\` / \`${(this.quality.score ?? 1.0).toFixed(3)}\``,
       `- Replay: ${this.trace.steps.length} steps, ${this.trace.handoffs.length} handoffs`,

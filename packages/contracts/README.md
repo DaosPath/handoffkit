@@ -60,3 +60,5 @@ how it moves while a workflow is running.
 - `test-fixtures/security/finalization-unavailable-v1.json`: executable
   fail-closed declarations for unavailable OCSP fetch, exactly-once, global
   zeroization, unsupported signature algorithms, and hybrid-PQ outside Node/Go
+- `clinical/`: v1beta OpenAPI, JSON Schema, and Python/JS parity fixtures for the
+  experimental Clinical Sequential Reasoning Lab. Not clinically validated.

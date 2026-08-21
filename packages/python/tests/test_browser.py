@@ -1,4 +1,10 @@
+import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
 from handoffkit.browser import (
+    DEFAULT_BROWSER_PROVIDER,
+    DefaultBrowserBridge,
     create_browser_agent_kit,
     detect_soft_block,
     explore_url,
@@ -33,6 +39,45 @@ def test_web_fetch_markdown_offline():
     result = web_fetch_markdown("https://fixture.local/about.html", transport=transport)
     assert result["success"] is True
     assert "About" in result["markdown"]
+
+
+def test_google_provider_uses_handoffkit_transport_and_drops_sponsored_redirects():
+    transport = make_fixture_map_transport()
+    transport.set_page(
+        "https://www.google.com/search?hl=en&num=8&q=OpenAI",
+        """
+        <html><body>
+          <a href="/aclk?sa=l&amp;adurl=https%3A%2F%2Fads.example%2F">Sponsored</a>
+          <a href="/url?q=https%3A%2F%2Fexample.org%2Fpaper&amp;sa=U">Primary paper</a>
+          <a href="/search?q=OpenAI">Google navigation</a>
+          <a href="https://example.org/direct">Direct source</a>
+        </body></html>
+        """,
+    )
+    result = web_search("OpenAI", transport=transport, providers=["google"], max_results=4)
+    assert result["success"] is True
+    assert result["providers_used"] == ["google"]
+    assert result["engine"] == "google_html"
+    assert [item["url"] for item in result["results"]] == [
+        "https://example.org/direct",
+        "https://example.org/paper",
+    ]
+
+
+def test_html_extraction_removes_ad_and_consent_containers():
+    html = """<html><head><title>Evidence</title></head><body>
+      <div class="ad-banner"><a href="https://ads.example/click">Buy</a></div>
+      <div id="cookie-consent">Accept cookies</div>
+      <main><p>Primary evidence remains.</p><a href="/source">Source</a></main>
+    </body></html>"""
+    from handoffkit.browser import extract_links, extract_text
+
+    text = extract_text(html)
+    assert "Primary evidence remains" in text
+    assert "Buy" not in text and "Accept cookies" not in text
+    assert [link.absolute for link in extract_links(html, "https://example.org/")] == [
+        "https://example.org/source"
+    ]
 
 
 def test_gather_web_research_seed_only():
@@ -104,7 +149,13 @@ def test_web_search_with_map_endpoints():
     result = web_search("OpenAI", transport=transport, max_results=4)
     assert result["success"] is True
     assert result["count"] >= 1
-    assert result["providers_requested"] == ["duckduckgo", "wikipedia"]
+    assert result["providers_requested"] == [
+        "google_browser",
+        "project_index",
+        "google_http",
+        "duckduckgo",
+        "wikipedia",
+    ]
     assert "duckduckgo" in result["providers_used"]
 
     wiki_only = web_search("OpenAI", transport=transport, max_results=4, providers=["wiki"])
@@ -180,6 +231,120 @@ def test_user_browser_search_many_merges_query_provenance_and_partial_errors():
     assert shared["queries"] == ["alpha", "beta"]
     assert result["metadata"]["partial"] is True
     assert any("missing" in error for error in result["errors"])
+
+
+def test_default_browser_bridge_uses_bounded_loopback_json_and_feeds_research():
+    calls = []
+
+    class Response:
+        status = 200
+        code = 200
+
+        def __init__(self, payload):
+            self.payload = json.dumps(payload).encode("utf-8")
+
+        def read(self, _limit):
+            return self.payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    def opener(request, timeout):
+        calls.append((request, timeout))
+        payload = json.loads(request.data.decode("utf-8"))
+        if request.full_url.endswith("/search"):
+            return Response(
+                {
+                    "results": [
+                        {"title": "Default browser result", "url": "https://default.example/page"}
+                    ]
+                }
+            )
+        assert payload["url"] == "https://default.example/page"
+        return Response(
+            {
+                "status": 200,
+                "url": payload["url"],
+                "final_url": payload["url"],
+                "html": "<html><head><title>Default page</title></head><body><main><h1>Evidence</h1><p>Browser bridge page.</p></main></body></html>",
+            }
+        )
+
+    bridge = DefaultBrowserBridge(
+        endpoint="http://127.0.0.1:8765/v1",
+        token="test-token",
+        opener=opener,
+    )
+    assert bridge.provider == DEFAULT_BROWSER_PROVIDER
+    result = gather_web_research(
+        "default browser",
+        providers=["default_browser"],
+        user_browser=bridge,
+        max_pages=1,
+    )
+    assert result.pages_ok == 1
+    assert result.metadata["page_transport"] == "default_browser_bridge"
+    assert result.metadata["default_browser_required"] is True
+    assert len(calls) == 2
+    assert calls[0][0].headers["Authorization"] == "Bearer test-token"
+    assert not DefaultBrowserBridge(endpoint="http://remote.example:8765").configured
+    missing = web_search("x", providers=["default_browser"])
+    assert missing["error_code"] == "default_browser_bridge_required"
+
+
+def test_default_browser_bridge_interoperates_over_real_loopback_tcp():
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            length = int(self.headers.get("content-length", "0"))
+            payload = json.loads(self.rfile.read(length) or b"{}")
+            if self.path.endswith("/search"):
+                body = {
+                    "results": [
+                        {
+                            "title": "TCP result",
+                            "url": f"http://127.0.0.1:{self.server.server_port}/page",
+                        }
+                    ]
+                }
+            else:
+                assert self.path.endswith("/fetch")
+                body = {
+                    "status": 200,
+                    "url": payload["url"],
+                    "final_url": payload["url"],
+                    "html": "<html><head><title>TCP page</title></head><body><main><p>Real loopback evidence.</p></main></body></html>",
+                }
+            encoded = json.dumps(body).encode("utf-8")
+            self.send_response(200)
+            self.send_header("content-type", "application/json")
+            self.send_header("content-length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+
+        def log_message(self, *_args):
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        bridge = DefaultBrowserBridge(endpoint=f"http://127.0.0.1:{server.server_port}/v1")
+        pack = gather_web_research(
+            "tcp default browser",
+            providers=["default_browser"],
+            user_browser=bridge,
+            max_pages=1,
+        )
+        assert pack.pages_ok == 1
+        assert pack.pages[0].title == "TCP page"
+        assert pack.metadata["page_transport"] == "default_browser_bridge"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
 
 
 def test_user_browser_exploration_prioritizes_relevant_links_and_skips_actions():
@@ -442,7 +607,9 @@ def test_run_web_grounded_answer_offline():
         model = "echo"
 
         def generate(self, prompt: str) -> str:
-            return "grounded-answer"
+            if "evidence_pages" in prompt:
+                return '{"answer":"About Fixture grounded-answer","evidence_pages":"all"}'
+            return '{"selected_urls":["https://fixture.local/about.html"]}'
 
     # Map transport has no search endpoints → use seed research path via gather directly
     pack = gather_web_research(
@@ -469,7 +636,223 @@ def test_run_web_grounded_answer_offline():
         provider=_Prov(),
     )
     assert out["success"] is True
-    assert out["answer"] == "grounded-answer"
+    assert out["answer"] == "About Fixture grounded-answer"
+    assert out["selection"]["valid"] is True
+    assert out["answer_audit"]["coverage"] is True
+
+
+def test_run_web_grounded_answer_builds_dossier_and_falls_back_deterministically():
+    transport = make_fixture_map_transport()
+
+    class _Prov:
+        model = "fixture"
+
+        def generate(self, prompt: str, **_options: object) -> str:
+            if "Extract evidence for exactly ONE requirement" in prompt:
+                return json.dumps(
+                    {
+                        "section_id": "method",
+                        "findings": [
+                            {
+                                "status": "supported",
+                                "statement": "The verified mechanism uses two explicit stages.",
+                                "quote": "verified mechanism uses two explicit stages",
+                                "evidence_pages": [1],
+                            }
+                        ],
+                    }
+                )
+            if "Selecciona las páginas" in prompt:
+                return '{"selected_urls":["https://fixture.local/dossier.html"]}'
+            return "malformed final answer"
+
+    transport.set_page(
+        "https://html.duckduckgo.com/html/?q=Dossier",
+        '<a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Ffixture.local%2Fdossier.html">Dossier Evidence</a>',
+    )
+    transport.set_page(
+        "https://fixture.local/dossier.html",
+        "<html><head><title>Dossier Evidence</title></head><body><main><p>The verified mechanism uses two explicit stages.</p></main></body></html>",
+    )
+    out = run_web_grounded_answer(
+        "Dossier",
+        providers=["duckduckgo"],
+        transport=transport,
+        provider=_Prov(),
+        max_pages=1,
+        answer_retries=0,
+        evidence_sections=[
+            {
+                "id": "method",
+                "title": "Method",
+                "render": "paragraph",
+                "requirements": ["Explain the two stages.", "Confirm the verified mechanism."],
+                "deterministic_evidence": [
+                    {
+                        "requirement": "Confirm the verified mechanism.",
+                        "statement": "The verified mechanism uses two explicit stages.",
+                        "quote": "verified mechanism uses two explicit stages",
+                    }
+                ],
+            }
+        ],
+        synthesis_sections=[
+            {
+                "id": "summary",
+                "title": "Summary",
+                "render": "table",
+                "columns": ["Claim", "Result"],
+                "requirements": ["Combine the two verified claims."],
+                "deterministic_findings": [
+                    {
+                        "requirement": "Combine the two verified claims.",
+                        "statement": "Both checks support the verified two-stage mechanism.",
+                        "cells": [
+                            "Combined",
+                            "Both checks support the verified two-stage mechanism.",
+                        ],
+                        "evidence_claims": ["method:0", "method:1"],
+                    }
+                ],
+            }
+        ],
+        dossier_compose_mode="deterministic",
+    )
+    assert out["success"] is True
+    assert out["evidence_dossier"]["valid"] is True
+    assert (
+        out["evidence_dossier"]["sections"][0]["findings"][0]["verification"]["quote_matched"]
+        is True
+    )
+    assert "two explicit stages" in out["answer"]
+    assert "Both checks support" in out["answer"]
+    assert "| Claim | Result |" in out["answer"]
+    assert "Direct evidence:" in out["answer"]
+
+
+def test_run_web_grounded_answer_rejects_semantically_unrelated_real_quote():
+    transport = make_fixture_map_transport()
+
+    class _Prov:
+        def generate(self, prompt: str, **_options: object) -> str:
+            if "Extract evidence for exactly ONE requirement" in prompt:
+                return json.dumps(
+                    {
+                        "section_id": "adoption",
+                        "findings": [
+                            {
+                                "status": "supported",
+                                "statement": "The estimator aggregates cohort-specific effects.",
+                                "quote": "estimator aggregates cohort-specific effects",
+                                "evidence_pages": [1],
+                            }
+                        ],
+                    }
+                )
+            return '{"selected_urls":["https://fixture.local/adoption.html"]}'
+
+    transport.set_page(
+        "https://html.duckduckgo.com/html/?q=Adoption",
+        '<a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Ffixture.local%2Fadoption.html">Evidence</a>',
+    )
+    transport.set_page(
+        "https://fixture.local/adoption.html",
+        "<html><body><main>The estimator aggregates cohort-specific effects, but this page has no journal counts.</main></body></html>",
+    )
+    out = run_web_grounded_answer(
+        "Adoption",
+        providers=["duckduckgo"],
+        transport=transport,
+        provider=_Prov(),
+        max_pages=1,
+        evidence_sections=[
+            {
+                "id": "adoption",
+                "requirements": [
+                    "Report bibliometric adoption rates for AER, QJE, and JPE during 2020-2024."
+                ],
+            }
+        ],
+        dossier_compose_mode="deterministic",
+    )
+    finding = out["evidence_dossier"]["sections"][0]["findings"][0]
+    assert finding["status"] == "not_found"
+    assert "Evidence not found" in out["answer"]
+
+
+def test_run_web_grounded_answer_merges_focused_native_browser_queries():
+    transport = make_fixture_map_transport()
+
+    class _Prov:
+        model = "echo"
+
+        def generate(self, prompt: str) -> str:
+            if "evidence_pages" in prompt:
+                return '{"answer":"About Fixture and Guide grounded-answer","evidence_pages":"all"}'
+            return '{"selected_urls":["https://fixture.local/about.html"]}'
+
+    transport.set_page(
+        "https://www.google.com/search?hl=en&num=8&q=Fixture",
+        '<a href="/url?q=https%3A%2F%2Ffixture.local%2Fabout.html&amp;sa=U">About Fixture</a>',
+    )
+    transport.set_page(
+        "https://www.google.com/search?hl=en&num=8&q=fixture+guide",
+        '<a href="/url?q=https%3A%2F%2Ffixture.local%2Fdocs%2Fguide.html&amp;sa=U">Fixture Guide</a>',
+    )
+    out = run_web_grounded_answer(
+        "Fixture research",
+        search_queries=["Fixture", "fixture guide"],
+        providers=["google"],
+        transport=transport,
+        max_pages=2,
+        provider=_Prov(),
+    )
+    assert out["success"] is True
+    assert out["research"]["metadata"]["search_queries"] == ["Fixture", "fixture guide"]
+    assert out["research"]["pages_ok"] == 2
+
+
+def test_html_table_and_json_ld():
+    from handoffkit.browser import extract_json_ld, html_table_to_markdown
+
+    html = (
+        '<html><head><script type="application/ld+json">{"@type":"Article"}</script></head>'
+        "<body><table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table></body></html>"
+    )
+    assert "| A | B |" in html_table_to_markdown(html)
+    assert extract_json_ld(html)[0]["@type"] == "Article"
+
+
+def test_web_search_provider_trace_and_strict_provider():
+    transport = make_fixture_map_transport()
+    result = web_search("OpenAI", transport=transport, providers=["wikipedia"])
+    assert result["provider_trace"][0]["provider"] == "wikipedia"
+    strict = web_search(
+        "OpenAI",
+        transport=transport,
+        providers=["google_browser", "wikipedia"],
+        strict_provider=True,
+    )
+    assert strict["error_code"] == "strict_provider_rejected"
+    assert strict["success"] is False
+
+
+def test_project_index_opt_in(tmp_path):
+    from handoffkit.browser import ProjectWebIndex
+
+    index = ProjectWebIndex(root=tmp_path, enabled=True).open()
+    ingested = index.ingest(
+        {
+            "url": "https://example.org/a",
+            "title": "Alpha",
+            "markdown": "alpha evidence about widgets",
+        }
+    )
+    assert ingested["ok"] is True
+    found = index.search("widgets")
+    assert found["hits"][0]["url"] == "https://example.org/a"
+    assert "not a complete index" in found["disclaimer"]
+    index.close()
 
 
 def test_browser_live_search():

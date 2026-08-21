@@ -944,8 +944,8 @@ body {
 
 .docs-header-icon-btn {
   display: inline-flex;
-  height: 2.35rem;
-  width: 2.35rem;
+  height: 2.75rem;
+  width: 2.75rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -2331,6 +2331,67 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .security-loading-line { animation: none; }
   .security-refresh-button { transition: none; }
+}
+
+.browser-inspector-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  min-width: 44px;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--border-liquid);
+  background: var(--surface-strong);
+  color: var(--navy);
+  font-weight: 650;
+}
+
+.browser-inspector button,
+.browser-inspector [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.browser-inspector-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.browser-inspector-btn:focus-visible {
+  outline: 3px solid var(--blue-glow);
+  outline-offset: 2px;
+}
+
+.browser-inspector-list {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 1.2rem;
+}
+
+.browser-inspector-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.browser-inspector-screenshot {
+  display: block;
+  max-width: min(100%, 720px);
+  margin-top: 0.75rem;
+  border: 1px solid var(--border-liquid);
+  border-radius: 0.75rem;
+}
+
+@media (max-width: 375px), (max-width: 768px), (max-width: 1024px), (max-width: 1440px) {
+  .browser-inspector .security-shell { width: min(100% - 2rem, 1400px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .browser-inspector-btn { transition: none; }
 }
 
 .studio-header-link:hover {
@@ -5415,4 +5476,154 @@ body {
 .mai-history-time { margin-left: auto; }
 .mai-history-ranks {
   margin: 0.35rem 0 0; font-size: 0.68rem; line-height: 1.4; color: #64748b;
+}
+
+.clinical-lab {
+  --clinical-blue: #1d4ed8;
+  font-family: "Segoe UI", "Noto Sans", system-ui, sans-serif;
+  color: var(--navy);
+}
+.clinical-lab-hero,
+.clinical-lab-panel {
+  border: 1px solid rgba(37, 99, 255, 0.16);
+  background: rgba(255, 255, 255, 0.84);
+  border-radius: 22px;
+  padding: 1.25rem 1.35rem;
+  margin-bottom: 1rem;
+}
+.clinical-lab-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+.clinical-lab-hero-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+.clinical-lab-hero h2 {
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  letter-spacing: -0.03em;
+}
+.clinical-lab-locales button,
+.clinical-lab-tabs button {
+  min-height: 44px;
+  min-width: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 99, 255, 0.2);
+  background: #fff;
+  color: var(--navy);
+  padding: 0.45rem 0.9rem;
+  font-weight: 650;
+}
+.clinical-lab-locales button.is-active,
+.clinical-lab-tabs button.is-active {
+  background: #1d4ed8;
+  color: #fff;
+}
+.clinical-lab-locales button:focus-visible,
+.clinical-lab-tabs button:focus-visible,
+.clinical-lab-panel select:focus-visible,
+.clinical-lab-panel textarea:focus-visible,
+.clinical-lab-panel input:focus-visible,
+.clinical-lab-panel button:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 2px;
+}
+.clinical-lab-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.clinical-lab-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.clinical-lab-grid {
+  display: grid;
+  gap: 1rem;
+}
+@media (min-width: 900px) {
+  .clinical-lab-grid { grid-template-columns: 1fr 1.1fr; }
+}
+.clinical-lab-panel label {
+  display: block;
+  margin: 0.7rem 0 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.clinical-lab-panel select,
+.clinical-lab-panel textarea,
+.clinical-lab-panel input {
+  width: 100%;
+  border: 1px solid rgba(37, 99, 255, 0.22);
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+}
+.clinical-lab-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+.clinical-lab-fine {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #334155;
+  margin-top: 0.75rem;
+}
+.clinical-lab-recorded {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+.clinical-lab-error { color: #b91c1c; font-weight: 650; }
+.clinical-lab-diff,
+.clinical-lab-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  display: grid;
+  gap: 0.55rem;
+}
+.clinical-lab-diff li,
+.clinical-lab-timeline li {
+  border: 1px solid rgba(37, 99, 255, 0.12);
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+}
+.clinical-lab-timeline li {
+  display: flex;
+  gap: 0.45rem;
+  align-items: flex-start;
+}
+.clinical-lab-deprecation {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  background: rgba(37, 99, 255, 0.08);
+  border: 1px solid rgba(37, 99, 255, 0.18);
+  color: var(--navy);
+}
+.clinical-lab-deprecation a { color: #1d4ed8; font-weight: 700; }
+.clinical-lab-loading { padding: 2rem; color: var(--navy-muted); }
+@media (max-width: 320px) {
+  .clinical-lab-hero, .clinical-lab-panel { padding: 0.85rem; border-radius: 14px; }
+  .clinical-lab-tabs { flex-direction: column; }
+  .clinical-lab-tabs button, .clinical-lab-locales button { width: 100%; }
+}
+@media (max-width: 375px) {
+  .clinical-lab-hero, .clinical-lab-panel { padding: 1rem; border-radius: 16px; }
 }

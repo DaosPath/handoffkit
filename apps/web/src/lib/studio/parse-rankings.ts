@@ -16,6 +16,17 @@ export type ParsedPanelConsensus = {
   redFlag?: string;
 };
 
+export type PanelConsensusAssessment = {
+  eligible: boolean;
+  reason:
+    | "ok"
+    | "synthetic_consensus"
+    | "requires_exactly_three"
+    | "duplicate_labels"
+    | "invalid_percentages"
+    | "missing_red_flag";
+};
+
 type RawRanking = {
   label?: unknown;
   name?: unknown;
@@ -378,14 +389,22 @@ export function ensureJudgeAnswer(text: string): {
   text: string;
   consensus: ParsedPanelConsensus;
   injected: boolean;
+  /** True only when the parser had to invent a generic viral ranking. */
+  synthetic: boolean;
 } {
   const raw = text?.trim() || "";
   if (!raw || raw.startsWith("ERROR:")) {
-    return { text: raw, consensus: { rankings: [] }, injected: false };
+    return {
+      text: raw,
+      consensus: { rankings: [] },
+      injected: false,
+      synthetic: false,
+    };
   }
 
   let consensus = parsePanelConsensus(raw);
   let injected = false;
+  let synthetic = false;
 
   if (consensus.rankings.length < 2) {
     // Last-resort generic viral bucket only if prose looks clinical/viral
@@ -420,20 +439,96 @@ export function ensureJudgeAnswer(text: string): {
           "Positive pathogen test or new resting hypoxia would re-rank top-3.",
       };
       injected = true;
+      synthetic = true;
     }
   }
 
   if (consensus.rankings.length < 2) {
-    return { text: raw, consensus, injected: false };
+    return { text: raw, consensus, injected: false, synthetic };
   }
 
   const hasJson = /RANKINGS_JSON|"rankings"\s*:/i.test(raw);
   if (hasJson && !injected) {
     // Still re-parse to ensure UI has normalized percents
-    return { text: raw, consensus, injected: false };
+    return { text: raw, consensus, injected: false, synthetic };
   }
 
   const cleaned = stripRankingMachineBlocks(raw);
   const withJson = `${cleaned}\n\n${buildRankingsJsonBlock(consensus)}`.trim();
-  return { text: withJson, consensus, injected: true };
+  return { text: withJson, consensus, injected: true, synthetic };
+}
+
+/**
+ * Gate a Judge result before it is called a consensus.  This is deliberately
+ * stricter than the UI parser: exactly three distinct labels, integer weights
+ * summing to 100, a re-rank trigger, and no generic parser-injected answer.
+ */
+export function assessPanelConsensus(
+  consensus: ParsedPanelConsensus,
+  synthetic = false,
+  rawText?: string,
+): PanelConsensusAssessment {
+  if (synthetic) return { eligible: false, reason: "synthetic_consensus" };
+  if (consensus.rankings.length !== 3) {
+    return { eligible: false, reason: "requires_exactly_three" };
+  }
+  const labels = consensus.rankings.map((item) => item.label.toLowerCase());
+  if (new Set(labels).size !== labels.length) {
+    return { eligible: false, reason: "duplicate_labels" };
+  }
+  const total = consensus.rankings.reduce((sum, item) => sum + item.percent, 0);
+  if (
+    !consensus.rankings.every(
+      (item) => Number.isInteger(item.percent) && item.percent >= 0 && item.percent <= 100,
+    ) ||
+    total !== 100
+  ) {
+    return { eligible: false, reason: "invalid_percentages" };
+  }
+  if (rawText && !hasExactRawWeights(rawText)) {
+    return { eligible: false, reason: "invalid_percentages" };
+  }
+  if (!consensus.redFlag?.trim()) {
+    return { eligible: false, reason: "missing_red_flag" };
+  }
+  return { eligible: true, reason: "ok" };
+}
+
+/**
+ * The display parser normalizes malformed weights for readable cards. The
+ * execution gate must inspect the model's original text so 40/30/20 cannot be
+ * silently turned into a seemingly valid 44/33/23 consensus.
+ */
+function hasExactRawWeights(text: string): boolean {
+  for (const raw of extractJsonCandidates(text)) {
+    try {
+      const data = JSON.parse(raw) as {
+        rankings?: unknown[];
+        top3?: unknown[];
+        results?: unknown[];
+      };
+      const list = data.rankings || data.top3 || data.results;
+      if (!Array.isArray(list) || list.length !== 3) continue;
+      const values = list.map((item) => {
+        if (!item || typeof item !== "object") return Number.NaN;
+        const value = (item as Record<string, unknown>).percent ??
+          (item as Record<string, unknown>).percentage ??
+          (item as Record<string, unknown>).confidence;
+        return typeof value === "number"
+          ? value
+          : Number.parseFloat(String(value ?? "").replace(/%/g, ""));
+      });
+      if (values.every((value) => Number.isInteger(value)) && values.reduce((a, b) => a + b, 0) === 100) {
+        return true;
+      }
+    } catch {
+      /* try the prose form */
+    }
+  }
+
+  const section = /(?:^|\n)##?\s*Top\s*3[^\n]*\n([\s\S]*?)(?=\n##?\s+[A-Za-z]|\n*$)/i.exec(text)?.[1] || text;
+  const values = [...section.matchAll(/(\d{1,3})\s*%/g)]
+    .slice(0, 3)
+    .map((match) => Number.parseInt(match[1], 10));
+  return values.length === 3 && values.every(Number.isInteger) && values.reduce((a, b) => a + b, 0) === 100;
 }

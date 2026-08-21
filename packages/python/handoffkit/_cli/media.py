@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from handoffkit.handoff import HandoffState
 from handoffkit.recipes.media import (
     MediaAsset,
     MediaEditionOp,
@@ -14,13 +14,19 @@ from handoffkit.recipes.media import (
     apply_transcript_editions,
     build_creation_context,
     build_dubbing_plan,
+    build_media_context,
+    build_screen_narration_prompt,
     ffmpeg_available,
     handoff_media_context,
     list_media_pipelines,
     media_context_to_workflow_report,
     media_operation_catalog,
+    media_pipeline_stages,
+    merge_ocr_asr_segments,
+    parse_screen_narration_json,
     plan_media_pipeline,
     read_transcript_json,
+    screen_dubbing_agent_recipe,
     write_srt,
     write_transcript_json,
 )
@@ -28,7 +34,11 @@ from handoffkit.reports import write_report_files
 
 
 def build_media_demo_report(output_dir: Path | None = None) -> MediaWorkflowReport:
-    """Build and write a deterministic offline media dubbing report."""
+    """Build and write a deterministic offline screen-dubbing report.
+
+    Shows OCR (on-screen) + ASR (spoken) consensus, a long-context producer
+    prompt, and the agent recipe that would run a real dub.
+    """
     target_dir = output_dir or Path("examples") / "output" / "media_dubbing_demo"
     target_dir.mkdir(parents=True, exist_ok=True)
     source = MediaAsset(
@@ -36,9 +46,9 @@ def build_media_demo_report(output_dir: Path | None = None) -> MediaWorkflowRepo
         media_type="video",
         language="zh",
         duration_seconds=13.2,
-        metadata={"mode": "offline-demo", "real_video_required": False},
+        metadata={"mode": "offline-demo", "real_video_required": False, "pipeline": "screen_dubbing"},
     )
-    transcript = [
+    asr = [
         TranscriptSegment(
             index=1,
             start=0.0,
@@ -53,7 +63,7 @@ def build_media_demo_report(output_dir: Path | None = None) -> MediaWorkflowRepo
             end=7.2,
             speaker="SPEAKER_02",
             language="zh",
-            text="订单同步失败，但付款记录还在。",
+            text="订单同步失败了。",
         ),
         TranscriptSegment(
             index=3,
@@ -64,40 +74,77 @@ def build_media_demo_report(output_dir: Path | None = None) -> MediaWorkflowRepo
             text="先保留日志，然后通知技术团队。",
         ),
     ]
-    speakers = [
-        SpeakerProfile("SPEAKER_01", "Operations lead", "es-LATAM-calm-lead", "es"),
-        SpeakerProfile("SPEAKER_02", "Support analyst", "es-LATAM-analyst", "es"),
+    ocr = [
+        TranscriptSegment(1, 0.0, 3.4, "我们今天要检查新的库存系统", speaker="NARR", language="zh"),
+        TranscriptSegment(2, 3.5, 7.2, "订单同步失败，但付款记录还在", speaker="NARR", language="zh"),
+        TranscriptSegment(3, 7.4, 13.2, "先保留日志，然后通知技术团队", speaker="NARR", language="zh"),
     ]
-    dubbing_segments = build_dubbing_plan(
-        transcript,
-        {
-            1: "Hoy vamos a revisar el nuevo sistema de inventario.",
-            2: "La sincronización de pedidos falló, pero los registros de pago siguen ahí.",
-            3: "Primero conserva los logs y luego avisa al equipo técnico.",
-        },
-        speakers,
+    transcript = merge_ocr_asr_segments(ocr, asr, language="zh")
+    speakers = [
+        SpeakerProfile("SPEAKER_01", "Operations lead", "es-MX-DaliaNeural", "es"),
+        SpeakerProfile("SPEAKER_02", "Support analyst", "es-MX-DaliaNeural", "es"),
+        SpeakerProfile("NARR", "On-screen narrator", "es-MX-DaliaNeural", "es"),
+    ]
+    prompt = build_screen_narration_prompt(
+        ocr,
+        asr,
+        target_language="es",
+        title="market_scene_zh (offline demo)",
     )
+    parsed = parse_screen_narration_json(
+        json.dumps(
+            [
+                {
+                    "index": 1,
+                    "start": 0.0,
+                    "end": 3.4,
+                    "text_zh": transcript[0].text,
+                    "text_es": "Hoy vamos a revisar el nuevo sistema de inventario.",
+                },
+                {
+                    "index": 2,
+                    "start": 3.5,
+                    "end": 7.2,
+                    "text_zh": transcript[1].text,
+                    "text_es": "La sincronización de pedidos falló, pero los registros de pago siguen ahí.",
+                },
+                {
+                    "index": 3,
+                    "start": 7.4,
+                    "end": 13.2,
+                    "text_zh": transcript[2].text,
+                    "text_es": "Primero conserva los logs y luego avisa al equipo técnico.",
+                },
+            ],
+            ensure_ascii=False,
+        )
+    )
+    translations = {item["index"]: item["text_es"] for item in parsed}
+    dubbing_segments = build_dubbing_plan(transcript, translations, speakers)
     transcript_path = write_transcript_json(transcript, target_dir / "transcript_zh.json")
+    ocr_path = write_transcript_json(ocr, target_dir / "ocr_zh.json")
     zh_srt = write_srt(transcript, target_dir / "subtitles_zh.srt")
     es_srt = write_srt(dubbing_segments, target_dir / "subtitles_es.srt", translated=True)
-    handoff = HandoffState(
-        task="Translate and dub a Chinese operations video into Spanish.",
-        from_agent="Transcriber",
-        to_agent="DubbingAdapter",
-        summary="Timestamped Mandarin transcript converted into a Spanish dubbing plan.",
-        decisions=[
-            "Keep timestamps stable for the first pass.",
-            "Assign one Spanish voice profile per detected speaker.",
-            "Write subtitles before generating or muxing audio.",
-        ],
-        important_files=[str(transcript_path), str(zh_srt), str(es_srt)],
-        next_steps=[
-            "Run real transcription with Whisper or another provider.",
-            "Generate one TTS clip per DubbingSegment.",
-            "Mux final Spanish audio into the source video with ffmpeg.",
-        ],
-        metadata={"source_language": "zh", "target_language": "es"},
+    recipe = screen_dubbing_agent_recipe(target_language="es")
+    inspected = build_media_context(
+        "inspection",
+        brief="Screen-dub a Chinese clip: OCR titles plus spoken ASR, one long-context ES narration.",
+        target_language="es",
+        pipeline="screen_dubbing",
+        source=source,
     )
+    transcribed = handoff_media_context(inspected, "transcription", from_agent="Inspector", to_agent="Transcriber")
+    edited = handoff_media_context(transcribed, "edition", from_agent="Transcriber", to_agent="Editor")
+    edited.transcript_segments = transcript
+    translated = handoff_media_context(edited, "translation", from_agent="Editor", to_agent="Translator")
+    translated.dubbing_segments = dubbing_segments
+    translated.generation_prompts = [prompt["user"][:400]]
+    handoff = translated.to_handoff_state(
+        from_agent="Translator",
+        to_agent="Localizer",
+        task="Localize and generate LATAM Spanish TTS from the consensus script.",
+    )
+    stages = " -> ".join(media_pipeline_stages("screen_dubbing"))
     return MediaWorkflowReport(
         success=True,
         source=source,
@@ -107,16 +154,27 @@ def build_media_demo_report(output_dir: Path | None = None) -> MediaWorkflowRepo
         dubbing_segments=dubbing_segments,
         output_files=[
             str(transcript_path),
+            str(ocr_path),
             str(zh_srt),
             str(es_srt),
             str(target_dir / "dubbed_audio_es.wav"),
             str(target_dir / "final_video_es.mp4"),
         ],
         warnings=[
-            "Offline demo only; no real transcription, TTS, diarization, or muxing was run.",
+            "Offline demo only; no real OCR, ASR, TTS, or muxing was run.",
+            "On-screen OCR is canonical; ASR fills spoken-only gaps.",
             "Review translated dubbing for timing, rights, and voice consent before publishing.",
         ],
-        metadata={"handoff": handoff.to_dict(), "ffmpeg_available": ffmpeg_available()},
+        metadata={
+            "handoff": handoff.to_dict(),
+            "ffmpeg_available": ffmpeg_available(),
+            "pipeline": "screen_dubbing",
+            "pipeline_stages": stages,
+            "agent_recipe": recipe.name,
+            "agent_steps": [step.name for step in recipe.steps],
+            "long_context_prompt": prompt,
+            "consensus_sources": [seg.metadata.get("source") for seg in transcript],
+        },
     )
 
 
@@ -124,9 +182,11 @@ def run_media_demo() -> str:
     """Run the local media dubbing demo."""
     report = build_media_demo_report()
     json_path, markdown_path = write_report_files(report, "media_dubbing_demo", "reports")
+    stages = report.metadata.get("pipeline_stages") or "screen_dubbing"
     return (
         "HandoffKit media dubbing demo\n"
-        "Pipeline: Extract -> Transcribe -> Speaker Map -> Translate -> TTS -> Mux\n"
+        f"Pipeline: {stages}\n"
+        f"Agent recipe: {report.metadata.get('agent_recipe', 'screen-dubbing')}\n"
         f"Segments: {len(report.transcript_segments)}\n"
         f"Speakers: {len(report.speakers)}\n"
         f"ffmpeg available: {ffmpeg_available()}\n"
@@ -155,20 +215,23 @@ def plan_media_dubbing(video_path: str, *, source_language: str, target_language
     from handoffkit.recipes.media import media_pipeline_stages
 
     stages = " -> ".join(media_pipeline_stages("video_dubbing"))
+    screen = " -> ".join(media_pipeline_stages("screen_dubbing"))
     return (
         "HandoffKit media dubbing plan\n"
         f"Video: {video_path}\n"
         f"Language: {source_language} -> {target_language}\n"
         f"ffmpeg available: {ffmpeg_available()}\n"
-        f"Pipeline (-ion): {stages}\n\n"
+        f"Pipeline (-ion): {stages}\n"
+        f"Screen dubbing (OCR+ASR, long-context): {screen}\n\n"
         "1. inspection — probe source media\n"
-        "2. transcription — speech to timestamped text\n"
-        "3. translation — target language copy\n"
-        "4. localization — voices and locale notes\n"
-        "5. generation — TTS / voice clips\n"
-        "6. composition — mux audio into video\n"
-        "7. validation — QA gates\n"
-        "8. publication — deliverables + report\n"
+        "2. transcription — ASR speech + burned-in OCR\n"
+        "3. edition — merge OCR+ASR into one consensus script\n"
+        "4. translation — one long-context episode pass\n"
+        "5. localization — voices and locale notes\n"
+        "6. generation — TTS / voice clips\n"
+        "7. composition — mux audio into video\n"
+        "8. validation — QA gates\n"
+        "9. publication — deliverables + report\n"
     )
 
 

@@ -3,7 +3,20 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
-const packageNames = ["core", "csp", "providers", "node", "browser", "recipes", "templates", "cli"];
+const packageNames = [
+  "core",
+  "csp",
+  "providers",
+  "node",
+  "browser-core",
+  "browser",
+  "browser-lite",
+  "browser-real",
+  "clinical",
+  "recipes",
+  "templates",
+  "cli",
+];
 const manifests = [];
 
 function fail(message) {
@@ -54,6 +67,14 @@ for (const { short, packageRoot, manifest } of manifests) {
       ? module.HANDOFFKIT_PROVIDERS_VERSION
       : short === "cli"
         ? module.VERSION
+      : short === "browser-core"
+        ? module.HANDOFFKIT_BROWSER_CORE_VERSION
+      : short === "browser" || short === "browser-lite"
+        ? module.HANDOFFKIT_BROWSER_VERSION
+      : short === "browser-real"
+        ? module.HANDOFFKIT_BROWSER_REAL_VERSION
+      : short === "clinical"
+        ? module.HANDOFFKIT_CLINICAL_VERSION
         : undefined;
   if (runtimeVersion !== undefined && runtimeVersion !== manifest.version) {
     fail(`${manifest.name}: runtime version ${runtimeVersion} does not match manifest ${manifest.version}`);

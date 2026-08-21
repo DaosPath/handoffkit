@@ -1,6 +1,6 @@
 /** @typedef {{ href: string, absolute: string, text: string }} ExtractedLink */
 
-export const HANDOFFKIT_BROWSER_VERSION = "1.16.0";
+export const HANDOFFKIT_BROWSER_VERSION = "1.20.0-alpha.1";
 
 export class ExplorePolicy {
   constructor({

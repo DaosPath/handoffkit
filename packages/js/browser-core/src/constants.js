@@ -1,0 +1,133 @@
+export const HANDOFFKIT_BROWSER_CORE_VERSION = "1.20.0-alpha.1";
+export const CONTRACT_VERSION = HANDOFFKIT_BROWSER_CORE_VERSION;
+export const CONTRACT_FORMAT = "handoffkit.browser.core";
+
+export const ERROR_CODES = Object.freeze([
+  "",
+  "invalid_request",
+  "unauthorized",
+  "replay_detected",
+  "capability_denied",
+  "policy_denied",
+  "provider_unavailable",
+  "provider_challenge",
+  "timeout",
+  "cancelled",
+  "interrupted",
+  "not_found",
+  "index_corrupt",
+  "index_unavailable",
+  "public_bind_rejected",
+  "profile_denied",
+  "javascript_denied",
+  "download_quarantined",
+  "engine_crash",
+  "engine_unsupported",
+  "strict_provider_rejected",
+  "user_browser_bridge_required",
+  "default_browser_bridge_required",
+  "query_required",
+  "no_results",
+  "robots_denied",
+  "rate_limited",
+  "unsupported_provider",
+  "artifact_write_failed",
+  "artifact_integrity_failed",
+  "download_too_large",
+]);
+
+export const PRODUCTS = Object.freeze(["core", "lite", "real"]);
+export const SESSION_STATUSES = Object.freeze([
+  "pending",
+  "starting",
+  "ready",
+  "running",
+  "paused",
+  "interrupted",
+  "closed",
+]);
+export const CLAIM_STATUSES = Object.freeze(["supported", "derived", "not_found"]);
+export const RESEARCH_STAGES = Object.freeze([
+  "plan",
+  "search",
+  "select",
+  "fetch",
+  "extract",
+  "ground",
+  "recover",
+  "complete",
+  "failed",
+  "cancelled",
+]);
+export const COMMAND_NAMES = Object.freeze([
+  "session.start",
+  "session.close",
+  "session.status",
+  "session.pause",
+  "session.resume",
+  "session.retry",
+  "navigate",
+  "back",
+  "forward",
+  "reload",
+  "wait",
+  "snapshot.dom",
+  "snapshot.ax",
+  "locate",
+  "click",
+  "type",
+  "select",
+  "press",
+  "markdown",
+  "screenshot",
+  "pdf",
+  "download",
+  "cancel",
+  "evaluate",
+]);
+export const EVENT_NAMES = Object.freeze([
+  "session.started",
+  "session.closed",
+  "session.interrupted",
+  "session.status",
+  "session.paused",
+  "session.resumed",
+  "session.retry",
+  "navigated",
+  "wait.done",
+  "snapshot",
+  "located",
+  "action.done",
+  "network",
+  "console",
+  "page.error",
+  "markdown",
+  "screenshot",
+  "pdf",
+  "download",
+  "cancelled",
+  "error",
+  "research.progress",
+  "capability.updated",
+]);
+
+export const PLATFORM_SEARCH_PROVIDERS = Object.freeze([
+  "google_browser",
+  "project_index",
+  "google_http",
+  "duckduckgo",
+  "wikipedia",
+]);
+
+export const PROVIDER_ALIASES = Object.freeze({
+  g: "google_http",
+  google: "google_http",
+  google_html: "google_http",
+  ddg: "duckduckgo",
+  wiki: "wikipedia",
+  "user-browser": "user_browser",
+  "default-browser": "default_browser",
+  "system-browser": "default_browser",
+});
+
+export const SENSITIVE_KEY_RE = /(?:cookie|authorization|token|password|secret|api[_-]?key|set-cookie)/i;

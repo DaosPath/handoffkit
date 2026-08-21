@@ -1,0 +1,30 @@
+{
+  "format": "handoffkit.browser-real.cpp-tcp-interop",
+  "format_version": 1,
+  "generated_at": "2026-08-16T03:19:18.341Z",
+  "status": "pass",
+  "transport": "TCP TLS 1.3 + mTLS",
+  "direction": "C++ BrowserRealTlsClient -> Node BrowserRealService",
+  "authenticated_peer": {
+    "peer_id": "server-peer",
+    "node_id": "server-node",
+    "worker_id": null,
+    "credential_fingerprint": "sha256:2386fc4aba33035894a15d035817b2132c871da6c536de80f4fb02997ca0f40e"
+  },
+  "commands": [
+    {
+      "name": "session.started",
+      "session_id": "cpp-browser-real-interop"
+    },
+    {
+      "name": "session.status",
+      "session_id": "cpp-browser-real-interop"
+    }
+  ],
+  "local_identity_derived_from_certificate": true,
+  "response_correlation_checked_by_cpp": true,
+  "response_transcript_checked_by_cpp": true,
+  "response_replay_checked_by_cpp": true,
+  "engine": "injected deterministic session engine; Chromium/Playwright not claimed",
+  "notice": "Local Windows evidence. Hosted Linux/macOS ARM64 and Chromium soak remain separate gates."
+}

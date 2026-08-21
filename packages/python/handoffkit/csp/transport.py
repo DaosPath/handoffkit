@@ -301,6 +301,10 @@ class LengthDelimitedTransport(Transport):
                 self._local_certificate_identity = peer_identity_from_certificate(cert_path)
             self._tls_version = ssl_object.version()
 
+    @property
+    def local_certificate_identity(self) -> PeerIdentity | None:
+        return self._local_certificate_identity
+
     async def _io(self, operation: Any) -> Any:
         return await asyncio.wait_for(
             operation,

@@ -1,0 +1,23 @@
+{
+  "format": "handoffkit.browser.1.20.dependency_audit",
+  "format_version": 1,
+  "generated_at": "2026-08-21T07:04:20.197Z",
+  "status": "pass",
+  "command": "pnpm audit --prod --audit-level=high --json",
+  "advisories": {},
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0
+    },
+    "dependencies": 19,
+    "devDependencies": 0,
+    "optionalDependencies": 80,
+    "totalDependencies": 99
+  },
+  "stderr": "",
+  "notice": "Dependency graph audit only. It does not replace CodeQL, source review, or hosted security evidence."
+}

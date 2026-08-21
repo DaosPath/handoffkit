@@ -549,17 +549,25 @@ export class LengthDelimitedTransport extends Transport {
     if (!this.socket.write(frame)) await once(this.socket, "drain");
   }
   async receive() {
-    const frame = this.frames.shift();
-    if (frame) {
-      const envelope = MessageEnvelope.fromJSON(frame.toString("utf8"));
+    let envelope;
+    try {
+      const frame = this.frames.shift();
+      if (frame) {
+        envelope = MessageEnvelope.fromJSON(frame.toString("utf8"));
+      } else if (this.ended) {
+        throw this.failure ?? new Error("network peer closed the protocol stream");
+      } else {
+        const pending = new Promise((resolve, reject) => this.waiters.push({ resolve, reject }));
+        envelope = MessageEnvelope.fromJSON((await pending).toString("utf8"));
+      }
       this.validateSecureEnvelope(envelope);
       return envelope;
+    } catch (error) {
+      if (envelope && error && typeof error === "object") {
+        error.envelope = envelope;
+      }
+      throw error;
     }
-    if (this.ended) throw this.failure ?? new Error("network peer closed the protocol stream");
-    const pending = new Promise((resolve, reject) => this.waiters.push({ resolve, reject }));
-    const envelope = MessageEnvelope.fromJSON((await pending).toString("utf8"));
-    this.validateSecureEnvelope(envelope);
-    return envelope;
   }
   validateSecureEnvelope(envelope) {
     if (![SecurityProfile.STANDARD, SecurityProfile.HYBRID_PQ]
@@ -689,16 +697,34 @@ export class LengthDelimitedTransport extends Transport {
       ? HYBRID_PQ_GROUP
       : null;
   }
-  async close() {
-    if (this.ended) return;
-    const closed = once(this.socket, "close").catch(() => []);
+  destroy(error = null) {
+    if (!this.ended) this.finish(error);
+    try {
+      this.socket.destroy(error || undefined);
+    } catch (destroyError) {
+      void destroyError;
+    }
+  }
+  async close(options = {}) {
+    if (options.force) {
+      this.destroy();
+      return;
+    }
+    if (this.ended) {
+      this.destroy();
+      return;
+    }
+    const closed = once(this.socket, "close").then(() => "closed", () => "closed");
     this.socket.end();
     let timer;
-    const timeout = new Promise((resolve) => { timer = setTimeout(resolve, this.config.ioTimeoutMs, "timeout"); timer.unref?.(); });
+    const timeout = new Promise((resolve) => {
+      timer = setTimeout(resolve, this.config.ioTimeoutMs, "timeout");
+      timer.unref?.();
+    });
     const result = await Promise.race([closed, timeout]);
     clearTimeout(timer);
-    if (result === "timeout") this.socket.destroy();
-    this.finish();
+    if (result === "timeout") this.destroy();
+    else this.finish();
   }
 }
 

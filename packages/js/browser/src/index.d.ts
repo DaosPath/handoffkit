@@ -105,6 +105,16 @@ export declare function extractTitle(html: string): string;
 export declare function extractText(html: string, stripScriptsStyles?: boolean, maxChars?: number): string;
 export declare function extractLinks(html: string, baseUrl?: string, maxLinks?: number): ExtractedLink[];
 export declare function preferMainContent(html: string): string;
+export declare function htmlTableToMarkdown(html: string): string;
+export declare function extractJsonLd(html: string): unknown[];
+export declare function extractPageMetadata(html: string, url?: string): {
+  title: string;
+  description: string;
+  canonical: string;
+  charset: string;
+  json_ld: unknown[];
+};
+export declare const PLATFORM_SEARCH_PROVIDERS: readonly string[];
 export declare function htmlToMarkdown(html: string, opts?: Record<string, unknown>): string;
 export declare function pageHtmlToMarkdown(
   url: string,
@@ -244,6 +254,20 @@ export interface UserBrowserBridge {
   ): Promise<Record<string, unknown> | UserBrowserPage> | Record<string, unknown> | UserBrowserPage;
 }
 
+export interface DefaultBrowserBridgeOptions {
+  endpoint?: string;
+  url?: string;
+  bridgeUrl?: string;
+  bridge_url?: string;
+  token?: string;
+  authToken?: string;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+  timeout_ms?: number;
+  maxResponseBytes?: number;
+  max_response_bytes?: number;
+}
+
 export interface SearchResult {
   success: boolean;
   query: string;
@@ -252,6 +276,8 @@ export interface SearchResult {
   count: number;
   providers_requested: string[];
   providers_used: string[];
+  provider_trace?: Array<Record<string, unknown>>;
+  strict_provider?: boolean;
   errors: string[];
   provider_codes: string[];
   error_code: string;
@@ -259,10 +285,22 @@ export interface SearchResult {
   error?: string;
 }
 
-export declare const DEFAULT_SEARCH_PROVIDERS: readonly ["duckduckgo", "wikipedia"];
-export declare const SUPPORTED_SEARCH_PROVIDERS: readonly ["duckduckgo", "wikipedia", "user_browser"];
+export declare const DEFAULT_SEARCH_PROVIDERS: readonly [
+  "google_browser",
+  "project_index",
+  "google_http",
+  "duckduckgo",
+  "wikipedia",
+];
+export declare const SUPPORTED_SEARCH_PROVIDERS: readonly string[];
 export declare const USER_BROWSER_PROVIDER: "user_browser";
+export declare const DEFAULT_BROWSER_PROVIDER: "default_browser";
+export declare const DEFAULT_BROWSER_BRIDGE_ENV: "HANDOFFKIT_DEFAULT_BROWSER_BRIDGE_URL";
+export declare const DEFAULT_BROWSER_TOKEN_ENV: "HANDOFFKIT_DEFAULT_BROWSER_BRIDGE_TOKEN";
 export declare class UserBrowserBridgeError extends Error {
+  code: string;
+}
+export declare class DefaultBrowserBridgeError extends Error {
   code: string;
 }
 export declare function isUserBrowserBridge(bridge: unknown): bridge is UserBrowserBridge;
@@ -298,8 +336,41 @@ export declare function exploreUserBrowser(
   startUrls: string | string[],
   options?: ExplorePolicy | UserBrowserPageOptions | Record<string, unknown>,
 ): Promise<ExploreResult>;
+export declare function createDefaultBrowserBridge(options?: DefaultBrowserBridgeOptions): UserBrowserBridge & {
+  provider: "default_browser";
+  endpoint: string;
+  configured: boolean;
+  error: string;
+};
+export declare function isDefaultBrowserBridge(bridge: unknown): bridge is UserBrowserBridge & { provider: "default_browser" };
+export declare function searchDefaultBrowser(
+  bridge: UserBrowserBridge | null | undefined,
+  query: string,
+  options?: UserBrowserSearchOptions,
+): Promise<{ hits: SearchHit[]; error_code: string; error: string }>;
+export declare function searchDefaultBrowserMany(
+  bridge: UserBrowserBridge | null | undefined,
+  queries: string | string[],
+  options?: UserBrowserPageOptions,
+): Promise<Record<string, unknown>>;
+export declare function fetchDefaultBrowserPage(
+  bridge: UserBrowserBridge | null | undefined,
+  url: string,
+  options?: UserBrowserPageOptions,
+): Promise<UserBrowserPage>;
+export declare function exploreDefaultBrowser(
+  bridge: UserBrowserBridge | null | undefined,
+  startUrls: string | string[],
+  options?: ExplorePolicy | UserBrowserPageOptions | Record<string, unknown>,
+): Promise<ExploreResult>;
 
 export declare function webSearch(query: string, opts?: Record<string, unknown>): Promise<SearchResult>;
+export declare function searchGoogle(
+  transport: WebTransport,
+  query: string,
+  maxResults?: number,
+  timeoutMs?: number,
+): Promise<SearchHit[]>;
 export declare function multiSearch(
   transport: WebTransport,
   query: string,
@@ -427,3 +498,20 @@ export declare function makeHtmlToMarkdownTool(defaultTransportRef?: WebTranspor
 export declare function makeWebFetchMarkdownTool(defaultTransportRef?: WebTransport | null): Tool;
 export declare function makeWebResearchTool(defaultTransportRef?: WebTransport | null, defaults?: Record<string, unknown>): Tool;
 export declare function makeDeepWebResearchTool(defaultTransportRef?: WebTransport | null, defaults?: Record<string, unknown>): Tool;
+export declare function parseRobotsTxt(text: string, userAgent?: string): Array<Record<string, unknown>>;
+export declare function isRobotsAllowed(text: string, url: string, userAgent?: string): boolean;
+export declare const PROJECT_INDEX_DISCLAIMER: string;
+export declare class ProjectWebIndex {
+  constructor(options?: Record<string, unknown>);
+  open(): Promise<ProjectWebIndex>;
+  ingest(record: Record<string, unknown>): Promise<Record<string, unknown>>;
+  search(query: string, options?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  integrityCheck(): Promise<Record<string, unknown>>;
+  close(): Promise<void>;
+}
+export declare function finalizeResearchPackV2(pack: ResearchPack): ResearchPack;
+export declare function writeResearchCheckpoint(root: string, pack: ResearchPack | Record<string, unknown>, extras?: Record<string, unknown>): Promise<Record<string, unknown>>;
+export declare function runFixtureGrounding(corpus: Record<string, unknown>): Record<string, unknown>;
+export declare function scoreGroundingRun(corpus: Record<string, unknown>, answers: Record<string, unknown>): Record<string, unknown>;
+export declare function liveGroundingOracle(corpus: Record<string, unknown>, pages: unknown): Record<string, Record<string, unknown>>;
+export declare function scoreLiveGroundingRun(corpus: Record<string, unknown>, answers: Record<string, unknown>, pages: unknown, options?: Record<string, unknown>): Record<string, unknown>;

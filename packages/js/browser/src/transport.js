@@ -10,6 +10,8 @@ export class TransportResponse {
     body = "",
     headers = {},
     error = "",
+    retryAfterMs = 0,
+    retry_after_ms,
     final_url,
     content_type,
   } = {}) {
@@ -19,6 +21,7 @@ export class TransportResponse {
     this.body = body;
     this.headers = { ...headers };
     this.error = error;
+    this.retryAfterMs = retry_after_ms ?? retryAfterMs;
   }
 
   ok() {
@@ -33,6 +36,7 @@ export class TransportResponse {
       body: this.body,
       headers: { ...this.headers },
       error: this.error,
+      retry_after_ms: this.retryAfterMs,
     };
   }
 }
@@ -155,7 +159,7 @@ export class HttpTransport {
         last.status === 502 ||
         last.status === 504;
       if (!retryable || attempt >= this._retries) return last;
-      const delay = this._baseDelayMs * 2 ** attempt;
+      const delay = last.retryAfterMs > 0 ? last.retryAfterMs : this._baseDelayMs * 2 ** attempt;
       if (delay > 0) await new Promise((r) => setTimeout(r, delay));
     }
     return last;
@@ -180,6 +184,17 @@ export class HttpTransport {
         signal: controller?.signal,
       });
       const contentType = response.headers?.get?.("content-type") ?? "";
+      const retryAfter = response.headers?.get?.("retry-after");
+      const contentLength = Number(response.headers?.get?.("content-length") ?? 0);
+      if (req.maxBodyBytes > 0 && contentLength > req.maxBodyBytes * 4) {
+        return new TransportResponse({
+          status: response.status,
+          finalUrl: response.url || req.url,
+          contentType,
+          error: "decompression or body limit exceeded",
+          headers: { ...(retryAfter ? { "retry-after": retryAfter } : {}) },
+        });
+      }
       let body = await response.text();
       if (req.maxBodyBytes > 0 && body.length > req.maxBodyBytes) {
         body = body.slice(0, req.maxBodyBytes);
@@ -190,12 +205,16 @@ export class HttpTransport {
           outHeaders[key] = value;
         });
       }
+      const retryAfterMs = retryAfter
+        ? (/^\d+$/.test(retryAfter) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now())
+        : 0;
       return new TransportResponse({
         status: response.status,
         finalUrl: response.url || req.url,
         contentType,
         body,
         headers: outHeaders,
+        retryAfterMs: Number.isFinite(retryAfterMs) && retryAfterMs > 0 ? retryAfterMs : 0,
       });
     } catch (error) {
       const message =

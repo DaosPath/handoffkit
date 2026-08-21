@@ -6,9 +6,27 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any, Protocol
 
 from handoffkit.browser.types import DEFAULT_UA
+
+
+def _retry_after_ms(headers: dict[str, str]) -> int:
+    raw = str(headers.get("retry-after") or headers.get("Retry-After") or "").strip()
+    if not raw:
+        return 0
+    if raw.isdigit():
+        return max(0, int(raw) * 1000)
+    try:
+        when = parsedate_to_datetime(raw)
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        delta = (when - datetime.now(timezone.utc)).total_seconds()
+        return max(0, int(delta * 1000))
+    except (TypeError, ValueError, OverflowError):
+        return 0
 
 
 @dataclass
@@ -19,6 +37,7 @@ class TransportResponse:
     body: str = ""
     headers: dict[str, str] = field(default_factory=dict)
     error: str = ""
+    retry_after_ms: int = 0
 
     def ok(self) -> bool:
         return not self.error and 200 <= self.status < 400
@@ -31,6 +50,7 @@ class TransportResponse:
             "body": self.body,
             "headers": dict(self.headers),
             "error": self.error,
+            "retry_after_ms": self.retry_after_ms,
         }
 
 
@@ -141,8 +161,10 @@ class HttpTransport:
             if not retryable or attempt >= self._retries:
                 return last
             delay = self._base_delay_ms * (2**attempt) / 1000.0
+            if last.retry_after_ms > 0:
+                delay = max(delay, last.retry_after_ms / 1000.0)
             if delay > 0:
-                time.sleep(delay)
+                time.sleep(min(delay, 30.0))
         return last
 
     def _once(
@@ -173,17 +195,21 @@ class HttpTransport:
                     content_type=resp.headers.get("Content-Type", ""),
                     body=body,
                     headers=out_headers,
+                    retry_after_ms=_retry_after_ms(out_headers),
                 )
         except urllib.error.HTTPError as exc:
             raw = exc.read() if hasattr(exc, "read") else b""
             if max_body_bytes > 0 and len(raw) > max_body_bytes:
                 raw = raw[:max_body_bytes]
             body = raw.decode("utf-8", errors="replace") if raw else ""
+            err_headers = {k.lower(): v for k, v in (exc.headers.items() if exc.headers else [])}
             return TransportResponse(
                 status=int(exc.code),
                 final_url=url,
                 body=body,
+                headers=err_headers,
                 error=f"HTTP status {exc.code}",
+                retry_after_ms=_retry_after_ms(err_headers),
             )
         except Exception as exc:  # noqa: BLE001
             return TransportResponse(final_url=url, error=str(exc))

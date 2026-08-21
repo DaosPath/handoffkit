@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import html as html_lib
 import json
 import re
 from typing import Any
-from urllib.parse import parse_qs, quote, quote_plus, unquote, urlparse
+from urllib.parse import parse_qs, quote, quote_plus, unquote, urljoin, urlparse
 
+from handoffkit.browser.default_browser import (
+    DEFAULT_BROWSER_PROVIDER,
+    search_default_browser,
+)
 from handoffkit.browser.rank import rank_search_hits
 from handoffkit.browser.transport import WebTransport, default_transport
 from handoffkit.browser.types import DEFAULT_UA
@@ -54,23 +59,69 @@ _RESULT_RE = re.compile(
 )
 _TAG_RE = re.compile(r"<[^>]+>")
 _UDDG_RE = re.compile(r'uddg=([^&"\'>\s]+)', re.I)
-DEFAULT_SEARCH_PROVIDERS = ("duckduckgo", "wikipedia")
-SUPPORTED_SEARCH_PROVIDERS = ("duckduckgo", "wikipedia", USER_BROWSER_PROVIDER)
+_GOOGLE_A_RE = re.compile(
+    r"<a\b[^>]*\bhref\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)</a>",
+    re.I,
+)
+DEFAULT_SEARCH_PROVIDERS = (
+    "google_browser",
+    "project_index",
+    "google_http",
+    "duckduckgo",
+    "wikipedia",
+)
+PLATFORM_SEARCH_PROVIDERS = (
+    "google_browser",
+    "project_index",
+    "google_http",
+    "duckduckgo",
+    "wikipedia",
+)
+SUPPORTED_SEARCH_PROVIDERS = (
+    "google",
+    "google_http",
+    "google_browser",
+    "project_index",
+    "duckduckgo",
+    "wikipedia",
+    USER_BROWSER_PROVIDER,
+    DEFAULT_BROWSER_PROVIDER,
+)
+
+
+_PROVIDER_ALIASES = {
+    "g": "google",
+    "google_http": "google",
+    "google_html": "google",
+    "ddg": "duckduckgo",
+    "wiki": "wikipedia",
+    "user-browser": USER_BROWSER_PROVIDER,
+    "default-browser": DEFAULT_BROWSER_PROVIDER,
+    "system-browser": DEFAULT_BROWSER_PROVIDER,
+}
+
+
+def _canonical_search_provider(raw: str) -> str:
+    value = str(raw or "").strip().lower()
+    return _PROVIDER_ALIASES.get(value, value)
+
+
+def _trace_provider_name(internal: str) -> str:
+    return "google_http" if internal == "google" else internal
 
 
 def provider_engine(providers: list[str] | tuple[str, ...] | None) -> str:
     names: list[str] = []
     for raw in providers or []:
-        value = str(raw or "").strip().lower()
-        provider = {
-            "ddg": "duckduckgo",
-            "wiki": "wikipedia",
-            "user-browser": USER_BROWSER_PROVIDER,
-        }.get(value, value)
+        provider = _canonical_search_provider(raw)
         engine = {
+            "google": "google_html",
+            "google_browser": "google_browser",
+            "project_index": "project_index",
             "duckduckgo": "duckduckgo_html",
             "wikipedia": "wikipedia_opensearch",
             USER_BROWSER_PROVIDER: "user_browser_bridge",
+            DEFAULT_BROWSER_PROVIDER: "default_browser_bridge",
         }.get(provider)
         if engine and engine not in names:
             names.append(engine)
@@ -89,7 +140,83 @@ def keyword_compress(query: str, max_words: int = 10) -> str:
 
 
 def _strip(s: str) -> str:
-    return re.sub(r"\s+", " ", _TAG_RE.sub("", s or "")).strip()
+    return re.sub(r"\s+", " ", html_lib.unescape(_TAG_RE.sub("", s or ""))).strip()
+
+
+def _is_search_ad_url(url: str) -> bool:
+    value = str(url or "").lower()
+    return (
+        not value
+        or "googleadservices.com" in value
+        or "doubleclick.net" in value
+        or "/aclk?" in value
+        or "/pagead/" in value
+        or "adurl=" in value
+        or "/ads/" in value
+        or value.endswith("/ads")
+    )
+
+
+def _unwrap_google_link(raw: str) -> str:
+    link = html_lib.unescape(str(raw or "").strip())
+    if not link:
+        return ""
+    parsed = urlparse(urljoin("https://www.google.com/", link))
+    if parsed.hostname in {"www.google.com", "google.com"}:
+        target = (
+            parse_qs(parsed.query).get("q", [""])[0] or parse_qs(parsed.query).get("url", [""])[0]
+        )
+        if not target:
+            return ""
+        link = target
+    parsed = urlparse(link)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return ""
+    if (
+        parsed.hostname == "google.com" or (parsed.hostname or "").endswith(".google.com")
+    ) or _is_search_ad_url(link):
+        return ""
+    return parsed._replace(fragment="").geturl()
+
+
+def search_google(
+    query: str,
+    *,
+    max_results: int = 8,
+    transport: WebTransport | None = None,
+    timeout_ms: int = 20000,
+) -> list[dict[str, str]]:
+    """Parse Google's server-rendered result page through HandoffKit HTTP.
+
+    This is an explicit provider, not a browser-session bridge. Redirectors,
+    sponsored/ad URLs, Google navigation, and empty anchors are discarded
+    before host ranking.
+    """
+    q = (query or "").strip()
+    if not q:
+        return []
+    tr = transport or default_transport(True)
+    kw = keyword_compress(q, 10) or q
+    url = f"https://www.google.com/search?hl=en&num={max(max_results, 8)}&q={quote_plus(kw)}"
+    resp = tr.get(
+        url,
+        timeout_ms=timeout_ms,
+        headers={"User-Agent": DEFAULT_UA, "Accept": "text/html,application/xhtml+xml"},
+    )
+    if not resp.body or resp.status < 200 or resp.status >= 300:
+        return []
+    hits: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for match in _GOOGLE_A_RE.finditer(resp.body):
+        link = _unwrap_google_link(match.group(1) or match.group(2) or match.group(3) or "")
+        title = _strip(match.group(4) or "")
+        if not link or len(title) < 2 or link in seen:
+            continue
+        seen.add(link)
+        hits.append({"title": title, "url": link})
+        if len(hits) >= max_results:
+            break
+    return hits
 
 
 def _unwrap_ddg(href: str) -> str:
@@ -200,8 +327,16 @@ def web_search(
     allow_hosts: list[str] | None = None,
     deny_hosts: list[str] | None = None,
     user_browser: Any | None = None,
+    search_plan: str | None = None,
+    strict_provider: bool = False,
+    google_browser_search: Any | None = None,
+    project_index: Any | None = None,
 ) -> dict[str, Any]:
     q = (query or "").strip()
+    if providers is None and str(search_plan or "").strip().lower() == "platform":
+        requested_default: list[str] | tuple[str, ...] = PLATFORM_SEARCH_PROVIDERS
+    else:
+        requested_default = providers or DEFAULT_SEARCH_PROVIDERS
     if not q:
         return {
             "success": False,
@@ -209,28 +344,25 @@ def web_search(
             "keywords": "",
             "results": [],
             "count": 0,
-            "providers_requested": [str(item) for item in (providers or DEFAULT_SEARCH_PROVIDERS)],
+            "providers_requested": [str(item) for item in requested_default],
             "providers_used": [],
+            "provider_trace": [],
             "errors": ["query is required"],
             "provider_codes": [],
-            "engine": provider_engine(providers or list(DEFAULT_SEARCH_PROVIDERS)),
+            "engine": provider_engine(list(requested_default)),
             "error_code": "query_required",
             "error": "query is required",
+            "strict_provider": bool(strict_provider),
         }
     kw = keyword_compress(q) or q
-    requested = list(providers or DEFAULT_SEARCH_PROVIDERS)
+    requested = list(requested_default)
     normalized: list[str] = []
     errors: list[str] = []
     for raw in requested:
-        value = str(raw or "").strip().lower()
-        provider = {
-            "ddg": "duckduckgo",
-            "wiki": "wikipedia",
-            "user-browser": USER_BROWSER_PROVIDER,
-        }.get(value, value)
+        provider = _canonical_search_provider(raw)
         if not provider:
             continue
-        if provider not in SUPPORTED_SEARCH_PROVIDERS:
+        if provider not in SUPPORTED_SEARCH_PROVIDERS and provider != "google":
             errors.append(f"unsupported provider: {provider}")
             continue
         if provider not in normalized:
@@ -241,14 +373,80 @@ def web_search(
     raw: list[dict[str, str]] = []
     used: list[str] = []
     provider_codes: list[str] = []
+    provider_trace: list[dict[str, Any]] = []
 
     for provider in normalized:
+        trace = {
+            "provider": _trace_provider_name(provider),
+            "attempted": True,
+            "used": False,
+            "result_count": 0,
+            "error_code": "",
+            "fallback_reason": "",
+        }
+        provider_result: dict[str, Any] | None = None
+        hits: list[Any] = []
         try:
-            if provider == "duckduckgo":
+            if provider == "google_browser":
+                if callable(google_browser_search):
+                    provider_result = google_browser_search(
+                        q, max_results=max_results, timeout_ms=timeout_ms
+                    )
+                    if isinstance(provider_result, list):
+                        hits = provider_result
+                        provider_result = None
+                    else:
+                        hits = list(
+                            (provider_result or {}).get("hits")
+                            or (provider_result or {}).get("results")
+                            or []
+                        )
+                else:
+                    trace["error_code"] = "provider_unavailable"
+                    trace["fallback_reason"] = "google_browser_unavailable"
+                    errors.append(
+                        "google_browser: google_browser requires an explicit "
+                        "Browser Real search hook"
+                    )
+                    provider_codes.append("provider_unavailable")
+                    provider_trace.append(trace)
+                    if strict_provider:
+                        break
+                    continue
+            elif provider == "project_index":
+                search_fn = (
+                    getattr(project_index, "search", None) if project_index is not None else None
+                )
+                if callable(search_fn):
+                    provider_result = search_fn(q, max_results=max_results, timeout_ms=timeout_ms)
+                    if isinstance(provider_result, list):
+                        hits = provider_result
+                        provider_result = None
+                    else:
+                        hits = list(
+                            (provider_result or {}).get("hits")
+                            or (provider_result or {}).get("results")
+                            or []
+                        )
+                else:
+                    trace["error_code"] = "index_unavailable"
+                    trace["fallback_reason"] = "project_index_disabled"
+                    errors.append(
+                        "project_index: project_index is opt-in and was not configured"
+                    )
+                    provider_codes.append("index_unavailable")
+                    provider_trace.append(trace)
+                    if strict_provider:
+                        break
+                    continue
+            elif provider == "google":
+                hits = search_google(
+                    q, max_results=max_results, transport=tr, timeout_ms=timeout_ms
+                )
+            elif provider == "duckduckgo":
                 hits = search_duckduckgo(
                     kw, max_results=max_results, transport=tr, timeout_ms=timeout_ms
                 )
-                provider_result: dict[str, Any] | None = None
             elif provider == "wikipedia":
                 hits = search_wikipedia(
                     kw,
@@ -256,7 +454,14 @@ def web_search(
                     transport=tr,
                     timeout_ms=timeout_ms,
                 )
-                provider_result = None
+            elif provider == DEFAULT_BROWSER_PROVIDER:
+                provider_result = search_default_browser(
+                    user_browser,
+                    q,
+                    max_results=max_results,
+                    timeout_ms=timeout_ms,
+                )
+                hits = provider_result.get("hits") or []
             else:
                 provider_result = search_user_browser(
                     user_browser,
@@ -268,14 +473,43 @@ def web_search(
             if hits:
                 raw.extend(hits)
                 used.append(provider)
+                trace["used"] = True
+                trace["result_count"] = len(hits)
             elif provider_result and provider_result.get("error_code"):
                 code = str(provider_result["error_code"])
                 provider_codes.append(code)
                 errors.append(f"{provider}: {provider_result.get('error') or code}")
+                trace["error_code"] = code
+                trace["fallback_reason"] = f"{trace['provider']}_empty"
             else:
                 errors.append(f"{provider}: empty")
+                trace["error_code"] = "no_results"
+                trace["fallback_reason"] = f"{trace['provider']}_empty"
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{provider}: {exc}")
+            trace["error_code"] = "provider_unavailable"
+            trace["fallback_reason"] = f"{trace['provider']}_error"
+        provider_trace.append(trace)
+        if strict_provider and not trace["used"]:
+            break
+
+    if strict_provider and any(item.get("fallback_reason") for item in provider_trace):
+        return {
+            "success": False,
+            "query": q,
+            "keywords": kw,
+            "results": [],
+            "count": 0,
+            "providers_requested": [str(item) for item in requested],
+            "providers_used": [],
+            "provider_trace": provider_trace,
+            "errors": errors,
+            "engine": provider_engine(requested),
+            "provider_codes": provider_codes,
+            "error_code": "strict_provider_rejected",
+            "error": "strict_provider forbids fallback",
+            "strict_provider": True,
+        }
 
     ranked = rank_search_hits(raw, allow_hosts=allow_hosts, deny_hosts=deny_hosts)
     results = [
@@ -290,6 +524,7 @@ def web_search(
         "count": len(results),
         "providers_requested": [str(item) for item in requested],
         "providers_used": used,
+        "provider_trace": provider_trace,
         "errors": errors,
         "engine": provider_engine(requested),
         "provider_codes": provider_codes,
@@ -300,9 +535,16 @@ def web_search(
             if "user_browser_bridge_required" in provider_codes
             else "user_browser_invalid_response"
             if "user_browser_invalid_response" in provider_codes
+            else "default_browser_bridge_required"
+            if "default_browser_bridge_required" in provider_codes
+            else "default_browser_invalid_response"
+            if "default_browser_invalid_response" in provider_codes
+            else "strict_provider_rejected"
+            if strict_provider
             else "provider_unavailable"
             if any(error.startswith("unsupported provider:") for error in errors)
             else "no_results"
         ),
         "error": "" if results else "no search results",
+        "strict_provider": bool(strict_provider),
     }

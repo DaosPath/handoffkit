@@ -29,7 +29,27 @@ Every built-in media stage is an English noun ending in **-ion**:
 | `production` | End-to-end orchestration |
 
 Named pipelines chain these stages (`from_scratch`, `video_dubbing`,
-`audiobook`, `subtitle_localization`, `edit_existing`).
+`screen_dubbing`, `audiobook`, `subtitle_localization`, `edit_existing`).
+
+`screen_dubbing` is the agent-run path for burned-in titles plus speech:
+inspection → transcription (OCR + ASR) → edition (consensus) → translation
+(one long-context episode pass) → localization → generation → composition →
+validation → publication.
+
+```python
+from handoffkit import (
+    merge_ocr_asr_segments,
+    build_screen_narration_prompt,
+    parse_screen_narration_json,
+    screen_dubbing_agent_recipe,
+    plan_media_pipeline,
+)
+
+merged = merge_ocr_asr_segments(ocr_cues, asr_segments)
+prompt = build_screen_narration_prompt(ocr_cues, asr_segments, title="episode")
+recipe = screen_dubbing_agent_recipe(target_language="es")
+stages = plan_media_pipeline("screen_dubbing", brief="Dub clip", target_language="es")
+```
 
 ```python
 from handoffkit import (
@@ -61,6 +81,8 @@ stages = plan_media_pipeline("video_dubbing", brief="Dub market clip", target_la
 handoffkit media ops
 handoffkit media pipeline from_scratch --brief "Explainer" --to es
 handoffkit media pipeline video_dubbing --video input.mp4 --to es
+handoffkit media pipeline screen_dubbing --video input.mp4 --to es
+handoffkit demo-media
 handoffkit demo-media-context
 ```
 
@@ -84,15 +106,21 @@ const state = ctx.toHandoffState({ fromAgent: "generator", toAgent: "editor" });
 
 ## Video Dubbing Shape
 
+Spoken-only dubbing (`video_dubbing`) and on-screen + spoken screen dubbing
+(`screen_dubbing`) share the same -ion contracts. Screen dubbing adds an
+**edition** consensus stage so burned-in titles (the plot) win over ASR, and
+translation is one long-context pass of the whole episode.
+
 ```text
 Video
-  -> Audio Extractor
-  -> Transcriber
-  -> Speaker Mapper
-  -> Translator
-  -> Timing Adapter
-  -> Voice Generator
-  -> Mixer
+  -> Inspector
+  -> Transcriber (OCR on-screen + ASR speech)
+  -> Editor (consensus script)
+  -> Translator (full-episode long context)
+  -> Localizer
+  -> Generator (TTS)
+  -> Composer (mux)
+  -> Validator
   -> Publisher
 ```
 

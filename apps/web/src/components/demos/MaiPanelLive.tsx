@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import Link from "next/link";
 import {
   AlertCircle,
   CheckCircle2,
@@ -23,7 +24,6 @@ import {
   Zap,
   ArrowRight,
   FlaskConical,
-  FilePenLine,
   Gauge,
 } from "lucide-react";
 import {
@@ -44,6 +44,10 @@ import {
   DEFAULT_GROQ_PANEL_MODELS,
   GROQ_CHAT_MODELS,
 } from "@/lib/studio/groq-models";
+import {
+  DEFAULT_OLLAMA_MODEL,
+  defaultOllamaPanelModels,
+} from "@/lib/studio/ollama-models";
 import {
   CASE_PRESETS,
   DEFAULT_CASE_PRESET_ID,
@@ -71,6 +75,7 @@ type LiveStatus = {
   hint: string;
   defaultProvider?: StudioProviderId;
   providers?: {
+    ollama?: ProviderInfo;
     nvidia?: ProviderInfo;
     groq?: ProviderInfo;
   };
@@ -88,7 +93,7 @@ type ExpertResult = {
 
 type LiveResult = {
   success: boolean;
-  mode: "nvidia" | "groq" | "offline-echo";
+  mode: "ollama" | "nvidia" | "groq" | "offline-echo";
   providerId?: string;
   task: string;
   provider: string;
@@ -96,6 +101,18 @@ type LiveResult = {
   experts: ExpertResult[];
   judge: { name: string; model: string; output: string };
   finalAnswer: string;
+  consensus?: {
+    rankings: Array<{
+      rank: number;
+      label: string;
+      percent: number;
+      rationale?: string;
+      whyNotHigher?: string;
+    }>;
+    redFlag?: string;
+  };
+  consensusEligible?: boolean;
+  errorCode?: string;
   handoffs: Array<Record<string, unknown>>;
   timeline: Array<{
     id: string;
@@ -168,6 +185,7 @@ function modelsForProvider(
 ): NvidiaModelOption[] {
   const fromApi = status?.providers?.[provider]?.models;
   if (fromApi && fromApi.length > 0) return fromApi;
+  if (provider === "ollama") return [];
   return provider === "groq" ? GROQ_CHAT_MODELS : NVIDIA_FREE_MODELS;
 }
 
@@ -177,6 +195,7 @@ function defaultsForProvider(
 ): Record<string, string> {
   const fromApi = status?.providers?.[provider]?.defaultPanelModels;
   if (fromApi) return { ...fromApi };
+  if (provider === "ollama") return { ...defaultOllamaPanelModels(DEFAULT_OLLAMA_MODEL) };
   return provider === "groq"
     ? { ...DEFAULT_GROQ_PANEL_MODELS }
     : { ...DEFAULT_PANEL_MODELS };
@@ -291,12 +310,18 @@ function applyReplayFrame(result: LiveResult, stepIndex: number) {
 
   let judgeStatus: FlowNodeState["status"] = "idle";
   if (judgeIdx >= 0 && stepIndex >= judgeIdx) {
-    judgeStatus = current?.id === "judge" ? "running" : "done";
+    judgeStatus =
+      current?.id === "judge"
+        ? "running"
+        : result.consensusEligible === false
+          ? "error"
+          : "done";
   }
 
   let finalStatus: FlowNodeState["status"] = "idle";
   if (finalIdx >= 0 && stepIndex >= finalIdx) {
-    finalStatus = current?.id === "final" ? "running" : "done";
+    finalStatus =
+      current?.id === "final" ? "running" : result.success ? "done" : "error";
   }
 
   return {
@@ -441,7 +466,9 @@ export function MaiPanelLive() {
       const res = await fetch("/api/demos/mai-panel");
       const data = (await res.json()) as LiveStatus;
       const preferred =
-        data.defaultProvider === "groq" || data.defaultProvider === "nvidia"
+        data.defaultProvider === "ollama" ||
+        data.defaultProvider === "groq" ||
+        data.defaultProvider === "nvidia"
           ? data.defaultProvider
           : studioProvider;
       setStatus({
@@ -458,11 +485,13 @@ export function MaiPanelLive() {
       setStudioProvider((prev) => {
         // Keep user choice if that provider is ready; else fall back.
         const keep =
+          (prev === "ollama" && data.providers?.ollama?.ready) ||
           (prev === "groq" && data.providers?.groq?.ready) ||
           (prev === "nvidia" && data.providers?.nvidia?.ready);
         return keep ? prev : preferred;
       });
       const active =
+        (studioProvider === "ollama" && data.providers?.ollama?.ready) ||
         (studioProvider === "groq" && data.providers?.groq?.ready) ||
         (studioProvider === "nvidia" && data.providers?.nvidia?.ready)
           ? studioProvider
@@ -480,8 +509,8 @@ export function MaiPanelLive() {
       setStatus({
         ready: false,
         mode: "unknown",
-        defaultModel: "z-ai/glm-5.2",
-        baseUrl: "https://integrate.api.nvidia.com/v1",
+        defaultModel: DEFAULT_OLLAMA_MODEL,
+        baseUrl: "http://127.0.0.1:11434",
         hint: err instanceof Error ? err.message : "Status check failed",
       });
     }
@@ -633,7 +662,13 @@ export function MaiPanelLive() {
     setJudge({ ...idle.judge, status: "idle", output: undefined });
     setFinalNode({ ...idle.finalNode, status: "idle", output: undefined });
     setActiveMessage(
-      `Starting ${studioProvider === "groq" ? "Groq" : "NVIDIA NIM"} panel…`
+      `Starting ${
+        studioProvider === "ollama"
+          ? "Ollama local"
+          : studioProvider === "groq"
+            ? "Groq"
+            : "NVIDIA NIM"
+      } panel…`
     );
     pushLog(
       `Provider · ${studioProvider} · A=${agentModels["Expert A"]} · B=${agentModels["Expert B"]} · C=${agentModels["Expert C"]} · Judge=${agentModels.Judge}`
@@ -708,6 +743,9 @@ export function MaiPanelLive() {
         handoffs: result.handoffs,
         judge: result.judge,
         final_answer: result.finalAnswer,
+        consensus: result.consensus,
+        consensus_eligible: result.consensusEligible,
+        error_code: result.errorCode,
         duration_ms: result.durationMs,
         usage: result.usage,
         safety_note: result.safetyNote,
@@ -741,13 +779,21 @@ export function MaiPanelLive() {
   return (
     <section id="live-run" className="mai-dash px-4 py-8 sm:px-6 sm:py-10">
       <div className="mai-dash-shell mx-auto max-w-[1400px]">
+        <aside className="clinical-lab-deprecation" role="note">
+          This panel is a deprecated adapter of the Clinical Sequential Reasoning
+          Lab. It does not accept personal symptoms. Use{" "}
+          <Link href="/demos/clinical-lab">/demos/clinical-lab</Link> for sequential
+          sandbox and simulated public cases. The 897-case research gate remains
+          unavailable until its immutable corpus pin exists.
+          Experimental / not clinically validated.
+        </aside>
         {/* 1. Header */}
         <header className="mai-dash-header">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 max-w-3xl">
               <div className="mai-badge-live">
                 <span className="mai-pulse-dot" />
-                LIVE RUN · HANDOFF KIT + NVIDIA NIM
+                LIVE RUN · HANDOFF KIT + LOCAL/REMOTE PROVIDER
               </div>
               <h1 className="mai-dash-title">MAI-style expert panel</h1>
               <p className="mai-dash-sub">
@@ -758,7 +804,11 @@ export function MaiPanelLive() {
                 {status?.ready && !forceOffline ? (
                   <span className="mai-chip mai-chip-success">
                     <Zap size={12} />
-                    {studioProvider === "groq" ? "Groq ready" : "NVIDIA ready"}
+                    {studioProvider === "ollama"
+                      ? "Ollama ready"
+                      : studioProvider === "groq"
+                        ? "Groq ready"
+                        : "NVIDIA ready"}
                   </span>
                 ) : (
                   <span className="mai-chip mai-chip-warn">
@@ -767,7 +817,11 @@ export function MaiPanelLive() {
                   </span>
                 )}
                 <span className="mai-chip" title="Active provider">
-                  {studioProvider === "groq" ? "groq" : "nvidia-nim"}
+                  {studioProvider === "ollama"
+                    ? "ollama-local"
+                    : studioProvider === "groq"
+                      ? "groq"
+                      : "nvidia-nim"}
                 </span>
                 <span className="mai-chip" title="Per-agent models">
                   multi-model ·{" "}
@@ -809,8 +863,8 @@ export function MaiPanelLive() {
                     Case library
                   </label>
                   <p className="mai-case-lead">
-                    Pick a preset vignette or write your own. Benchmark gives
-                    the panel more signal for calibrated top-3 weights.
+                    Pick a predefined vignette. Personal symptoms are not accepted
+                    in 1.20. The sequential lab is at /demos/clinical-lab.
                   </p>
                 </div>
                 <span className="mai-case-active-pill">
@@ -824,14 +878,9 @@ export function MaiPanelLive() {
                 role="radiogroup"
                 aria-label="Case presets"
               >
-                {CASE_PRESETS.map((preset) => {
+                {CASE_PRESETS.filter((preset) => preset.id !== "blank").map((preset) => {
                   const active = casePreset === preset.id;
-                  const Icon =
-                    preset.id === "benchmark"
-                      ? FlaskConical
-                      : preset.id === "simple"
-                        ? Gauge
-                        : FilePenLine;
+                  const Icon = preset.id === "benchmark" ? FlaskConical : Gauge;
                   return (
                     <button
                       key={preset.id}
@@ -873,13 +922,11 @@ export function MaiPanelLive() {
               <textarea
                 id="mai-task"
                 value={task}
-                onChange={(e) => {
-                  setTask(e.target.value);
-                  setCasePreset("blank");
-                }}
+                readOnly
                 rows={casePreset === "benchmark" ? 12 : 8}
                 disabled={running}
                 className="mai-textarea mai-case-textarea"
+                aria-readonly="true"
               />
               <label className="mai-check">
                 <input
@@ -925,22 +972,28 @@ export function MaiPanelLive() {
             <div>
               <p className="mai-label">Provider & models</p>
               <p className="mai-models-lead">
-                Switch between <strong>NVIDIA NIM</strong> (free trial) and{" "}
-                <strong>Groq</strong> (billable, public $/M rates). Then pick a
-                model per expert and judge.
+                Switch between <strong>Ollama local</strong> (runtime-discovered),{" "}
+                <strong>NVIDIA NIM</strong> (free trial), and <strong>Groq</strong>{" "}
+                (billable). Then pick a model per expert and judge.
               </p>
             </div>
             <a
               href={
-                studioProvider === "groq"
-                  ? "https://console.groq.com/docs/models"
-                  : "https://build.nvidia.com/models"
+                studioProvider === "ollama"
+                  ? "https://ollama.com/library"
+                  : studioProvider === "groq"
+                    ? "https://console.groq.com/docs/models"
+                    : "https://build.nvidia.com/models"
               }
               target="_blank"
               rel="noreferrer"
               className="mai-models-catalog-link"
             >
-              {studioProvider === "groq" ? "Groq models" : "NIM catalog"}
+              {studioProvider === "ollama"
+                ? "Ollama library"
+                : studioProvider === "groq"
+                  ? "Groq models"
+                  : "NIM catalog"}
               <ArrowRight size={13} strokeWidth={2.2} />
             </a>
           </div>
@@ -948,6 +1001,12 @@ export function MaiPanelLive() {
           <div className="mai-provider-switch" role="radiogroup" aria-label="LLM provider">
             {(
               [
+                {
+                  id: "ollama" as const,
+                  label: "Ollama local",
+                  blurb: "No cloud key · runtime discovery",
+                  ready: Boolean(status?.providers?.ollama?.ready),
+                },
                 {
                   id: "nvidia" as const,
                   label: "NVIDIA NIM",
@@ -967,7 +1026,7 @@ export function MaiPanelLive() {
                 type="button"
                 role="radio"
                 aria-checked={studioProvider === p.id}
-                disabled={running || (!p.ready && p.id === "groq")}
+                disabled={running || !p.ready}
                 className={`mai-provider-card${
                   studioProvider === p.id ? " is-active" : ""
                 }${!p.ready ? " is-off" : ""}`}
@@ -985,7 +1044,13 @@ export function MaiPanelLive() {
                     p.ready ? " is-on" : ""
                   }`}
                 >
-                  {p.ready ? "API key ready" : "No key"}
+                  {p.ready
+                    ? p.id === "ollama"
+                      ? "Daemon ready"
+                      : "API key ready"
+                    : p.id === "ollama"
+                      ? "Daemon unavailable"
+                      : "No key"}
                 </span>
               </button>
             ))}
@@ -1001,6 +1066,14 @@ export function MaiPanelLive() {
                   role={role}
                   value={selected}
                   models={modelCatalog}
+                  catalogLabel={
+                    studioProvider === "ollama"
+                      ? "Installed Ollama models"
+                      : studioProvider === "groq"
+                        ? "Groq chat models"
+                        : "Free NVIDIA endpoints"
+                  }
+                  docsLabel={studioProvider === "ollama" ? "Ollama" : "Docs"}
                   disabled={running}
                   onChange={(id) => {
                     setAgentModels((prev) => ({ ...prev, [role]: id }));
@@ -1248,14 +1321,16 @@ export function MaiPanelLive() {
                   <span className="mai-report-stat-label">Live cost</span>
                   <span
                     className={`mai-report-stat-value${
-                      result.mode === "nvidia" || result.mode === "offline-echo"
+                      result.mode === "nvidia" ||
+                      result.mode === "ollama" ||
+                      result.mode === "offline-echo"
                         ? " mai-report-stat-free"
                         : ""
                     }`}
                   >
                     {result.mode === "offline-echo"
                       ? "Echo"
-                      : result.mode === "nvidia"
+                      : result.mode === "nvidia" || result.mode === "ollama"
                         ? "$0.00"
                         : `$${(result.usage?.costUsd ?? 0).toFixed(4)}`}
                   </span>
@@ -1280,11 +1355,13 @@ export function MaiPanelLive() {
                 <SummaryRow
                   label="Mode"
                   value={
-                    result.mode === "nvidia"
-                      ? "NVIDIA NIM (live)"
-                      : result.mode === "groq"
-                        ? "Groq (live)"
-                        : "Offline Echo"
+                    result.mode === "ollama"
+                      ? "Ollama local"
+                      : result.mode === "nvidia"
+                        ? "NVIDIA NIM (live)"
+                        : result.mode === "groq"
+                          ? "Groq (live)"
+                          : "Offline Echo"
                   }
                 />
                 <SummaryRow label="Provider" value={result.provider} />
@@ -1371,9 +1448,18 @@ export function MaiPanelLive() {
               </div>
 
               <p className="mai-report-note">
-                Live Studio path uses NVIDIA NIM free trial endpoints when a key
-                is configured ($0). Commercial estimates use public Groq $/M
-                rates when comparing the same topology.
+                Local Ollama runs use the discovered daemon and report no cloud
+                cost. A panel is only successful when all experts return and
+                the Judge emits an exact, non-synthetic top-3 consensus; this
+                remains research-only and is not clinically validated.
+              </p>
+              <p
+                className={`mai-report-note${
+                  result.consensusEligible ? "" : " mai-report-note-warn"
+                }`}
+              >
+                Consensus gate: {result.consensusEligible ? "eligible" : "ineligible"}
+                {result.errorCode ? ` · ${result.errorCode}` : ""}
               </p>
             </div>
 
@@ -1461,6 +1547,7 @@ type HistoryRow = {
   rankingLabels: string[];
   costUsd?: number;
   benchmarkReady: boolean;
+  consensusEligible?: boolean;
 };
 
 function RunHistoryPanel({ refreshKey }: { refreshKey: string }) {
@@ -1560,6 +1647,9 @@ function RunHistoryPanel({ refreshKey }: { refreshKey: string }) {
                 </span>
                 {r.benchmarkReady && (
                   <span className="mai-history-badge is-bench">benchmark</span>
+                )}
+                {!r.consensusEligible && (
+                  <span className="mai-history-badge">consensus gated</span>
                 )}
               </div>
               <p className="mai-history-task">{r.taskPreview}…</p>

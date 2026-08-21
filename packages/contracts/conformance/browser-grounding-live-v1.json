@@ -1,0 +1,53 @@
+{
+  "format": "handoffkit.browser.grounding.live",
+  "format_version": 1,
+  "contract_version": "1.20.0-alpha.1",
+  "disclaimer": "Live corpus contract. URLs are fetched at run time; this file is not evidence and never substitutes for a scored run.",
+  "as_of": "2026-08-14",
+  "expires_at": "2026-09-14",
+  "source_policy": {
+    "require_https": true,
+    "allow_hosts": ["en.wikipedia.org", "pnpm.io", "rfc-editor.org", "www.w3.org", "www.archives.gov"],
+    "reject_fixture_hosts": ["fixture.handoffkit.test"]
+  },
+  "gates": {
+    "factual_accuracy": 0.9,
+    "completeness": 0.9,
+    "citation_entailment": 0.95,
+    "direct_claims_with_evidence": 1.0,
+    "invented_citations": 0,
+    "min_scoreable": 30
+  },
+  "questions": [
+    {"id": "q01", "domain": "software", "question": "What does HTTP stand for?", "page_id": "q01", "source_url": "https://www.rfc-editor.org/rfc/rfc9110.html", "required_facts": ["Hypertext Transfer Protocol"], "evidence_terms": ["HTTP", "Hypertext Transfer Protocol", "stateless"], "expect": "supported"},
+    {"id": "q02", "domain": "software", "question": "Who originally authored the Linux kernel?", "page_id": "q02", "source_url": "https://en.wikipedia.org/wiki/Linux_kernel", "required_facts": ["Linus Torvalds"], "evidence_terms": ["Original author", "Linus Torvalds"], "expect": "supported"},
+    {"id": "q03", "domain": "software", "question": "What year was Python 3.0 released?", "page_id": "q03", "source_url": "https://en.wikipedia.org/wiki/Python_(programming_language)", "required_facts": ["2008"], "evidence_terms": ["Python", "2008", "released"], "expect": "supported"},
+    {"id": "q04", "domain": "software", "question": "What does CSS stand for?", "page_id": "q04", "source_url": "https://www.w3.org/Style/CSS/", "required_facts": ["Cascading Style Sheets"], "evidence_terms": ["Cascading Style Sheets", "CSS", "core language"], "expect": "supported"},
+    {"id": "q05", "domain": "software", "question": "What is the default port for HTTPS?", "page_id": "q05", "source_url": "https://en.wikipedia.org/wiki/HTTPS", "required_facts": ["443"], "evidence_terms": ["HTTPS", "443", "port"], "expect": "supported"},
+    {"id": "q06", "domain": "software", "question": "What is pnpm?", "page_id": "q06", "source_url": "https://pnpm.io/", "required_facts": ["pnpm", "package manager"], "evidence_terms": ["pnpm", "package manager"], "expect": "supported"},
+    {"id": "q07", "domain": "geography", "question": "What is the capital of France?", "page_id": "q07", "source_url": "https://en.wikipedia.org/wiki/France", "required_facts": ["Paris"], "evidence_terms": ["capital", "Paris"], "expect": "supported"},
+    {"id": "q08", "domain": "geography", "question": "Which ocean is the largest by area?", "page_id": "q08", "source_url": "https://en.wikipedia.org/wiki/Pacific_Ocean", "required_facts": ["Pacific Ocean"], "evidence_terms": ["Pacific Ocean", "largest"], "expect": "supported"},
+    {"id": "q09", "domain": "geography", "question": "What is the longest river in Africa?", "page_id": "q09", "source_url": "https://en.wikipedia.org/wiki/Nile", "required_facts": ["Nile"], "evidence_terms": ["Nile", "longest river"], "expect": "supported"},
+    {"id": "q10", "domain": "geography", "question": "On which continent is Kenya?", "page_id": "q10", "source_url": "https://en.wikipedia.org/wiki/Kenya", "required_facts": ["Africa"], "evidence_terms": ["Kenya", "country located in", "Africa"], "expect": "supported"},
+    {"id": "q11", "domain": "geography", "question": "What is the capital of Japan?", "page_id": "q11", "source_url": "https://en.wikipedia.org/wiki/Tokyo", "required_facts": ["Tokyo"], "evidence_terms": ["Capital", "Tokyo"], "expect": "supported"},
+    {"id": "q12", "domain": "geography", "question": "Which country contains the Atacama Desert?", "page_id": "q12", "source_url": "https://en.wikipedia.org/wiki/Atacama_Desert", "required_facts": ["Chile"], "evidence_terms": ["Atacama Desert", "northern", "Chile"], "expect": "supported"},
+    {"id": "q13", "domain": "science", "question": "What is the chemical symbol for water?", "page_id": "q13", "source_url": "https://en.wikipedia.org/wiki/Water", "required_facts": ["H2O"], "evidence_terms": ["Water", "chemical formula", "H2O"], "expect": "supported"},
+    {"id": "q14", "domain": "science", "question": "How many planets are in the Solar System as currently recognized by the IAU?", "page_id": "q14", "source_url": "https://en.wikipedia.org/wiki/Solar_System", "required_facts": ["eight", "IAU"], "evidence_terms": ["International Astronomical Union", "eight", "planets"], "expect": "supported"},
+    {"id": "q15", "domain": "science", "question": "What particle carries a negative electric charge in an atom?", "page_id": "q15", "source_url": "https://en.wikipedia.org/wiki/Electron", "required_facts": ["negative charge"], "evidence_terms": ["particle", "negative charge"], "expect": "supported"},
+    {"id": "q16", "domain": "science", "question": "What is the approximate speed of light in vacuum in m/s?", "page_id": "q16", "source_url": "https://en.wikipedia.org/wiki/Speed_of_light", "required_facts": ["299792458"], "evidence_terms": ["speed of light", "299792458", "vacuum"], "expect": "supported"},
+    {"id": "q17", "domain": "science", "question": "What gas do plants absorb during photosynthesis?", "page_id": "q17", "source_url": "https://en.wikipedia.org/wiki/Carbon_dioxide", "required_facts": ["carbon dioxide"], "evidence_terms": ["plants", "require", "carbon dioxide"], "expect": "supported"},
+    {"id": "q18", "domain": "science", "question": "What is the SI unit of electric current?", "page_id": "q18", "source_url": "https://en.wikipedia.org/wiki/Ampere", "required_facts": ["ampere"], "evidence_terms": ["SI", "unit", "ampere"], "expect": "supported"},
+    {"id": "q19", "domain": "civics", "question": "How many branches does the United States federal government have?", "page_id": "q19", "source_url": "https://en.wikipedia.org/wiki/Branches_of_the_United_States_government", "required_facts": ["three branches"], "evidence_terms": ["three branches"], "expect": "supported"},
+    {"id": "q20", "domain": "civics", "question": "What year was the United Nations founded?", "page_id": "q20", "source_url": "https://en.wikipedia.org/wiki/United_Nations", "required_facts": ["1945"], "evidence_terms": ["United Nations", "1945", "established"], "expect": "supported"},
+    {"id": "q21", "domain": "civics", "question": "What document begins with We the People in the United States?", "page_id": "q21", "source_url": "https://www.archives.gov/founding-docs/constitution-transcript", "required_facts": ["We the People"], "evidence_terms": ["We the People", "United States", "Constitution"], "expect": "supported"},
+    {"id": "q22", "domain": "civics", "question": "What is the term length of a United States senator?", "page_id": "q22", "source_url": "https://en.wikipedia.org/wiki/United_States_Senate", "required_facts": ["six years"], "evidence_terms": ["Senators", "six years"], "expect": "supported"},
+    {"id": "q23", "domain": "civics", "question": "Which body of the UK Parliament is elected?", "page_id": "q23", "source_url": "https://en.wikipedia.org/wiki/House_of_Commons_of_the_United_Kingdom", "required_facts": ["House of Commons", "elected"], "evidence_terms": ["House of Commons", "elected"], "expect": "supported"},
+    {"id": "q24", "domain": "civics", "question": "What is the ISO 3166-1 alpha-2 code for Spain?", "page_id": "q24", "source_url": "https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2", "required_facts": ["Spain", "ES"], "evidence_terms": ["ES", "Spain"], "expect": "supported"},
+    {"id": "q25", "domain": "culture", "question": "Who wrote Romeo and Juliet?", "page_id": "q25", "source_url": "https://en.wikipedia.org/wiki/Romeo_and_Juliet", "required_facts": ["William Shakespeare"], "evidence_terms": ["William Shakespeare", "Romeo"], "expect": "supported"},
+    {"id": "q26", "domain": "culture", "question": "In which city is the Prado Museum?", "page_id": "q26", "source_url": "https://en.wikipedia.org/wiki/Museo_del_Prado", "required_facts": ["Madrid"], "evidence_terms": ["Prado", "Madrid"], "expect": "supported"},
+    {"id": "q27", "domain": "culture", "question": "What sport uses a shuttlecock?", "page_id": "q27", "source_url": "https://en.wikipedia.org/wiki/Badminton", "required_facts": ["shuttlecock"], "evidence_terms": ["sport", "shuttlecock"], "expect": "supported"},
+    {"id": "q28", "domain": "culture", "question": "Which instrument has 88 keys in its common acoustic form?", "page_id": "q28", "source_url": "https://en.wikipedia.org/wiki/Piano", "required_facts": ["88 keys"], "evidence_terms": ["pianos", "88 keys"], "expect": "supported"},
+    {"id": "q29", "domain": "culture", "question": "What language is the original of One Hundred Years of Solitude?", "page_id": "q29", "source_url": "https://en.wikipedia.org/wiki/One_Hundred_Years_of_Solitude", "required_facts": ["Spanish"], "evidence_terms": ["One Hundred Years of Solitude", "Spanish"], "expect": "supported"},
+    {"id": "q30", "domain": "science", "question": "What is the melting point of unobtainium on Earth?", "page_id": "q30", "source_url": "https://en.wikipedia.org/wiki/Unobtainium", "required_facts": [], "negative_evidence": ["fictional"], "expect": "not_found", "limitations_required": true}
+  ]
+}

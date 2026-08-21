@@ -1,0 +1,17 @@
+[package]
+name = "handoffkit-browser-core"
+version = "1.20.0-alpha.1"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "I/O-free Browser Core contracts for HandoffKit 1.20"
+readme = "README.md"
+keywords = ["handoffkit", "browser", "contracts"]
+categories = ["data-structures"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

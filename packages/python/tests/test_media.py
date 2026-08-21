@@ -16,6 +16,7 @@ from handoffkit.recipes.media import (
     build_creation_context,
     build_dubbing_plan,
     build_generation_context,
+    build_screen_narration_prompt,
     extract_audio,
     ffmpeg_available,
     format_srt_timestamp,
@@ -24,9 +25,12 @@ from handoffkit.recipes.media import (
     list_media_pipelines,
     media_context_to_workflow_report,
     media_operation_catalog,
+    merge_ocr_asr_segments,
     mux_audio,
+    parse_screen_narration_json,
     plan_media_pipeline,
     read_transcript_json,
+    screen_dubbing_agent_recipe,
     write_srt,
     write_transcript_json,
 )
@@ -98,6 +102,8 @@ def test_media_operation_catalog_is_ion_focused() -> None:
         assert get_media_operation(name).name == name
     assert "from_scratch" in list_media_pipelines()
     assert "video_dubbing" in list_media_pipelines()
+    assert "screen_dubbing" in list_media_pipelines()
+    assert list_media_pipelines()["screen_dubbing"][2] == "edition"
 
 
 def test_media_context_handoff_creation_generation_edition() -> None:
@@ -157,3 +163,94 @@ def test_build_media_context_unknown_pipeline_raises() -> None:
         plan_media_pipeline("not-a-real-pipeline")
     with pytest.raises(KeyError, match="unknown media operation"):
         get_media_operation("not-an-op")
+
+
+def test_merge_ocr_asr_prefers_on_screen_and_fills_spoken_gaps() -> None:
+    ocr = [
+        TranscriptSegment(1, 0.0, 2.0, "他们为了出气", speaker="NARR", language="zh"),
+        TranscriptSegment(2, 4.0, 6.0, "招娣回来了", speaker="NARR", language="zh"),
+    ]
+    asr = [
+        TranscriptSegment(1, 0.1, 1.8, "为了出气", speaker="S1", language="zh"),
+        TranscriptSegment(2, 2.2, 3.5, "我头好痛", speaker="S1", language="zh"),
+        TranscriptSegment(3, 4.0, 6.0, "赵弟回来了", speaker="S2", language="zh"),
+    ]
+    merged = merge_ocr_asr_segments(ocr, asr, language="zh")
+    texts = [item.text for item in merged]
+    sources = [item.metadata.get("source") for item in merged]
+    assert "他们为了出气" in texts[0]
+    assert "我头好痛" in texts
+    assert any(src == "asr" for src in sources)
+    assert merged[0].metadata.get("text_ocr") == "他们为了出气"
+
+
+def test_screen_narration_prompt_and_parse_cover_full_episode() -> None:
+    ocr = [TranscriptSegment(1, 0.0, 2.0, "他们为了出气", language="zh")]
+    asr = [
+        TranscriptSegment(1, 0.0, 2.0, "为了出气", language="zh"),
+        TranscriptSegment(2, 2.5, 4.0, "我头好痛", language="zh"),
+    ]
+    prompt = build_screen_narration_prompt(
+        ocr,
+        asr,
+        target_language="es",
+        title="0001 pigsty",
+        glossary={"招娣": "Zhaodi"},
+    )
+    assert "OCR (on-screen, canonical, full episode)" in prompt["user"]
+    assert "ASR (spoken, full episode)" in prompt["user"]
+    assert "CONSENSUS" in prompt["user"]
+    assert "招娣 → Zhaodi" in prompt["user"]
+    assert "producer agent" in prompt["system"]
+
+    parsed = parse_screen_narration_json(
+        '```json\n[{"index":1,"start":0,"end":2,"text_zh":"他们为了出气","text_es":"Lo hicieron para desahogarse."}]\n```'
+    )
+    assert parsed[0]["text_es"] == "Lo hicieron para desahogarse."
+    assert parsed[0]["text_zh"] == "他们为了出气"
+
+
+def test_spoken_fit_prompt_includes_slot_budget() -> None:
+    from handoffkit.recipes.media import build_spoken_fit_prompt, parse_spoken_fit_json
+
+    segs = [
+        {
+            "index": 1,
+            "start": 0.0,
+            "end": 2.0,
+            "text": "他们为了出气",
+            "text_zh": "他们为了出气",
+            "text_es": "Lo hicieron para desahogarse de una manera demasiado larga.",
+        }
+    ]
+    prompt = build_spoken_fit_prompt(segs, title="0001", max_speed=1.35)
+    assert "budget≈" in prompt["user"]
+    assert "localizer agent" in prompt["system"]
+    fitted = parse_spoken_fit_json(
+        '[{"index":1,"start":0,"end":2,"text_es":"Lo hicieron para desahogarse.","rate":"+8%"}]'
+    )
+    assert fitted[0]["rate"] == "+8%"
+    assert fitted[0]["text_es"] == "Lo hicieron para desahogarse."
+
+
+def test_screen_dubbing_agent_recipe_validates_and_runs_echo() -> None:
+    from handoffkit.recipes import RecipeRunner
+
+    recipe = screen_dubbing_agent_recipe(target_language="es")
+    assert recipe.name == "screen-dubbing"
+    assert [step.name for step in recipe.steps] == [
+        "inspect",
+        "transcribe",
+        "consensus",
+        "translate",
+        "localize",
+        "generate",
+        "compose",
+        "validate",
+        "publish",
+    ]
+    assert recipe.metadata["pipeline"] == "screen_dubbing"
+    assert recipe.metadata["long_context"] is True
+    result = RecipeRunner(recipe).run("Dub the pigsty scene.")
+    assert result.success is True
+    assert result.recipe_name == "screen-dubbing"

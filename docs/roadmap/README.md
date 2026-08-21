@@ -26,7 +26,8 @@ production-ready state without turning the baseline into a release claim.
 | Version range | Theme | Planned outcome |
 |---|---|---|
 | [1.19.5](./1.19.5-MASS-RELEASE.md) | Monorepo convergence | Massive, aligned package train after repository reorganization and release closure |
-| [1.20-1.29](./1.20-1.29-BROWSER-PLATFORM.md) | Browser platform | Browser Core, Browser Lite, and Browser Real with maintained native-engine control |
+| [1.20](./1.20-BROWSER-PLATFORM.md) | Browser platform | Single 1.20 train: Core, Lite, Real, index, grounding, Studio, Hermes. Absorbs the former 1.20–1.29 split. Stays beta until every dimension is ≥9/10. |
+| [1.20 Clinical Lab](./1.20-CLINICAL-LAB.md) | Sequential diagnosis lab | Experimental predefined-case sandbox. Clinical validity, official 897 run, live providers, and live retrieval remain unavailable. Not clinically validated. |
 | [1.30-1.39](./1.30-1.39-APP-RUNTIME.md) | App runtime | Permissioned app manifests, isolated hosts, SDKs, Studio shell, lifecycle, and conformance |
 | [1.40-1.49](./1.40-1.49-EXTENSION-ECOSYSTEM.md) | Extensions and complements | Provider, connector, tool, worker, UI-panel, recipe, template, and demo bundles |
 | [1.50-1.59](./1.50-1.59-NATIVE-EDGE-ML.md) | Native, edge, and ML | Durable native workers, accelerator providers, media jobs, edge resilience, and multi-arch builds |
@@ -37,13 +38,14 @@ Supporting plans:
 
 - [Repository reorganization](./REPOSITORY-REORGANIZATION.md)
 - [Release and capability governance](./RELEASE-GOVERNANCE.md)
+- [Browser Real threat model](./1.20-BROWSER-REAL-THREAT-MODEL.md)
 
 ## Dependency order
 
 ```text
 1.19 development baseline
   -> 1.19.5 release closure + repository convergence
-  -> 1.20-1.29 browser platform
+  -> 1.20 browser platform (absorbs former 1.20-1.29)
   -> 1.30-1.39 app runtime
   -> 1.40-1.49 extension ecosystem
   -> 1.50-1.59 native/edge/ML

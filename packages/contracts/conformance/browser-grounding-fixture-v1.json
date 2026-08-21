@@ -1,0 +1,72 @@
+{
+  "format": "handoffkit.browser.grounding.fixture",
+  "format_version": 1,
+  "contract_version": "1.20.0-alpha.1",
+  "disclaimer": "Deterministic snapshot corpus. Passing this scorer is not live-web evidence.",
+  "gates": {
+    "factual_accuracy": 0.9,
+    "completeness": 0.9,
+    "citation_entailment": 0.95,
+    "direct_claims_with_evidence": 1.0,
+    "invented_citations": 0
+  },
+  "pages": [
+    {
+      "snapshot_id": "software",
+      "url": "https://fixture.handoffkit.test/software",
+      "markdown": "HTTP stands for Hypertext Transfer Protocol. Linux was originally authored by Linus Torvalds. Python 3.0 was released in 2008. CSS stands for Cascading Style Sheets. The default port for HTTPS is 443. This HandoffKit JavaScript workspace uses pnpm."
+    },
+    {
+      "snapshot_id": "geography",
+      "url": "https://fixture.handoffkit.test/geography",
+      "markdown": "The capital of France is Paris. The Pacific Ocean is the largest ocean by area. The longest river in Africa is the Nile. Kenya is on the continent of Africa. The capital of Japan is Tokyo. The Atacama Desert is in Chile."
+    },
+    {
+      "snapshot_id": "science",
+      "url": "https://fixture.handoffkit.test/science",
+      "markdown": "The chemical symbol for water is H2O. The IAU currently recognizes 8 planets in the Solar System. The electron carries a negative electric charge in an atom. The speed of light in vacuum is approximately 299792458 m/s. Plants absorb carbon dioxide during photosynthesis. The SI unit of electric current is the ampere."
+    },
+    {
+      "snapshot_id": "civics",
+      "url": "https://fixture.handoffkit.test/civics",
+      "markdown": "The United States federal government has 3 branches. The United Nations was founded in 1945. The United States Constitution begins with We the People. A United States senator serves a term of 6 years. The elected body of the UK Parliament is the House of Commons. The ISO 3166-1 alpha-2 code for Spain is ES."
+    },
+    {
+      "snapshot_id": "culture",
+      "url": "https://fixture.handoffkit.test/culture",
+      "markdown": "William Shakespeare wrote Romeo and Juliet. The Prado Museum is in Madrid. Badminton uses a shuttlecock. A common acoustic piano has 88 keys. One Hundred Years of Solitude was originally written in Spanish."
+    }
+  ],
+  "questions": [
+    {"id": "q01", "domain": "software", "question": "What does HTTP stand for?", "snapshot_ids": ["software"], "required_facts": ["Hypertext Transfer Protocol"], "golden_citations": [{"url": "https://fixture.handoffkit.test/software", "quote": "HTTP stands for Hypertext Transfer Protocol."}], "expect": "supported"},
+    {"id": "q02", "domain": "software", "question": "Who originally authored the Linux kernel?", "snapshot_ids": ["software"], "required_facts": ["Linus Torvalds"], "golden_citations": [{"url": "https://fixture.handoffkit.test/software", "quote": "Linux was originally authored by Linus Torvalds."}], "expect": "supported"},
+    {"id": "q03", "domain": "software", "question": "What year was Python 3.0 released?", "snapshot_ids": ["software"], "required_facts": ["2008"], "golden_citations": [{"url": "https://fixture.handoffkit.test/software", "quote": "Python 3.0 was released in 2008."}], "expect": "supported"},
+    {"id": "q04", "domain": "software", "question": "What does CSS stand for?", "snapshot_ids": ["software"], "required_facts": ["Cascading Style Sheets"], "golden_citations": [{"url": "https://fixture.handoffkit.test/software", "quote": "CSS stands for Cascading Style Sheets."}], "expect": "supported"},
+    {"id": "q05", "domain": "software", "question": "What is the default port for HTTPS?", "snapshot_ids": ["software"], "required_facts": ["443"], "golden_citations": [{"url": "https://fixture.handoffkit.test/software", "quote": "The default port for HTTPS is 443."}], "expect": "supported"},
+    {"id": "q06", "domain": "software", "question": "Name the package manager used by this HandoffKit JavaScript workspace.", "snapshot_ids": ["software"], "required_facts": ["pnpm"], "golden_citations": [{"url": "https://fixture.handoffkit.test/software", "quote": "This HandoffKit JavaScript workspace uses pnpm."}], "expect": "supported"},
+    {"id": "q07", "domain": "geography", "question": "What is the capital of France?", "snapshot_ids": ["geography"], "required_facts": ["Paris"], "golden_citations": [{"url": "https://fixture.handoffkit.test/geography", "quote": "The capital of France is Paris."}], "expect": "supported"},
+    {"id": "q08", "domain": "geography", "question": "Which ocean is the largest by area?", "snapshot_ids": ["geography"], "required_facts": ["Pacific Ocean"], "golden_citations": [{"url": "https://fixture.handoffkit.test/geography", "quote": "The Pacific Ocean is the largest ocean by area."}], "expect": "supported"},
+    {"id": "q09", "domain": "geography", "question": "What is the longest river in Africa?", "snapshot_ids": ["geography"], "required_facts": ["Nile"], "golden_citations": [{"url": "https://fixture.handoffkit.test/geography", "quote": "The longest river in Africa is the Nile."}], "expect": "supported"},
+    {"id": "q10", "domain": "geography", "question": "On which continent is Kenya?", "snapshot_ids": ["geography"], "required_facts": ["Africa"], "golden_citations": [{"url": "https://fixture.handoffkit.test/geography", "quote": "Kenya is on the continent of Africa."}], "expect": "supported"},
+    {"id": "q11", "domain": "geography", "question": "What is the capital of Japan?", "snapshot_ids": ["geography"], "required_facts": ["Tokyo"], "golden_citations": [{"url": "https://fixture.handoffkit.test/geography", "quote": "The capital of Japan is Tokyo."}], "expect": "supported"},
+    {"id": "q12", "domain": "geography", "question": "Which country contains the Atacama Desert?", "snapshot_ids": ["geography"], "required_facts": ["Chile"], "golden_citations": [{"url": "https://fixture.handoffkit.test/geography", "quote": "The Atacama Desert is in Chile."}], "expect": "supported"},
+    {"id": "q13", "domain": "science", "question": "What is the chemical symbol for water?", "snapshot_ids": ["science"], "required_facts": ["H2O"], "golden_citations": [{"url": "https://fixture.handoffkit.test/science", "quote": "The chemical symbol for water is H2O."}], "expect": "supported"},
+    {"id": "q14", "domain": "science", "question": "How many planets are in the Solar System as currently recognized by the IAU?", "snapshot_ids": ["science"], "required_facts": ["8"], "golden_citations": [{"url": "https://fixture.handoffkit.test/science", "quote": "The IAU currently recognizes 8 planets in the Solar System."}], "expect": "supported"},
+    {"id": "q15", "domain": "science", "question": "What particle carries a negative electric charge in an atom?", "snapshot_ids": ["science"], "required_facts": ["electron"], "golden_citations": [{"url": "https://fixture.handoffkit.test/science", "quote": "The electron carries a negative electric charge in an atom."}], "expect": "supported"},
+    {"id": "q16", "domain": "science", "question": "What is the approximate speed of light in vacuum in m/s?", "snapshot_ids": ["science"], "required_facts": ["299792458"], "golden_citations": [{"url": "https://fixture.handoffkit.test/science", "quote": "The speed of light in vacuum is approximately 299792458 m/s."}], "expect": "supported"},
+    {"id": "q17", "domain": "science", "question": "What gas do plants absorb during photosynthesis?", "snapshot_ids": ["science"], "required_facts": ["carbon dioxide"], "golden_citations": [{"url": "https://fixture.handoffkit.test/science", "quote": "Plants absorb carbon dioxide during photosynthesis."}], "expect": "supported"},
+    {"id": "q18", "domain": "science", "question": "What is the SI unit of electric current?", "snapshot_ids": ["science"], "required_facts": ["ampere"], "golden_citations": [{"url": "https://fixture.handoffkit.test/science", "quote": "The SI unit of electric current is the ampere."}], "expect": "supported"},
+    {"id": "q19", "domain": "civics", "question": "How many branches does the United States federal government have?", "snapshot_ids": ["civics"], "required_facts": ["3"], "golden_citations": [{"url": "https://fixture.handoffkit.test/civics", "quote": "The United States federal government has 3 branches."}], "expect": "supported"},
+    {"id": "q20", "domain": "civics", "question": "What year was the United Nations founded?", "snapshot_ids": ["civics"], "required_facts": ["1945"], "golden_citations": [{"url": "https://fixture.handoffkit.test/civics", "quote": "The United Nations was founded in 1945."}], "expect": "supported"},
+    {"id": "q21", "domain": "civics", "question": "What document begins with We the People in the United States?", "snapshot_ids": ["civics"], "required_facts": ["Constitution"], "golden_citations": [{"url": "https://fixture.handoffkit.test/civics", "quote": "The United States Constitution begins with We the People."}], "expect": "supported"},
+    {"id": "q22", "domain": "civics", "question": "What is the term length of a United States senator?", "snapshot_ids": ["civics"], "required_facts": ["6 years"], "golden_citations": [{"url": "https://fixture.handoffkit.test/civics", "quote": "A United States senator serves a term of 6 years."}], "expect": "supported"},
+    {"id": "q23", "domain": "civics", "question": "Which body of the UK Parliament is elected?", "snapshot_ids": ["civics"], "required_facts": ["House of Commons"], "golden_citations": [{"url": "https://fixture.handoffkit.test/civics", "quote": "The elected body of the UK Parliament is the House of Commons."}], "expect": "supported"},
+    {"id": "q24", "domain": "civics", "question": "What is the ISO 3166-1 alpha-2 code for Spain?", "snapshot_ids": ["civics"], "required_facts": ["ES"], "golden_citations": [{"url": "https://fixture.handoffkit.test/civics", "quote": "The ISO 3166-1 alpha-2 code for Spain is ES."}], "expect": "supported"},
+    {"id": "q25", "domain": "culture", "question": "Who wrote Romeo and Juliet?", "snapshot_ids": ["culture"], "required_facts": ["William Shakespeare"], "golden_citations": [{"url": "https://fixture.handoffkit.test/culture", "quote": "William Shakespeare wrote Romeo and Juliet."}], "expect": "supported"},
+    {"id": "q26", "domain": "culture", "question": "In which city is the Prado Museum?", "snapshot_ids": ["culture"], "required_facts": ["Madrid"], "golden_citations": [{"url": "https://fixture.handoffkit.test/culture", "quote": "The Prado Museum is in Madrid."}], "expect": "supported"},
+    {"id": "q27", "domain": "culture", "question": "What sport uses a shuttlecock?", "snapshot_ids": ["culture"], "required_facts": ["Badminton"], "golden_citations": [{"url": "https://fixture.handoffkit.test/culture", "quote": "Badminton uses a shuttlecock."}], "expect": "supported"},
+    {"id": "q28", "domain": "culture", "question": "Which instrument has 88 keys in its common acoustic form?", "snapshot_ids": ["culture"], "required_facts": ["88"], "golden_citations": [{"url": "https://fixture.handoffkit.test/culture", "quote": "A common acoustic piano has 88 keys."}], "expect": "supported"},
+    {"id": "q29", "domain": "culture", "question": "What language is the original of One Hundred Years of Solitude?", "snapshot_ids": ["culture"], "required_facts": ["Spanish"], "golden_citations": [{"url": "https://fixture.handoffkit.test/culture", "quote": "One Hundred Years of Solitude was originally written in Spanish."}], "expect": "supported"},
+    {"id": "q30", "domain": "science", "question": "What is the melting point of unobtainium on Earth?", "snapshot_ids": ["science"], "required_facts": [], "golden_citations": [], "expect": "not_found", "limitations_required": true}
+  ]
+}

@@ -196,6 +196,47 @@ export class MediaWorkflowReport {
 }
 
 export function buildDubbingPlan(segments: TranscriptSegment[], translations: Record<number, string>, speakers?: SpeakerProfile[]): DubbingSegment[];
+export function mergeOcrAsrSegments(
+  ocrCues: Array<TranscriptSegment | Record<string, unknown>>,
+  asrSegments: Array<TranscriptSegment | Record<string, unknown>>,
+  options?: { language?: string }
+): TranscriptSegment[];
+export const SCREEN_NARRATION_SYSTEM: string;
+export function buildScreenNarrationPrompt(
+  ocrCues: Array<TranscriptSegment | Record<string, unknown>>,
+  asrSegments: Array<TranscriptSegment | Record<string, unknown>>,
+  options?: {
+    targetLanguage?: string;
+    title?: string;
+    consensusCues?: Array<TranscriptSegment | Record<string, unknown>> | null;
+    glossary?: Record<string, string> | null;
+  }
+): { system: string; user: string };
+export function parseScreenNarrationJson(raw: string): Array<{
+  index: number;
+  start: number;
+  end: number;
+  text_zh: string;
+  text_es: string;
+}>;
+export const SCREEN_SPOKEN_FIT_SYSTEM: string;
+export function buildSpokenFitPrompt(
+  segments: Array<TranscriptSegment | Record<string, unknown>>,
+  options?: { charsPerSecond?: number; maxSpeed?: number; title?: string }
+): { system: string; user: string };
+export function parseSpokenFitJson(raw: string): Array<{
+  index: number;
+  start: number;
+  end: number;
+  text_zh: string;
+  text_es: string;
+  rate: string;
+}>;
+export function screenDubbingAgentRecipe(options?: {
+  task?: string;
+  targetLanguage?: string;
+  model?: string;
+}): Recipe;
 export function formatSRTTimestamp(seconds: number): string;
 export function formatSRT(segments: Array<TranscriptSegment | DubbingSegment>, options?: { translated?: boolean }): string;
 
@@ -358,15 +399,75 @@ export function runWebGroundedAnswer(options: {
   query?: string;
   question?: string;
   maxPages?: number;
+  maxResults?: number;
   maxSubQueries?: number;
+  searchQueries?: string[];
+  seedResults?: Array<{ title?: string; url: string; sourceQueries?: string[]; source_queries?: string[] }>;
   allowHosts?: string[];
   denyHosts?: string[];
   providers?: string[];
   userBrowser?: { search: (query: string, options?: Record<string, unknown>) => unknown } | null;
+  defaultBrowser?: { search: (query: string, options?: Record<string, unknown>) => unknown } | null;
   provider?: { agenerate: (prompt: string, opts?: { temperature?: number }) => Promise<unknown>; model?: string } | null;
+  selectionProvider?: { agenerate?: (prompt: string, opts?: Record<string, unknown>) => Promise<unknown>; generate?: (prompt: string, opts?: Record<string, unknown>) => unknown; model?: string } | null;
   model?: string;
   transport?: unknown;
   format?: string;
+  strictGrounding?: boolean;
+  answerRetries?: number;
+  searchConcurrency?: number;
+  searchDelayMs?: number;
+  contextMaxChars?: number;
+  selectionMaxTokens?: number;
+  answerMaxTokens?: number;
+  selectionTemperature?: number;
+  answerTemperature?: number;
+  selectionNumCtx?: number;
+  answerNumCtx?: number;
+  evidenceSections?: Array<{
+    id: string;
+    title?: string;
+    label?: string;
+    query?: string;
+    sourceQueries?: string[];
+    render?: "bullets" | "paragraph" | "table";
+    columns?: string[];
+    requirements: string[];
+    required?: boolean;
+    maxPages?: number;
+    deterministicEvidence?: Array<{
+      requirement: string;
+      statement: string;
+      quote: string;
+    }>;
+  }>;
+  evidenceMaxTokens?: number;
+  evidenceNumCtx?: number;
+  evidenceRetries?: number;
+  evidenceConcurrency?: number;
+  evidenceContextMaxChars?: number;
+  synthesisSections?: Array<{
+    id: string;
+    title?: string;
+    label?: string;
+    render?: "bullets" | "paragraph" | "table";
+    columns?: string[];
+    requirements: string[];
+    required?: boolean;
+    deterministicFindings?: Array<{
+      requirement: string;
+      statement: string;
+      evidenceClaims?: string[];
+      evidence_claims?: string[];
+      cells?: string[];
+    }>;
+  }>;
+  synthesisMaxTokens?: number;
+  synthesisNumCtx?: number;
+  synthesisRetries?: number;
+  dossierComposeMode?: "model" | "deterministic";
+  dossierFallback?: boolean;
+  answerValidator?: (input: { answer: string; query: string; pages: unknown[]; research: unknown; evidenceDossier?: unknown }) => boolean | { valid: boolean; error?: string; answer?: string } | Promise<boolean | { valid: boolean; error?: string; answer?: string }>;
 }): Promise<{
   success: boolean;
   query: string;
@@ -374,4 +475,8 @@ export function runWebGroundedAnswer(options: {
   prompt_section: string;
   answer: string;
   model: string;
+  error_code: string;
+  selection: Record<string, unknown>;
+  answer_audit: Record<string, unknown>;
+  evidence_dossier: Record<string, unknown>;
 }>;

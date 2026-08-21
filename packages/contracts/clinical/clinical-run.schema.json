@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/clinical-run-v1beta.json",
+  "title": "clinical_run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "run_id",
+    "experience",
+    "track",
+    "phase",
+    "status",
+    "blind_id"
+  ],
+  "properties": {
+    "contract_version": { "type": "string", "maxLength": 64 },
+    "run_id": { "type": "string", "maxLength": 80, "pattern": "^[A-Za-z0-9._-]+$" },
+    "experience": { "enum": ["research", "professional", "public"] },
+    "track": { "enum": ["closed_sequential", "retrieval_assisted"] },
+    "phase": {
+      "enum": [
+        "opening",
+        "deliberate",
+        "ask_question",
+        "request_test",
+        "gatekeeper",
+        "cost",
+        "update_differential",
+        "submit_diagnosis",
+        "score",
+        "closed"
+      ]
+    },
+    "status": { "enum": ["running", "complete", "incomplete", "failed"] },
+    "blind_id": { "type": "string", "maxLength": 80 },
+    "opening": { "type": "string", "maxLength": 20000 },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "action_id": { "type": "string" },
+          "name": { "enum": ["ask_question", "request_test", "submit_diagnosis"] },
+          "query": { "type": "string", "maxLength": 2000 },
+          "idempotency_key": { "type": "string" },
+          "role": { "type": "string" }
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "observation_id": { "type": "string" },
+          "action_id": { "type": "string" },
+          "section": { "type": "string" },
+          "content": { "type": "string" },
+          "code": { "type": "string" },
+          "source_hash": { "type": "string" },
+          "source_fragment": { "type": "string" },
+          "resource_units": { "type": "integer" }
+        }
+      }
+    },
+    "differential": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string" },
+          "percent": { "type": "integer" },
+          "support": { "type": "string" },
+          "against": { "type": "string" }
+        }
+      }
+    },
+    "budget_units": { "type": "integer" },
+    "spent_units": { "type": "integer" },
+    "max_rounds": { "type": "integer" },
+    "rounds": { "type": "integer" },
+    "diagnosis": { "type": "string", "maxLength": 2000 },
+    "score": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "correct": { "type": "boolean" },
+        "judge_scores": { "type": "array", "items": { "type": "number" } },
+        "alias_match": { "type": "boolean" },
+        "exact_match": { "type": "boolean" },
+        "complete": { "type": "boolean" },
+        "quorum": { "type": "integer" },
+        "clinical_validity": { "type": "null" },
+        "heuristic_only": { "type": "boolean" },
+        "scoring_mode": {
+          "enum": ["heuristic_regression", "independent_judges", "ineligible", "gold_replay"]
+        }
+      }
+    },
+    "error": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "details": { "type": "object" }
+      }
+    },
+    "replay": { "type": "boolean" },
+    "scoring_eligible": { "type": "boolean" },
+    "status_public": { "type": "string" },
+    "locale": { "type": "string" },
+    "evidence": { "type": "object" },
+    "revision": { "type": "integer" },
+    "source": { "type": "string" },
+    "fixture_id": { "type": "string" }
+  }
+}

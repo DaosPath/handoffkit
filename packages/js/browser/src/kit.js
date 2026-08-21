@@ -6,6 +6,7 @@ import { gatherDeepWebResearch, gatherWebResearch, ResearchPack } from "./resear
 import { webSearch } from "./search.js";
 import { DEFAULT_SEARCH_PROVIDERS } from "./search.js";
 import { searchUserBrowserMany } from "./user_browser.js";
+import { createDefaultBrowserBridge, searchDefaultBrowserMany } from "./default_browser.js";
 import { WebExplorer } from "./explorer.js";
 import { BrowserCache, defaultCacheRoot } from "./cache.js";
 import { PageMarkdown } from "./page.js";
@@ -36,6 +37,26 @@ export function createBrowserAgentKit(options = {}) {
           })
         : null;
 
+  const requestedProviders = Array.isArray(options.providers) && options.providers.length
+    ? [...options.providers]
+    : [...DEFAULT_SEARCH_PROVIDERS];
+  const defaultBrowserRequested = requestedProviders.some((provider) => [
+    "default_browser",
+    "default-browser",
+    "system-browser",
+  ].includes(String(provider ?? "").trim().toLowerCase()));
+  const explicitDefaultBrowser = options.defaultBrowser ?? options.default_browser;
+  const defaultBrowser = explicitDefaultBrowser && typeof explicitDefaultBrowser === "object"
+    ? explicitDefaultBrowser
+    : defaultBrowserRequested
+      ? createDefaultBrowserBridge({
+          endpoint: options.defaultBrowserEndpoint ?? options.default_browser_endpoint,
+          token: options.defaultBrowserToken ?? options.default_browser_token,
+          fetchImpl: options.defaultBrowserFetch ?? options.default_browser_fetch,
+        })
+      : null;
+  const userBrowser = options.userBrowser ?? options.user_browser ?? defaultBrowser;
+
   const defaults = {
     maxPages: options.maxPages ?? 4,
     maxResults: options.maxResults ?? 6,
@@ -43,10 +64,9 @@ export function createBrowserAgentKit(options = {}) {
     timeoutMs: options.timeoutMs ?? policy.timeoutMs ?? 20000,
     allowHosts: options.allowHosts ?? [],
     denyHosts: options.denyHosts ?? [],
-    providers: Array.isArray(options.providers) && options.providers.length
-      ? [...options.providers]
-      : [...DEFAULT_SEARCH_PROVIDERS],
-    userBrowser: options.userBrowser ?? options.user_browser ?? null,
+    providers: requestedProviders,
+    userBrowser,
+    defaultBrowser,
     format: options.format ?? "markdown",
     concurrency: options.concurrency ?? 2,
     contextMaxChars: options.contextMaxChars ?? 48000,
@@ -80,7 +100,14 @@ export function createBrowserAgentKit(options = {}) {
       });
     },
     searchMany(queries, opts = {}) {
-      return searchUserBrowserMany(
+      const providerList = opts.providers ?? defaults.providers;
+      const useDefaultBrowser = Array.isArray(providerList) && providerList.some((provider) => [
+        "default_browser",
+        "default-browser",
+        "system-browser",
+      ].includes(String(provider ?? "").trim().toLowerCase()));
+      const searchMany = useDefaultBrowser ? searchDefaultBrowserMany : searchUserBrowserMany;
+      return searchMany(
         opts.userBrowser ?? opts.user_browser ?? defaults.userBrowser,
         queries,
         {

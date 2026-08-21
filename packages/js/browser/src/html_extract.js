@@ -52,6 +52,25 @@ function stripTagsRegion(html, tag) {
   return s;
 }
 
+// Remove common advertising/consent chrome before article selection. This is
+// intentionally selector-free and bounded: it only targets container tags
+// whose id/class/role/aria-label explicitly names ad or promotional UI.
+function stripMarkedNoise(html) {
+  let s = String(html ?? "");
+  const markerRe = /(?:^|[\s_-])(?:ad|ads|advert|advertisement|sponsored|promoted|promo|commercial|cookie|consent|newsletter|subscribe|paywall|popup|modal|banner)(?:$|[\s_-])/i;
+  const re = /<(div|section|aside|span|form|li|table)\b([^>]*)>[\s\S]*?<\/\1>/gi;
+  // Nested ad containers are common; a few passes remove inner and outer
+  // wrappers without trying to implement a full HTML parser.
+  for (let i = 0; i < 3; i++) {
+    const next = s.replace(re, (whole, _tag, attrs) =>
+      markerRe.test(String(attrs ?? "").replace(/[\"']/g, " ")) ? "" : whole,
+    );
+    if (next === s) break;
+    s = next;
+  }
+  return s;
+}
+
 export function decodeHtmlEntities(input) {
   const s = String(input ?? "");
   let out = "";
@@ -98,6 +117,70 @@ export function decodeHtmlEntities(input) {
   return out;
 }
 
+export function htmlTableToMarkdown(html) {
+  const source = String(html ?? "");
+  const rows = [];
+  const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rowMatch;
+  while ((rowMatch = rowRe.exec(source)) !== null) {
+    const cells = [];
+    const cellRe = /<(td|th)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+    let cellMatch;
+    while ((cellMatch = cellRe.exec(rowMatch[1] ?? "")) !== null) {
+      cells.push(collapseWs(decodeHtmlEntities(extractText(cellMatch[2] ?? "", true, 400))));
+    }
+    if (cells.length) rows.push(cells);
+  }
+  if (!rows.length) return "";
+  const width = Math.max(...rows.map((row) => row.length));
+  const padded = rows.map((row) => {
+    const next = [...row];
+    while (next.length < width) next.push("");
+    return next;
+  });
+  const header = padded[0];
+  const lines = [
+    `| ${header.join(" | ")} |`,
+    `| ${header.map(() => "---").join(" | ")} |`,
+    ...padded.slice(1).map((row) => `| ${row.join(" | ")} |`),
+  ];
+  return `${lines.join("\n")}\n`;
+}
+
+export function extractJsonLd(html) {
+  const out = [];
+  const re = /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  const source = String(html ?? "");
+  let match;
+  while ((match = re.exec(source)) !== null) {
+    try {
+      out.push(JSON.parse(decodeHtmlEntities(match[1] ?? "")));
+    } catch {
+      // Malformed JSON-LD is skipped, never invented.
+    }
+  }
+  return out;
+}
+
+export function extractPageMetadata(html, url = "") {
+  const source = String(html ?? "");
+  const attr = (name) => {
+    const re = new RegExp(`<meta\\b[^>]*(?:name|property)\\s*=\\s*["']${name}["'][^>]*content\\s*=\\s*["']([^"']*)["']`, "i");
+    const match = re.exec(source);
+    return match ? decodeHtmlEntities(match[1]) : "";
+  };
+  const canonicalMatch = /<link\b[^>]*rel\s*=\s*["']canonical["'][^>]*href\s*=\s*["']([^"']*)["']/i.exec(source)
+    || /<link\b[^>]*href\s*=\s*["']([^"']*)["'][^>]*rel\s*=\s*["']canonical["']/i.exec(source);
+  const charsetMatch = /charset\s*=\s*["']?([a-z0-9-]+)/i.exec(source);
+  return {
+    title: extractTitle(source),
+    description: attr("description") || attr("og:description"),
+    canonical: canonicalMatch ? canonicalMatch[1] : url,
+    charset: charsetMatch ? charsetMatch[1].toLowerCase() : "",
+    json_ld: extractJsonLd(source),
+  };
+}
+
 export function extractTitle(html) {
   const low = lower(html);
   const start = low.indexOf("<title");
@@ -112,6 +195,7 @@ export function extractTitle(html) {
 /** Prefer article/main and drop chrome (nav/footer/aside/header). */
 export function preferMainContent(html) {
   let s = String(html ?? "");
+  s = stripMarkedNoise(s);
   s = stripTagsRegion(s, "script");
   s = stripTagsRegion(s, "style");
   s = stripTagsRegion(s, "noscript");
@@ -195,7 +279,7 @@ function attrValue(openTag, attr) {
 export function extractLinks(html, baseUrl = "", maxLinks = 100) {
   const out = [];
   const re = /<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
-  const s = String(html ?? "");
+  const s = preferMainContent(String(html ?? ""));
   let m;
   while ((m = re.exec(s)) !== null) {
     if (maxLinks > 0 && out.length >= maxLinks) break;
@@ -364,6 +448,17 @@ export function htmlToMarkdown(html, opts = {}) {
       if (!inner) inner = abs;
       lineBuf += abs ? `[${inner}](${abs})` : inner;
       i = close + 4;
+      continue;
+    }
+    if (!isClose && name === "table") {
+      const close = low.indexOf("</table>", gt);
+      if (close === -1) {
+        i = gt + 1;
+        continue;
+      }
+      flushLine();
+      md += `${htmlTableToMarkdown(s.slice(i, close + 8))}\n`;
+      i = close + 8;
       continue;
     }
     if (!isClose && name === "img") {

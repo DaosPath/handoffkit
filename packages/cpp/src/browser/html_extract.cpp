@@ -1,5 +1,6 @@
 #include <handoffkit/browser/html_extract.hpp>
 
+#include <algorithm>
 #include <cctype>
 #include <regex>
 #include <sstream>
@@ -42,6 +43,40 @@ std::string strip_tags_region(std::string html, const std::string& tag) {
         html.erase(start, end - start);
         low.erase(start, end - start);
         pos = start;
+    }
+    return html;
+}
+
+std::string strip_marked_noise(std::string html) {
+    static const std::regex container_re(
+        R"re(<(div|section|aside|span|form|li|table)\b([^>]*)>[\s\S]*?</\1>)re",
+        std::regex::icase);
+    static const std::regex marker_re(
+        R"re((^|[\s_-])(ad|ads|advert|advertisement|sponsored|promoted|promo|commercial|cookie|consent|newsletter|subscribe|paywall|popup|modal|banner)($|[\s_-]))re",
+        std::regex::icase);
+    for (int pass = 0; pass < 3; ++pass) {
+        std::string out;
+        std::size_t last = 0;
+        bool changed = false;
+        auto begin = std::sregex_iterator(html.begin(), html.end(), container_re);
+        auto end = std::sregex_iterator();
+        for (auto it = begin; it != end; ++it) {
+            const auto& match = *it;
+            out.append(html, last, static_cast<std::size_t>(match.position()) - last);
+            std::string attrs = match.size() > 2 ? match[2].str() : std::string{};
+            for (char& c : attrs) {
+                if (c == '"' || c == '\'') c = ' ';
+            }
+            if (std::regex_search(attrs, marker_re)) {
+                changed = true;
+            } else {
+                out.append(match.str());
+            }
+            last = static_cast<std::size_t>(match.position() + match.length());
+        }
+        out.append(html, last, std::string::npos);
+        if (!changed) break;
+        html = std::move(out);
     }
     return html;
 }
@@ -138,7 +173,7 @@ std::string extract_title(std::string_view html) {
 }
 
 std::string prefer_main_content(std::string_view html) {
-    std::string s(html);
+    std::string s = strip_marked_noise(std::string(html));
     for (const char* tag : {"script", "style", "noscript", "svg", "nav", "footer", "aside"}) {
         s = strip_tags_region(std::move(s), tag);
     }
@@ -205,7 +240,7 @@ std::vector<ExtractedLink> extract_links(std::string_view html, std::string_view
         R"re(<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)</a>)re",
         std::regex::icase
     );
-    std::string s(html);
+    std::string s = prefer_main_content(html);
     auto begin = std::sregex_iterator(s.begin(), s.end(), re);
     auto end = std::sregex_iterator();
     for (auto it = begin; it != end; ++it) {
@@ -269,6 +304,93 @@ void append_inline_text(std::string& out, std::string_view chunk) {
 }
 
 }  // namespace
+
+std::string html_table_to_markdown(std::string_view html) {
+    static const std::regex row_re(R"re(<tr\b[^>]*>([\s\S]*?)</tr>)re", std::regex::icase);
+    static const std::regex cell_re(R"re(<(td|th)\b[^>]*>([\s\S]*?)</\1>)re", std::regex::icase);
+    std::string source(html);
+    std::vector<std::vector<std::string>> rows;
+    auto row_begin = std::sregex_iterator(source.begin(), source.end(), row_re);
+    auto row_end = std::sregex_iterator();
+    for (auto it = row_begin; it != row_end; ++it) {
+        std::string inner = (*it)[1].str();
+        std::vector<std::string> cells;
+        auto cell_begin = std::sregex_iterator(inner.begin(), inner.end(), cell_re);
+        auto cell_end = std::sregex_iterator();
+        for (auto cell = cell_begin; cell != cell_end; ++cell) {
+            cells.push_back(collapse_ws(decode_html_entities(extract_text((*cell)[2].str(), true, 400))));
+        }
+        if (!cells.empty()) rows.push_back(std::move(cells));
+    }
+    if (rows.empty()) return {};
+    std::size_t width = 0;
+    for (const auto& row : rows) width = std::max(width, row.size());
+    for (auto& row : rows) row.resize(width);
+    std::ostringstream md;
+    md << "|";
+    for (const auto& cell : rows[0]) md << " " << cell << " |";
+    md << "\n|";
+    for (std::size_t i = 0; i < width; ++i) md << " --- |";
+    md << "\n";
+    for (std::size_t r = 1; r < rows.size(); ++r) {
+        md << "|";
+        for (const auto& cell : rows[r]) md << " " << cell << " |";
+        md << "\n";
+    }
+    return md.str();
+}
+
+std::vector<nlohmann::json> extract_json_ld(std::string_view html) {
+    static const std::regex re(
+        R"re(<script\b[^>]*type\s*=\s*["']application/ld\+json["'][^>]*>([\s\S]*?)</script>)re",
+        std::regex::icase);
+    std::string source(html);
+    std::vector<nlohmann::json> out;
+    auto begin = std::sregex_iterator(source.begin(), source.end(), re);
+    auto end = std::sregex_iterator();
+    for (auto it = begin; it != end; ++it) {
+        try {
+            out.push_back(nlohmann::json::parse(decode_html_entities((*it)[1].str())));
+        } catch (...) {
+            // Malformed JSON-LD is skipped, never invented.
+        }
+    }
+    return out;
+}
+
+nlohmann::json extract_page_metadata(std::string_view html, std::string_view url) {
+    std::string source(html);
+    auto meta = [&](const char* name) -> std::string {
+        std::regex re(
+            std::string(R"re(<meta\b[^>]*(?:name|property)\s*=\s*["'])re") + name +
+                R"re(["'][^>]*content\s*=\s*["']([^"']*)["'])re",
+            std::regex::icase);
+        std::smatch match;
+        if (std::regex_search(source, match, re)) return decode_html_entities(match[1].str());
+        return {};
+    };
+    std::regex canonical_re(
+        R"re(<link\b[^>]*rel\s*=\s*["']canonical["'][^>]*href\s*=\s*["']([^"']*)["'])re",
+        std::regex::icase);
+    std::regex charset_re(R"re(charset\s*=\s*["']?([a-z0-9-]+))re", std::regex::icase);
+    std::smatch canonical_match;
+    std::smatch charset_match;
+    std::string canonical = std::regex_search(source, canonical_match, canonical_re)
+        ? canonical_match[1].str()
+        : std::string(url);
+    std::string charset = std::regex_search(source, charset_match, charset_re)
+        ? lower_copy(charset_match[1].str())
+        : std::string{};
+    std::string description = meta("description");
+    if (description.empty()) description = meta("og:description");
+    return {
+        {"title", extract_title(html)},
+        {"description", description},
+        {"canonical", canonical},
+        {"charset", charset},
+        {"json_ld", extract_json_ld(html)},
+    };
+}
 
 std::string html_to_markdown(std::string_view html, const HtmlToMarkdownOptions& opts) {
     const std::string title = extract_title(html);
@@ -427,6 +549,17 @@ std::string html_to_markdown(std::string_view html, const HtmlToMarkdownOptions&
                 line_buf += inner;
             }
             i = close + 4;
+            continue;
+        }
+        if (!is_close && name == "table") {
+            auto close = low.find("</table>", gt);
+            if (close == std::string::npos) {
+                i = gt + 1;
+                continue;
+            }
+            flush_line();
+            md << html_table_to_markdown(s.substr(i, close + 8 - i)) << "\n";
+            i = close + 8;
             continue;
         }
         if (!is_close && name == "img") {

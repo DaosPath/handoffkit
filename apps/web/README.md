@@ -11,6 +11,8 @@ pnpm web:dev
 pnpm web:lint
 pnpm web:build
 pnpm web:test:studio
+pnpm web:a11y:audit # with Studio running on :3100
+pnpm browser:studio:interop
 ```
 
 Or from this folder:
@@ -19,14 +21,32 @@ Or from this folder:
 pnpm run lint
 pnpm run build
 pnpm run test:studio
+pnpm run a11y:audit # with Studio running on :3100
 pnpm exec next dev -p 3000
 ```
 
+## Studio clinical lab
+
+- Sequential lab: `/demos/clinical-lab` (research / professional / public)
+- Deprecated adapter: `/demos/mai-style-panel` (predefined vignettes only; no personal symptoms)
+- Clinical lab providers: live role execution remains **unavailable** until a
+  provider adapter is integrated and tested; the lab does not claim clinical
+  validity or an official 897-case score.
+- MAI-style panel providers: **Ollama local** is supported when its `/api/tags`
+  endpoint responds; NVIDIA/Groq are optional OpenAI-compatible paths.
+- Env (server-only, not committed): `OLLAMA_BASE_URL`, `OLLAMA_MODEL`,
+  `NVIDIA_API_KEY`, `GROQ_API_KEY`, and optional model overrides
+- Clinical runs: `apps/web/.data/clinical-runs/` (gitignored)
+
 ## Studio MAI panel
 
-- Live multi-agent panel: `/demos/mai-style-panel`
-- Providers: **NVIDIA NIM** and **Groq** (API keys via env)
-- Env (server-only, not committed): `NVIDIA_API_KEY`, `GROQ_API_KEY`, optional model/base URL overrides
+The panel discovers installed Ollama models at runtime and never marks a
+hard-coded model as ready. Echo mode is explicit (`offline: true` in the API or
+the UI checkbox); missing cloud credentials return `provider_unavailable`
+instead of silently producing an offline result. A run is successful only when
+all three experts return and the Judge emits exactly three distinct integer
+weights summing to 100 plus a red-flag re-rank trigger. This is a research
+orchestration demo, not a diagnostic or clinical-validity claim.
 
 ### Run history (current vs planned)
 

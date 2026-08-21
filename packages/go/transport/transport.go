@@ -230,6 +230,10 @@ type SecurityObservation struct {
 	RotationStatus             map[string]any
 }
 
+func (t *LengthDelimited) LocalIdentity() *security.PeerIdentity {
+	return t.localIdentity
+}
+
 func NewLengthDelimited(connection net.Conn, config Config) (*LengthDelimited, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err

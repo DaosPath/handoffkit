@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import json
 import re
 from typing import Any
 
@@ -12,6 +13,14 @@ _TAG_RE = re.compile(r"<[^>]+>", re.I)
 _SCRIPT_RE = re.compile(r"<script\b[^>]*>[\s\S]*?</script>", re.I)
 _STYLE_RE = re.compile(r"<style\b[^>]*>[\s\S]*?</style>", re.I)
 _NOSCRIPT_RE = re.compile(r"<noscript\b[^>]*>[\s\S]*?</noscript>", re.I)
+_MARKED_NOISE_RE = re.compile(
+    r"<(div|section|aside|span|form|li|table)\b([^>]*)>[\s\S]*?</\1>", re.I
+)
+_NOISE_MARKER_RE = re.compile(
+    r"(?:^|[\s_-])(?:ad|ads|advert|advertisement|sponsored|promoted|promo|commercial|"
+    r"cookie|consent|newsletter|subscribe|paywall|popup|modal|banner)(?:$|[\s_-])",
+    re.I,
+)
 _TITLE_RE = re.compile(r"<title\b[^>]*>([\s\S]*?)</title>", re.I)
 _A_RE = re.compile(r"<a\b([^>]*)>([\s\S]*?)</a>", re.I)
 _HREF_RE = re.compile(r"""href\s*=\s*["']([^"']+)["']""", re.I)
@@ -45,6 +54,16 @@ def _clean_text(s: str) -> str:
 
 def strip_noise(html_src: str, *, strip_scripts_styles: bool = True) -> str:
     out = html_src or ""
+    for _ in range(3):
+
+        def remove_marked(match: re.Match[str]) -> str:
+            attrs = (match.group(2) or "").replace('"', " ").replace("'", " ")
+            return "" if _NOISE_MARKER_RE.search(attrs) else match.group(0)
+
+        cleaned = _MARKED_NOISE_RE.sub(remove_marked, out)
+        if cleaned == out:
+            break
+        out = cleaned
     if strip_scripts_styles:
         out = _SCRIPT_RE.sub("", out)
         out = _STYLE_RE.sub("", out)
@@ -71,7 +90,7 @@ def extract_links(
 ) -> list[ExtractedLink]:
     out: list[ExtractedLink] = []
     seen: set[str] = set()
-    for m in _A_RE.finditer(html_src or ""):
+    for m in _A_RE.finditer(strip_noise(html_src or "")):
         attrs, inner = m.group(1), m.group(2)
         hm = _HREF_RE.search(attrs or "")
         if not hm:
@@ -137,6 +156,11 @@ def html_to_markdown(
 
     work = _LI_RE.sub(li_repl, work)
 
+    def table_repl(m: re.Match[str]) -> str:
+        return "\n" + html_table_to_markdown(m.group(0)) + "\n"
+
+    work = re.sub(r"<table\b[\s\S]*?</table>", table_repl, work, flags=re.I)
+
     # links as markdown
     def a_repl(m: re.Match[str]) -> str:
         attrs, inner = m.group(1), m.group(2)
@@ -198,4 +222,66 @@ def extract_page(
         "text": text,
         "markdown": markdown,
         "links": links,
+    }
+
+
+def html_table_to_markdown(html_src: str) -> str:
+    rows: list[list[str]] = []
+    for row in re.finditer(r"<tr\b[^>]*>([\s\S]*?)</tr>", html_src or "", re.I):
+        cells = [
+            _clean_text(cell.group(2))
+            for cell in re.finditer(r"<(td|th)\b[^>]*>([\s\S]*?)</\1>", row.group(1) or "", re.I)
+        ]
+        if cells:
+            rows.append(cells)
+    if not rows:
+        return ""
+    width = max(len(row) for row in rows)
+    padded = [row + [""] * (width - len(row)) for row in rows]
+    header = padded[0]
+    lines = [
+        "| " + " | ".join(header) + " |",
+        "| " + " | ".join("---" for _ in header) + " |",
+        *["| " + " | ".join(row) + " |" for row in padded[1:]],
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def extract_json_ld(html_src: str) -> list[Any]:
+    out: list[Any] = []
+    for match in re.finditer(
+        r"<script\b[^>]*type\s*=\s*[\"']application/ld\+json[\"'][^>]*>([\s\S]*?)</script>",
+        html_src or "",
+        re.I,
+    ):
+        try:
+            out.append(json.loads(_decode(match.group(1) or "")))
+        except Exception:  # noqa: BLE001
+            continue
+    return out
+
+
+def extract_page_metadata(html_src: str, url: str = "") -> dict[str, Any]:
+    source = html_src or ""
+
+    def meta(name: str) -> str:
+        match = re.search(
+            rf"<meta\b[^>]*(?:name|property)\s*=\s*[\"']{name}[\"'][^>]*content\s*=\s*[\"']([^\"']*)[\"']",
+            source,
+            re.I,
+        )
+        return _decode(match.group(1)) if match else ""
+
+    canonical = re.search(
+        r"<link\b[^>]*rel\s*=\s*[\"']canonical[\"'][^>]*href\s*=\s*[\"']([^\"']*)[\"']",
+        source,
+        re.I,
+    )
+    charset = re.search(r"charset\s*=\s*[\"']?([a-z0-9-]+)", source, re.I)
+    return {
+        "title": extract_title(source),
+        "description": meta("description") or meta("og:description"),
+        "canonical": canonical.group(1) if canonical else url,
+        "charset": charset.group(1).lower() if charset else "",
+        "json_ld": extract_json_ld(source),
     }

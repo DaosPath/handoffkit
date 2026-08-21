@@ -1,0 +1,91 @@
+{
+  "format": "handoffkit.security.cpp-tcp-interoperability",
+  "format_version": 1,
+  "generated_at": "2026-08-14T20:05:21Z",
+  "transport": "TCP/TLSv1.3/mTLS/uint32-be-framed-json",
+  "server": "cpp-ml-worker --tls-policy",
+  "environment": {
+    "platform": "win32",
+    "architecture": "x64",
+    "python": "3.11.15",
+    "node": "25.8.2",
+    "go": "1.26.5",
+    "rust": "1.97.1"
+  },
+  "clients": {
+    "python": {
+      "attempt": 1,
+      "authorized": true,
+      "protocol": "TLSv1.3",
+      "response_kind": "worker_capabilities",
+      "response_source": "cpp-ml-worker-interoperability",
+      "runtime": "python",
+      "stderr_tail": ""
+    },
+    "node": {
+      "attempt": 1,
+      "authorized": true,
+      "protocol": "TLSv1.3",
+      "response_kind": "worker_capabilities",
+      "response_source": "cpp-ml-worker-interoperability",
+      "runtime": "node",
+      "stderr_tail": ""
+    },
+    "go": {
+      "attempt": 1,
+      "protocol": "TLSv1.3",
+      "response_kind": "worker_capabilities",
+      "response_source": "cpp-ml-worker-interoperability",
+      "runtime": "go",
+      "stderr_tail": ""
+    },
+    "rust": {
+      "attempt": 1,
+      "authorized": true,
+      "protocol": "TLSv1.3",
+      "response_kind": "worker_capabilities",
+      "response_source": "cpp-ml-worker-interoperability",
+      "runtime": "rust",
+      "stderr_tail": ""
+    }
+  },
+  "reverse_servers": {
+    "python": {
+      "attempt": 1,
+      "peer_id": "server-peer",
+      "protocol": "TLSv1.3",
+      "response_kind": "interop_echo",
+      "response_source": "python-server",
+      "runtime": "cpp",
+      "stderr_tail": ""
+    },
+    "node": {
+      "attempt": 1,
+      "peer_id": "server-peer",
+      "protocol": "TLSv1.3",
+      "response_kind": "interop_echo",
+      "response_source": "node-server",
+      "runtime": "cpp",
+      "stderr_tail": ""
+    },
+    "go": {
+      "attempt": 1,
+      "peer_id": "server-peer",
+      "protocol": "TLSv1.3",
+      "response_kind": "interop_echo",
+      "response_source": "go-server",
+      "runtime": "cpp",
+      "stderr_tail": ""
+    },
+    "rust": {
+      "attempt": 2,
+      "peer_id": "server-peer",
+      "protocol": "TLSv1.3",
+      "response_kind": "interop_echo",
+      "response_source": "rust-server",
+      "runtime": "cpp",
+      "stderr_tail": ""
+    }
+  },
+  "notice": "Interoperability evidence is a protocol/security path check, not a performance guarantee."
+}

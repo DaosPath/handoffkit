@@ -3,8 +3,10 @@
 First-party background web complement for HandoffKit agents: **search → fetch/explore → HTML parse → Markdown**.
 
 No bundled browser engine, no Cheerio, and no paid search APIs. Native `fetch`,
-first-party HTML extraction, and runtime-selectable adapters (DuckDuckGo HTML,
-Wikipedia OpenSearch, or an explicit host-provided `user_browser` bridge).
+first-party HTML extraction, and runtime-selectable adapters (Google HTML,
+DuckDuckGo HTML, Wikipedia OpenSearch, an explicit host-provided `user_browser`
+bridge, or a `default_browser` bridge backed by the operating system's default
+browser).
 
 Connects to `@handoffkit/core` via `ToolRegistry` / `createBrowserAgentKit()`.
 
@@ -15,6 +17,14 @@ search and return page content through `fetch(url, options)` or
 `open(url, options)`; the library then performs bounded link exploration and
 emits source-labelled Markdown. It is provider-dependent and unavailable
 without the required bridge methods.
+
+`default_browser` is an explicit loopback/HTTPS JSON bridge. Create it with
+`createDefaultBrowserBridge({ endpoint: "http://127.0.0.1:8765" })` or set
+`HANDOFFKIT_DEFAULT_BROWSER_BRIDGE_URL`. The host bridge owns the system
+browser session and implements `POST /search` and `POST /fetch`; HandoffKit
+never launches the browser, reads cookies, or silently falls back to HTTP.
+Missing endpoints, unsafe remote HTTP, timeouts, and malformed responses fail
+closed with `default_browser_*` error codes.
 
 ## Install
 
@@ -30,7 +40,7 @@ import { createBrowserAgentKit } from "@handoffkit/browser";
 const kit = createBrowserAgentKit({
   maxPages: 3,
   allowHosts: ["wikipedia.org", "nih.gov", "drugs.com"],
-  providers: ["duckduckgo", "wikipedia"], // default; applied to kit helpers and tools
+  providers: ["google", "duckduckgo", "wikipedia"], // explicit; default remains DDG/Wikipedia
   useCache: true, // .cache/handoffkit-browser
 });
 
@@ -122,21 +132,39 @@ const out = await runWebGroundedAnswer({ query: "metformin", maxPages: 2 });
 ```bash
 pnpm --dir packages/js/browser test
 BROWSER_LIVE=1 pnpm --dir packages/js/browser test
+pnpm browser:grounding:live
 ```
+
+`browser:grounding:live` is a real-HTTPS, 30-question qualification. It
+fetches the expiring corpus through `WebExplorer`, writes page SHA-256 hashes
+and live quotes to `reports/BROWSER_1.20_GROUNDING_LIVE.json`, and exits non-zero
+on unavailable pages, stale sources, invented URLs, or missing evidence. Its
+deterministic oracle measures retrieval/citation integrity only; it does not
+claim model-answer accuracy.
 
 `gatherDeepWebResearch` records the transport, subqueries, candidates, depth,
 page budget, blocked/error steps, citations, and elapsed time in
 `ResearchPack.metadata`. `transport: "map"` keeps the HTTP route fully offline
 for deterministic tests. The user-browser route is a host-controlled bridge;
 it does not discover profiles or execute arbitrary page JavaScript itself.
-Pass `providers: ["wikipedia"]`,
-`providers: ["duckduckgo"]`, or `providers: ["user_browser"]` to select an
+Pass `providers: ["google"]`, `providers: ["wikipedia"]`,
+`providers: ["duckduckgo"]`, `providers: ["user_browser"]`, or
+`providers: ["default_browser"]` to select an
 adapter. `createBrowserAgentKit({ providers: [...] })` carries the same
 selection into `search`, `gather`, `deepGather`, and registered tools. The CLI
-can report `user_browser_bridge_required` unless an embedding host supplies a
-bridge; it cannot invent one. Unknown or unreachable providers remain
-observable errors and never silently become another provider. Supplying
-`BrowserCache` also records cache hits, misses, and writes.
+can report `user_browser_bridge_required` or `default_browser_bridge_required`
+unless an embedding host supplies a bridge; it cannot invent one. Unknown or
+unreachable providers remain observable errors and never silently become
+another provider. Supplying `BrowserCache` also records cache hits, misses,
+and writes.
+
+The Google adapter is HandoffKit's native HTTP route. It does not open Chrome,
+read cookies, or use a user session. It unwraps Google result redirects and
+rejects sponsored/ad redirectors and Google navigation links before normal host
+ranking. HTML extraction also drops explicitly marked ad, promotion, consent,
+newsletter, paywall, popup, and banner containers before Markdown conversion.
+This is a bounded heuristic, not a guarantee that every publisher's ad markup
+is recognised.
 
 ### Visibility and attribution
 

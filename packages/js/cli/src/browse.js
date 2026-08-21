@@ -16,10 +16,10 @@ export async function runBrowseCommand(argv = [], io = {}) {
     stdout([
       "handoffkit-js browse",
       "",
-      "  browse search <query> [--max 6] [--provider duckduckgo|wikipedia|user_browser] [--json] [--allow host] [--deny host]",
+      "  browse search <query> [--max 6] [--provider google|duckduckgo|wikipedia|user_browser] [--json] [--allow host] [--deny host]",
       "  browse fetch <url> [--markdown|--json] [--format markdown|readme]",
-      "  browse research <query> [--max-pages 3] [--provider duckduckgo|wikipedia|user_browser] [--json|--markdown] [--cache] [--allow host]",
-      "  browse deep <query> [--max-pages 8] [--max-depth 2] [--provider duckduckgo|wikipedia|user_browser] [--json|--markdown] [--cache]",
+      "  browse research <query> [--max-pages 3] [--provider google|duckduckgo|wikipedia|user_browser] [--json|--markdown] [--cache] [--allow host]",
+      "  browse deep <query> [--max-pages 8] [--max-depth 2] [--provider google|duckduckgo|wikipedia|user_browser] [--json|--markdown] [--cache]",
       "  browse fixture",
       "  browse tools",
     ].join("\n"));

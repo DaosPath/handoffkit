@@ -139,13 +139,23 @@ class DoctorBenchmarkReport:
 
     @property
     def correct_count(self) -> int:
-        """Number of gold replay matches."""
+        """Gold-replay fixture matches. Not diagnostic accuracy."""
         return sum(1 for result in self.cases if result.correct)
 
     @property
-    def accuracy(self) -> float:
-        """Gold replay accuracy."""
+    def gold_replay_match_rate(self) -> float:
+        """Fixture regression rate. Never a published accuracy metric."""
         return self.correct_count / self.case_count if self.case_count else 0.0
+
+    @property
+    def accuracy(self) -> None:
+        """Gold replay is not scored as diagnostic accuracy."""
+        return None
+
+    @property
+    def scoring_eligible(self) -> bool:
+        """Gold replay fixtures are never eligible for published scores."""
+        return False
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize this benchmark report."""
@@ -159,10 +169,15 @@ class DoctorBenchmarkReport:
                 "license_note": "Dataset card lists MIT license; source reports are PMC OA.",
             },
             "mode": "gold_replay",
+            "scoring_eligible": False,
+            "status_public": (
+                "experimental / research and education only / not clinically validated"
+            ),
             "safety_note": SAFETY_NOTE,
             "case_count": self.case_count,
-            "correct_count": self.correct_count,
-            "accuracy": round(self.accuracy, 3),
+            "gold_replay_match_count": self.correct_count,
+            "gold_replay_match_rate": round(self.gold_replay_match_rate, 3),
+            "accuracy": None,
             "cases": [case.to_dict() for case in self.cases],
             "trace": self.trace.to_dict(),
             "replay": replay.to_dict(),
@@ -197,12 +212,12 @@ class DoctorBenchmarkReport:
             f"- Dataset: [{SOURCE_NAME}]({SOURCE_URL})\n"
             f"- Paper: [{SOURCE_PAPER}]({SOURCE_PAPER})\n"
             "- Split: test\n"
-            "- Mode: `gold_replay` (replays known clinician-authored answers; "
-            "does not claim model diagnostic accuracy)\n\n"
+            "- Mode: `gold_replay` (regression fixture only; never counts as "
+            "diagnostic accuracy)\n\n"
             "## Summary\n\n"
             f"- Cases: `{self.case_count}`\n"
-            f"- Gold replay matches: `{self.correct_count}`\n"
-            f"- Accuracy: `{self.accuracy:.3f}`\n"
+            f"- Gold replay fixture matches (not scored): `{self.correct_count}`\n"
+            "- Published diagnostic accuracy: `not scored`\n"
             f"- Validation: `{self.validation.success}`\n"
             f"- Handoff quality: `{self.quality.grade}` / `{self.quality.score:.3f}`\n"
             f"- Replay: `{ReplayRunner(self.trace).summary().step_count}` steps, "

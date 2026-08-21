@@ -37,8 +37,8 @@ export function makeWebSearchTool(defaultTransportRef = null, defaults = {}) {
         deny_hosts: { type: "array", items: { type: "string" } },
         providers: {
           type: "array",
-          items: { type: "string", enum: ["duckduckgo", "ddg", "wikipedia", "wiki", "user_browser"] },
-          description: "Provider allowlist; user_browser requires injected search and page bridge methods for research.",
+          items: { type: "string", enum: ["google", "g", "duckduckgo", "ddg", "wikipedia", "wiki", "user_browser", "default_browser", "default-browser", "system-browser"] },
+          description: "Provider allowlist; default_browser uses the explicit host bridge for the system default browser.",
         },
       },
       required: ["query"],
@@ -231,8 +231,8 @@ export function makeWebResearchTool(defaultTransportRef = null, defaults = {}) {
         deny_hosts: { type: "array", items: { type: "string" } },
         providers: {
           type: "array",
-          items: { type: "string", enum: ["duckduckgo", "ddg", "wikipedia", "wiki", "user_browser"] },
-          description: "Provider allowlist; user_browser requires injected search and page bridge methods for research.",
+          items: { type: "string", enum: ["google", "g", "duckduckgo", "ddg", "wikipedia", "wiki", "user_browser", "default_browser", "default-browser", "system-browser"] },
+          description: "Provider allowlist; default_browser uses the explicit host bridge for the system default browser.",
         },
         seed_only: { type: "boolean", default: false },
         seed_urls: { type: "array", items: { type: "string" } },
@@ -266,14 +266,14 @@ export function makeWebResearchTool(defaultTransportRef = null, defaults = {}) {
 
 /**
  * Run bounded multi-query/multi-hop research without opening a browser window.
- * HTTP/fixture providers use WebTransport; user_browser uses only its explicit
- * host page bridge and returns its limits and provider in metadata.
+ * HTTP/fixture providers use WebTransport; user_browser/default_browser use
+ * only their explicit host page bridge and return limits/provider metadata.
  */
 export function makeDeepWebResearchTool(defaultTransportRef = null, defaults = {}) {
   return new Tool({
     name: "web_deep_research",
     description:
-      "Run bounded multi-query, multi-hop research and return a grounded ResearchPack; user_browser needs an explicit search plus fetch/open host bridge.",
+      "Run bounded multi-query, multi-hop research and return a grounded ResearchPack; default_browser needs an explicit host bridge.",
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -286,8 +286,8 @@ export function makeDeepWebResearchTool(defaultTransportRef = null, defaults = {
         max_results_per_query: { type: "integer", minimum: 1, maximum: 20, default: 8 },
         providers: {
           type: "array",
-          items: { type: "string", enum: ["duckduckgo", "ddg", "wikipedia", "wiki", "user_browser"] },
-          description: "Provider allowlist; user_browser requires injected search and page bridge methods for research.",
+          items: { type: "string", enum: ["google", "g", "duckduckgo", "ddg", "wikipedia", "wiki", "user_browser", "default_browser", "default-browser", "system-browser"] },
+          description: "Provider allowlist; default_browser uses the explicit host bridge for the system default browser.",
         },
         timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, default: 20000 },
         concurrency: { type: "integer", minimum: 1, maximum: 8, default: 3 },

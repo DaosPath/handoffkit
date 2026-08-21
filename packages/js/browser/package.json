@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/browser",
-  "version": "1.16.0",
+  "version": "1.20.0-alpha.1",
   "description": "First-party web search, explore, scrape, and HTML→Markdown tools for HandoffKit agents.",
   "repository": {
     "type": "git",
@@ -28,6 +28,7 @@
     "prepack": "pnpm run check && pnpm run test"
   },
   "dependencies": {
+    "@handoffkit/browser-core": "workspace:*",
     "@handoffkit/core": "workspace:*"
   },
   "engines": {

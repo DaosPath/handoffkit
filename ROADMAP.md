@@ -4,7 +4,7 @@
 
 The maintained roadmap now lives in [`docs/roadmap/README.md`](docs/roadmap/README.md).
 It covers the evidence-gated 1.19.5 release closure, repository convergence,
-Browser Core/Lite/Real in 1.20-1.29, and planned trains through 1.70 LTS.
+Browser Core/Lite/Real in 1.20 (absorbing the former 1.20-1.29 split), and planned trains through 1.70 LTS.
 
 HandoffKit 1.19 is **not** a completed public release. Its current green branch
 is an experimental development baseline with release-candidate security paths;

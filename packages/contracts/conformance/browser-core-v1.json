@@ -1,0 +1,491 @@
+{
+  "format": "handoffkit.browser.core",
+  "format_version": 1,
+  "contract_version": "1.20.0-alpha.1",
+  "canonical_key_style": "snake_case",
+  "notes": "Golden wire vectors for Browser Core. Round-trip equality is required in JS, Python, Rust, Go, and C++. Core has no I/O.",
+  "vectors": {
+    "browser_error": {
+      "contract_version": "1.20.0-alpha.1",
+      "code": "provider_challenge",
+      "message": "A CAPTCHA or access challenge was returned.",
+      "retryable": false,
+      "details": {
+        "provider": "google_browser"
+      },
+      "request_id": "req-challenge-1",
+      "command_id": "cmd-nav-1",
+      "session_id": "sess-1",
+      "occurred_at": "2026-01-01T00:00:00Z"
+    },
+    "browser_capabilities": {
+      "contract_version": "1.20.0-alpha.1",
+      "product": "lite",
+      "engine": "",
+      "engine_ready": false,
+      "search_providers": ["google_http", "duckduckgo", "wikipedia"],
+      "operations": ["search", "fetch", "extract", "research"],
+      "javascript": false,
+      "screenshots": false,
+      "pdf": false,
+      "downloads": false,
+      "persistent_profile": false,
+      "local_index": false,
+      "probed_at": "",
+      "probe_results": []
+    },
+    "browser_policy": {
+      "contract_version": "1.20.0-alpha.1",
+      "network": {
+        "allow_loopback": false,
+        "allow_private": false,
+        "allow_public": true,
+        "allow_hosts": ["example.org"],
+        "deny_hosts": ["evil.example"],
+        "max_redirects": 5,
+        "max_body_bytes": 2097152,
+        "max_decompress_bytes": 8388608,
+        "timeout_ms": 15000,
+        "respect_robots": true
+      },
+      "filesystem": {
+        "allow_read": false,
+        "allow_write": false,
+        "download_dir": "",
+        "quarantine_downloads": true,
+        "max_download_bytes": 52428800
+      },
+      "javascript": {
+        "allow_evaluate": false
+      },
+      "credentials": {
+        "share_cookies": false,
+        "persistent_profile": false,
+        "profile_dir": "",
+        "reuse_user_profile": false
+      },
+      "index": {
+        "enabled": false,
+        "max_documents": 10000,
+        "max_bytes": 268435456,
+        "retention_days": 30,
+        "max_hosts": 256
+      },
+      "bind": {
+        "allow_public_bind": false,
+        "require_tls": true,
+        "require_mtls": true
+      }
+    },
+    "browser_session_request": {
+      "contract_version": "1.20.0-alpha.1",
+      "request_id": "req-session-1",
+      "session_id": "sess-1",
+      "product": "real",
+      "headless": true,
+      "persistent_profile": false,
+      "profile_dir": "",
+      "issued_at": "2026-01-01T00:00:00Z",
+      "deadline_at": "2026-01-01T00:05:00Z",
+      "policy": {
+        "contract_version": "1.20.0-alpha.1",
+        "network": {
+          "allow_loopback": false,
+          "allow_private": false,
+          "allow_public": true,
+          "allow_hosts": [],
+          "deny_hosts": [],
+          "max_redirects": 5,
+          "max_body_bytes": 2097152,
+          "max_decompress_bytes": 8388608,
+          "timeout_ms": 15000,
+          "respect_robots": true
+        },
+        "filesystem": {
+          "allow_read": false,
+          "allow_write": false,
+          "download_dir": "",
+          "quarantine_downloads": true,
+          "max_download_bytes": 52428800
+        },
+        "javascript": {
+          "allow_evaluate": false
+        },
+        "credentials": {
+          "share_cookies": false,
+          "persistent_profile": false,
+          "profile_dir": "",
+          "reuse_user_profile": false
+        },
+        "index": {
+          "enabled": false,
+          "max_documents": 10000,
+          "max_bytes": 268435456,
+          "retention_days": 30,
+          "max_hosts": 256
+        },
+        "bind": {
+          "allow_public_bind": false,
+          "require_tls": true,
+          "require_mtls": true
+        }
+      }
+    },
+    "browser_session_state": {
+      "contract_version": "1.20.0-alpha.1",
+      "session_id": "sess-1",
+      "request_id": "req-session-1",
+      "status": "ready",
+      "product": "real",
+      "engine": "chromium",
+      "headless": true,
+      "persistent_profile": false,
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:01Z",
+      "current_url": "",
+      "error": {
+        "contract_version": "1.20.0-alpha.1",
+        "code": "",
+        "message": "",
+        "retryable": false,
+        "details": {},
+        "request_id": "",
+        "command_id": "",
+        "session_id": "",
+        "occurred_at": ""
+      }
+    },
+    "browser_command": {
+      "contract_version": "1.20.0-alpha.1",
+      "command_id": "cmd-nav-1",
+      "request_id": "req-nav-1",
+      "session_id": "sess-1",
+      "name": "navigate",
+      "issued_at": "2026-01-01T00:00:02Z",
+      "deadline_at": "2026-01-01T00:00:17Z",
+      "idempotency_key": "nav-example-org-1",
+      "payload": {
+        "url": "https://example.org/"
+      }
+    },
+    "browser_event": {
+      "contract_version": "1.20.0-alpha.1",
+      "event_id": "evt-1",
+      "command_id": "cmd-nav-1",
+      "request_id": "req-nav-1",
+      "session_id": "sess-1",
+      "name": "navigated",
+      "occurred_at": "2026-01-01T00:00:03Z",
+      "payload": {
+        "url": "https://example.org/",
+        "final_url": "https://example.org/"
+      }
+    },
+    "search_request": {
+      "contract_version": "1.20.0-alpha.1",
+      "request_id": "req-search-1",
+      "session_id": "",
+      "query": "handoffkit browser core",
+      "max_results": 8,
+      "timeout_ms": 20000,
+      "strict_provider": false,
+      "providers": [
+        "google_browser",
+        "project_index",
+        "google_http",
+        "duckduckgo",
+        "wikipedia"
+      ],
+      "allow_hosts": [],
+      "deny_hosts": [],
+      "issued_at": "2026-01-01T00:00:00Z"
+    },
+    "search_result": {
+      "contract_version": "1.20.0-alpha.1",
+      "request_id": "req-search-1",
+      "success": true,
+      "query": "handoffkit browser core",
+      "keywords": "handoffkit browser core",
+      "results": [
+        {
+          "title": "Example",
+          "url": "https://example.org/",
+          "snippet": "Example domain",
+          "score": 10,
+          "provider": "duckduckgo"
+        }
+      ],
+      "count": 1,
+      "strict_provider": false,
+      "providers_requested": [
+        "google_browser",
+        "project_index",
+        "google_http",
+        "duckduckgo",
+        "wikipedia"
+      ],
+      "providers_used": ["duckduckgo"],
+      "provider_trace": [
+        {
+          "provider": "google_browser",
+          "attempted": true,
+          "used": false,
+          "result_count": 0,
+          "error_code": "provider_unavailable",
+          "fallback_reason": "google_browser_unavailable",
+          "started_at": "2026-01-01T00:00:00Z",
+          "finished_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "provider": "project_index",
+          "attempted": true,
+          "used": false,
+          "result_count": 0,
+          "error_code": "index_unavailable",
+          "fallback_reason": "project_index_disabled",
+          "started_at": "2026-01-01T00:00:00Z",
+          "finished_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "provider": "google_http",
+          "attempted": true,
+          "used": false,
+          "result_count": 0,
+          "error_code": "no_results",
+          "fallback_reason": "google_http_empty",
+          "started_at": "2026-01-01T00:00:00Z",
+          "finished_at": "2026-01-01T00:00:01Z"
+        },
+        {
+          "provider": "duckduckgo",
+          "attempted": true,
+          "used": true,
+          "result_count": 1,
+          "error_code": "",
+          "fallback_reason": "",
+          "started_at": "2026-01-01T00:00:01Z",
+          "finished_at": "2026-01-01T00:00:02Z"
+        }
+      ],
+      "errors": [],
+      "error_code": "",
+      "error": ""
+    },
+    "page_snapshot": {
+      "contract_version": "1.20.0-alpha.1",
+      "snapshot_id": "snap-1",
+      "request_id": "req-fetch-1",
+      "session_id": "",
+      "url": "https://example.org/",
+      "final_url": "https://example.org/",
+      "fetched_at": "2026-01-01T00:00:04Z",
+      "sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+      "content_type": "text/markdown",
+      "title": "Example",
+      "markdown": "hello",
+      "provenance": {
+        "provider": "google_http",
+        "method": "http_get",
+        "redirects": 0,
+        "status": 200
+      },
+      "applied_limits": {
+        "max_body_bytes": 2097152,
+        "max_markdown_chars": 60000
+      }
+    },
+    "document_record": {
+      "contract_version": "1.20.0-alpha.1",
+      "document_id": "doc-1",
+      "sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+      "url": "https://example.org/",
+      "final_url": "https://example.org/",
+      "title": "Example",
+      "host": "example.org",
+      "fetched_at": "2026-01-01T00:00:04Z",
+      "indexed_at": "2026-01-01T00:00:05Z",
+      "bytes": 5,
+      "content_type": "text/markdown",
+      "provenance": {
+        "provider": "project_index",
+        "method": "ingest_snapshot",
+        "redirects": 0,
+        "status": 200
+      }
+    },
+    "provider_trace": {
+      "provider": "duckduckgo",
+      "attempted": true,
+      "used": true,
+      "result_count": 1,
+      "error_code": "",
+      "fallback_reason": "",
+      "started_at": "2026-01-01T00:00:01Z",
+      "finished_at": "2026-01-01T00:00:02Z"
+    },
+    "research_job": {
+      "contract_version": "1.20.0-alpha.1",
+      "job_id": "job-1",
+      "request_id": "req-research-1",
+      "session_id": "",
+      "query": "What is example.org?",
+      "status": "running",
+      "pack_version": 2,
+      "strict_provider": false,
+      "created_at": "2026-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:01Z",
+      "checkpoint_id": "ckpt-1",
+      "idempotency_key": "research-example-org-1"
+    },
+    "research_progress": {
+      "contract_version": "1.20.0-alpha.1",
+      "job_id": "job-1",
+      "request_id": "req-research-1",
+      "stage": "fetch",
+      "message": "Fetching selected URLs",
+      "pages_fetched": 1,
+      "pages_target": 3,
+      "occurred_at": "2026-01-01T00:00:03Z"
+    },
+    "research_result": {
+      "contract_version": "1.20.0-alpha.1",
+      "job_id": "job-1",
+      "request_id": "req-research-1",
+      "pack_version": 2,
+      "success": true,
+      "query": "What is example.org?",
+      "queries": ["What is example.org?"],
+      "candidates": [
+        {
+          "title": "Example",
+          "url": "https://example.org/",
+          "snippet": "Example domain",
+          "score": 10,
+          "provider": "duckduckgo"
+        }
+      ],
+      "selected_urls": ["https://example.org/"],
+      "snapshots": [
+        {
+          "contract_version": "1.20.0-alpha.1",
+          "snapshot_id": "snap-1",
+          "request_id": "req-fetch-1",
+          "session_id": "",
+          "url": "https://example.org/",
+          "final_url": "https://example.org/",
+          "fetched_at": "2026-01-01T00:00:04Z",
+          "sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+          "content_type": "text/markdown",
+          "title": "Example",
+          "markdown": "hello",
+          "provenance": {
+            "provider": "google_http",
+            "method": "http_get",
+            "redirects": 0,
+            "status": 200
+          },
+          "applied_limits": {
+            "max_body_bytes": 2097152,
+            "max_markdown_chars": 60000
+          }
+        }
+      ],
+      "claims": [
+        {
+          "claim_id": "c1",
+          "statement": "The example.org page contains the word hello.",
+          "status": "supported",
+          "quote": "hello",
+          "source_snapshot_id": "snap-1",
+          "source_url": "https://example.org/",
+          "derived_from": []
+        }
+      ],
+      "contradictions": [],
+      "citations": [
+        {
+          "title": "Example",
+          "url": "https://example.org/"
+        }
+      ],
+      "error": {
+        "contract_version": "1.20.0-alpha.1",
+        "code": "",
+        "message": "",
+        "retryable": false,
+        "details": {},
+        "request_id": "",
+        "command_id": "",
+        "session_id": "",
+        "occurred_at": ""
+      }
+    }
+  },
+  "negative": [
+    {
+      "id": "unknown_error_code",
+      "model": "BrowserError",
+      "input": {
+        "code": "not_a_real_code",
+        "message": "bad"
+      },
+      "error_code": "invalid_request"
+    },
+    {
+      "id": "reuse_user_profile_rejected",
+      "model": "BrowserPolicy",
+      "input": {
+        "credentials": {
+          "reuse_user_profile": true
+        }
+      },
+      "error_code": "profile_denied"
+    },
+    {
+      "id": "strict_provider_empty_fallback",
+      "model": "SearchResult",
+      "input": {
+        "strict_provider": true,
+        "providers_requested": ["google_browser"],
+        "providers_used": ["duckduckgo"],
+        "provider_trace": [
+          {
+            "provider": "google_browser",
+            "attempted": true,
+            "used": false,
+            "fallback_reason": "google_browser_unavailable"
+          },
+          {
+            "provider": "duckduckgo",
+            "attempted": true,
+            "used": true
+          }
+        ]
+      },
+      "error_code": "strict_provider_rejected"
+    },
+    {
+      "id": "supported_claim_missing_quote",
+      "model": "ResearchClaim",
+      "input": {
+        "claim_id": "c-bad",
+        "statement": "Invented fact",
+        "status": "supported",
+        "quote": "",
+        "source_url": "https://example.org/"
+      },
+      "error_code": "invalid_request"
+    },
+    {
+      "id": "derived_claim_needs_two_refs",
+      "model": "ResearchClaim",
+      "input": {
+        "claim_id": "c-derived",
+        "statement": "Synthesis",
+        "status": "derived",
+        "derived_from": ["c1"]
+      },
+      "error_code": "invalid_request"
+    }
+  ]
+}

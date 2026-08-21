@@ -1,0 +1,16 @@
+{
+  "name": "clinical-v1beta-parity",
+  "actions": [
+    { "name": "ask_question", "query": "tell me everything" },
+    { "name": "ask_question", "query": "history of present illness" },
+    { "name": "submit_diagnosis", "query": "Influenza-like illness" }
+  ],
+  "expect": {
+    "first_code": "evidence_not_available",
+    "no_full_case": true,
+    "closed": true,
+    "quorum": 0,
+    "heuristic_only": true,
+    "correct": false
+  }
+}

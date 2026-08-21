@@ -44,7 +44,7 @@ loadMonorepoEnv();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Allow importing workspace package source (ESM).
-  transpilePackages: ["@handoffkit/core"],
+  transpilePackages: ["@handoffkit/core", "@handoffkit/clinical"],
   serverExternalPackages: [],
 };
 

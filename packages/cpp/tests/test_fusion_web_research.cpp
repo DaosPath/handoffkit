@@ -1,6 +1,8 @@
 #include <handoffkit/demos/fusion/engine.hpp>
 #include <handoffkit/demos/fusion/web_research.hpp>
 #include <handoffkit/browser/kit.hpp>
+#include <handoffkit/browser/html_extract.hpp>
+#include <handoffkit/browser/research.hpp>
 #include <handoffkit/explore/transport.hpp>
 
 #include <cassert>
@@ -231,6 +233,40 @@ void test_browser_kit_provider_defaults() {
     std::cout << "test_browser_kit_provider_defaults ok\n";
 }
 
+void test_google_provider_and_ad_filter() {
+    auto map = handoffkit::browser::make_fixture_map_transport();
+    map->set_page(
+        "https://www.google.com/search?hl=en&num=8&q=OpenAI",
+        R"(<html><body>
+          <a href="/aclk?sa=l&amp;adurl=https%3A%2F%2Fads.example%2F">Sponsored</a>
+          <a href="/url?q=https%3A%2F%2Fexample.org%2Fpaper&amp;sa=U">Primary paper</a>
+          <a href="/search?q=OpenAI">Google navigation</a>
+          <a href="https://example.org/direct">Direct source</a>
+        </body></html>)");
+    const auto result = handoffkit::browser::web_search(
+        "OpenAI", map, 4, 20000, {}, {}, {"google"});
+    assert(result.value("success", false));
+    assert(result.value("engine", "") == "google_html");
+    assert(result.value("providers_used", nlohmann::json::array()).at(0) == "google");
+    const auto results = result.value("results", nlohmann::json::array());
+    assert(results.size() == 2);
+    assert(results.at(0).value("url", "") == "https://example.org/direct");
+    assert(results.at(1).value("url", "") == "https://example.org/paper");
+
+    const std::string page = R"(<html><body>
+      <div class="ad-banner"><a href="https://ads.example/click">Buy</a></div>
+      <div id="cookie-consent">Accept cookies</div>
+      <main><p>Primary evidence remains.</p><a href="/source">Source</a></main>
+    </body></html>)";
+    const auto text = handoffkit::browser::extract_text(page);
+    assert(text.find("Primary evidence remains") != std::string::npos);
+    assert(text.find("Buy") == std::string::npos);
+    const auto links = handoffkit::browser::extract_links(page, "https://example.org/", 10);
+    assert(links.size() == 1);
+    assert(links.front().absolute == "https://example.org/source");
+    std::cout << "test_google_provider_and_ad_filter ok\n";
+}
+
 int main() {
     test_extract_urls();
     test_search_query_from_draco_wrapper();
@@ -239,6 +275,7 @@ int main() {
     test_fusion_echo_with_web_md();
     test_registry_has_web_search();
     test_browser_kit_provider_defaults();
+    test_google_provider_and_ad_filter();
     std::cout << "ALL test_fusion_web_research PASSED\n";
     return 0;
 }

@@ -62,7 +62,7 @@ export function Navbar() {
 
         <button
           type="button"
-          className="nav-mobile-btn inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[rgba(37,99,255,0.12)] bg-white/70 text-[var(--navy)]"
+          className="nav-mobile-btn inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[rgba(37,99,255,0.12)] bg-white/70 text-[var(--navy)]"
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}

@@ -234,6 +234,7 @@ set_target_properties(handoffkit_core PROPERTIES
 add_library(handoffkit::core ALIAS handoffkit_core)
 
 set(HANDOFFKIT_BROWSER_SOURCES
+  src/browser/core.cpp
   src/browser/web_types.cpp
   src/browser/html_extract.cpp
   src/browser/transport.cpp
@@ -363,6 +364,8 @@ if(HANDOFFKIT_BUILD_TESTS)
   handoffkit_add_test(test_orchestrator_eval tests/test_orchestrator_eval.cpp LINK handoffkit_core)
   handoffkit_add_test(test_structured_replay_text tests/test_structured_replay_text.cpp LINK handoffkit_core)
   handoffkit_add_test(test_web_explorer tests/test_web_explorer.cpp LINK handoffkit_browser)
+  handoffkit_add_test(test_browser_core tests/test_browser_core.cpp LINK handoffkit_browser)
+  handoffkit_add_test(test_browser_real_tls tests/test_browser_real_tls.cpp LINK handoffkit_core)
   handoffkit_add_test(test_core_runtime tests/test_core_runtime.cpp LINK handoffkit_core)
   handoffkit_add_test(test_train_core tests/test_train_core.cpp LINK handoffkit_core)
 

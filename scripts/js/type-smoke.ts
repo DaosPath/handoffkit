@@ -24,10 +24,14 @@ import {
   sanitizeErrorBody,
 } from "@handoffkit/providers";
 import { FileTraceStore, JsonMemoryStore, ProjectIndexer } from "@handoffkit/node";
+import { HANDOFFKIT_BROWSER_CORE_VERSION, BrowserPolicy, PLATFORM_SEARCH_PROVIDERS } from "@handoffkit/browser-core";
 import { HANDOFFKIT_BROWSER_VERSION, registerBrowserTools, webSearch } from "@handoffkit/browser";
+import { CONTRACT_VERSION as BROWSER_LITE_CONTRACT } from "@handoffkit/browser-lite";
+import { HANDOFFKIT_BROWSER_REAL_VERSION, detectChallenge } from "@handoffkit/browser-real";
 import { Recipe, RecipeRunner, realFusionPanel } from "@handoffkit/recipes";
 import { TemplateScaffolder } from "@handoffkit/templates";
 import { VERSION, main } from "@handoffkit/cli";
+import { HANDOFFKIT_CLINICAL_VERSION, ClinicalClient, STATUS_PUBLIC } from "@handoffkit/clinical";
 
 const agent = new Agent({ name: "Planner" });
 const cspRuntime = new CspRuntime({ mode: RuntimeMode.SESSION });
@@ -53,7 +57,10 @@ const recipe = new Recipe({ name: "typed", steps: [] });
 const runner = new RecipeRunner(recipe);
 const scaffolder = new TemplateScaffolder();
 
-void [HANDOFFKIT_CORE_VERSION, HANDOFFKIT_CSP_VERSION, HANDOFFKIT_PROVIDERS_VERSION, HANDOFFKIT_BROWSER_VERSION, VERSION, envelope, handoff, coreFallback, openai, traceStore, memoryStore, indexer, runner, scaffolder];
+void [HANDOFFKIT_CORE_VERSION, HANDOFFKIT_CSP_VERSION, HANDOFFKIT_PROVIDERS_VERSION, HANDOFFKIT_BROWSER_CORE_VERSION, HANDOFFKIT_BROWSER_VERSION, BROWSER_LITE_CONTRACT, HANDOFFKIT_BROWSER_REAL_VERSION, HANDOFFKIT_CLINICAL_VERSION, VERSION, envelope, handoff, coreFallback, openai, traceStore, memoryStore, indexer, runner, scaffolder, PLATFORM_SEARCH_PROVIDERS, STATUS_PUBLIC];
+void ClinicalClient;
+void BrowserPolicy;
+void detectChallenge;
 void registerBrowserTools;
 void webSearch;
 void team.arun("typed");

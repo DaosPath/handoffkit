@@ -25,6 +25,7 @@ import { MotionProvider } from "@/components/MotionProvider";
 import { StudioNavbar } from "./StudioNavbar";
 import { StudioFooter } from "./StudioFooter";
 import { MaiPanelLive } from "./MaiPanelLive";
+import { ClinicalLabClient } from "./ClinicalLabClient";
 import { easeOut, fadeUp, stagger, viewportOnce } from "@/lib/motion";
 
 function eventIcon(kind: TimelineEvent["kind"]) {
@@ -81,7 +82,7 @@ export function DemoDetailPage({ demo }: { demo: DemoItem }) {
           />
         </div>
 
-        <StudioNavbar />
+        <StudioNavbar active={demo.id === "clinical-lab" ? "Clinical Lab" : "Demos"} />
 
         {/* Hero */}
         <section className="relative overflow-hidden px-4 pb-8 pt-10 sm:px-6 sm:pt-14">
@@ -153,7 +154,12 @@ export function DemoDetailPage({ demo }: { demo: DemoItem }) {
                   </ul>
 
                   <div className="mt-6 flex flex-wrap gap-2">
-                    {demo.id === "mai-style-panel" ? (
+                    {demo.id === "clinical-lab" ? (
+                      <a href="#clinical-lab" className="liquid-button !text-sm">
+                        Open lab
+                        <Play size={14} fill="currentColor" />
+                      </a>
+                    ) : demo.id === "mai-style-panel" ? (
                       <a href="#live-run" className="liquid-button !text-sm">
                         Run with NVIDIA
                         <Play size={14} fill="currentColor" />
@@ -171,15 +177,19 @@ export function DemoDetailPage({ demo }: { demo: DemoItem }) {
                     )}
                     <a
                       href={
-                        demo.id === "mai-style-panel"
-                          ? "#live-run"
-                          : "#replay-panel"
+                        demo.id === "clinical-lab"
+                          ? "#clinical-lab"
+                          : demo.id === "mai-style-panel"
+                            ? "#live-run"
+                            : "#replay-panel"
                       }
                       className="liquid-button-secondary !text-sm"
                     >
-                      {demo.id === "mai-style-panel"
-                        ? "Jump to panel"
-                        : "Jump to replay"}
+                      {demo.id === "clinical-lab"
+                        ? "Jump to lab"
+                        : demo.id === "mai-style-panel"
+                          ? "Jump to panel"
+                          : "Jump to replay"}
                     </a>
                   </div>
                 </div>
@@ -212,6 +222,14 @@ export function DemoDetailPage({ demo }: { demo: DemoItem }) {
         </section>
 
         {/* MAI: single live Expert Panel Flow (no static duplicate below) */}
+        {demo.id === "clinical-lab" && (
+          <div id="clinical-lab" className="px-4 pb-10 sm:px-6">
+            <div className="mx-auto max-w-[1400px]">
+              <ClinicalLabClient />
+            </div>
+          </div>
+        )}
+
         {demo.id === "mai-style-panel" && (
           <div id="live-run">
             <MaiPanelLive />
@@ -219,7 +237,7 @@ export function DemoDetailPage({ demo }: { demo: DemoItem }) {
         )}
 
         {/* Other demos: static workflow preview */}
-        {demo.id !== "mai-style-panel" && (
+        {demo.id !== "mai-style-panel" && demo.id !== "clinical-lab" && (
         <section
           id="replay-panel"
           className="relative px-4 py-8 sm:px-6 sm:py-10"
@@ -415,7 +433,7 @@ export function DemoDetailPage({ demo }: { demo: DemoItem }) {
         )}
 
         {/* Mock handoff trail + sample only for non-live demos */}
-        {demo.id !== "mai-style-panel" && (
+        {demo.id !== "mai-style-panel" && demo.id !== "clinical-lab" && (
           <>
             <section className="px-4 py-6 sm:px-6 sm:py-8">
               <div className="mx-auto max-w-[1400px]">

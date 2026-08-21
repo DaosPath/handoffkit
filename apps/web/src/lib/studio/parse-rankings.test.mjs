@@ -14,6 +14,7 @@ const modPath = pathToFileURL(
 const {
   parsePanelConsensus,
   ensureJudgeAnswer,
+  assessPanelConsensus,
   stripRankingMachineBlocks,
 } = await import(modPath);
 
@@ -99,6 +100,39 @@ Experts agree on viral etiology; influenza and COVID remain open.
 `;
   const { consensus } = ensureJudgeAnswer(text);
   assert.ok(consensus.rankings.length >= 2);
+});
+
+test("consensus gate rejects synthetic or incomplete rankings", () => {
+  const complete = ensureJudgeAnswer(`
+RANKINGS_JSON:
+{"rankings":[{"label":"A","percent":50},{"label":"B","percent":30},{"label":"C","percent":20}],"red_flag":"new objective finding"}
+`);
+  assert.equal(complete.synthetic, false);
+  assert.equal(
+    assessPanelConsensus(complete.consensus, complete.synthetic, complete.text).eligible,
+    true,
+  );
+
+  const synthetic = ensureJudgeAnswer(
+    "Acute viral respiratory syndrome with fever and cough; more data needed.",
+  );
+  assert.equal(synthetic.synthetic, true);
+  assert.equal(assessPanelConsensus(synthetic.consensus, synthetic.synthetic).eligible, false);
+
+  const two = ensureJudgeAnswer(`
+RANKINGS_JSON:
+{"rankings":[{"label":"A","percent":60},{"label":"B","percent":40}],"red_flag":"new objective finding"}
+`);
+  assert.equal(assessPanelConsensus(two.consensus, two.synthetic).eligible, false);
+
+  const malformed = ensureJudgeAnswer(`
+RANKINGS_JSON:
+{"rankings":[{"label":"A","percent":40},{"label":"B","percent":30},{"label":"C","percent":20}],"red_flag":"new objective finding"}
+`);
+  assert.equal(
+    assessPanelConsensus(malformed.consensus, malformed.synthetic, malformed.text).eligible,
+    false,
+  );
 });
 
 console.log(process.exitCode ? "FAILED" : "all passed");

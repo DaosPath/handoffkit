@@ -1,9 +1,16 @@
+import { PLATFORM_SEARCH_PROVIDERS, normalizeProviderName } from "@handoffkit/browser-core";
 import { TransportRequest, defaultTransport } from "./transport.js";
 import { rankSearchHits } from "./rank.js";
+import { decodeHtmlEntities } from "./html_extract.js";
+import { detectSoftBlock } from "./util.js";
 import {
   USER_BROWSER_PROVIDER,
   searchUserBrowser,
 } from "./user_browser.js";
+import {
+  DEFAULT_BROWSER_PROVIDER,
+  searchDefaultBrowser,
+} from "./default_browser.js";
 
 const STOPWORDS = new Set([
   "a", "an", "the", "of", "in", "on", "at", "to", "for", "and", "or", "that", "this", "was", "were",
@@ -106,34 +113,135 @@ function stripTags(s) {
     .trim();
 }
 
-export const DEFAULT_SEARCH_PROVIDERS = Object.freeze(["duckduckgo", "wikipedia"]);
+export const DEFAULT_SEARCH_PROVIDERS = Object.freeze([...PLATFORM_SEARCH_PROVIDERS]);
 export const SUPPORTED_SEARCH_PROVIDERS = Object.freeze([
+  "google",
+  "google_http",
+  "google_browser",
+  "project_index",
   "duckduckgo",
   "wikipedia",
   USER_BROWSER_PROVIDER,
+  DEFAULT_BROWSER_PROVIDER,
 ]);
+export { PLATFORM_SEARCH_PROVIDERS };
 
 function providerEngine(providers) {
   const names = [];
   for (const raw of providers ?? []) {
     const value = String(raw ?? "").trim().toLowerCase();
-    const provider = value === "ddg"
+    const provider = value === "g"
+      ? "google"
+      : value === "ddg"
       ? "duckduckgo"
       : value === "wiki"
         ? "wikipedia"
         : value === "user-browser"
           ? USER_BROWSER_PROVIDER
+          : value === "default-browser" || value === "system-browser"
+            ? DEFAULT_BROWSER_PROVIDER
           : value;
-    const engine = provider === "duckduckgo"
+    const engine = provider === "google" || provider === "google_http"
+      ? "google_html"
+      : provider === "google_browser"
+        ? "google_browser"
+        : provider === "project_index"
+          ? "project_index"
+      : provider === "duckduckgo"
       ? "duckduckgo_html"
       : provider === "wikipedia"
         ? "wikipedia_opensearch"
         : provider === USER_BROWSER_PROVIDER
           ? "user_browser_bridge"
+          : provider === DEFAULT_BROWSER_PROVIDER
+            ? "default_browser_bridge"
           : "";
     if (engine && !names.includes(engine)) names.push(engine);
   }
   return names.join("+") || "none";
+}
+
+function isSearchAdUrl(url) {
+  const value = String(url ?? "").toLowerCase();
+  if (!value) return true;
+  if (value.includes("googleadservices.com") || value.includes("doubleclick.net")) return true;
+  if (value.includes("/aclk?") || value.includes("/pagead/") || value.includes("adurl=")) return true;
+  if (value.includes("/ads/") || value.endsWith("/ads")) return true;
+  return false;
+}
+
+function unwrapGoogleLink(raw) {
+  let link = decodeHtmlEntities(String(raw ?? "").trim());
+  if (!link) return "";
+  try {
+    const parsed = new URL(link, "https://www.google.com/");
+    if (parsed.hostname === "www.google.com" || parsed.hostname === "google.com") {
+      const target = parsed.searchParams.get("q") || parsed.searchParams.get("url") || "";
+      if (target) link = target;
+      else return "";
+    }
+  } catch {
+    return "";
+  }
+  try {
+    const parsed = new URL(link);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    parsed.hash = "";
+    if (isSearchAdUrl(parsed.href)) return "";
+    if (parsed.hostname === "google.com" || parsed.hostname?.endsWith(".google.com")) return "";
+    return parsed.href;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Parse Google's server-rendered result page without opening a browser tab.
+ * Only outbound result anchors are accepted; ad redirectors, Google chrome,
+ * and internal search/navigation links are discarded before ranking.
+ */
+export async function searchGoogle(transport, query, maxResults = 8, timeoutMs = 20000) {
+  const hits = [];
+  if (!transport || !query || maxResults < 1) return hits;
+  let q = String(query);
+  const kw = keywordCompress(query, 10);
+  if (kw) q = kw;
+  const url =
+    `https://www.google.com/search?hl=en&num=${Math.max(maxResults, 8)}` +
+    `&q=${urlEncodeComponent(q)}`;
+  const resp = await transport.get(
+    new TransportRequest({
+      url,
+      timeoutMs: timeoutMs > 0 ? timeoutMs : 20000,
+      headers: {
+        "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
+        Accept: "text/html,application/xhtml+xml",
+      },
+    }),
+  );
+  if (resp.error || resp.status < 200 || resp.status >= 300 || !resp.body) return hits;
+
+  const html = resp.body;
+  const anchorRe = /<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
+  let match;
+  while (hits.length < maxResults && (match = anchorRe.exec(html)) !== null) {
+    const link = unwrapGoogleLink(match[1] ?? match[2] ?? match[3] ?? "");
+    if (!link) continue;
+    const title = stripTags(match[4] ?? "");
+    if (!title || title.length < 2) continue;
+    pushHit(hits, title, link, maxResults);
+  }
+  return hits;
+}
+
+function canonicalSearchProvider(raw) {
+  const normalized = normalizeProviderName(raw);
+  if (normalized === "google_http") return "google";
+  return normalized;
+}
+
+function traceProviderName(internal) {
+  return internal === "google" ? "google_http" : internal;
 }
 
 function normalizeProviders(providers) {
@@ -141,16 +249,9 @@ function normalizeProviders(providers) {
   const normalized = [];
   const errors = [];
   for (const raw of requested) {
-    const value = String(raw ?? "").trim().toLowerCase();
-    const provider = value === "ddg"
-      ? "duckduckgo"
-      : value === "wiki"
-        ? "wikipedia"
-        : value === "user-browser"
-          ? USER_BROWSER_PROVIDER
-          : value;
+    const provider = canonicalSearchProvider(raw);
     if (!provider) continue;
-    if (!SUPPORTED_SEARCH_PROVIDERS.includes(provider)) {
+    if (!SUPPORTED_SEARCH_PROVIDERS.includes(provider) && provider !== "google") {
       errors.push(`unsupported provider: ${provider}`);
       continue;
     }
@@ -205,7 +306,7 @@ async function wikipediaOpensearch(transport, query, maxResults, timeoutMs) {
 
 async function duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs) {
   const hits = [];
-  if (!transport || !query || maxResults < 1) return hits;
+  if (!transport || !query || maxResults < 1) return { hits };
 
   let q = String(query);
   const kw = keywordCompress(query, 10);
@@ -222,7 +323,17 @@ async function duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs) {
       },
     }),
   );
-  if (resp.error || resp.status < 200 || resp.status >= 300 || !resp.body) return hits;
+  if (resp.error) return { hits, error_code: "duckduckgo_transport_error", error: resp.error };
+  const soft = detectSoftBlock(resp.body ?? "", resp.status);
+  const lowerBody = String(resp.body ?? "").slice(0, 12000).toLowerCase();
+  if (soft.blocked || /anomaly detected|unusual traffic|automated quer(?:y|ies)|rate limit|too many requests|not a robot/.test(lowerBody)) {
+    return {
+      hits,
+      error_code: "duckduckgo_soft_block",
+      error: "DuckDuckGo returned a rate-limit or bot-challenge page",
+    };
+  }
+  if (resp.status < 200 || resp.status >= 300 || !resp.body) return { hits, error_code: "duckduckgo_empty_response", error: "DuckDuckGo returned no HTML results" };
 
   const html = resp.body;
 
@@ -270,38 +381,109 @@ async function duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs) {
     pushHit(hits, "", dec, maxResults);
     pos = end;
   }
-  return hits;
+  return { hits };
 }
 
-async function searchWithProviders(transport, query, maxResults, timeoutMs, providers, userBrowser) {
+async function searchWithProviders(transport, query, maxResults, timeoutMs, providers, userBrowser, extras = {}) {
   const normalized = normalizeProviders(providers);
   const hits = [];
   const providersUsed = [];
   const errors = [...normalized.errors];
   const providerCodes = [];
+  const providerTrace = [];
+  const strictProvider = Boolean(extras.strictProvider ?? extras.strict_provider);
+  const startedIso = () => new Date().toISOString();
+
   for (const provider of normalized.normalized) {
+    const startedAt = startedIso();
+    let providerHits = [];
+    let providerResult = null;
+    let errorCode = "";
+    let errorText = "";
     try {
-      let providerHits;
-      let providerResult = null;
-      if (provider === "duckduckgo") {
-        providerHits = await duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs);
+      if (provider === "google_browser") {
+        if (typeof extras.googleBrowserSearch === "function") {
+          providerResult = await extras.googleBrowserSearch(query, { maxResults, timeoutMs });
+          providerHits = providerResult?.hits ?? providerResult?.results ?? [];
+        } else {
+          errorCode = "provider_unavailable";
+          errorText = "google_browser requires an explicit Browser Real search hook";
+        }
+      } else if (provider === "project_index") {
+        if (extras.projectIndex && typeof extras.projectIndex.search === "function") {
+          providerResult = await extras.projectIndex.search(query, { maxResults, timeoutMs });
+          providerHits = providerResult?.hits ?? providerResult?.results ?? [];
+        } else {
+          errorCode = "index_unavailable";
+          errorText = "project_index is opt-in and was not configured";
+        }
+      } else if (provider === "google") {
+        providerHits = await searchGoogle(transport, query, maxResults, timeoutMs);
+      } else if (provider === "duckduckgo") {
+        providerResult = await duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs);
+        providerHits = providerResult.hits;
       } else if (provider === "wikipedia") {
         providerHits = await wikipediaOpensearch(transport, query, maxResults, timeoutMs);
+      } else if (provider === DEFAULT_BROWSER_PROVIDER) {
+        providerResult = await searchDefaultBrowser(userBrowser, query, { maxResults, timeoutMs });
+        providerHits = providerResult.hits;
       } else {
         providerResult = await searchUserBrowser(userBrowser, query, { maxResults, timeoutMs });
         providerHits = providerResult.hits;
       }
-      for (const h of providerHits) pushHit(hits, h.title, h.url, maxResults);
-      if (providerHits.length) providersUsed.push(provider);
-      else if (providerResult?.error_code) {
-        providerCodes.push(providerResult.error_code);
-        errors.push(`${provider}: ${providerResult.error}`.trim());
-      } else errors.push(`${provider}: empty`);
+      if (!errorCode && providerResult?.error_code) {
+        errorCode = providerResult.error_code;
+        errorText = providerResult.error || errorCode;
+      }
+      const used = Array.isArray(providerHits) && providerHits.length > 0;
+      if (used) {
+        for (const h of providerHits) pushHit(hits, h.title, h.url, maxResults);
+        providersUsed.push(provider === "google" ? "google" : provider);
+      } else if (errorCode) {
+        providerCodes.push(errorCode);
+        errors.push(`${provider}: ${errorText}`.trim());
+      } else {
+        errors.push(`${provider}: empty`);
+        errorCode = errorCode || "no_results";
+      }
+      const fallbackReason = used
+        ? ""
+        : errorCode === "provider_unavailable"
+          ? `${traceProviderName(provider)}_unavailable`
+          : errorCode === "index_unavailable"
+            ? "project_index_disabled"
+            : errorCode === "provider_challenge"
+              ? `${traceProviderName(provider)}_challenge`
+              : `${traceProviderName(provider)}_empty`;
+      providerTrace.push({
+        provider: traceProviderName(provider),
+        attempted: true,
+        used,
+        result_count: used ? providerHits.length : 0,
+        error_code: used ? "" : errorCode,
+        fallback_reason: fallbackReason,
+        started_at: startedAt,
+        finished_at: startedIso(),
+      });
+      if (strictProvider && !used) {
+        break;
+      }
     } catch (error) {
       errors.push(`${provider}: ${String(error?.message ?? error)}`);
+      providerTrace.push({
+        provider: traceProviderName(provider),
+        attempted: true,
+        used: false,
+        result_count: 0,
+        error_code: "provider_unavailable",
+        fallback_reason: `${traceProviderName(provider)}_error`,
+        started_at: startedAt,
+        finished_at: startedIso(),
+      });
+      if (strictProvider) break;
     }
   }
-  if (hits.length === 0 && normalized.normalized.includes("wikipedia")) {
+  if (hits.length === 0 && normalized.normalized.includes("wikipedia") && !strictProvider) {
     const shortQ = keywordCompress(query, 4);
     if (shortQ && shortQ !== query) {
       try {
@@ -313,7 +495,6 @@ async function searchWithProviders(transport, query, maxResults, timeoutMs, prov
       }
     }
   }
-  // Prefer titled hits first when trimming.
   hits.sort((a, b) => Number(Boolean(b.title)) - Number(Boolean(a.title)));
   return {
     hits: hits.slice(0, maxResults),
@@ -322,6 +503,8 @@ async function searchWithProviders(transport, query, maxResults, timeoutMs, prov
     providersRequested: normalized.requested,
     providerCodes,
     engine: providerEngine(normalized.requested),
+    providerTrace,
+    strictProvider,
   };
 }
 
@@ -332,8 +515,9 @@ export async function multiSearch(
   timeoutMs = 20000,
   providers = DEFAULT_SEARCH_PROVIDERS,
   userBrowser = null,
+  extras = {},
 ) {
-  const result = await searchWithProviders(transport, query, maxResults, timeoutMs, providers, userBrowser);
+  const result = await searchWithProviders(transport, query, maxResults, timeoutMs, providers, userBrowser, extras);
   return result.hits;
 }
 
@@ -342,13 +526,20 @@ export async function multiSearch(
  */
 export async function webSearch(query, opts = {}) {
   const q = String(query ?? "").trim();
-  const maxResults = Math.min(Math.max(Number(opts.maxResults ?? opts.max_results ?? 8) || 8, 1), 8);
+  const maxResults = Math.min(Math.max(Number(opts.maxResults ?? opts.max_results ?? 8) || 8, 1), 32);
   const timeoutMs = Number(opts.timeoutMs ?? opts.timeout_ms ?? 20000) || 20000;
   const transport = opts.transport ?? defaultTransport(true);
   const allowHosts = opts.allowHosts ?? opts.allow_hosts ?? [];
   const denyHosts = opts.denyHosts ?? opts.deny_hosts ?? [];
-  const providers = opts.providers ?? DEFAULT_SEARCH_PROVIDERS;
+  const searchPlan = String(opts.searchPlan ?? opts.search_plan ?? "").toLowerCase();
+  const providers = opts.providers
+    ?? (searchPlan === "platform" ? [...PLATFORM_SEARCH_PROVIDERS] : DEFAULT_SEARCH_PROVIDERS);
   const userBrowser = opts.userBrowser ?? opts.user_browser ?? null;
+  const extras = {
+    strictProvider: opts.strictProvider ?? opts.strict_provider ?? false,
+    googleBrowserSearch: opts.googleBrowserSearch ?? opts.google_browser_search ?? null,
+    projectIndex: opts.projectIndex ?? opts.project_index ?? null,
+  };
 
   if (!q) {
     return {
@@ -359,21 +550,57 @@ export async function webSearch(query, opts = {}) {
       count: 0,
       providers_requested: Array.isArray(providers) ? providers.map((p) => String(p)) : [],
       providers_used: [],
+      provider_trace: [],
       errors: ["query is required"],
       provider_codes: [],
       engine: providerEngine(providers),
       error_code: "query_required",
       error: "query is required",
+      strict_provider: Boolean(extras.strictProvider),
     };
   }
 
-  const searched = await searchWithProviders(transport, q, maxResults, timeoutMs, providers, userBrowser);
+  const searched = await searchWithProviders(transport, q, maxResults, timeoutMs, providers, userBrowser, extras);
+  if (extras.strictProvider && searched.providerTrace.some((item) => item.fallback_reason)) {
+    return {
+      success: false,
+      query: q,
+      keywords: keywordCompress(q),
+      results: [],
+      count: 0,
+      providers_requested: searched.providersRequested,
+      providers_used: [],
+      provider_trace: searched.providerTrace,
+      errors: searched.errors,
+      provider_codes: searched.providerCodes,
+      engine: searched.engine,
+      error_code: "strict_provider_rejected",
+      error: "strict_provider forbids fallback",
+      strict_provider: true,
+    };
+  }
   let results = searched.hits;
   if (allowHosts.length || denyHosts.length) {
     results = rankSearchHits(results, { allowHosts, denyHosts }).slice(0, maxResults);
   } else {
     results = rankSearchHits(results).slice(0, maxResults);
   }
+
+  const providerErrorCode = searched.providerCodes.find((code) => String(code).startsWith("duckduckgo_"))
+    || searched.providerCodes.find((code) => String(code).startsWith("google_"))
+    || (searched.providerCodes.includes("user_browser_bridge_required")
+      ? "user_browser_bridge_required"
+      : searched.providerCodes.includes("user_browser_invalid_response")
+        ? "user_browser_invalid_response"
+        : searched.providerCodes.includes("default_browser_bridge_required")
+          ? "default_browser_bridge_required"
+          : searched.providerCodes.includes("default_browser_invalid_response")
+            ? "default_browser_invalid_response"
+            : searched.errors.some((error) => String(error).startsWith("unsupported provider:"))
+              ? "provider_unavailable"
+              : extras.strictProvider
+                ? "strict_provider_rejected"
+                : "");
 
   return {
     success: results.length > 0,
@@ -387,18 +614,12 @@ export async function webSearch(query, opts = {}) {
     count: results.length,
     providers_requested: searched.providersRequested,
     providers_used: searched.providersUsed,
+    provider_trace: searched.providerTrace,
     errors: searched.errors,
     provider_codes: searched.providerCodes,
     engine: searched.engine,
-    error_code: results.length
-      ? ""
-      : searched.providerCodes.includes("user_browser_bridge_required")
-        ? "user_browser_bridge_required"
-        : searched.providerCodes.includes("user_browser_invalid_response")
-          ? "user_browser_invalid_response"
-          : searched.errors.some((error) => String(error).startsWith("unsupported provider:"))
-        ? "provider_unavailable"
-        : "no_results",
+    error_code: results.length ? "" : providerErrorCode || "no_results",
     error: results.length ? "" : "no search results",
+    strict_provider: Boolean(extras.strictProvider),
   };
 }

@@ -73,6 +73,9 @@ public:
 
     [[nodiscard]] bool valid() const noexcept;
     [[nodiscard]] const PeerIdentity& peer_identity() const;
+    /// Identity parsed locally from this endpoint's configured certificate.
+    /// Throws when provider cannot expose the local credential identity.
+    [[nodiscard]] const PeerIdentity& local_identity() const;
     [[nodiscard]] std::string negotiated_protocol() const;
     [[nodiscard]] std::string negotiated_group() const;
 

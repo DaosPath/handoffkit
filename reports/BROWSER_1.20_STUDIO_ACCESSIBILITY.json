@@ -1,0 +1,211 @@
+{
+  "format": "handoffkit.studio.accessibility-audit",
+  "format_version": 1,
+  "generated_at": "2026-08-14T22:56:47.507Z",
+  "url": "http://127.0.0.1:3100/studio/browser",
+  "engine": "axe-core",
+  "engine_version": "4.12.1",
+  "standard": "WCAG 2.x A/AA automated rules (axe tags wcag2a, wcag2aa, wcag21aa, wcag22aa)",
+  "notice": "Automated audit plus limited keyboard/landmark checks; manual assistive-technology review remains separate.",
+  "status": "pass",
+  "violations": [],
+  "keyboard_failures": [],
+  "viewports": [
+    {
+      "width": 375,
+      "height": 900,
+      "status": 200,
+      "test_engine": {
+        "name": "axe-core",
+        "version": "4.12.1"
+      },
+      "test_runner": {
+        "name": "axe"
+      },
+      "test_environment": {
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36",
+        "windowWidth": 375,
+        "windowHeight": 900,
+        "orientationAngle": 0,
+        "orientationType": "landscape-primary"
+      },
+      "pass_count": 23,
+      "incomplete": [
+        {
+          "id": "aria-prohibited-attr",
+          "impact": "serious",
+          "description": "Ensure ARIA attributes are not prohibited for an element's role",
+          "help": "Elements must only use permitted ARIA attributes",
+          "help_url": "https://dequeuniversity.com/rules/axe/4.12/aria-prohibited-attr?application=axeAPI"
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "help_url": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI"
+        }
+      ],
+      "violations": [],
+      "keyboard": {
+        "interactive_count": 8,
+        "missing_accessible_name_count": 0,
+        "main_count": 1,
+        "skip_link": true,
+        "focus": {
+          "tag": "a",
+          "name": "Skip to browser inspector",
+          "visible": true,
+          "has_indicator": true
+        }
+      }
+    },
+    {
+      "width": 768,
+      "height": 900,
+      "status": 200,
+      "test_engine": {
+        "name": "axe-core",
+        "version": "4.12.1"
+      },
+      "test_runner": {
+        "name": "axe"
+      },
+      "test_environment": {
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36",
+        "windowWidth": 768,
+        "windowHeight": 900,
+        "orientationAngle": 0,
+        "orientationType": "landscape-primary"
+      },
+      "pass_count": 23,
+      "incomplete": [
+        {
+          "id": "aria-prohibited-attr",
+          "impact": "serious",
+          "description": "Ensure ARIA attributes are not prohibited for an element's role",
+          "help": "Elements must only use permitted ARIA attributes",
+          "help_url": "https://dequeuniversity.com/rules/axe/4.12/aria-prohibited-attr?application=axeAPI"
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "help_url": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI"
+        }
+      ],
+      "violations": [],
+      "keyboard": {
+        "interactive_count": 16,
+        "missing_accessible_name_count": 0,
+        "main_count": 1,
+        "skip_link": true,
+        "focus": {
+          "tag": "a",
+          "name": "Skip to browser inspector",
+          "visible": true,
+          "has_indicator": true
+        }
+      }
+    },
+    {
+      "width": 1024,
+      "height": 900,
+      "status": 200,
+      "test_engine": {
+        "name": "axe-core",
+        "version": "4.12.1"
+      },
+      "test_runner": {
+        "name": "axe"
+      },
+      "test_environment": {
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36",
+        "windowWidth": 1024,
+        "windowHeight": 900,
+        "orientationAngle": 0,
+        "orientationType": "landscape-primary"
+      },
+      "pass_count": 23,
+      "incomplete": [
+        {
+          "id": "aria-prohibited-attr",
+          "impact": "serious",
+          "description": "Ensure ARIA attributes are not prohibited for an element's role",
+          "help": "Elements must only use permitted ARIA attributes",
+          "help_url": "https://dequeuniversity.com/rules/axe/4.12/aria-prohibited-attr?application=axeAPI"
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "help_url": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI"
+        }
+      ],
+      "violations": [],
+      "keyboard": {
+        "interactive_count": 15,
+        "missing_accessible_name_count": 0,
+        "main_count": 1,
+        "skip_link": true,
+        "focus": {
+          "tag": "a",
+          "name": "Skip to browser inspector",
+          "visible": true,
+          "has_indicator": true
+        }
+      }
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "status": 200,
+      "test_engine": {
+        "name": "axe-core",
+        "version": "4.12.1"
+      },
+      "test_runner": {
+        "name": "axe"
+      },
+      "test_environment": {
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.16 Safari/537.36",
+        "windowWidth": 1440,
+        "windowHeight": 900,
+        "orientationAngle": 0,
+        "orientationType": "landscape-primary"
+      },
+      "pass_count": 23,
+      "incomplete": [
+        {
+          "id": "aria-prohibited-attr",
+          "impact": "serious",
+          "description": "Ensure ARIA attributes are not prohibited for an element's role",
+          "help": "Elements must only use permitted ARIA attributes",
+          "help_url": "https://dequeuniversity.com/rules/axe/4.12/aria-prohibited-attr?application=axeAPI"
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "help_url": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=axeAPI"
+        }
+      ],
+      "violations": [],
+      "keyboard": {
+        "interactive_count": 15,
+        "missing_accessible_name_count": 0,
+        "main_count": 1,
+        "skip_link": true,
+        "focus": {
+          "tag": "a",
+          "name": "Skip to browser inspector",
+          "visible": true,
+          "has_indicator": true
+        }
+      }
+    }
+  ]
+}

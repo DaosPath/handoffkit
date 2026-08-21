@@ -55,6 +55,8 @@ type Props = {
   role: PanelAgentRole;
   value: string;
   models: NvidiaModelOption[];
+  catalogLabel?: string;
+  docsLabel?: string;
   disabled?: boolean;
   onChange: (modelId: string) => void;
 };
@@ -63,6 +65,8 @@ export function AgentModelPicker({
   role,
   value,
   models,
+  catalogLabel = "Model catalog",
+  docsLabel = "Docs",
   disabled,
   onChange,
 }: Props) {
@@ -152,7 +156,7 @@ export function AgentModelPicker({
             {selected?.label ?? value.split("/").pop() ?? value}
           </span>
           <span className="mai-mpick-sub">
-            {selected?.publisher ?? value.split("/")[0] ?? "NVIDIA NIM"}
+            {selected?.publisher ?? value.split("/")[0] ?? "Model provider"}
             {selected?.blurb ? ` · ${selected.blurb}` : ""}
           </span>
         </span>
@@ -175,7 +179,7 @@ export function AgentModelPicker({
             className="mai-mpick-docs"
             onClick={(e) => e.stopPropagation()}
           >
-            NIM
+            {docsLabel}
             <ExternalLink size={11} strokeWidth={2.2} />
           </a>
         )}
@@ -190,7 +194,7 @@ export function AgentModelPicker({
           aria-label={`Choose model for ${role}`}
         >
           <div className="mai-mpick-menu-head">
-            <span>Free NVIDIA endpoints</span>
+            <span>{catalogLabel}</span>
             <span className="mai-mpick-menu-count">{models.length}</span>
           </div>
           <ul className="mai-mpick-list">

@@ -61,7 +61,7 @@ handoffkit = "handoffkit.cli:main"
 include = ["handoffkit*"]
 
 [tool.setuptools.package-data]
-handoffkit = ["py.typed", "benchmarks/data/*.json"]
+handoffkit = ["py.typed", "benchmarks/data/*.json", "clinical/data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

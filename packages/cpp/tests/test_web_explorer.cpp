@@ -45,6 +45,21 @@ void test_html_extract() {
     assert(page.markdown.find("Source:") != std::string::npos);
     assert(page.markdown.find("[Next Page](https://fixture.local/next)") != std::string::npos);
     assert(page.markdown.find("var x") == std::string::npos);
+    const std::string table_html = R"(
+<html><head><title>Table</title>
+<script type="application/ld+json">{"@type":"Article","name":"Demo"}</script>
+</head><body>
+<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>
+</body></html>
+)";
+    auto table_md = html_table_to_markdown(table_html);
+    assert(table_md.find("| A | B |") != std::string::npos);
+    auto json_ld = extract_json_ld(table_html);
+    assert(!json_ld.empty());
+    assert(json_ld[0].contains("@type"));
+    assert(json_ld[0]["@type"] == "Article");
+    auto page_md = html_to_markdown(table_html, HtmlToMarkdownOptions{});
+    assert(page_md.find("| A | B |") != std::string::npos);
     std::cout << "test_html_extract ok\n";
 }
 

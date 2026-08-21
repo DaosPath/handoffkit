@@ -614,6 +614,42 @@ PeerIdentity identity_from_certificate(X509* certificate,
     return identity;
 }
 
+PeerIdentity local_identity_from_config(const TlsTransportConfig& config) {
+    if (!config.security.cert_path.has_value()) {
+        throw_tls(
+            "tls_local_identity_unavailable",
+            "local certificate identity is unavailable for this credential provider",
+            "local_certificate");
+    }
+    BIO* raw = BIO_new_file(config.security.cert_path->c_str(), "rb");
+    if (raw == nullptr) {
+        throw_tls(
+            "tls_local_identity_unavailable",
+            "could not open the configured local certificate",
+            "PEM_read_bio_X509",
+            openssl_error());
+    }
+    X509* certificate = PEM_read_bio_X509(raw, nullptr, nullptr, nullptr);
+    BIO_free(raw);
+    if (certificate == nullptr) {
+        throw_tls(
+            "tls_local_identity_unavailable",
+            "could not parse the configured local certificate",
+            "PEM_read_bio_X509",
+            openssl_error());
+    }
+    auto local_config = config;
+    local_config.peer_policy = {};
+    try {
+        auto identity = identity_from_certificate(certificate, local_config);
+        X509_free(certificate);
+        return identity;
+    } catch (...) {
+        X509_free(certificate);
+        throw;
+    }
+}
+
 #if !defined(OPENSSL_NO_OCSP)
 using OcspResponsePtr = std::unique_ptr<OCSP_RESPONSE, decltype(&OCSP_RESPONSE_free)>;
 using OcspBasicResponsePtr = std::unique_ptr<OCSP_BASICRESP, decltype(&OCSP_BASICRESP_free)>;
@@ -757,6 +793,7 @@ struct TlsConnection::Impl {
     Socket socket{kInvalidSocket};
     TlsTransportConfig config;
     PeerIdentity identity;
+    std::optional<PeerIdentity> local_identity;
 
     ~Impl() {
         if (ssl != nullptr) {
@@ -804,6 +841,16 @@ bool TlsConnection::valid() const noexcept { return impl_ != nullptr && impl_->s
 const PeerIdentity& TlsConnection::peer_identity() const {
     if (!valid()) throw SecurityError("tls_connection_closed", "TLS connection is closed");
     return impl_->identity;
+}
+
+const PeerIdentity& TlsConnection::local_identity() const {
+    if (!valid()) throw SecurityError("tls_connection_closed", "TLS connection is closed");
+    if (!impl_->local_identity.has_value()) {
+        throw SecurityError(
+            "tls_local_identity_unavailable",
+            "local certificate identity is unavailable for this credential provider");
+    }
+    return *impl_->local_identity;
 }
 
 std::string TlsConnection::negotiated_protocol() const {
@@ -932,6 +979,9 @@ TlsConnection TlsServer::accept() {
         connection->socket = peer;
         connection->config = std::move(config);
         connection->identity = std::move(identity);
+        if (connection->config.security.cert_path.has_value()) {
+            connection->local_identity = local_identity_from_config(connection->config);
+        }
         ssl = nullptr;
         return TlsConnection(std::move(connection));
     } catch (...) {
@@ -973,6 +1023,10 @@ TlsConnection TlsClient::connect(std::string host,
         }
         validate_ocsp_response(ssl, certificate, config);
         PeerIdentity identity = identity_from_certificate(certificate, config);
+        std::optional<PeerIdentity> local_identity;
+        if (config.security.cert_path.has_value()) {
+            local_identity = local_identity_from_config(config);
+        }
         X509_free(certificate);
         certificate = nullptr;
         auto connection = std::make_unique<TlsConnection::Impl>();
@@ -981,6 +1035,7 @@ TlsConnection TlsClient::connect(std::string host,
         connection->socket = socket;
         connection->config = std::move(config);
         connection->identity = std::move(identity);
+        connection->local_identity = std::move(local_identity);
         ssl = nullptr;
         return TlsConnection(std::move(connection));
     } catch (...) {
@@ -1008,6 +1063,7 @@ TlsConnection& TlsConnection::operator=(TlsConnection&& other) noexcept = defaul
 TlsConnection::~TlsConnection() = default;
 bool TlsConnection::valid() const noexcept { return false; }
 const PeerIdentity& TlsConnection::peer_identity() const { throw SecurityError("tls_backend_unavailable", "C++ TLS requires HANDOFFKIT_WITH_TLS=ON"); }
+const PeerIdentity& TlsConnection::local_identity() const { throw SecurityError("tls_backend_unavailable", "C++ TLS requires HANDOFFKIT_WITH_TLS=ON"); }
 std::string TlsConnection::negotiated_protocol() const { throw SecurityError("tls_backend_unavailable", "C++ TLS requires HANDOFFKIT_WITH_TLS=ON"); }
 std::string TlsConnection::negotiated_group() const { throw SecurityError("tls_backend_unavailable", "C++ TLS requires HANDOFFKIT_WITH_TLS=ON"); }
 void TlsConnection::send_json(const nlohmann::json&) { throw SecurityError("tls_backend_unavailable", "C++ TLS requires HANDOFFKIT_WITH_TLS=ON"); }

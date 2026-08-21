@@ -7,9 +7,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from handoffkit.browser.cache import BrowserCache, default_cache_root
+from handoffkit.browser.default_browser import DEFAULT_BROWSER_PROVIDER, explore_default_browser
 from handoffkit.browser.explorer import explore_url, fetch_markdown
 from handoffkit.browser.page import PageMarkdown
 from handoffkit.browser.rank import rank_search_hits
+from handoffkit.browser.research_pack_v2 import finalize_research_pack_v2
 from handoffkit.browser.search import DEFAULT_SEARCH_PROVIDERS, keyword_compress, web_search
 from handoffkit.browser.transport import WebTransport, default_transport
 from handoffkit.browser.types import ExplorePolicy, canonical_url
@@ -58,8 +60,17 @@ class ResearchPack:
     transport: str = ""
     mode: str = "search_then_fetch"
     metadata: dict[str, Any] = field(default_factory=dict)
+    pack_version: int = 2
+    claims: list[dict[str, Any]] = field(default_factory=list)
+    contradictions: list[dict[str, Any]] = field(default_factory=list)
+    snapshots: list[dict[str, Any]] = field(default_factory=list)
+    selected_urls: list[str] = field(default_factory=list)
+    checkpoint_id: str = ""
+    idempotency_key: str = ""
+    provider_trace: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        finalize_research_pack_v2(self)
         return {
             "enabled": self.enabled,
             "used": self.used,
@@ -77,6 +88,14 @@ class ResearchPack:
             "mode": self.mode,
             "agent_markdown": self.to_agent_markdown(),
             "metadata": dict(self.metadata),
+            "pack_version": self.pack_version,
+            "claims": list(self.claims),
+            "contradictions": list(self.contradictions),
+            "snapshots": list(self.snapshots),
+            "selected_urls": list(self.selected_urls),
+            "checkpoint_id": self.checkpoint_id,
+            "idempotency_key": self.idempotency_key,
+            "provider_trace": list(self.provider_trace),
         }
 
     def prompt_section(self) -> str:
@@ -202,6 +221,14 @@ def make_research_queries(
     return out
 
 
+def _provider_includes(providers: list[str], names: set[str]) -> bool:
+    return any(str(provider).strip().lower() in names for provider in providers)
+
+
+def _bridge_configured(bridge: Any) -> bool:
+    return bool(bridge) and getattr(bridge, "configured", True) is not False
+
+
 def _page_from_explore_step(step: Any, *, format: str = "markdown") -> PageMarkdown:
     markdown = step.markdown or step.text or ""
     if format == "readme":
@@ -265,10 +292,11 @@ def gather_deep_web_research(
     allows = list(allow_hosts or [])
     denies = list(deny_hosts or [])
     provider_list = list(providers or DEFAULT_SEARCH_PROVIDERS)
-    user_browser_requested = any(
-        str(provider).strip().lower() in {"user_browser", "user-browser"}
-        for provider in provider_list
+    user_browser_requested = _provider_includes(provider_list, {"user_browser", "user-browser"})
+    default_browser_requested = _provider_includes(
+        provider_list, {DEFAULT_BROWSER_PROVIDER, "default-browser", "system-browser"}
     )
+    browser_bridge_requested = user_browser_requested or default_browser_requested
     browser_cache = cache
     if browser_cache is None and (use_cache or cache_root):
         browser_cache = BrowserCache(root=cache_root or str(default_cache_root()))
@@ -278,10 +306,17 @@ def gather_deep_web_research(
         mode="deep_search_then_explore",
         metadata={
             "execution_mode": (
-                "background_user_browser_bridge" if user_browser_requested else "background_http"
+                "background_default_browser_bridge"
+                if default_browser_requested
+                else "background_user_browser_bridge"
+                if user_browser_requested
+                else "background_http"
             ),
-            "user_browser_required": user_browser_requested,
-            "user_browser_bridge_configured": bool(user_browser),
+            "user_browser_required": browser_bridge_requested,
+            "user_browser_bridge_configured": _bridge_configured(user_browser),
+            "default_browser_required": default_browser_requested,
+            "default_browser_bridge_configured": default_browser_requested
+            and _bridge_configured(user_browser),
             "max_pages": pages_limit,
             "max_depth": depth_limit,
             "max_sub_queries": subquery_limit,
@@ -364,12 +399,17 @@ def gather_deep_web_research(
         pack.metadata["duration_ms"] = int((monotonic() - started) * 1000)
         return pack
 
-    if user_browser_requested:
-        pack.metadata["page_transport"] = "user_browser_bridge"
+    if browser_bridge_requested:
+        pack.metadata["page_transport"] = (
+            "default_browser_bridge" if default_browser_requested else "user_browser_bridge"
+        )
         branch_pages = max(1, min(depth_limit + 1, pages_limit))
 
         def user_browser_explore_one(url: str) -> tuple[str, dict[str, Any]]:
-            return url, explore_user_browser(
+            explorer = (
+                explore_default_browser if default_browser_requested else explore_user_browser
+            )
+            return url, explorer(
                 user_browser,
                 [url],
                 max_pages=branch_pages,
@@ -455,7 +495,12 @@ def gather_deep_web_research(
                     format=format if format in {"markdown", "readme"} else "markdown",
                     success=True,
                     fetched_at="",
-                    metadata={"depth": step.get("depth", 0), "source": "user_browser_bridge"},
+                    metadata={
+                        "depth": step.get("depth", 0),
+                        "source": "default_browser_bridge"
+                        if default_browser_requested
+                        else "user_browser_bridge",
+                    },
                 )
                 if format == "readme":
                     page.markdown = page.to_readme()
@@ -611,20 +656,28 @@ def gather_web_research(
     auto = False if seed_only else auto_search
     provider_list = list(providers or DEFAULT_SEARCH_PROVIDERS)
     subquery_limit = max(1, min(int(max_sub_queries or 3), 8))
-    user_browser_requested = any(
-        str(provider).strip().lower() in {"user_browser", "user-browser"}
-        for provider in provider_list
+    user_browser_requested = _provider_includes(provider_list, {"user_browser", "user-browser"})
+    default_browser_requested = _provider_includes(
+        provider_list, {DEFAULT_BROWSER_PROVIDER, "default-browser", "system-browser"}
     )
+    browser_bridge_requested = user_browser_requested or default_browser_requested
     pack = ResearchPack(
         enabled=True,
         transport=getattr(tr, "name", lambda: "unknown")(),
         mode="seed_only" if seed_only else ("search_then_fetch" if auto else "urls_only"),
         metadata={
             "execution_mode": (
-                "background_user_browser_bridge" if user_browser_requested else "background_http"
+                "background_default_browser_bridge"
+                if default_browser_requested
+                else "background_user_browser_bridge"
+                if user_browser_requested
+                else "background_http"
             ),
-            "user_browser_required": user_browser_requested,
-            "user_browser_bridge_configured": bool(user_browser),
+            "user_browser_required": browser_bridge_requested,
+            "user_browser_bridge_configured": _bridge_configured(user_browser),
+            "default_browser_required": default_browser_requested,
+            "default_browser_bridge_configured": default_browser_requested
+            and _bridge_configured(user_browser),
             "providers_requested": provider_list,
             "providers_used": [],
             "provider_errors": [],
@@ -696,12 +749,17 @@ def gather_web_research(
         pack.used = bool(pack.queries)
         return pack
 
-    if user_browser_requested:
-        pack.metadata["page_transport"] = "user_browser_bridge"
+    if browser_bridge_requested:
+        pack.metadata["page_transport"] = (
+            "default_browser_bridge" if default_browser_requested else "user_browser_bridge"
+        )
         branch_pages = max(1, min(max_depth + 1, max_pages)) if prefer_explore else 1
 
         def user_browser_fetch_one(url: str) -> tuple[str, dict[str, Any]]:
-            return url, explore_user_browser(
+            explorer = (
+                explore_default_browser if default_browser_requested else explore_user_browser
+            )
+            return url, explorer(
                 user_browser,
                 [url],
                 max_pages=branch_pages,
@@ -782,7 +840,12 @@ def gather_web_research(
                     links=list(step.get("links") or []),
                     format=format if format in {"markdown", "readme"} else "markdown",
                     success=True,
-                    metadata={"depth": step.get("depth", 0), "source": "user_browser_bridge"},
+                    metadata={
+                        "depth": step.get("depth", 0),
+                        "source": "default_browser_bridge"
+                        if default_browser_requested
+                        else "user_browser_bridge",
+                    },
                 )
                 if format == "readme":
                     page.markdown = page.to_readme()

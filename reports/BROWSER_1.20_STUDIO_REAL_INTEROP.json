@@ -1,0 +1,40 @@
+{
+  "format": "handoffkit.studio.browser-real-interop",
+  "format_version": 1,
+  "generated_at": "2026-08-14T23:04:22.620Z",
+  "transport": "TCP TLS 1.3 + mTLS",
+  "engine": "Playwright Chromium BrowserServer (real process)",
+  "endpoint": "127.0.0.1",
+  "session_id": "studio-real-interop",
+  "actions": [
+    {
+      "action": "pause",
+      "status": 200,
+      "event": "session.paused",
+      "ok": true
+    },
+    {
+      "action": "resume",
+      "status": 200,
+      "event": "session.resumed",
+      "ok": true
+    },
+    {
+      "action": "cancel",
+      "status": 200,
+      "event": "cancelled",
+      "ok": true
+    },
+    {
+      "action": "retry",
+      "status": 200,
+      "event": "session.retry",
+      "ok": true
+    }
+  ],
+  "authenticated_peer": true,
+  "sequence_reuse_across_connections": true,
+  "sequence_scope": "Studio process; restart qualification is separate",
+  "status": "pass",
+  "notice": "Local Windows evidence; hosted CI, process-restart, and cross-architecture evidence remain separate gates."
+}

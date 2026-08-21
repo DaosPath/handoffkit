@@ -5,6 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 from handoffkit.browser.cache import BrowserCache, default_cache_root
+from handoffkit.browser.default_browser import (
+    DEFAULT_BROWSER_PROVIDER,
+    DefaultBrowserBridge,
+    search_default_browser_many,
+)
 from handoffkit.browser.explorer import explore_url, fetch_markdown
 from handoffkit.browser.page import PageMarkdown
 from handoffkit.browser.research import (
@@ -51,7 +56,27 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
     fmt = opts.get("format") or "markdown"
     max_pages = int(opts.get("max_pages") or opts.get("maxPages") or 3)
     providers = list(opts.get("providers") or opts.get("provider") or DEFAULT_SEARCH_PROVIDERS)
-    user_browser = opts.get("user_browser") or opts.get("userBrowser")
+    default_browser_requested = any(
+        str(provider or "").strip().lower()
+        in {DEFAULT_BROWSER_PROVIDER, "default-browser", "system-browser"}
+        for provider in providers
+    )
+    explicit_default_browser = opts.get("default_browser") or opts.get("defaultBrowser")
+    if explicit_default_browser and hasattr(explicit_default_browser, "search"):
+        default_browser = explicit_default_browser
+    elif default_browser_requested:
+        default_browser = DefaultBrowserBridge(
+            endpoint=opts.get("default_browser_endpoint") or opts.get("defaultBrowserEndpoint"),
+            token=opts.get("default_browser_token") or opts.get("defaultBrowserToken"),
+            timeout_ms=int(
+                opts.get("default_browser_timeout_ms")
+                or opts.get("defaultBrowserTimeoutMs")
+                or 20000
+            ),
+        )
+    else:
+        default_browser = None
+    user_browser = opts.get("user_browser") or opts.get("userBrowser") or default_browser
 
     registry = ToolRegistry()
     register_browser_tools(
@@ -126,7 +151,16 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
         )
 
     def search_many(queries: Any, **kwargs: Any) -> dict[str, Any]:
-        return search_user_browser_many(
+        provider_list = kwargs.get("providers") or providers
+        use_default_browser = any(
+            str(provider or "").strip().lower()
+            in {DEFAULT_BROWSER_PROVIDER, "default-browser", "system-browser"}
+            for provider in provider_list
+        )
+        search_many_impl = (
+            search_default_browser_many if use_default_browser else search_user_browser_many
+        )
+        return search_many_impl(
             kwargs.get("user_browser", kwargs.get("userBrowser", user_browser)),
             queries,
             max_queries=int(kwargs.get("max_queries", kwargs.get("maxQueries", 3))),
@@ -174,4 +208,5 @@ def create_browser_agent_kit(options: dict[str, Any] | None = None) -> dict[str,
         "options": dict(opts),
         "providers": providers,
         "user_browser": user_browser,
+        "default_browser": default_browser,
     }

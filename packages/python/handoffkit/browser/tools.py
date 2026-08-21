@@ -29,6 +29,7 @@ def make_web_search_tool(
     defaults: dict[str, Any] | None = None,
 ) -> Tool:
     defaults = defaults or {}
+
     def run(
         query: str,
         max_results: int = 6,
@@ -57,8 +58,8 @@ def make_web_search_tool(
         name="web_search",
         description=(
             "Search the live web for a query. Returns ranked {title,url,score} hits. "
-            "user_browser requires an explicitly injected search bridge; page research "
-            "also needs fetch/open."
+            "user_browser/default_browser require an explicitly injected host bridge; "
+            "page research also needs fetch/open."
         ),
     )
 
@@ -232,6 +233,7 @@ def make_web_research_tool(
     defaults: dict[str, Any] | None = None,
 ) -> Tool:
     defaults = defaults or {}
+
     def run(
         query: str,
         task: str = "",
@@ -335,7 +337,7 @@ def make_deep_web_research_tool(
         name="web_deep_research",
         description=(
             "Run bounded multi-query, multi-hop research and return a grounded ResearchPack; "
-            "user_browser requires an explicit search plus fetch/open host bridge."
+            "default_browser requires an explicit host search plus fetch/open bridge."
         ),
     )
 

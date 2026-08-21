@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 
 from handoffkit._cli.browse import add_browse_parser, run_browse_command
+from handoffkit._cli.clinical import add_clinical_parser, run_clinical_command
 from handoffkit._cli.csp import csp_demo, csp_doctor, csp_inspect
 from handoffkit._cli.demos import (
     evaluate_report,
@@ -87,6 +88,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Run creation→generation→edition media context handoff demo.",
     )
     add_browse_parser(subparsers)
+    add_clinical_parser(subparsers)
 
     csp_parser = subparsers.add_parser(
         "csp",
@@ -323,6 +325,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "browse":
         return run_browse_command(args)
+    if args.command == "clinical":
+        return run_clinical_command(args)
     if args.command == "csp":
         if args.csp_command == "doctor":
             print(csp_doctor())

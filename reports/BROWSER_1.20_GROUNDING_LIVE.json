@@ -1,0 +1,1284 @@
+{
+  "format": "handoffkit.browser.grounding.live.run",
+  "format_version": 1,
+  "run_id": "20260815181956",
+  "started_at": "2026-08-15T18:19:56.959Z",
+  "finished_at": "2026-08-15T18:20:30.261Z",
+  "corpus": {
+    "file": "packages/contracts/conformance/browser-grounding-live-v1.json",
+    "as_of": "2026-08-14",
+    "expires_at": "2026-09-14",
+    "sha256": "0c7dfd0a0cb6ff7011f217fbe5f36aa00f584faee1955bd96647521537bc1fd8"
+  },
+  "execution": {
+    "real_http": true,
+    "fixture_used": false,
+    "transport": "HandoffKit WebExplorer over HTTPS",
+    "timeout_ms": 30000,
+    "concurrency": 3,
+    "preflight_errors": []
+  },
+  "oracle": {
+    "kind": "live_fetch_evidence",
+    "model_accuracy_measured": false,
+    "description": "Deterministic evidence oracle. It emits claims only from literal facts and quotes present in fetched Markdown."
+  },
+  "status": "pass",
+  "metrics": {
+    "scoreable": 30,
+    "fetched_pages": 30,
+    "unavailable_questions": 0,
+    "factual_accuracy": 1,
+    "completeness": 1,
+    "citation_entailment": 1,
+    "direct_claims_with_evidence": 1,
+    "invented_citations": 0,
+    "failures": [],
+    "oracle": "live_fetch_evidence",
+    "model_accuracy_measured": false,
+    "passed": true
+  },
+  "pages": [
+    {
+      "page_id": "q01",
+      "question_id": "q01",
+      "success": true,
+      "status": 200,
+      "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+      "final_url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+      "title": "RFC 9110: HTTP Semantics",
+      "markdown_chars": 100663,
+      "sha256": "a00d07d85bd63e29f4c1aeea2dae1b082002fe521761d080b2d638ef699aec0a",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:03.439Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 6480,
+      "error": "",
+      "selected_urls": [
+        "https://www.rfc-editor.org/rfc/rfc9110.html"
+      ]
+    },
+    {
+      "page_id": "q02",
+      "question_id": "q02",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Linux_kernel",
+      "final_url": "https://en.wikipedia.org/wiki/Linux_kernel",
+      "title": "Linux kernel - Wikipedia",
+      "markdown_chars": 119956,
+      "sha256": "bd505d483996bb4895c31902433b23258764f85ab7edcfac24b6238d985ce7b6",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:04.260Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 7254,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Linux_kernel"
+      ]
+    },
+    {
+      "page_id": "q03",
+      "question_id": "q03",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Python_(programming_language)",
+      "final_url": "https://en.wikipedia.org/wiki/Python_(programming_language)",
+      "title": "Python (programming language) - Wikipedia",
+      "markdown_chars": 81344,
+      "sha256": "5217112e380f094ace943326cf6fe8a539b8a813098e3e288042656c06d28e81",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:03.787Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 6780,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Python_(programming_language)"
+      ]
+    },
+    {
+      "page_id": "q04",
+      "question_id": "q04",
+      "success": true,
+      "status": 200,
+      "url": "https://www.w3.org/Style/CSS",
+      "final_url": "https://www.w3.org/Style/CSS",
+      "title": "Cascading Style Sheets",
+      "markdown_chars": 13680,
+      "sha256": "ccea64a904b0916a9addbcf26392c13e0551ea2d2fdaf33fd4dad68e9560c029",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:11.017Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 7578,
+      "error": "",
+      "selected_urls": [
+        "https://www.w3.org/Style/CSS"
+      ]
+    },
+    {
+      "page_id": "q05",
+      "question_id": "q05",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/HTTPS",
+      "final_url": "https://en.wikipedia.org/wiki/HTTPS",
+      "title": "HTTPS - Wikipedia",
+      "markdown_chars": 59175,
+      "sha256": "e2d0c6accc2579fa3377de7135c67dfa6734b432da28dc512065b80835b05605",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:10.545Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 6758,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/HTTPS"
+      ]
+    },
+    {
+      "page_id": "q06",
+      "question_id": "q06",
+      "success": true,
+      "status": 200,
+      "url": "https://pnpm.io/",
+      "final_url": "https://pnpm.io/",
+      "title": "Fast, disk space efficient package manager | pnpm",
+      "markdown_chars": 6293,
+      "sha256": "1ae6b07ea331ca69a0fec0c9db90c01d6ee7d50578bba61ff32c0693b909954f",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:11.064Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 6803,
+      "error": "",
+      "selected_urls": [
+        "https://pnpm.io/"
+      ]
+    },
+    {
+      "page_id": "q07",
+      "question_id": "q07",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/France",
+      "final_url": "https://en.wikipedia.org/wiki/France",
+      "title": "France - Wikipedia",
+      "markdown_chars": 88321,
+      "sha256": "3ced07629fb08a715e30d9034cbd3929cfff2949dd7a53c10b07f36884ec875d",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:16.282Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 5737,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/France"
+      ]
+    },
+    {
+      "page_id": "q08",
+      "question_id": "q08",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Pacific_Ocean",
+      "final_url": "https://en.wikipedia.org/wiki/Pacific_Ocean",
+      "title": "Pacific Ocean - Wikipedia",
+      "markdown_chars": 111130,
+      "sha256": "72d231c72fd650f72b74270cbe1565e1d712082d250b197bdeb560183a7bc15d",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:11.722Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 705,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Pacific_Ocean"
+      ]
+    },
+    {
+      "page_id": "q09",
+      "question_id": "q09",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Nile",
+      "final_url": "https://en.wikipedia.org/wiki/Nile",
+      "title": "Nile - Wikipedia",
+      "markdown_chars": 112900,
+      "sha256": "bf3a7594db192f2cc6e271743ec696caa3c739451fc42e9c375dd3684a7e06bb",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:17.511Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 6448,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Nile"
+      ]
+    },
+    {
+      "page_id": "q10",
+      "question_id": "q10",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Kenya",
+      "final_url": "https://en.wikipedia.org/wiki/Kenya",
+      "title": "Kenya - Wikipedia",
+      "markdown_chars": 93126,
+      "sha256": "48738c6208091802d53c4750016b13ad3963987d57d63f5d39e78cf897da4796",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:16.920Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 5197,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Kenya"
+      ]
+    },
+    {
+      "page_id": "q11",
+      "question_id": "q11",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Tokyo",
+      "final_url": "https://en.wikipedia.org/wiki/Tokyo",
+      "title": "Tokyo - Wikipedia",
+      "markdown_chars": 118096,
+      "sha256": "26f439d97839ce3db23bca7523296e0ac02faaebdbcc85c52a4d955278d0afa8",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:18.420Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 2137,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Tokyo"
+      ]
+    },
+    {
+      "page_id": "q12",
+      "question_id": "q12",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Atacama_Desert",
+      "final_url": "https://en.wikipedia.org/wiki/Atacama_Desert",
+      "title": "Atacama Desert - Wikipedia",
+      "markdown_chars": 77605,
+      "sha256": "f04e0a4ff897afb0a7b526fffb58f7d2f8229bffa086d854340d7fadec22ecaf",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:17.703Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 783,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Atacama_Desert"
+      ]
+    },
+    {
+      "page_id": "q13",
+      "question_id": "q13",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Water",
+      "final_url": "https://en.wikipedia.org/wiki/Water",
+      "title": "Water - Wikipedia",
+      "markdown_chars": 117000,
+      "sha256": "03ed084252822f7dc843ff9e85ca3c68ab8dbe86ca33f145807ede6b56403e94",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:19.083Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 1571,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Water"
+      ]
+    },
+    {
+      "page_id": "q14",
+      "question_id": "q14",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Solar_System",
+      "final_url": "https://en.wikipedia.org/wiki/Solar_System",
+      "title": "Solar System - Wikipedia",
+      "markdown_chars": 119528,
+      "sha256": "4766a9bf60c88f983255b96a431787f9cf2f2ffb95e04614a2a61f9d71380dc3",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:19.666Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 1963,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Solar_System"
+      ]
+    },
+    {
+      "page_id": "q15",
+      "question_id": "q15",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Electron",
+      "final_url": "https://en.wikipedia.org/wiki/Electron",
+      "title": "Electron - Wikipedia",
+      "markdown_chars": 107693,
+      "sha256": "dfbcff3976ad048d40866bba6f8abed19c166a84c02ebd497a9199c4ccb263c6",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:20.068Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 1648,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Electron"
+      ]
+    },
+    {
+      "page_id": "q16",
+      "question_id": "q16",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Speed_of_light",
+      "final_url": "https://en.wikipedia.org/wiki/Speed_of_light",
+      "title": "Speed of light - Wikipedia",
+      "markdown_chars": 108981,
+      "sha256": "8b76bed7c79cbb7b8d8b7c1e45f10b57f64ce5dc1b71bf9670b0e1a080a16542",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:20.570Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 1487,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Speed_of_light"
+      ]
+    },
+    {
+      "page_id": "q17",
+      "question_id": "q17",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Carbon_dioxide",
+      "final_url": "https://en.wikipedia.org/wiki/Carbon_dioxide",
+      "title": "Carbon dioxide - Wikipedia",
+      "markdown_chars": 102631,
+      "sha256": "e01a1c80ed24ec19f152072d25fed69bc198ac7b8bf5ab96112949ff09c08673",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:21.042Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 1376,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Carbon_dioxide"
+      ]
+    },
+    {
+      "page_id": "q18",
+      "question_id": "q18",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Ampere",
+      "final_url": "https://en.wikipedia.org/wiki/Ampere",
+      "title": "Ampere - Wikipedia",
+      "markdown_chars": 28424,
+      "sha256": "c08a4bf63c3e3914ac7907ead47c82e35a73e51f6ebb6993f970d5bb483d0dc3",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:20.664Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 597,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Ampere"
+      ]
+    },
+    {
+      "page_id": "q19",
+      "question_id": "q19",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Branches_of_the_United_States_government",
+      "final_url": "https://en.wikipedia.org/wiki/Branches_of_the_United_States_government",
+      "title": "Separation of powers under the United States Constitution - Wikipedia",
+      "markdown_chars": 64385,
+      "sha256": "6a500cdb20b508d6c209767604526b5af7f5649a8f52215b412a5abddf8ecc7e",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:21.180Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 610,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Branches_of_the_United_States_government"
+      ]
+    },
+    {
+      "page_id": "q20",
+      "question_id": "q20",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/United_Nations",
+      "final_url": "https://en.wikipedia.org/wiki/United_Nations",
+      "title": "United Nations - Wikipedia",
+      "markdown_chars": 115228,
+      "sha256": "6f6cb8b769017e8346591c3246672bac1c8847eceee7b22df637a653ae4dd0b2",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:21.712Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 1047,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/United_Nations"
+      ]
+    },
+    {
+      "page_id": "q21",
+      "question_id": "q21",
+      "success": true,
+      "status": 200,
+      "url": "https://www.archives.gov/founding-docs/constitution-transcript",
+      "final_url": "https://www.archives.gov/founding-docs/constitution-transcript",
+      "title": "The Constitution of the United States: A Transcription | National Archives",
+      "markdown_chars": 38139,
+      "sha256": "74ec0d960ac2d03df777c8322852e4cfe39ad1aa860e8de03cda353cdb21e04a",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:22.271Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 1229,
+      "error": "",
+      "selected_urls": [
+        "https://www.archives.gov/founding-docs/constitution-transcript"
+      ]
+    },
+    {
+      "page_id": "q22",
+      "question_id": "q22",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/United_States_Senate",
+      "final_url": "https://en.wikipedia.org/wiki/United_States_Senate",
+      "title": "United States Senate - Wikipedia",
+      "markdown_chars": 106911,
+      "sha256": "98d04fa1fa5066090af2abe559cf9de82f02ecc09b8fd0be5c97bca7bcf291ce",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:22.064Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 885,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/United_States_Senate"
+      ]
+    },
+    {
+      "page_id": "q23",
+      "question_id": "q23",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/House_of_Commons_of_the_United_Kingdom",
+      "final_url": "https://en.wikipedia.org/wiki/House_of_Commons_of_the_United_Kingdom",
+      "title": "House of Commons of the United Kingdom - Wikipedia",
+      "markdown_chars": 86260,
+      "sha256": "5fd386b141c1f6c51fd89056f07601ae6b1724b3125ba25a872ebfce6ca8b2ad",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:23.462Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 1751,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/House_of_Commons_of_the_United_Kingdom"
+      ]
+    },
+    {
+      "page_id": "q24",
+      "question_id": "q24",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2",
+      "final_url": "https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2",
+      "title": "ISO 3166-1 alpha-2 - Wikipedia",
+      "markdown_chars": 61845,
+      "sha256": "278be6ed01d817426d65efd864d4d0f9e0da978994d2021d3c1b7d851c9d38fe",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:22.577Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 512,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2"
+      ]
+    },
+    {
+      "page_id": "q25",
+      "question_id": "q25",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Romeo_and_Juliet",
+      "final_url": "https://en.wikipedia.org/wiki/Romeo_and_Juliet",
+      "title": "Romeo and Juliet - Wikipedia",
+      "markdown_chars": 108004,
+      "sha256": "a2db494313bde99023359d1264661dae4e60d62b106b2b97bfedaaf92adceb24",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:22.933Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 663,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Romeo_and_Juliet"
+      ]
+    },
+    {
+      "page_id": "q26",
+      "question_id": "q26",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Museo_del_Prado",
+      "final_url": "https://en.wikipedia.org/wiki/Museo_del_Prado",
+      "title": "Museo del Prado - Wikipedia",
+      "markdown_chars": 53972,
+      "sha256": "cbc022a094c34abb17f72ea0c5550f4d7d5f378318a451277d4be0484f18c4a1",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:23.079Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 502,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Museo_del_Prado"
+      ]
+    },
+    {
+      "page_id": "q27",
+      "question_id": "q27",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Badminton",
+      "final_url": "https://en.wikipedia.org/wiki/Badminton",
+      "title": "Badminton - Wikipedia",
+      "markdown_chars": 78883,
+      "sha256": "1e668d73231a6b2b669e3caddaa44f60ea948ecc6b70495b272dbafe82edafba",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:23.624Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 690,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Badminton"
+      ]
+    },
+    {
+      "page_id": "q28",
+      "question_id": "q28",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Piano",
+      "final_url": "https://en.wikipedia.org/wiki/Piano",
+      "title": "Piano - Wikipedia",
+      "markdown_chars": 114712,
+      "sha256": "bb5eddf5766f5df92f62289086045c27d11ad8d73d977346fbf85dd0fb7488c2",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:23.823Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 744,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Piano"
+      ]
+    },
+    {
+      "page_id": "q29",
+      "question_id": "q29",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/One_Hundred_Years_of_Solitude",
+      "final_url": "https://en.wikipedia.org/wiki/One_Hundred_Years_of_Solitude",
+      "title": "One Hundred Years of Solitude - Wikipedia",
+      "markdown_chars": 98071,
+      "sha256": "69591ae6b6cf599d3a74ef85879b70af73e04d820d4c55e97b5f917c79f3c64b",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:23.975Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 513,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/One_Hundred_Years_of_Solitude"
+      ]
+    },
+    {
+      "page_id": "q30",
+      "question_id": "q30",
+      "success": true,
+      "status": 200,
+      "url": "https://en.wikipedia.org/wiki/Unobtainium",
+      "final_url": "https://en.wikipedia.org/wiki/Unobtainium",
+      "title": "Unobtainium - Wikipedia",
+      "markdown_chars": 21937,
+      "sha256": "7039432f38fbb2e0b583faad0df95f07023061803eb12bd1b9113c0468aef6e9",
+      "hash_verified": true,
+      "fetched_at": "2026-08-15T18:20:30.163Z",
+      "transport": "http",
+      "mode": "seed_only",
+      "duration_ms": 6539,
+      "error": "",
+      "selected_urls": [
+        "https://en.wikipedia.org/wiki/Unobtainium"
+      ]
+    }
+  ],
+  "answers": {
+    "q01": {
+      "answer": "Hypertext Transfer Protocol",
+      "claims": [
+        {
+          "claim_id": "q01-1",
+          "statement": "Hypertext Transfer Protocol",
+          "status": "supported",
+          "source_url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+          "quote": "The Hypertext Transfer Protocol (HTTP) is a family of stateless, application-level, request/response protocols that share a generic interface, extensible semantics, and self-descriptive messages to enable flexible interaction with network-based hypertext information systems.[¶](#sec",
+          "page_id": "q01"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+          "quote": "The Hypertext Transfer Protocol (HTTP) is a family of stateless, application-level, request/response protocols that share a generic interface, extensible semantics, and self-descriptive messages to enable flexible interaction with network-based hypertext information systems.[¶](#sec"
+        }
+      ],
+      "page_id": "q01"
+    },
+    "q02": {
+      "answer": "Linus Torvalds",
+      "claims": [
+        {
+          "claim_id": "q02-1",
+          "statement": "Linus Torvalds",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Linux_kernel",
+          "quote": "| Original author | Linus Torvalds |",
+          "page_id": "q02"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Linux_kernel",
+          "quote": "| Original author | Linus Torvalds |"
+        }
+      ],
+      "page_id": "q02"
+    },
+    "q03": {
+      "answer": "2008",
+      "claims": [
+        {
+          "claim_id": "q03-1",
+          "statement": "2008",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Python_(programming_language)",
+          "quote": "Python 3.0 was released on 3 December 2008, and was a major revision and not completely [backward-compatible](https://en.wikipedia.org/wiki/Backward-compatible) with earlier versions, with some new semantics and changed syntax. Python 2.7.18, released in 2020, w",
+          "page_id": "q03"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Python_(programming_language)",
+          "quote": "Python 3.0 was released on 3 December 2008, and was a major revision and not completely [backward-compatible](https://en.wikipedia.org/wiki/Backward-compatible) with earlier versions, with some new semantics and changed syntax. Python 2.7.18, released in 2020, w"
+        }
+      ],
+      "page_id": "q03"
+    },
+    "q04": {
+      "answer": "Cascading Style Sheets",
+      "claims": [
+        {
+          "claim_id": "q04-1",
+          "statement": "Cascading Style Sheets",
+          "status": "supported",
+          "source_url": "https://www.w3.org/Style/CSS",
+          "quote": "Cascading Style Sheets (CSS) is a core language of the **open web platform**, and is used for adding style (e.g., fonts, colors, spacing) to Web documents.",
+          "page_id": "q04"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://www.w3.org/Style/CSS",
+          "quote": "Cascading Style Sheets (CSS) is a core language of the **open web platform**, and is used for adding style (e.g., fonts, colors, spacing) to Web documents."
+        }
+      ],
+      "page_id": "q04"
+    },
+    "q05": {
+      "answer": "443",
+      "claims": [
+        {
+          "claim_id": "q05-1",
+          "statement": "443",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/HTTPS",
+          "quote": "HTTPS [URLs](https://en.wikipedia.org/wiki/URL) begin with \"https://\" and use [port](https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers) 443 by default, whereas [HTTP](https://en.wikipedia.org/wiki/HTTP) URLs begin with \"http://\" and use port 80 by default.",
+          "page_id": "q05"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/HTTPS",
+          "quote": "HTTPS [URLs](https://en.wikipedia.org/wiki/URL) begin with \"https://\" and use [port](https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers) 443 by default, whereas [HTTP](https://en.wikipedia.org/wiki/HTTP) URLs begin with \"http://\" and use port 80 by default."
+        }
+      ],
+      "page_id": "q05"
+    },
+    "q06": {
+      "answer": "pnpm. package manager",
+      "claims": [
+        {
+          "claim_id": "q06-1",
+          "statement": "pnpm",
+          "status": "supported",
+          "source_url": "https://pnpm.io/",
+          "quote": "# Fast, disk space efficient package manager | pnpm",
+          "page_id": "q06"
+        },
+        {
+          "claim_id": "q06-2",
+          "statement": "package manager",
+          "status": "supported",
+          "source_url": "https://pnpm.io/",
+          "quote": "# Fast, disk space efficient package manager | pnpm",
+          "page_id": "q06"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://pnpm.io/",
+          "quote": "# Fast, disk space efficient package manager | pnpm"
+        },
+        {
+          "url": "https://pnpm.io/",
+          "quote": "# Fast, disk space efficient package manager | pnpm"
+        }
+      ],
+      "page_id": "q06"
+    },
+    "q07": {
+      "answer": "Paris",
+      "claims": [
+        {
+          "claim_id": "q07-1",
+          "statement": "Paris",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/France",
+          "quote": "| Capital and largest city | Paris 48°51′N 2°21′E / 48.850°N 2.350°E / 48.850; 2.350 |",
+          "page_id": "q07"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/France",
+          "quote": "| Capital and largest city | Paris 48°51′N 2°21′E / 48.850°N 2.350°E / 48.850; 2.350 |"
+        }
+      ],
+      "page_id": "q07"
+    },
+    "q08": {
+      "answer": "Pacific Ocean",
+      "claims": [
+        {
+          "claim_id": "q08-1",
+          "statement": "Pacific Ocean",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Pacific_Ocean",
+          "quote": "An emerging threat for the Pacific Ocean is the development of [deep-sea mining](https://en.wikipedia.org/wiki/Deep-sea_mining). Deep-sea mining is aimed at extracting [manganese nodules](https://en.wikipedia.org/wiki/Manganese_nodules) that contain minerals such as magnesium, nickel, copper, zinc and cobalt. The largest deposits of these are found in the Pacific Ocean between Mexico and Hawaii in the [Clarion Clipperton fracture zone](https://en.wikipedia.org/wiki/Clarion_Clipperton_fracture_zone?action=edit&amp;redlink=1).",
+          "page_id": "q08"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Pacific_Ocean",
+          "quote": "An emerging threat for the Pacific Ocean is the development of [deep-sea mining](https://en.wikipedia.org/wiki/Deep-sea_mining). Deep-sea mining is aimed at extracting [manganese nodules](https://en.wikipedia.org/wiki/Manganese_nodules) that contain minerals such as magnesium, nickel, copper, zinc and cobalt. The largest deposits of these are found in the Pacific Ocean between Mexico and Hawaii in the [Clarion Clipperton fracture zone](https://en.wikipedia.org/wiki/Clarion_Clipperton_fracture_zone?action=edit&amp;redlink=1)."
+        }
+      ],
+      "page_id": "q08"
+    },
+    "q09": {
+      "answer": "Nile",
+      "claims": [
+        {
+          "claim_id": "q09-1",
+          "statement": "Nile",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Nile",
+          "quote": "Although the Nile is the [longest river in the world](https://en.wikipedia.org/wiki/List_of_river_systems_by_length), it does not have [the largest discharge](https://en.wikipedia.org/wiki/List_of_rivers_by_discharge). Its flow – about 87 km3 per year[[ c ]](",
+          "page_id": "q09"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Nile",
+          "quote": "Although the Nile is the [longest river in the world](https://en.wikipedia.org/wiki/List_of_river_systems_by_length), it does not have [the largest discharge](https://en.wikipedia.org/wiki/List_of_rivers_by_discharge). Its flow – about 87 km3 per year[[ c ]]("
+        }
+      ],
+      "page_id": "q09"
+    },
+    "q10": {
+      "answer": "Africa",
+      "claims": [
+        {
+          "claim_id": "q10-1",
+          "statement": "Africa",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Kenya",
+          "quote": "**Kenya**,{{Cite Collins Dictionary|Kenya}}</ref> {{IPA|sw|ˈkɛɲɑ|lang|small=no}}\"}},\"i\":0}}]}'>[[ a ]](#cite_note-12) officially the **Republic of Kenya**,[[ b ]](#cite_note-13) is a country located in [East Africa](https://en.wikipedia.org/wiki/East_Africa). With an estimated population of more than 54.2 million as of mid-2026,[[ 12 ]](#cite_note-14) it is the [27th-most populous country](https://en.wikipedia.org/wiki/List_of_cou",
+          "page_id": "q10"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Kenya",
+          "quote": "**Kenya**,{{Cite Collins Dictionary|Kenya}}</ref> {{IPA|sw|ˈkɛɲɑ|lang|small=no}}\"}},\"i\":0}}]}'>[[ a ]](#cite_note-12) officially the **Republic of Kenya**,[[ b ]](#cite_note-13) is a country located in [East Africa](https://en.wikipedia.org/wiki/East_Africa). With an estimated population of more than 54.2 million as of mid-2026,[[ 12 ]](#cite_note-14) it is the [27th-most populous country](https://en.wikipedia.org/wiki/List_of_cou"
+        }
+      ],
+      "page_id": "q10"
+    },
+    "q11": {
+      "answer": "Tokyo",
+      "claims": [
+        {
+          "claim_id": "q11-1",
+          "statement": "Tokyo",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Tokyo",
+          "quote": "| Capital | Tokyo (de facto; de jure: Shinjuku ) [ 3 ] |",
+          "page_id": "q11"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Tokyo",
+          "quote": "| Capital | Tokyo (de facto; de jure: Shinjuku ) [ 3 ] |"
+        }
+      ],
+      "page_id": "q11"
+    },
+    "q12": {
+      "answer": "Chile",
+      "claims": [
+        {
+          "claim_id": "q12-1",
+          "statement": "Chile",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Atacama_Desert",
+          "quote": "The Chinchorro culture developed in the Atacama Desert area from 7000 BCE to 1500 BCE. These peoples were sedentary fishermen inhabiting mostly coastal areas. Their presence is found from today's towns of [Ilo](https://en.wikipedia.org/wiki/Ilo_province), in southern Peru, to [Antofagasta](https://en.wikipedia.org/wiki/Antofagasta) in northern Chile. Presence of fresh water in the arid region on the coast facilitated human settlement in these areas. The Chinchorro were famous for their detailed [mummification](https://en.wikipedia.org/wiki/Mummy) and funerary pract",
+          "page_id": "q12"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Atacama_Desert",
+          "quote": "The Chinchorro culture developed in the Atacama Desert area from 7000 BCE to 1500 BCE. These peoples were sedentary fishermen inhabiting mostly coastal areas. Their presence is found from today's towns of [Ilo](https://en.wikipedia.org/wiki/Ilo_province), in southern Peru, to [Antofagasta](https://en.wikipedia.org/wiki/Antofagasta) in northern Chile. Presence of fresh water in the arid region on the coast facilitated human settlement in these areas. The Chinchorro were famous for their detailed [mummification](https://en.wikipedia.org/wiki/Mummy) and funerary pract"
+        }
+      ],
+      "page_id": "q12"
+    },
+    "q13": {
+      "answer": "H2O",
+      "claims": [
+        {
+          "claim_id": "q13-1",
+          "statement": "H2O",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Water",
+          "quote": "**Water** is an [inorganic compound](https://en.wikipedia.org/wiki/Inorganic_compound) with the [chemical formula](https://en.wikipedia.org/wiki/Chemical_formula) H2O. It is a transparent, tasteless, [odorless](https://en.wikipedia.org/wiki/Odorless),[[ c ]](#cite_note-21) and [nearly colorless](https://en.wikipedia.org/wiki/Color_of_water) [chemical substance](https://en.wikipedia.o",
+          "page_id": "q13"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Water",
+          "quote": "**Water** is an [inorganic compound](https://en.wikipedia.org/wiki/Inorganic_compound) with the [chemical formula](https://en.wikipedia.org/wiki/Chemical_formula) H2O. It is a transparent, tasteless, [odorless](https://en.wikipedia.org/wiki/Odorless),[[ c ]](#cite_note-21) and [nearly colorless](https://en.wikipedia.org/wiki/Color_of_water) [chemical substance](https://en.wikipedia.o"
+        }
+      ],
+      "page_id": "q13"
+    },
+    "q14": {
+      "answer": "eight. IAU",
+      "claims": [
+        {
+          "claim_id": "q14-1",
+          "statement": "eight",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Solar_System",
+          "quote": "The [International Astronomical Union](https://en.wikipedia.org/wiki/International_Astronomical_Union) describes the Solar System as all objects that are bound by the gravity of the Sun, the Sun itself, its eight planets, and the other celestial bodies which orbit it.[[ 18 ]](#cite_note-IAU_Office_of_Astronomy_for_Education_y607-28) [NASA](https://en.wikipedia.org/wiki/NASA) describes the solar system as including the Sun and its planet",
+          "page_id": "q14"
+        },
+        {
+          "claim_id": "q14-2",
+          "statement": "IAU",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Solar_System",
+          "quote": "The [International Astronomical Union](https://en.wikipedia.org/wiki/International_Astronomical_Union) describes the Solar System as all objects that are bound by the gravity of the Sun, the Sun itself, its eight planets, and the other celestial bodies which orbit it.[[ 18 ]](#cite_note-IAU_Office_of_Astronomy_for_Education_y607-28) [NASA](https://en.wikipedia.org/wiki/NASA) describes the solar system as including the Sun and its planetary system.[[ 19 ]](#cite_note-k349-29)",
+          "page_id": "q14"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Solar_System",
+          "quote": "The [International Astronomical Union](https://en.wikipedia.org/wiki/International_Astronomical_Union) describes the Solar System as all objects that are bound by the gravity of the Sun, the Sun itself, its eight planets, and the other celestial bodies which orbit it.[[ 18 ]](#cite_note-IAU_Office_of_Astronomy_for_Education_y607-28) [NASA](https://en.wikipedia.org/wiki/NASA) describes the solar system as including the Sun and its planet"
+        },
+        {
+          "url": "https://en.wikipedia.org/wiki/Solar_System",
+          "quote": "The [International Astronomical Union](https://en.wikipedia.org/wiki/International_Astronomical_Union) describes the Solar System as all objects that are bound by the gravity of the Sun, the Sun itself, its eight planets, and the other celestial bodies which orbit it.[[ 18 ]](#cite_note-IAU_Office_of_Astronomy_for_Education_y607-28) [NASA](https://en.wikipedia.org/wiki/NASA) describes the solar system as including the Sun and its planetary system.[[ 19 ]](#cite_note-k349-29)"
+        }
+      ],
+      "page_id": "q14"
+    },
+    "q15": {
+      "answer": "negative charge",
+      "claims": [
+        {
+          "claim_id": "q15-1",
+          "statement": "negative charge",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Electron",
+          "quote": "Elementary particle with negative charge",
+          "page_id": "q15"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Electron",
+          "quote": "Elementary particle with negative charge"
+        }
+      ],
+      "page_id": "q15"
+    },
+    "q16": {
+      "answer": "299792458",
+      "claims": [
+        {
+          "claim_id": "q16-1",
+          "statement": "299792458",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Speed_of_light",
+          "quote": "As a result of this definition, the value of the speed of light in vacuum is exactly 299792458 m/s[[ 166 ]](#cite_note-Wheeler-168)sup>[[ 167 ]](#cite_note-timeline-169)sup> and has become a defined constant in the SI system of units.[[ 16 ]](#cite_note-fixes-18)sup> Improved experimental techniques that, prior t",
+          "page_id": "q16"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Speed_of_light",
+          "quote": "As a result of this definition, the value of the speed of light in vacuum is exactly 299792458 m/s[[ 166 ]](#cite_note-Wheeler-168)sup>[[ 167 ]](#cite_note-timeline-169)sup> and has become a defined constant in the SI system of units.[[ 16 ]](#cite_note-fixes-18)sup> Improved experimental techniques that, prior t"
+        }
+      ],
+      "page_id": "q16"
+    },
+    "q17": {
+      "answer": "carbon dioxide",
+      "claims": [
+        {
+          "claim_id": "q17-1",
+          "statement": "carbon dioxide",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Carbon_dioxide",
+          "quote": "Plants require carbon dioxide to conduct photosynthesis. The atmospheres of greenhouses may (if of large size, must) be enriched with additional CO2 to sustain and increase the rate of plant growth.[[ 117 ]](#cite_note-118)[[ 118 ]](#cite_note-119)",
+          "page_id": "q17"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Carbon_dioxide",
+          "quote": "Plants require carbon dioxide to conduct photosynthesis. The atmospheres of greenhouses may (if of large size, must) be enriched with additional CO2 to sustain and increase the rate of plant growth.[[ 117 ]](#cite_note-118)[[ 118 ]](#cite_note-119)"
+        }
+      ],
+      "page_id": "q17"
+    },
+    "q18": {
+      "answer": "ampere",
+      "claims": [
+        {
+          "claim_id": "q18-1",
+          "statement": "ampere",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Ampere",
+          "quote": "- ↑ \"SI base unit: ampere (A)\" , International Bureau of Weights and Measures (BIPM) , 2019 , retrieved 3 June 2025",
+          "page_id": "q18"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Ampere",
+          "quote": "- ↑ \"SI base unit: ampere (A)\" , International Bureau of Weights and Measures (BIPM) , 2019 , retrieved 3 June 2025"
+        }
+      ],
+      "page_id": "q18"
+    },
+    "q19": {
+      "answer": "three branches",
+      "claims": [
+        {
+          "claim_id": "q19-1",
+          "statement": "three branches",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Branches_of_the_United_States_government",
+          "quote": "One may claim that the judiciary has historically been the weakest of the three branches. In fact, its power to exercise judicial review—its sole meaningful check on the other two branches—is not explicitly granted by the [U.S Constitution](https://en.wikipedia.org/wiki/United_States_Constitution). The [U.S",
+          "page_id": "q19"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Branches_of_the_United_States_government",
+          "quote": "One may claim that the judiciary has historically been the weakest of the three branches. In fact, its power to exercise judicial review—its sole meaningful check on the other two branches—is not explicitly granted by the [U.S Constitution](https://en.wikipedia.org/wiki/United_States_Constitution). The [U.S"
+        }
+      ],
+      "page_id": "q19"
+    },
+    "q20": {
+      "answer": "1945",
+      "claims": [
+        {
+          "claim_id": "q20-1",
+          "statement": "1945",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/United_Nations",
+          "quote": "The **United Nations** (**UN**) is an international [intergovernmental organization](https://en.wikipedia.org/wiki/Intergovernmental_organization) established by the signing of the [Charter of the United Nations](https://en.wikipedia.org/wiki/Charter_of_the_United_Nations) on 26 June 1945 with the articulated mission of maintaining [international peace](https://en.wikipedia.org/wiki/International_peace) and [security](https://en.wikipedia.org/wiki/International_security), to develop friendly [relations](",
+          "page_id": "q20"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/United_Nations",
+          "quote": "The **United Nations** (**UN**) is an international [intergovernmental organization](https://en.wikipedia.org/wiki/Intergovernmental_organization) established by the signing of the [Charter of the United Nations](https://en.wikipedia.org/wiki/Charter_of_the_United_Nations) on 26 June 1945 with the articulated mission of maintaining [international peace](https://en.wikipedia.org/wiki/International_peace) and [security](https://en.wikipedia.org/wiki/International_security), to develop friendly [relations]("
+        }
+      ],
+      "page_id": "q20"
+    },
+    "q21": {
+      "answer": "We the People",
+      "claims": [
+        {
+          "claim_id": "q21-1",
+          "statement": "We the People",
+          "status": "supported",
+          "source_url": "https://www.archives.gov/founding-docs/constitution-transcript",
+          "quote": "**We the People** of the United States, in Order to form a more perfect Union, establish Justice, insure domestic Tranquility, provide for the common defence, promote the general Welfare, and secure the Blessings of Liberty to ourselves and our Posterity, do ordain and establish this Constitution for the United States of America.",
+          "page_id": "q21"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://www.archives.gov/founding-docs/constitution-transcript",
+          "quote": "**We the People** of the United States, in Order to form a more perfect Union, establish Justice, insure domestic Tranquility, provide for the common defence, promote the general Welfare, and secure the Blessings of Liberty to ourselves and our Posterity, do ordain and establish this Constitution for the United States of America."
+        }
+      ],
+      "page_id": "q21"
+    },
+    "q22": {
+      "answer": "six years",
+      "claims": [
+        {
+          "claim_id": "q22-1",
+          "statement": "six years",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/United_States_Senate",
+          "quote": "Senators serve terms of six years each. The terms are staggered so that approximately one-third of the seats are up for election every two years. This was achieved by dividing the senators of the [1st Congress](https://en.wikipedia.org/wiki/1st_United_S",
+          "page_id": "q22"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/United_States_Senate",
+          "quote": "Senators serve terms of six years each. The terms are staggered so that approximately one-third of the seats are up for election every two years. This was achieved by dividing the senators of the [1st Congress](https://en.wikipedia.org/wiki/1st_United_S"
+        }
+      ],
+      "page_id": "q22"
+    },
+    "q23": {
+      "answer": "House of Commons. elected",
+      "claims": [
+        {
+          "claim_id": "q23-1",
+          "statement": "House of Commons",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/House_of_Commons_of_the_United_Kingdom",
+          "quote": "Since the 17th century, government ministers were paid, while other MPs were not. Most of the men elected to the Commons had private incomes, while a few relied on financial support from a wealthy patron. Early Labour MPs were often provided with a salary by a trade union, but this was declared illegal by a House of Lords judgement of 1909. Consequently, a resolution was passed in the House of Commons in 1911 introducing salaries for MPs.",
+          "page_id": "q23"
+        },
+        {
+          "claim_id": "q23-2",
+          "statement": "elected",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/House_of_Commons_of_the_United_Kingdom",
+          "quote": "Since the 17th century, government ministers were paid, while other MPs were not. Most of the men elected to the Commons had private incomes, while a few relied on financial support from a wealthy patron. Early Labour MPs were often provided with a salary by a trade union, but this was declared illegal by a House of Lords judgement of 1909. Consequently, a resolution was passed in the House of Commons in 1911 introducing salaries for MPs.",
+          "page_id": "q23"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/House_of_Commons_of_the_United_Kingdom",
+          "quote": "Since the 17th century, government ministers were paid, while other MPs were not. Most of the men elected to the Commons had private incomes, while a few relied on financial support from a wealthy patron. Early Labour MPs were often provided with a salary by a trade union, but this was declared illegal by a House of Lords judgement of 1909. Consequently, a resolution was passed in the House of Commons in 1911 introducing salaries for MPs."
+        },
+        {
+          "url": "https://en.wikipedia.org/wiki/House_of_Commons_of_the_United_Kingdom",
+          "quote": "Since the 17th century, government ministers were paid, while other MPs were not. Most of the men elected to the Commons had private incomes, while a few relied on financial support from a wealthy patron. Early Labour MPs were often provided with a salary by a trade union, but this was declared illegal by a House of Lords judgement of 1909. Consequently, a resolution was passed in the House of Commons in 1911 introducing salaries for MPs."
+        }
+      ],
+      "page_id": "q23"
+    },
+    "q24": {
+      "answer": "Spain. ES",
+      "claims": [
+        {
+          "claim_id": "q24-1",
+          "statement": "Spain",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2",
+          "quote": "| ES | Spain | 1974 | .es | Code taken from name in Spanish : España |",
+          "page_id": "q24"
+        },
+        {
+          "claim_id": "q24-2",
+          "statement": "ES",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2",
+          "quote": "| ES | Spain | 1974 | .es | Code taken from name in Spanish : España |",
+          "page_id": "q24"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2",
+          "quote": "| ES | Spain | 1974 | .es | Code taken from name in Spanish : España |"
+        },
+        {
+          "url": "https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2",
+          "quote": "| ES | Spain | 1974 | .es | Code taken from name in Spanish : España |"
+        }
+      ],
+      "page_id": "q24"
+    },
+    "q25": {
+      "answer": "William Shakespeare",
+      "claims": [
+        {
+          "claim_id": "q25-1",
+          "statement": "William Shakespeare",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Romeo_and_Juliet",
+          "quote": "This article is about the play by William Shakespeare. For the titular characters, see [Romeo](https://en.wikipedia.org/wiki/Romeo) and [Juliet](https://en.wikipedia.org/wiki/Juliet). For other uses, see [Romeo and Juliet (disambiguation)](https://en.wikipedia.org/wiki/Romeo_and_Juliet_(disambiguation)).",
+          "page_id": "q25"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Romeo_and_Juliet",
+          "quote": "This article is about the play by William Shakespeare. For the titular characters, see [Romeo](https://en.wikipedia.org/wiki/Romeo) and [Juliet](https://en.wikipedia.org/wiki/Juliet). For other uses, see [Romeo and Juliet (disambiguation)](https://en.wikipedia.org/wiki/Romeo_and_Juliet_(disambiguation))."
+        }
+      ],
+      "page_id": "q25"
+    },
+    "q26": {
+      "answer": "Madrid",
+      "claims": [
+        {
+          "claim_id": "q26-1",
+          "statement": "Madrid",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Museo_del_Prado",
+          "quote": "| Prado National Museum (Madrid) Queen Sofía Art Center National Museum (Madrid) Thyssen-Bornemisza National Museum (Madrid) | |",
+          "page_id": "q26"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Museo_del_Prado",
+          "quote": "| Prado National Museum (Madrid) Queen Sofía Art Center National Museum (Madrid) Thyssen-Bornemisza National Museum (Madrid) | |"
+        }
+      ],
+      "page_id": "q26"
+    },
+    "q27": {
+      "answer": "shuttlecock",
+      "claims": [
+        {
+          "claim_id": "q27-1",
+          "statement": "shuttlecock",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Badminton",
+          "quote": "One consequence of the shuttlecock's drag is that it requires considerable power to hit it the full length of the court, which is not the case for most racquet sports. The drag also influences the flight path of a lifted (*lobbed*) shuttlecock: the [parabola](https://en.wikipedia.org/wiki/Parabola) of its flight is heavily skewed so that it falls at a steeper angle than it rises. Wi",
+          "page_id": "q27"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Badminton",
+          "quote": "One consequence of the shuttlecock's drag is that it requires considerable power to hit it the full length of the court, which is not the case for most racquet sports. The drag also influences the flight path of a lifted (*lobbed*) shuttlecock: the [parabola](https://en.wikipedia.org/wiki/Parabola) of its flight is heavily skewed so that it falls at a steeper angle than it rises. Wi"
+        }
+      ],
+      "page_id": "q27"
+    },
+    "q28": {
+      "answer": "88 keys",
+      "claims": [
+        {
+          "claim_id": "q28-1",
+          "statement": "88 keys",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/Piano",
+          "quote": "Most modern pianos have 52 white keys and 36 black keys, for a total of 88 keys (seven octaves plus a minor third, from A0 to C8). Some older pianos only have 85 keys (seven octaves from A0 to A7).",
+          "page_id": "q28"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/Piano",
+          "quote": "Most modern pianos have 52 white keys and 36 black keys, for a total of 88 keys (seven octaves plus a minor third, from A0 to C8). Some older pianos only have 85 keys (seven octaves from A0 to A7)."
+        }
+      ],
+      "page_id": "q28"
+    },
+    "q29": {
+      "answer": "Spanish",
+      "claims": [
+        {
+          "claim_id": "q29-1",
+          "statement": "Spanish",
+          "status": "supported",
+          "source_url": "https://en.wikipedia.org/wiki/One_Hundred_Years_of_Solitude",
+          "quote": "*One Hundred Years of Solitude* ([Spanish](https://en.wikipedia.org/wiki/Spanish_language): *Cien años de soledad*, Latin American Spanish: [[ sjen ˈaɲos ðe soleˈðað ]](https://en.wikipedia.org/wiki/Help:IPA/Spanish)) is a 1967 [novel](https://en.wikipedia.org/",
+          "page_id": "q29"
+        }
+      ],
+      "citations": [
+        {
+          "url": "https://en.wikipedia.org/wiki/One_Hundred_Years_of_Solitude",
+          "quote": "*One Hundred Years of Solitude* ([Spanish](https://en.wikipedia.org/wiki/Spanish_language): *Cien años de soledad*, Latin American Spanish: [[ sjen ˈaɲos ðe soleˈðað ]](https://en.wikipedia.org/wiki/Help:IPA/Spanish)) is a 1967 [novel](https://en.wikipedia.org/"
+        }
+      ],
+      "page_id": "q29"
+    },
+    "q30": {
+      "answer": "not found: the fetched evidence does not define a real-world value",
+      "claims": [
+        {
+          "claim_id": "q30-nf",
+          "statement": "What is the melting point of unobtainium on Earth?",
+          "status": "not_found"
+        }
+      ],
+      "citations": []
+    }
+  }
+}

@@ -286,6 +286,390 @@ def build_dubbing_plan(
     return dubbing_segments
 
 
+def _cue_dict(item: Any) -> dict[str, Any]:
+    if isinstance(item, TranscriptSegment):
+        md = dict(item.metadata or {})
+        return {
+            "index": item.index,
+            "start": item.start,
+            "end": item.end,
+            "text": item.text,
+            "text_ocr": str(md.get("text_ocr") or ""),
+            "text_asr": str(md.get("text_asr") or ""),
+            "speaker": item.speaker,
+            "language": item.language,
+        }
+    data = dict(item or {})
+    return {
+        "index": int(data.get("index") or 0),
+        "start": float(data.get("start") or 0.0),
+        "end": float(data.get("end") or 0.0),
+        "text": str(data.get("text") or ""),
+        "text_ocr": str(data.get("text_ocr") or ""),
+        "text_asr": str(data.get("text_asr") or ""),
+        "speaker": str(data.get("speaker") or ""),
+        "language": str(data.get("language") or ""),
+    }
+
+
+def _overlap(a0: float, a1: float, b0: float, b1: float) -> float:
+    return max(0.0, min(a1, b1) - max(a0, b0))
+
+
+def _norm_zh(text: str) -> str:
+    return "".join((text or "").split())
+
+
+def _covers(ocr: str, asr: str) -> bool:
+    o, a = _norm_zh(ocr), _norm_zh(asr)
+    if not a:
+        return True
+    if not o:
+        return False
+    if a in o or o in a:
+        return True
+    sa, so = set(a), set(o)
+    return len(sa & so) / max(len(sa), 1) >= 0.55
+
+
+def merge_ocr_asr_segments(
+    ocr_cues: list[Any],
+    asr_segments: list[Any],
+    *,
+    language: str = "zh",
+) -> list[TranscriptSegment]:
+    """Merge burned-in OCR cues with spoken ASR into one narration script.
+
+    On-screen text is canonical (it explains jump cuts the audio skips).
+    ASR fills spoken-only gaps. The returned ``text`` is what to translate/TTS.
+    """
+    ocr = [_cue_dict(item) for item in ocr_cues]
+    asr = [_cue_dict(item) for item in asr_segments]
+    used: set[int] = set()
+    merged: list[dict[str, Any]] = []
+
+    for cue in ocr:
+        c0, c1 = float(cue["start"]), float(cue["end"])
+        hits = []
+        for seg in asr:
+            idx = int(seg["index"] or 0)
+            s0, s1 = float(seg["start"]), float(seg["end"])
+            ov = _overlap(c0, c1, s0, s1)
+            dur = max(s1 - s0, 0.01)
+            if ov / dur >= 0.35 or ov / max(c1 - c0, 0.01) >= 0.35:
+                hits.append(seg)
+                used.add(idx)
+        asr_text = "".join(str(h.get("text") or "") for h in hits).strip()
+        ocr_text = str(cue.get("text") or "").strip()
+        if ocr_text and asr_text and not _covers(ocr_text, asr_text):
+            text = ocr_text
+            extra, core = _norm_zh(asr_text), _norm_zh(ocr_text)
+            if extra and extra not in core and core not in extra:
+                text = f"{ocr_text} {asr_text}"
+            source = "ocr+asr"
+        elif ocr_text:
+            text = ocr_text
+            source = "ocr+asr" if asr_text else "ocr"
+        else:
+            text = asr_text
+            source = "asr"
+        merged.append(
+            {
+                "start": c0,
+                "end": c1,
+                "text": text,
+                "text_ocr": ocr_text,
+                "text_asr": asr_text,
+                "source": source,
+                "speaker": cue.get("speaker") or "NARR",
+            }
+        )
+
+    for seg in asr:
+        idx = int(seg["index"] or 0)
+        if idx in used:
+            continue
+        text = str(seg.get("text") or "").strip()
+        if not text:
+            continue
+        s0, s1 = float(seg["start"]), float(seg["end"])
+        if any(
+            _overlap(s0, s1, float(c["start"]), float(c["end"])) / max(s1 - s0, 0.01) >= 0.5
+            for c in ocr
+        ):
+            continue
+        merged.append(
+            {
+                "start": s0,
+                "end": s1,
+                "text": text,
+                "text_ocr": "",
+                "text_asr": text,
+                "source": "asr",
+                "speaker": seg.get("speaker") or "NARR",
+            }
+        )
+
+    merged.sort(key=lambda row: (float(row["start"]), float(row["end"])))
+    collapsed: list[dict[str, Any]] = []
+    for row in merged:
+        if (
+            collapsed
+            and collapsed[-1]["text"] == row["text"]
+            and float(row["start"]) - float(collapsed[-1]["end"]) <= 0.45
+        ):
+            collapsed[-1]["end"] = row["end"]
+            continue
+        collapsed.append(row)
+
+    out: list[TranscriptSegment] = []
+    for i, row in enumerate(collapsed, start=1):
+        out.append(
+            TranscriptSegment(
+                index=i,
+                start=round(float(row["start"]), 3),
+                end=round(float(row["end"]), 3),
+                text=str(row["text"]),
+                speaker=str(row.get("speaker") or "NARR"),
+                language=language,
+                metadata={
+                    "source": row["source"],
+                    "text_ocr": row.get("text_ocr") or "",
+                    "text_asr": row.get("text_asr") or "",
+                },
+            )
+        )
+    return out
+
+
+SCREEN_NARRATION_SYSTEM = """You are the producer agent for a screen dub.
+You receive the FULL episode in one prompt (use the entire context):
+1) OCR: burned-in on-screen source text (canonical plot; explains jump cuts).
+2) ASR: spoken audio (may miss silent titles, merge speakers, or mishear names).
+3) CONSENSUS: the timed cue list you must fill. Same count, index, start, and end.
+
+Return ONE JSON array covering the whole video. Each item:
+{"index": n, "start": seconds, "end": seconds, "text_zh": "...", "text_es": "..."}
+
+Rules:
+- Prefer OCR when it explains a cut the audio skips.
+- Keep spoken-only ASR lines that have no on-screen text.
+- You may correct OCR typos using ASR and episode context.
+- text_es is spoken LATAM Spanish narration: natural, no prefixes, no stage directions.
+- Emit every CONSENSUS row in order. Do not drop, merge, or truncate rows.
+- Use the full episode so names and plot stay consistent.
+- JSON array only. No markdown.
+"""
+
+
+def _format_cue_lines(cues: list[Any]) -> list[str]:
+    lines: list[str] = []
+    for i, item in enumerate(cues, start=1):
+        cue = _cue_dict(item)
+        lines.append(f"{i}. [{cue['start']:.2f}-{cue['end']:.2f}] {cue['text']}")
+    return lines
+
+
+def build_screen_narration_prompt(
+    ocr_cues: list[Any],
+    asr_segments: list[Any],
+    *,
+    target_language: str = "es",
+    title: str = "",
+    consensus_cues: list[Any] | None = None,
+    glossary: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """Build one long-context producer prompt (OCR + ASR → consensus + translation)."""
+    skeleton = (
+        list(consensus_cues)
+        if consensus_cues is not None
+        else merge_ocr_asr_segments(ocr_cues, asr_segments, language="zh")
+    )
+    ocr_lines = _format_cue_lines(ocr_cues)
+    asr_lines = _format_cue_lines(asr_segments)
+    consensus_lines = _format_cue_lines(skeleton)
+    header = f"Title: {title}\n" if title else ""
+    glossary_block = ""
+    if glossary:
+        mapped = "\n".join(f"- {src} → {dst}" for src, dst in glossary.items() if src)
+        if mapped:
+            glossary_block = f"Glossary (keep these mappings):\n{mapped}\n\n"
+    user = (
+        f"{header}Target spoken language: {target_language}\n\n"
+        f"{glossary_block}"
+        "OCR (on-screen, canonical, full episode):\n"
+        + "\n".join(ocr_lines or ["(none)"])
+        + "\n\nASR (spoken, full episode):\n"
+        + "\n".join(asr_lines or ["(none)"])
+        + "\n\nCONSENSUS (emit one JSON object per row, same index/start/end):\n"
+        + "\n".join(consensus_lines or ["(none)"])
+        + "\n\nEmit the full JSON array for the whole video now. Do not truncate."
+    )
+    return {"system": SCREEN_NARRATION_SYSTEM, "user": user}
+
+
+def parse_screen_narration_json(raw: str) -> list[dict[str, Any]]:
+    """Parse a producer-agent JSON array of consensus+translated cues."""
+    import re
+
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    start = text.find("[")
+    end = text.rfind("]")
+    if start < 0 or end <= start:
+        raise ValueError("screen narration response is not a JSON array")
+    data = json.loads(text[start : end + 1])
+    if not isinstance(data, list):
+        raise ValueError("screen narration JSON must be an array")
+    out: list[dict[str, Any]] = []
+    for i, item in enumerate(data, start=1):
+        row = dict(item or {})
+        out.append(
+            {
+                "index": int(row.get("index") or i),
+                "start": float(row.get("start") or 0.0),
+                "end": float(row.get("end") or 0.0),
+                "text_zh": str(row.get("text_zh") or row.get("text") or "").strip(),
+                "text_es": str(row.get("text_es") or row.get("target_text") or "").strip(),
+            }
+        )
+    return out
+
+
+SCREEN_SPOKEN_FIT_SYSTEM = """You are the localizer agent for a screen dub.
+You receive the FULL translated episode with slot timings (use the entire context).
+Rewrite text_es so each line can be spoken in its video slot at a natural LATAM pace.
+
+Assume about 15.5 Spanish characters per second at TTS rate +0%.
+Later we may speed audio up to 1.35x — prefer a shorter spoken line over rushing.
+Keep names, plot, and oral Spanish. No prefixes, no stage directions, no duration notes.
+
+Return ONE JSON array covering every row:
+{"index": n, "start": seconds, "end": seconds, "text_es": "...", "rate": "+0%"}
+
+rate is an Edge TTS rate such as +0% or +8%. Use a small positive rate only when
+cutting words would hurt the plot. Same count, index, start, and end. JSON only.
+"""
+
+
+def build_spoken_fit_prompt(
+    segments: list[Any],
+    *,
+    chars_per_second: float = 15.5,
+    max_speed: float = 1.35,
+    title: str = "",
+) -> dict[str, str]:
+    """Build one long-context localizer prompt (fit spoken ES to picture slots)."""
+    lines: list[str] = []
+    for i, item in enumerate(segments, start=1):
+        cue = _cue_dict(item)
+        data = item.to_dict() if hasattr(item, "to_dict") else dict(item or {})
+        start = float(cue["start"])
+        end = float(cue["end"])
+        slot = max(0.2, end - start)
+        text_es = str(data.get("text_es") or data.get("target_text") or "").strip()
+        text_zh = str(data.get("text_zh") or cue.get("text") or "").strip()
+        budget = max(8, int(slot * chars_per_second * max_speed))
+        lines.append(
+            f"{int(data.get('index') or i)}. [{start:.2f}-{end:.2f}] slot={slot:.2f}s "
+            f"budget≈{budget}ch zh={text_zh} es={text_es}"
+        )
+    header = f"Title: {title}\n" if title else ""
+    user = (
+        f"{header}Chars/sec at +0%: {chars_per_second}. Max later speed: {max_speed}x.\n\n"
+        "EPISODE (fit every row):\n"
+        + "\n".join(lines or ["(none)"])
+        + "\n\nEmit the full JSON array now. Do not truncate."
+    )
+    return {"system": SCREEN_SPOKEN_FIT_SYSTEM, "user": user}
+
+
+def parse_spoken_fit_json(raw: str) -> list[dict[str, Any]]:
+    """Parse a localizer JSON array of slot-fitted spoken lines."""
+    rows = parse_screen_narration_json(raw)
+    text = (raw or "").strip()
+    start = text.find("[")
+    end = text.rfind("]")
+    extra: list[Any] = []
+    if start >= 0 and end > start:
+        try:
+            loaded = json.loads(text[start : end + 1])
+            extra = list(loaded) if isinstance(loaded, list) else []
+        except Exception:
+            extra = []
+    out: list[dict[str, Any]] = []
+    for i, row in enumerate(rows):
+        rate = "+0%"
+        if i < len(extra) and isinstance(extra[i], dict):
+            rate = str(extra[i].get("rate") or "+0%").strip() or "+0%"
+        if rate and rate[0].isdigit():
+            rate = f"+{rate}"
+        if not rate.startswith(("+", "-")):
+            rate = "+0%"
+        if not rate.endswith("%"):
+            rate = f"{rate}%"
+        out.append({**row, "rate": rate})
+    return out
+
+
+def screen_dubbing_agent_recipe(
+    *,
+    task: str = "Dub on-screen + spoken source into LATAM Spanish narration.",
+    target_language: str = "es",
+    model: str = "deepseek-v4-flash",
+) -> Any:
+    """Agent recipe: producer orchestrates OCR/ASR consensus then long-context translation."""
+    from handoffkit.agent import Agent
+    from handoffkit.recipes import Recipe, RecipeStep
+
+    producer = Agent("Producer", "Orchestrate screen dubbing across -ion stages.", model=model)
+    inspector = Agent("Inspector", "Probe source video and burned-in subtitle band.", model=model)
+    transcriber = Agent("Transcriber", "Capture OCR on-screen text and ASR speech.", model=model)
+    editor = Agent("Editor", "Merge OCR+ASR into one consensus narration script.", model=model)
+    translator = Agent(
+        "Translator",
+        "Long-context ZH→ES narration using the full episode, not isolated lines.",
+        model=model,
+    )
+    localizer = Agent("Localizer", "Keep LATAM Spanish spoken and timed to picture.", model=model)
+    generator = Agent("Generator", "Synthesize TTS clips for each consensus line.", model=model)
+    composer = Agent("Composer", "Mux dubbed audio onto the source video.", model=model)
+    validator = Agent("Validator", "QA timing, empty lines, and plot holes.", model=model)
+    publisher = Agent("Publisher", "Package dubbed video, SRT, and media report.", model=model)
+    return Recipe(
+        name="screen-dubbing",
+        description=(
+            "Agent-run screen dub: OCR + ASR consensus, then one long-context "
+            "translation pass, TTS, mux, and publication."
+        ),
+        steps=[
+            RecipeStep("inspect", "Inspect source video and subtitle band.", agent=inspector),
+            RecipeStep("transcribe", "OCR burned-in titles and ASR speech.", agent=transcriber, use_context=True),
+            RecipeStep("consensus", "Merge OCR+ASR into one narration script.", agent=editor, use_context=True),
+            RecipeStep(
+                "translate",
+                f"Long-context translate the full consensus into {target_language}. {task}",
+                agent=translator,
+                use_context=True,
+            ),
+            RecipeStep("localize", "Fit spoken LATAM copy to slot timing.", agent=localizer, use_context=True),
+            RecipeStep("generate", "TTS each consensus line.", agent=generator, use_context=True),
+            RecipeStep("compose", "Mux dubbed audio onto picture.", agent=composer, use_context=True),
+            RecipeStep("validate", "Check empty lines, speed caps, plot holes.", agent=validator, use_context=True),
+            RecipeStep("publish", "Write dubbed file, SRT, and MediaWorkflowReport.", agent=publisher, use_context=True),
+        ],
+        metadata={
+            "pipeline": "screen_dubbing",
+            "target_language": target_language,
+            "producer": producer.name,
+            "model": model,
+            "long_context": True,
+        },
+    ).validate()
+
+
 def write_transcript_json(segments: list[TranscriptSegment], path: str | Path) -> Path:
     """Write transcript segments to JSON."""
     target = Path(path)
@@ -507,24 +891,26 @@ def media_operation_catalog() -> list[MediaOperationSpec]:
         ),
         MediaOperationSpec(
             "edition",
-            "Edit timing, copy, cuts, and structure of media or transcripts.",
-            inputs=["assets", "transcript", "edition_ops"],
+            "Edit timing, copy, cuts, and merge OCR+ASR into one consensus script.",
+            inputs=["assets", "transcript", "ocr_cues", "edition_ops"],
             outputs=["assets", "transcript", "edition_ops"],
             agent_role="media-editor",
         ),
         MediaOperationSpec(
             "transcription",
-            "Speech-to-text into timestamped transcript segments.",
+            "Speech-to-text plus burned-in on-screen OCR into timestamped cues.",
             inputs=["audio", "video"],
-            outputs=["transcript_segments"],
+            outputs=["transcript_segments", "ocr_cues"],
             agent_role="transcriber",
+            notes=["ASR hears speech only; OCR captures silent titles the plot depends on."],
         ),
         MediaOperationSpec(
             "translation",
-            "Translate transcript or script text into a target language.",
+            "Long-context translate the consensus script into spoken target-language narration.",
             inputs=["transcript_segments", "target_language"],
             outputs=["dubbing_segments", "translations"],
             agent_role="translator",
+            notes=["Prefer one full-episode pass so names and plot stay consistent."],
         ),
         MediaOperationSpec(
             "localization",
@@ -600,6 +986,17 @@ MEDIA_PIPELINES: dict[str, tuple[str, ...]] = {
     "video_dubbing": (
         "inspection",
         "transcription",
+        "translation",
+        "localization",
+        "generation",
+        "composition",
+        "validation",
+        "publication",
+    ),
+    "screen_dubbing": (
+        "inspection",
+        "transcription",
+        "edition",
         "translation",
         "localization",
         "generation",

@@ -154,8 +154,10 @@ export class NetworkConfig {
 }
 export class LengthDelimitedTransport extends Transport {
   authenticatedPeer: PeerIdentity | null;
+  localCertificateIdentity: PeerIdentity | null;
   constructor(socket: import("node:net").Socket, options?: { config?: NetworkConfig });
-  close(): Promise<void>;
+  destroy(error?: Error | null): void;
+  close(options?: { force?: boolean }): Promise<void>;
 }
 export class TcpTransport extends LengthDelimitedTransport {
   static connect(host: string, port: number, options?: {

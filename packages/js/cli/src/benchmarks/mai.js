@@ -112,8 +112,16 @@ export class MAIStyleBenchmarkReport {
     return this.results.filter(r => r.correct).length;
   }
 
-  get accuracy() {
+  get gold_replay_match_rate() {
     return this.case_count ? this.correct_count / this.case_count : 0.0;
+  }
+
+  get accuracy() {
+    return null;
+  }
+
+  get scoring_eligible() {
+    return false;
   }
 
   get total_cost() {
@@ -129,6 +137,8 @@ export class MAIStyleBenchmarkReport {
     return {
       name: this.name,
       mode: "mai_style_gold_replay",
+      scoring_eligible: false,
+      status_public: "experimental / research and education only / not clinically validated",
       source: {
         name: SOURCE_NAME,
         url: SOURCE_URL,
@@ -137,10 +147,13 @@ export class MAIStyleBenchmarkReport {
       },
       safety_note: SAFETY_NOTE,
       case_count: this.case_count,
-      correct_count: this.correct_count,
-      accuracy: Number(this.accuracy.toFixed(3)),
-      total_cost: Number(this.total_cost.toFixed(2)),
-      average_cost: Number(this.average_cost.toFixed(2)),
+      gold_replay_match_count: this.correct_count,
+      gold_replay_match_rate: Number(this.gold_replay_match_rate.toFixed(3)),
+      accuracy: null,
+      resource_units_total: Number(this.total_cost.toFixed(2)),
+      resource_units_average: Number(this.average_cost.toFixed(2)),
+      cost_profile: "resource_units_v1",
+      usd_profile: null,
       results: this.results.map(r => r.toDict()),
       trace: this.trace.toJSON ? this.trace.toJSON() : this.trace,
       replay: { step_count: replay, handoff_count: this.trace.handoffs.length },
@@ -156,7 +169,7 @@ export class MAIStyleBenchmarkReport {
 
   toMarkdown() {
     const rows = this.results
-      .map(result => `| ${result.case.case_id} | ${result.case.case.pmcid} | ${result.observations.length} | $${result.total_cost.toFixed(0)} | ${result.final_diagnosis.replace(/\|/g, "/")} |`)
+      .map(result => `| ${result.case.case_id} | ${result.case.case.pmcid} | ${result.observations.length} | ${result.total_cost.toFixed(0)} u | ${result.final_diagnosis.replace(/\|/g, "/")} |`)
       .join("\n");
     const sortedArtifacts = Object.keys(this.artifacts).sort().map(name => `- \`${name}\`: \`${this.artifacts[name]}\``).join("\n") || "- generated when written";
     return [
@@ -171,17 +184,17 @@ export class MAIStyleBenchmarkReport {
       "## Summary",
       "",
       `- Cases: \`${this.case_count}\``,
-      `- Gold replay matches: \`${this.correct_count}\``,
-      `- Accuracy: \`${this.accuracy.toFixed(3)}\``,
-      `- Total simulated cost: \`$${this.total_cost.toFixed(0)}\``,
-      `- Average simulated cost: \`$${this.average_cost.toFixed(0)}\``,
+      `- Gold replay fixture matches (not scored): \`${this.correct_count}\``,
+      "- Published diagnostic accuracy: `not scored`",
+      `- Total resource units (not clinical USD): \`${this.total_cost.toFixed(0)}\``,
+      `- Average resource units: \`${this.average_cost.toFixed(0)}\``,
       `- Handoffs: \`${this.trace.handoffs.length}\``,
       `- Handoff quality: \`${this.quality.grade}\` / \`${(this.quality.score ?? 1.0).toFixed(3)}\``,
       `- Replay: ${this.trace.steps.length} steps`,
       "",
       "## Cases",
       "",
-      "| Case | PMCID | Actions | Cost | Final Diagnosis |",
+      "| Case | PMCID | Actions | Resource units | Final Diagnosis |",
       "| --- | --- | ---: | ---: | --- |",
       rows,
       "",
@@ -204,28 +217,34 @@ export class MAIGatekeeper {
     if (action.kind === "diagnose") {
       content = "Final diagnosis submitted.";
       section = "diagnosis_submission";
+    } else if (_isVagueQuery(action)) {
+      content = "evidence_not_available";
+      section = "not_available";
     } else {
       this.revealed.add(section);
-      content = this.case.sections[section] || this.case.sections["full_case"];
+      content = this.case.sections[section] || "evidence_not_available";
+      if (content === "evidence_not_available") section = "not_available";
     }
     return new MAIObservation({ action, content, revealed_section: section });
   }
 }
 
 export class MAICostModel {
-  static costs = {
-    "history": 0.0,
-    "physical_exam": 0.0,
-    "basic_labs": 85.0,
-    "imaging": 420.0,
-    "pathology": 1200.0,
-    "special_tests": 650.0,
-    "diagnosis_submission": 0.0,
+  static units = {
+    history: 1,
+    physical_exam: 1,
+    basic_labs: 3,
+    imaging: 8,
+    pathology: 12,
+    special_tests: 10,
+    diagnosis_submission: 0,
+    not_available: 0,
   };
 
   costFor(action) {
+    if (_isVagueQuery(action)) return 0.0;
     const section = _routeQueryToSection(action);
-    return MAICostModel.costs[section] ?? 100.0;
+    return MAICostModel.units[section] ?? 2;
   }
 }
 
@@ -446,6 +465,11 @@ function _deriveAliases(diagnosis) {
   const normalized = diagnosis.replace(/_/g, " ");
   const spaced = [...normalized].map((char, index) => char === char.toUpperCase() && char !== " " && index > 0 ? ` ${char}` : char).join("");
   return Array.from(new Set([diagnosis, normalized, spaced])).sort();
+}
+
+function _isVagueQuery(action) {
+  const query = `${action.name} ${action.query}`.toLowerCase();
+  return _hasAny(query, ["everything", "full case", "whole case", "tell me all", "complete case", "entire case"]);
 }
 
 function _routeQueryToSection(action) {

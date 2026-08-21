@@ -29,7 +29,7 @@ export type StoredMaiRun = {
   id: string;
   createdAt: string;
   demo: "mai-style-panel";
-  schemaVersion: 1;
+  schemaVersion: 2;
   /** Studio workspace scope (P1/P2) */
   workspaceId?: string;
   userId?: string;
@@ -58,6 +58,8 @@ export type StoredMaiRun = {
   finalAnswerChars: number;
   rankings: PanelRanking[];
   redFlag?: string;
+  consensusEligible: boolean;
+  errorCode?: string;
   usage?: {
     promptTokens: number;
     completionTokens: number;
@@ -81,6 +83,7 @@ export type RunHistorySummary = {
   rankingLabels: string[];
   costUsd?: number;
   benchmarkReady: boolean;
+  consensusEligible: boolean;
 };
 
 const DATA_DIR = join(process.cwd(), ".data", "mai-runs");
@@ -110,6 +113,8 @@ export function buildStoredRun(input: {
     }>;
     judge: { name: string; model: string; output: string };
     finalAnswer: string;
+    consensusEligible?: boolean;
+    errorCode?: string;
     handoffs: unknown[];
     durationMs: number;
     usage?: StoredMaiRun["usage"];
@@ -127,7 +132,7 @@ export function buildStoredRun(input: {
     id: runId || `run_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
     createdAt: new Date().toISOString(),
     demo: "mai-style-panel",
-    schemaVersion: 1,
+    schemaVersion: 2,
     providerId: result.providerId || result.mode || "unknown",
     providerLabel: result.provider,
     mode: result.mode,
@@ -153,10 +158,13 @@ export function buildStoredRun(input: {
     finalAnswerChars: ensured.text.length,
     rankings: ensured.consensus.rankings,
     redFlag: ensured.consensus.redFlag,
+    consensusEligible: result.consensusEligible === true,
+    errorCode: result.errorCode,
     usage: result.usage,
     benchmarkReady:
       result.success &&
-      ensured.consensus.rankings.length >= 2 &&
+      result.consensusEligible === true &&
+      ensured.consensus.rankings.length === 3 &&
       ensured.text.length >= 80,
   };
 }
@@ -216,6 +224,7 @@ export function listStoredRuns(
         ),
         costUsd: run.usage?.costUsd,
         benchmarkReady: Boolean(run.benchmarkReady),
+        consensusEligible: Boolean(run.consensusEligible),
       });
     } catch {
       /* skip corrupt */
@@ -250,6 +259,7 @@ export function exportBenchmarkCorpus(limit = 500): {
     models: StoredMaiRun["models"];
     rankings: PanelRanking[];
     success: boolean;
+    consensusEligible: boolean;
     durationMs: number;
     usage?: StoredMaiRun["usage"];
   }>;
@@ -264,6 +274,7 @@ export function exportBenchmarkCorpus(limit = 500): {
     models: StoredMaiRun["models"];
     rankings: PanelRanking[];
     success: boolean;
+    consensusEligible: boolean;
     durationMs: number;
     usage?: StoredMaiRun["usage"];
   }> = [];
@@ -283,6 +294,7 @@ export function exportBenchmarkCorpus(limit = 500): {
         models: run.models,
         rankings: run.rankings,
         success: run.success,
+        consensusEligible: Boolean(run.consensusEligible),
         durationMs: run.durationMs,
         usage: run.usage,
       });
@@ -294,7 +306,7 @@ export function exportBenchmarkCorpus(limit = 500): {
   return {
     exportedAt: new Date().toISOString(),
     count: items.length,
-    readyCount: items.filter((i) => i.rankings.length >= 2).length,
+    readyCount: items.filter((i) => i.consensusEligible && i.rankings.length === 3).length,
     items,
   };
 }

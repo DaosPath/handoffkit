@@ -7,6 +7,8 @@ import { BrowserCache, defaultCacheRoot } from "./cache.js";
 import { PageMarkdown } from "./page.js";
 import { canonicalUrl, mapWithConcurrency, smartTruncate } from "./util.js";
 import { exploreUserBrowser } from "./user_browser.js";
+import { DEFAULT_BROWSER_PROVIDER, exploreDefaultBrowser } from "./default_browser.js";
+import { finalizeResearchPackV2 } from "./research_pack_v2.js";
 
 const URL_RE = /https?:\/\/[^\s<>"')\]]+/gi;
 
@@ -48,9 +50,18 @@ export class ResearchPack {
     this.transport = init.transport ?? "";
     this.mode = init.mode ?? "search_then_fetch";
     this.metadata = { ...(init.metadata ?? {}) };
+    this.pack_version = init.pack_version ?? 2;
+    this.claims = [...(init.claims ?? [])];
+    this.contradictions = [...(init.contradictions ?? [])];
+    this.snapshots = [...(init.snapshots ?? [])];
+    this.selected_urls = [...(init.selected_urls ?? [])];
+    this.checkpoint_id = init.checkpoint_id ?? "";
+    this.idempotency_key = init.idempotency_key ?? "";
+    this.provider_trace = [...(init.provider_trace ?? [])];
   }
 
   toDict() {
+    finalizeResearchPackV2(this);
     return {
       enabled: this.enabled,
       used: this.used,
@@ -68,6 +79,14 @@ export class ResearchPack {
       mode: this.mode,
       agent_markdown: this.toAgentMarkdown(),
       metadata: { ...this.metadata },
+      pack_version: this.pack_version,
+      claims: [...this.claims],
+      contradictions: [...this.contradictions],
+      snapshots: [...this.snapshots],
+      selected_urls: [...this.selected_urls],
+      checkpoint_id: this.checkpoint_id,
+      idempotency_key: this.idempotency_key,
+      provider_trace: [...this.provider_trace],
     };
   }
 
@@ -234,6 +253,15 @@ function appendUserBrowserOutcome(pack, seedUrl, outcome, format, maxPages) {
   if (code && !pack.metadata.error_code) pack.metadata.error_code = code;
 }
 
+function providerIncludes(providers, names) {
+  return Array.isArray(providers)
+    && providers.some((provider) => names.includes(String(provider).toLowerCase()));
+}
+
+function bridgeConfigured(bridge) {
+  return Boolean(bridge) && bridge.configured !== false;
+}
+
 /**
  * Deep, bounded research over HTTP/fixtures or an explicit user-browser
  * bridge. The selected page route is recorded in metadata and fails closed on
@@ -259,8 +287,13 @@ export async function gatherDeepWebResearch(config = {}) {
   const denyHosts = config.denyHosts ?? config.deny_hosts ?? [];
   const providers = config.providers ?? DEFAULT_SEARCH_PROVIDERS;
   const userBrowser = config.userBrowser ?? config.user_browser ?? null;
-  const userBrowserRequested = Array.isArray(providers)
-    && providers.some((provider) => ["user_browser", "user-browser"].includes(String(provider).toLowerCase()));
+  const userBrowserRequested = providerIncludes(providers, ["user_browser", "user-browser"]);
+  const defaultBrowserRequested = providerIncludes(providers, [
+    DEFAULT_BROWSER_PROVIDER,
+    "default-browser",
+    "system-browser",
+  ]);
+  const browserBridgeRequested = userBrowserRequested || defaultBrowserRequested;
   const format = config.format ?? "markdown";
   const seedUrls = [...(config.seedUrls ?? config.seed_urls ?? [])];
   const cache = config.cache instanceof BrowserCache
@@ -277,9 +310,13 @@ export async function gatherDeepWebResearch(config = {}) {
     transport: transport?.name?.() ?? "none",
     mode: "deep_search_then_explore",
     metadata: {
-      execution_mode: userBrowserRequested ? "background_user_browser_bridge" : "background_http",
-      user_browser_required: userBrowserRequested,
-      user_browser_bridge_configured: Boolean(userBrowser),
+      execution_mode: defaultBrowserRequested
+        ? "background_default_browser_bridge"
+        : userBrowserRequested ? "background_user_browser_bridge" : "background_http",
+      user_browser_required: browserBridgeRequested,
+      user_browser_bridge_configured: bridgeConfigured(userBrowser),
+      default_browser_required: defaultBrowserRequested,
+      default_browser_bridge_configured: defaultBrowserRequested && bridgeConfigured(userBrowser),
       max_pages: maxPages,
       max_depth: maxDepth,
       max_sub_queries: maxSubQueries,
@@ -364,8 +401,10 @@ export async function gatherDeepWebResearch(config = {}) {
   const branchPages = Math.max(1, Math.min(maxDepth + 1, maxPages));
   const branchCount = Math.max(1, Math.ceil(maxPages / branchPages));
   const candidates = ranked.slice(0, branchCount);
-  if (userBrowserRequested) {
-    pack.metadata.page_transport = "user_browser_bridge";
+  if (browserBridgeRequested) {
+    pack.metadata.page_transport = defaultBrowserRequested
+      ? "default_browser_bridge"
+      : "user_browser_bridge";
     const browserOptions = userBrowserExploreOptions(
       config,
       branchPages,
@@ -376,7 +415,9 @@ export async function gatherDeepWebResearch(config = {}) {
     );
     const outcomes = await mapWithConcurrency(candidates, concurrency, async (url) => {
       const t0 = Date.now();
-      const result = await exploreUserBrowser(userBrowser, [url], browserOptions);
+      const result = defaultBrowserRequested
+        ? await exploreDefaultBrowser(userBrowser, [url], browserOptions)
+        : await exploreUserBrowser(userBrowser, [url], browserOptions);
       return { url, result, ms: Date.now() - t0 };
     });
     for (const outcome of outcomes) {
@@ -537,8 +578,13 @@ export async function gatherWebResearch(config = {}) {
   const denyHosts = config.denyHosts ?? config.deny_hosts ?? [];
   const providers = config.providers ?? DEFAULT_SEARCH_PROVIDERS;
   const userBrowser = config.userBrowser ?? config.user_browser ?? null;
-  const userBrowserRequested = Array.isArray(providers)
-    && providers.some((provider) => ["user_browser", "user-browser"].includes(String(provider).toLowerCase()));
+  const userBrowserRequested = providerIncludes(providers, ["user_browser", "user-browser"]);
+  const defaultBrowserRequested = providerIncludes(providers, [
+    DEFAULT_BROWSER_PROVIDER,
+    "default-browser",
+    "system-browser",
+  ]);
+  const browserBridgeRequested = userBrowserRequested || defaultBrowserRequested;
   const format = config.format ?? "markdown";
   const concurrency = Math.max(1, Number(config.concurrency ?? 2) || 2);
   const cache =
@@ -556,9 +602,13 @@ export async function gatherWebResearch(config = {}) {
     transport: transport?.name?.() ?? "none",
     mode: seedOnly ? "seed_only" : autoSearch ? "search_then_fetch" : "urls_only",
     metadata: {
-      execution_mode: userBrowserRequested ? "background_user_browser_bridge" : "background_http",
-      user_browser_required: userBrowserRequested,
-      user_browser_bridge_configured: Boolean(userBrowser),
+      execution_mode: defaultBrowserRequested
+        ? "background_default_browser_bridge"
+        : userBrowserRequested ? "background_user_browser_bridge" : "background_http",
+      user_browser_required: browserBridgeRequested,
+      user_browser_bridge_configured: bridgeConfigured(userBrowser),
+      default_browser_required: defaultBrowserRequested,
+      default_browser_bridge_configured: defaultBrowserRequested && bridgeConfigured(userBrowser),
       providers_requested: Array.isArray(providers) ? providers.map((p) => String(p)) : [],
       providers_used: [],
       provider_errors: [],
@@ -638,8 +688,10 @@ export async function gatherWebResearch(config = {}) {
     return result;
   }
 
-  if (userBrowserRequested) {
-    result.metadata.page_transport = "user_browser_bridge";
+  if (browserBridgeRequested) {
+    result.metadata.page_transport = defaultBrowserRequested
+      ? "default_browser_bridge"
+      : "user_browser_bridge";
     const branchPages = preferExplore ? Math.max(1, Math.min(maxDepth + 1, maxPages)) : 1;
     const browserOptions = userBrowserExploreOptions(
       config,
@@ -654,7 +706,9 @@ export async function gatherWebResearch(config = {}) {
       concurrency,
       async (url) => {
         const t0 = Date.now();
-        const explored = await exploreUserBrowser(userBrowser, [url], browserOptions);
+        const explored = defaultBrowserRequested
+          ? await exploreDefaultBrowser(userBrowser, [url], browserOptions)
+          : await exploreUserBrowser(userBrowser, [url], browserOptions);
         return { url, result: explored, ms: Date.now() - t0 };
       },
     );
@@ -675,11 +729,18 @@ export async function gatherWebResearch(config = {}) {
   }
 
   const explorer = new WebExplorer(transport);
+  const configuredPolicy = config.policy && typeof config.policy === "object" ? config.policy : {};
   const policy = new ExplorePolicy({
+    ...configuredPolicy,
     maxDepth,
     maxPages: preferExplore ? maxPages : 1,
     timeoutMs,
-    sameHostOnly: preferExplore,
+    sameHostOnly: config.sameHostOnly ?? config.same_host_only ?? configuredPolicy.sameHostOnly ?? configuredPolicy.same_host_only ?? preferExplore,
+    maxBodyBytes: config.maxBodyBytes ?? config.max_body_bytes ?? configuredPolicy.maxBodyBytes ?? configuredPolicy.max_body_bytes,
+    maxTextChars: config.maxTextChars ?? config.max_text_chars ?? configuredPolicy.maxTextChars ?? configuredPolicy.max_text_chars,
+    maxMarkdownChars: config.maxMarkdownChars ?? config.max_markdown_chars ?? configuredPolicy.maxMarkdownChars ?? configuredPolicy.max_markdown_chars,
+    allowHosts,
+    denyHosts,
     emitMarkdown: true,
   });
 

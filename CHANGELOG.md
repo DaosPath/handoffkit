@@ -21,9 +21,61 @@ unavailable and fail closed.
 ## [Unreleased]
 
 The current 1.20 development line continues from the 1.19 beta baseline.
+Browser Platform work is a **single 1.20 train** (the former 1.20–1.29 split is
+absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
+`reports/BROWSER_1.20_SCORECARD.md`. No tag or publication is implied.
 
 ### Added
 
+- Clinical Sequential Reasoning Lab (`handoffkit.clinical`, `@handoffkit/clinical`,
+  `/demos/clinical-lab`): experimental predefined-case sequential sandbox.
+  Scoring is fail-closed and `heuristic_only` until independent judges exist.
+  `clinical_validity` stays null. Official 897-case corpus, live providers, and
+  live retrieval remain unavailable. Research never falls back to professional.
+  `gold_replay` is an immutable recorded fixture only. Status: experimental /
+  research and education only / not clinically validated.
+
+- Browser Core I/O-free contracts (`@handoffkit/browser-core` and Python/Rust/Go/C++
+  equivalents) with golden vectors at `packages/contracts/conformance/browser-core-v1.json`.
+- Named Lite/Real packages: `@handoffkit/browser-lite` (facade re-export) and
+  `@handoffkit/browser-real` (supervised Playwright service, Chromium only via
+  explicit `install-chromium`). `@handoffkit/browser` never imports Real.
+- Search `provider_trace`, `fallback_reason`, `strict_provider`, and opt-in
+  `search_plan=platform`. Workspace `project_index` is opt-in and is not a
+  complete Internet index. ResearchPack v2 adds snapshots, claims, and
+  at-least-once checkpoints.
+- Browser Core network/filesystem policy helpers (`assert_network_url` /
+  `assertFilesystem`) deny loopback, private networks, and local files by
+  default. Browser Real enforces those checks before navigate/download/screenshot
+  paths. C++ HTML extraction now emits Markdown tables and JSON-LD to match
+  JS/Python. Studio Inspector renders authorized screenshots and exposes
+  pause/resume/cancel/retry only against a configured control sink.
+- Studio Browser Inspector (`/studio/browser`) reads only real NDJSON from
+  `HANDOFFKIT_STUDIO_BROWSER_EVENTS`. Hermes surfaces browser progress, sources,
+  errors, and cancel without hosting Chromium.
+
+- Added an auditable evidence-dossier mode to Python and JavaScript grounded
+  research recipes. Each direct claim needs a locally matched quote and
+  semantic alignment with its requirement; cross-claim synthesis references a
+  verified claim ledger, and deterministic composition can avoid a free-form
+  final model pass. Known URL seeds affect ranking only and are still fetched
+  through the real research route. Fixed audit rubrics may add locally verified
+  quote anchors and claim-ID inference rules; stale anchors fail closed.
+- Added the expiring live grounding qualification: 30 HTTPS sources are fetched
+  through HandoffKit WebExplorer, each page is hashed, quotes are extracted from
+  current Markdown, and invented/redirected/fixture citations fail closed.
+  `reports/BROWSER_1.20_GROUNDING_LIVE.json` records a 30/30 run with
+  factual/completeness/citation metrics at 1.0. This is a retrieval/evidence
+  oracle, not an LLM answer-accuracy claim; the corpus must be refreshed after
+  its expiry date.
+
+- Screen-dubbing media pipeline and agent recipe (`screen_dubbing` /
+  `screen-dubbing`): OCR + ASR consensus, a long-context producer prompt for
+  one full-episode translation pass, and an improved offline `demo-media`
+  that shows those handoffs. Python and JavaScript stay 1:1
+  (`merge_ocr_asr_segments` / `mergeOcrAsrSegments`,
+  `build_screen_narration_prompt` / `buildScreenNarrationPrompt`,
+  `parse_screen_narration_json` / `parseScreenNarrationJson`).
 - Expanded the experimental `user_browser` provider in JavaScript and Python
   from search-only to an explicit host page bridge (`fetch`/`open`). The bridge
   normalizes HTML/Markdown/links, supports bounded multi-page same-host
@@ -31,6 +83,11 @@ The current 1.20 development line continues from the 1.19 beta baseline.
   access is absent, and emits `ResearchPack.agent_markdown` with queries,
   citations, evidence, and structured errors. No browser profile, cookie, or
   HTTP fallback is used by this route.
+- Added the experimental `default_browser` provider in JavaScript and Python.
+  It speaks a bounded loopback/HTTPS JSON bridge (`POST /search`, `POST
+  /fetch`) owned by the host's system-default browser. Missing endpoints,
+  unsafe remote HTTP, timeouts, and malformed responses fail closed; no
+  browser launch, cookie access, or silent HTTP fallback is performed.
 - Added bounded multi-query user-session search with duplicate-source
   provenance and deterministic scoring. Browser-bridge traversal now ranks
   links against the research query, skips likely state-changing action links by
@@ -38,6 +95,20 @@ The current 1.20 development line continues from the 1.19 beta baseline.
 - Clarified that `user_browser` visibility belongs to the embedding host:
   HandoffKit does not hide or foreground tabs, and a visible host harness is
   not evidence of an invisible HandoffKit browser integration.
+- Hardened `google_browser` organic-result parsing: internal Google links,
+  redirectors, ad URLs, non-HTTP schemes, fragments, and duplicates are
+  removed before results reach the agent. Challenge pages remain a structured
+  `provider_challenge` with no fallback. `scripts/js/browser-real-google-search.mjs`
+  records explicit headless Chromium outcomes; local probes may be challenged
+  or time out and therefore do not close the live-CI gate.
+- Added `pnpm js:pack:checksums`, which emits SHA-256 manifests for all twelve
+  JS tarballs on the current runner. The Browser Platform matrix uploads one
+  manifest per hosted OS/architecture; local x64 output is environmental and
+  does not claim cross-architecture release evidence.
+- Patched the production dependency graph to Playwright 1.62.1 and nanoid
+  3.3.18, and added `pnpm security:dependencies`. The local high/critical
+  production audit is clean; this remains separate from CodeQL and hosted
+  source-security review.
 - Added an experimental, background-only `web_deep_research` route to the
   JavaScript, Python, and C++ Browser Lite surfaces. It expands bounded
   subqueries, ranks candidates, explores/fetches through the configured HTTP or
@@ -51,6 +122,12 @@ The current 1.20 development line continues from the 1.19 beta baseline.
   Python, and C++. Deep research now reports cache hits/misses/writes and
   reuses cached Markdown pages when a cache is supplied. Provider names do not
   imply live reachability or an independent search index.
+- Added an explicit native Google HTML search adapter to Browser Lite across
+  JavaScript, Python, and C++. It unwraps result redirects, drops sponsored
+  and Google-navigation links, and shares bounded host ranking with the other
+  providers. HTML extraction now removes explicitly marked ad/consent/promo
+  containers before Markdown conversion; the default provider list remains
+  DuckDuckGo/Wikipedia and Google is opt-in.
 - Browser agent kits now propagate an explicit provider allowlist through direct
   search/research helpers and registered tools across JavaScript, Python, and
   C++; the JavaScript browse CLI accepts repeated or comma-separated provider
@@ -67,6 +144,29 @@ The current 1.20 development line continues from the 1.19 beta baseline.
   provider-gated C++ OpenSSL client/listener with TLS 1.3, mTLS, SAN-bound
   identity, fingerprint policy, timeouts, and framed real sockets; default C++
   builds still report the provider as unavailable.
+- Browser Real now owns Chromium through Playwright `BrowserServer`, records
+  its child process, returns `session.interrupted` after a real process exit,
+  and relaunches/revalidates through `session.retry`. Local evidence includes
+  the real Playwright operation matrix, clean JS tarball consumer imports,
+  environmental p50/p95/p99 measurements, and the five-runtime C++ TCP
+  TLS/mTLS interoperability matrix. Hosted soak, cross-architecture results,
+  full security review, and provider/model answer accuracy remain open gates.
+- Added a real Browser Real protocol interop gate for the C++ client and Node
+  service over TCP TLS 1.3 + mTLS. The C++ path binds source and capabilities
+  to the certificate identity, emits/verifies the HK-CSP security transcript,
+  checks response correlation, and rejects repeated response nonce/sequence.
+  Evidence uses an injected deterministic session engine and does not claim
+  Chromium coverage: `reports/BROWSER_1.20_BROWSER_REAL_CPP_INTEROP.json`.
+- Browser Real egress tests now exercise a real Chromium private subresource
+  rejection, redirect-target rejection, and a real DNS rejection for non-global
+  `localhost` answers. Chromium uses a CDP Fetch interceptor so redirects are
+  checked before continuation; non-Chromium engines retain the compatibility
+  route hook.
+- Studio Browser Inspector now has a reproducible axe-core 4.12.1 WCAG A/AA
+  audit at 375/768/1024/1440, with keyboard-name, landmark, skip-link, and
+  focus-indicator checks. Its pause/resume/cancel/retry controls are exercised
+  through the live Studio API over TCP TLS 1.3+mTLS; hosted and cross-architecture
+  qualification remain separate release gates.
 - Added certificate-derived peer identity for those four secure transports.
   URI SAN claims and locally calculated fingerprints are checked against every
   declared identity field; capabilities come from local fingerprint policy.
@@ -183,6 +283,13 @@ The current 1.20 development line continues from the 1.19 beta baseline.
   installed offline from generated artifacts, imported through public entry
   points, and checked for package metadata versions. This validates packaging;
   it does not imply registry publication or version alignment.
+
+### Changed
+
+- `gold_replay` and `mai_style_gold_replay` emit `accuracy: null`. They remain
+  regression fixtures and never count as diagnostic accuracy. Vague queries
+  return `evidence_not_available` instead of dumping `full_case`. Cost reports
+  use versioned resource units rather than invented clinical USD.
 
 ### Security
 

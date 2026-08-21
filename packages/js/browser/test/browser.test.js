@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import {
   ExplorePolicy,
   decodeHtmlEntities,
@@ -11,6 +13,10 @@ import {
   extractLinks,
   htmlToMarkdown,
   preferMainContent,
+  htmlTableToMarkdown,
+  extractJsonLd,
+  isRobotsAllowed,
+  ProjectWebIndex,
   makeFixtureMapTransport,
   WebExplorer,
   webSearch,
@@ -30,11 +36,16 @@ import {
   ResearchPack,
   searchUserBrowserMany,
   exploreUserBrowser,
+  createDefaultBrowserBridge,
+  DEFAULT_BROWSER_PROVIDER,
   HANDOFFKIT_BROWSER_VERSION,
+  runFixtureGrounding,
+  liveGroundingOracle,
+  scoreLiveGroundingRun,
 } from "../src/index.js";
 
 test("version matches package", () => {
-  assert.equal(HANDOFFKIT_BROWSER_VERSION, "1.16.0");
+  assert.equal(HANDOFFKIT_BROWSER_VERSION, "1.20.0-alpha.1");
 });
 
 test("html extract: title text links entities", () => {
@@ -182,7 +193,13 @@ test("webSearch against fixture search endpoints", async () => {
   const result = await webSearch("OpenAI", { transport, maxResults: 4 });
   assert.equal(result.success, true);
   assert.ok(result.results.some((r) => r.title));
-  assert.deepEqual(result.providers_requested, ["duckduckgo", "wikipedia"]);
+  assert.deepEqual(result.providers_requested, [
+    "google_browser",
+    "project_index",
+    "google_http",
+    "duckduckgo",
+    "wikipedia",
+  ]);
   assert.ok(result.providers_used.includes("duckduckgo"));
 
   const wikiOnly = await webSearch("OpenAI", {
@@ -202,6 +219,57 @@ test("webSearch against fixture search endpoints", async () => {
   assert.equal(unavailable.success, false);
   assert.equal(unavailable.error_code, "provider_unavailable");
   assert.match(unavailable.errors[0], /unsupported provider/);
+});
+
+test("DuckDuckGo challenge pages fail closed with a structured code", async () => {
+  const transport = makeFixtureMapTransport();
+  transport.setPage(
+    "https://html.duckduckgo.com/html/?q=blocked",
+    "<html><body><h1>Anomaly detected</h1><p>Automated queries are rate limited.</p></body></html>",
+  );
+  const result = await webSearch("blocked", { transport, providers: ["duckduckgo"] });
+  assert.equal(result.success, false);
+  assert.equal(result.error_code, "duckduckgo_soft_block");
+  assert.deepEqual(result.provider_codes, ["duckduckgo_soft_block"]);
+});
+
+test("google provider uses HandoffKit HTTP transport and drops sponsored redirects", async () => {
+  const transport = makeFixtureMapTransport();
+  transport.setPage(
+    "https://www.google.com/search?hl=en&num=8&q=OpenAI",
+    `<html><body>
+      <a href="/aclk?sa=l&adurl=https%3A%2F%2Fads.example%2F">Sponsored</a>
+      <a href="/url?q=https%3A%2F%2Fexample.org%2Fpaper&amp;sa=U">Primary paper</a>
+      <a href="/search?q=OpenAI">Google navigation</a>
+      <a href="https://example.org/direct">Direct source</a>
+    </body></html>`,
+  );
+  const result = await webSearch("OpenAI", {
+    transport,
+    providers: ["google"],
+    maxResults: 4,
+  });
+  assert.equal(result.success, true);
+  assert.deepEqual(result.providers_used, ["google"]);
+  assert.equal(result.engine, "google_html");
+  assert.deepEqual(result.results.map((item) => item.url), [
+    "https://example.org/direct",
+    "https://example.org/paper",
+  ]);
+  assert.equal(result.results.some((item) => item.title === "Sponsored"), false);
+});
+
+test("HTML extraction removes ad and consent containers from text and links", async () => {
+  const html = `<html><head><title>Evidence</title></head><body>
+    <div class="ad-banner"><a href="https://ads.example/click">Buy</a></div>
+    <div id="cookie-consent">Accept cookies</div>
+    <main><p>Primary evidence remains.</p><a href="/source">Source</a></main>
+  </body></html>`;
+  assert.match(extractText(html), /Primary evidence remains/);
+  assert.doesNotMatch(extractText(html), /Buy|Accept cookies/);
+  assert.deepEqual(extractLinks(html, "https://example.org/"), [
+    { href: "/source", absolute: "https://example.org/source", text: "Source" },
+  ]);
 });
 
 test("user_browser provider uses an explicit host bridge", async () => {
@@ -231,6 +299,90 @@ test("user_browser provider uses an explicit host bridge", async () => {
   assert.equal(result.results[0].url, "https://example.org/from-user");
   assert.equal(observed.query, "local browser query");
   assert.equal(observed.options.maxResults, 4);
+});
+
+test("default_browser bridge uses bounded loopback JSON and feeds research", async () => {
+  const calls = [];
+  const response = (payload, status = 200) => ({
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: () => String(JSON.stringify(payload).length) },
+    text: async () => JSON.stringify(payload),
+  });
+  const bridge = createDefaultBrowserBridge({
+    endpoint: "http://127.0.0.1:8765/v1",
+    token: "test-token",
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      const payload = JSON.parse(options.body);
+      if (url.endsWith("/search")) {
+        return response({ results: [{ title: "Default browser result", url: "https://default.example/page" }] });
+      }
+      assert.equal(payload.url, "https://default.example/page");
+      return response({
+        status: 200,
+        url: payload.url,
+        final_url: payload.url,
+        html: "<html><head><title>Default page</title></head><body><main><h1>Evidence</h1><p>Browser bridge page.</p></main></body></html>",
+      });
+    },
+  });
+  assert.equal(bridge.provider, DEFAULT_BROWSER_PROVIDER);
+  const result = await gatherWebResearch({
+    query: "default browser",
+    providers: ["default_browser"],
+    userBrowser: bridge,
+    maxPages: 1,
+  });
+  assert.equal(result.pages_ok, 1);
+  assert.equal(result.metadata.page_transport, "default_browser_bridge");
+  assert.equal(result.metadata.default_browser_required, true);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].options.headers.Authorization, "Bearer test-token");
+  const unsafe = createDefaultBrowserBridge({ endpoint: "http://remote.example:8765" });
+  const blocked = await unsafe.search("x");
+  assert.equal(blocked.error_code, "default_browser_insecure_endpoint");
+  const missing = await webSearch("x", { providers: ["default_browser"] });
+  assert.equal(missing.error_code, "default_browser_bridge_required");
+});
+
+test("default_browser bridge interoperates over a real loopback TCP server", async () => {
+  const server = createServer(async (request, response) => {
+    let body = "";
+    for await (const chunk of request) body += chunk;
+    const payload = JSON.parse(body || "{}");
+    response.setHeader("content-type", "application/json");
+    if (request.url === "/search") {
+      response.end(JSON.stringify({ results: [{ title: "TCP result", url: `http://127.0.0.1:${server.address().port}/page` }] }));
+      return;
+    }
+    assert.equal(request.url, "/fetch");
+    response.end(JSON.stringify({
+      status: 200,
+      url: payload.url,
+      final_url: payload.url,
+      html: "<html><head><title>TCP page</title></head><body><main><p>Real loopback evidence.</p></main></body></html>",
+    }));
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  try {
+    const port = server.address().port;
+    const bridge = createDefaultBrowserBridge({ endpoint: `http://127.0.0.1:${port}` });
+    const pack = await gatherWebResearch({
+      query: "tcp default browser",
+      providers: ["default_browser"],
+      userBrowser: bridge,
+      maxPages: 1,
+    });
+    assert.equal(pack.pages_ok, 1);
+    assert.equal(pack.pages[0].title, "TCP page");
+    assert.equal(pack.metadata.page_transport, "default_browser_bridge");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 test("user_browser searchMany merges query provenance and partial errors", async () => {
@@ -546,6 +698,88 @@ test("PageMarkdown from explore", async () => {
   const page = await kit.fetchMarkdown("https://fixture.local/", { format: "readme" });
   assert.ok(page instanceof PageMarkdown);
   assert.match(page.markdown, /# Fixture Home|Contents|Welcome/);
+});
+
+test("provider_trace and strict_provider stay explicit", async () => {
+  const transport = makeFixtureMapTransport();
+  const result = await webSearch("OpenAI", { transport, providers: ["wikipedia"] });
+  assert.ok(Array.isArray(result.provider_trace));
+  assert.equal(result.provider_trace[0].provider, "wikipedia");
+  const strict = await webSearch("OpenAI", {
+    transport,
+    providers: ["google_browser", "wikipedia"],
+    strict_provider: true,
+  });
+  assert.equal(strict.error_code, "strict_provider_rejected");
+  assert.equal(strict.success, false);
+});
+
+test("html tables and json-ld extract without claiming ad-free pages", () => {
+  const html = `<html><head><script type="application/ld+json">{"@type":"Article"}</script></head>
+<body><table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table></body></html>`;
+  assert.match(htmlTableToMarkdown(html), /\| A \| B \|/);
+  assert.equal(extractJsonLd(html)[0]["@type"], "Article");
+});
+
+test("robots.txt is heuristic allow/deny only", () => {
+  const robots = "User-agent: *\nDisallow: /secret\nAllow: /\n";
+  assert.equal(isRobotsAllowed(robots, "https://example.org/secret"), false);
+  assert.equal(isRobotsAllowed(robots, "https://example.org/public"), true);
+});
+
+test("project index is opt-in and not a web-wide index", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "hk-index-"));
+  try {
+    const index = new ProjectWebIndex({ root, enabled: true });
+    await index.open();
+    const ingested = await index.ingest({
+      url: "https://example.org/a",
+      title: "Alpha",
+      markdown: "alpha evidence about widgets",
+    });
+    assert.equal(ingested.ok, true);
+    const found = await index.search("widgets");
+    assert.equal(found.hits[0].url, "https://example.org/a");
+    assert.match(found.disclaimer, /not a complete index/i);
+    await index.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("fixture grounding scorer meets thresholds without inventing URLs", () => {
+  const corpus = JSON.parse(readFileSync(new URL(
+    "../../../../packages/contracts/conformance/browser-grounding-fixture-v1.json",
+    import.meta.url,
+  ), "utf8"));
+  const metrics = runFixtureGrounding(corpus);
+  assert.equal(metrics.scoreable, 30);
+  assert.equal(metrics.invented_citations, 0);
+  assert.equal(metrics.passed, true);
+});
+
+test("live grounding scorer requires real page evidence and fails closed on tampering", () => {
+  const corpus = {
+    source_policy: { require_https: true, allow_hosts: ["example.org"], reject_fixture_hosts: ["fixture.handoffkit.test"] },
+    gates: { min_scoreable: 2, factual_accuracy: 1, completeness: 1, citation_entailment: 1, direct_claims_with_evidence: 1, invented_citations: 0 },
+    questions: [
+      { id: "q1", page_id: "q1", source_url: "https://example.org/a", required_facts: ["Alpha"], evidence_terms: ["Alpha", "is"], expect: "supported" },
+      { id: "q2", page_id: "q2", source_url: "https://example.org/b", required_facts: [], negative_evidence: ["fictional"], expect: "not_found" },
+    ],
+  };
+  const pages = [
+    { page_id: "q1", success: true, url: "https://example.org/a", final_url: "https://example.org/a", markdown: "Alpha is a live fact.", sha256: "a".repeat(64), hash_verified: true },
+    { page_id: "q2", success: true, url: "https://example.org/b", final_url: "https://example.org/b", markdown: "The material is fictional.", sha256: "b".repeat(64), hash_verified: true },
+  ];
+  const answers = liveGroundingOracle(corpus, pages);
+  const metrics = scoreLiveGroundingRun(corpus, answers, pages);
+  assert.equal(metrics.passed, true);
+  assert.equal(metrics.model_accuracy_measured, false);
+  assert.equal(scoreLiveGroundingRun(corpus, answers, pages.map((page) => ({ ...page, hash_verified: false }))).passed, false);
+  const missingClaims = { ...answers, q1: { ...answers.q1, answer: "Alpha", claims: [], citations: [] } };
+  assert.equal(scoreLiveGroundingRun(corpus, missingClaims, pages).passed, false);
+  const tampered = { ...answers, q1: { ...answers.q1, claims: [{ ...answers.q1.claims[0], quote: "invented" }] } };
+  assert.equal(scoreLiveGroundingRun(corpus, tampered, pages).passed, false);
 });
 
 test("live smoke gated by BROWSER_LIVE", { skip: process.env.BROWSER_LIVE !== "1" }, async () => {

@@ -4,6 +4,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace handoffkit {
 namespace browser {
@@ -41,6 +42,10 @@ struct HtmlToMarkdownOptions {
 
 /// Prefer article/main and drop chrome (nav/footer/aside/header).
 [[nodiscard]] std::string prefer_main_content(std::string_view html);
+
+[[nodiscard]] std::string html_table_to_markdown(std::string_view html);
+[[nodiscard]] std::vector<nlohmann::json> extract_json_ld(std::string_view html);
+[[nodiscard]] nlohmann::json extract_page_metadata(std::string_view html, std::string_view url = {});
 
 }  // namespace browser
 }  // namespace handoffkit

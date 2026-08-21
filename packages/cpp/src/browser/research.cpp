@@ -1,5 +1,6 @@
 #include <handoffkit/browser/research.hpp>
 #include <handoffkit/browser/explorer.hpp>
+#include <handoffkit/browser/html_extract.hpp>
 #include <handoffkit/browser/rank.hpp>
 #include <handoffkit/browser/util.hpp>
 #include <handoffkit/browser/page.hpp>
@@ -95,6 +96,19 @@ void push_hit(std::vector<std::pair<std::string, std::string>>& hits, std::strin
     if (url.rfind("http", 0) != 0) return;
     if (url.find("duckduckgo.com") != std::string::npos) return;
     if (url.find("wikipedia.org/w/api.php") != std::string::npos) return;
+    std::string low_url = url;
+    std::transform(low_url.begin(), low_url.end(), low_url.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    if (low_url.find("googleadservices.com") != std::string::npos ||
+        low_url.find("doubleclick.net") != std::string::npos ||
+        low_url.find("/aclk?") != std::string::npos ||
+        low_url.find("/pagead/") != std::string::npos ||
+        low_url.find("adurl=") != std::string::npos ||
+        low_url.find("/ads/") != std::string::npos ||
+        (low_url.size() >= 4 && low_url.ends_with("/ads"))) {
+        return;
+    }
     for (auto& h : hits) {
         if (h.second == url) {
             if (h.first.empty() && !title.empty()) h.first = std::move(title);
@@ -388,17 +402,107 @@ std::string canonical_provider(std::string value) {
     for (char& c : value) {
         if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
     }
+    if (value == "g" || value == "google_http" || value == "google_html") return "google";
     if (value == "ddg") return "duckduckgo";
     if (value == "wiki") return "wikipedia";
     if (value == "user-browser") return "user_browser";
     return value;
 }
 
+std::string unwrap_google_link(std::string link) {
+    link = decode_html_entities(link);
+    if (link.empty()) return {};
+    const auto is_google = [](const std::string& value) {
+        std::string low = value;
+        std::transform(low.begin(), low.end(), low.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        return low.rfind("https://www.google.com", 0) == 0 ||
+               low.rfind("https://google.com", 0) == 0 ||
+               low.rfind("/url?", 0) == 0;
+    };
+    if (is_google(link)) {
+        const auto qpos = link.find("q=");
+        const auto upos = link.find("url=");
+        const auto start = qpos != std::string::npos ? qpos + 2 : upos != std::string::npos ? upos + 4 : std::string::npos;
+        if (start == std::string::npos) return {};
+        auto end = link.find('&', start);
+        if (end == std::string::npos) end = link.size();
+        link = url_decode_basic(link.substr(start, end - start));
+    }
+    if (link.rfind("http://", 0) != 0 && link.rfind("https://", 0) != 0) return {};
+    std::string low = link;
+    std::transform(low.begin(), low.end(), low.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    if (low.find("google.com") != std::string::npos || low.find("googleadservices.com") != std::string::npos ||
+        low.find("doubleclick.net") != std::string::npos || low.find("/aclk?") != std::string::npos ||
+        low.find("/pagead/") != std::string::npos || low.find("adurl=") != std::string::npos ||
+        low.find("/ads/") != std::string::npos || (low.size() >= 4 && low.ends_with("/ads"))) {
+        return {};
+    }
+    const auto hash = link.find('#');
+    if (hash != std::string::npos) link.resize(hash);
+    return link;
+}
+
+std::vector<std::pair<std::string, std::string>> google_html_search(TransportPtr transport,
+                                                                     std::string_view query,
+                                                                     int max_results, int timeout_ms) {
+    std::vector<std::pair<std::string, std::string>> hits;
+    if (!transport || query.empty() || max_results < 1) return hits;
+    const std::string q = keyword_compress(query, 10).empty()
+                              ? std::string(query)
+                              : keyword_compress(query, 10);
+    const std::string url = "https://www.google.com/search?hl=en&num=" +
+                            std::to_string(std::max(max_results, 8)) + "&q=" + url_encode_component(q);
+    TransportRequest req;
+    req.url = url;
+    req.timeout_ms = timeout_ms > 0 ? timeout_ms : 20000;
+    req.headers["User-Agent"] = "HandoffKit-Browser/1.0";
+    req.headers["Accept"] = "text/html,application/xhtml+xml";
+    const auto resp = transport->get(req);
+    if (!resp.error.empty() || resp.status < 200 || resp.status >= 300 || resp.body.empty()) return hits;
+
+    const std::string& html = resp.body;
+    std::size_t pos = 0;
+    while (static_cast<int>(hits.size()) < max_results) {
+        const auto a = html.find("<a", pos);
+        if (a == std::string::npos) break;
+        auto href = html.find("href=\"", a);
+        char quote = '\"';
+        if (href == std::string::npos || href > a + 180) {
+            href = html.find("href='", a);
+            quote = '\'';
+        }
+        if (href == std::string::npos || href > a + 180) {
+            pos = a + 2;
+            continue;
+        }
+        href += 6;
+        const auto hend = html.find(quote, href);
+        if (hend == std::string::npos) break;
+        const std::string link = unwrap_google_link(html.substr(href, hend - href));
+        const auto gt = html.find('>', hend);
+        const auto close = gt == std::string::npos ? std::string::npos : html.find("</a>", gt);
+        if (link.empty() || gt == std::string::npos || close == std::string::npos) {
+            pos = hend + 1;
+            continue;
+        }
+        const std::string title = strip_tags(html.substr(gt + 1, close - gt - 1));
+        if (title.size() >= 2) push_hit(hits, decode_html_entities(title), link, max_results);
+        pos = hend + 1;
+    }
+    return hits;
+}
+
 std::string provider_engine(const std::vector<std::string>& providers) {
     std::vector<std::string> engines;
     for (const auto& raw : providers) {
         const auto provider = canonical_provider(raw);
-        const std::string engine = provider == "duckduckgo"
+        const std::string engine = provider == "google"
+                                ? "google_html"
+                                : provider == "duckduckgo"
                                 ? "duckduckgo_html"
                                 : provider == "wikipedia"
                                     ? "wikipedia_opensearch"
@@ -422,14 +526,17 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
     const std::string q(query);
     max_results = std::max(1, std::min(8, max_results));
     const std::vector<std::string> requested =
-        providers.empty() ? std::vector<std::string>{"duckduckgo", "wikipedia"} : providers;
+        providers.empty()
+            ? std::vector<std::string>{"google_browser", "project_index", "google_http", "duckduckgo", "wikipedia"}
+            : providers;
     std::vector<std::string> normalized;
     std::vector<std::string> provider_errors;
     std::vector<std::string> provider_codes;
     for (const auto& raw : requested) {
         const auto provider = canonical_provider(raw);
         if (provider.empty()) continue;
-        if (provider != "duckduckgo" && provider != "wikipedia" && provider != "user_browser") {
+        if (provider != "google" && provider != "duckduckgo" && provider != "wikipedia" &&
+            provider != "user_browser" && provider != "google_browser" && provider != "project_index") {
             provider_errors.push_back("unsupported provider: " + provider);
             continue;
         }
@@ -449,6 +556,7 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
             {"count", 0},
             {"providers_requested", requested},
             {"providers_used", nlohmann::json::array()},
+            {"provider_trace", nlohmann::json::array()},
             {"errors", nlohmann::json::array({"query is required"})},
             {"provider_codes", nlohmann::json::array()},
             {"engine", provider_engine(requested)},
@@ -460,21 +568,59 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
 
     std::vector<std::pair<std::string, std::string>> raw_hits;
     std::vector<std::string> providers_used;
+    nlohmann::json provider_trace = nlohmann::json::array();
     for (const auto& provider : normalized) {
+        nlohmann::json trace = {
+            {"provider", provider == "google" ? "google_http" : provider},
+            {"attempted", true},
+            {"used", false},
+            {"result_count", 0},
+            {"error_code", ""},
+            {"fallback_reason", ""},
+        };
         if (provider == "user_browser") {
             provider_codes.push_back("user_browser_bridge_required");
             provider_errors.push_back("user_browser: user_browser requires an injected search bridge");
+            trace["error_code"] = "user_browser_bridge_required";
+            trace["fallback_reason"] = "user_browser_empty";
+            provider_trace.push_back(trace);
+            continue;
+        }
+        if (provider == "google_browser") {
+            provider_codes.push_back("provider_unavailable");
+            provider_errors.push_back("google_browser: google_browser requires an explicit Browser Real search hook");
+            trace["error_code"] = "provider_unavailable";
+            trace["fallback_reason"] = "google_browser_unavailable";
+            provider_trace.push_back(trace);
+            continue;
+        }
+        if (provider == "project_index") {
+            provider_codes.push_back("index_unavailable");
+            provider_errors.push_back("project_index: project_index is opt-in and was not configured");
+            trace["error_code"] = "index_unavailable";
+            trace["fallback_reason"] = "project_index_disabled";
+            provider_trace.push_back(trace);
             continue;
         }
         std::vector<std::pair<std::string, std::string>> hits;
-        if (provider == "duckduckgo") {
+        if (provider == "google") {
+            hits = google_html_search(transport, q, max_results, timeout_ms);
+        } else if (provider == "duckduckgo") {
             hits = duckduckgo_html_search(transport, q, max_results, timeout_ms);
         } else {
             hits = wikipedia_opensearch(transport, q, max_results, timeout_ms);
         }
         for (const auto& hit : hits) push_hit(raw_hits, hit.first, hit.second, max_results);
-        if (!hits.empty()) providers_used.push_back(provider);
-        else provider_errors.push_back(provider + ": empty");
+        if (!hits.empty()) {
+            providers_used.push_back(provider);
+            trace["used"] = true;
+            trace["result_count"] = static_cast<int>(hits.size());
+        } else {
+            provider_errors.push_back(provider + ": empty");
+            trace["error_code"] = "no_results";
+            trace["fallback_reason"] = (provider == "google" ? std::string("google_http") : provider) + "_empty";
+        }
+        provider_trace.push_back(trace);
     }
     if (raw_hits.empty() &&
         std::find(normalized.begin(), normalized.end(), "wikipedia") != normalized.end()) {
@@ -504,6 +650,7 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
         {"count", results.size()},
         {"providers_requested", requested},
         {"providers_used", providers_used},
+        {"provider_trace", provider_trace},
         {"errors", provider_errors},
         {"provider_codes", provider_codes},
         {"engine", provider_engine(requested)},

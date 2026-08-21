@@ -151,17 +151,88 @@ export const demoCategories: DemoCategory[] = [
 
 export const demos: DemoItem[] = [
   {
+    id: "clinical-lab",
+    title: "Clinical Sequential Reasoning Lab",
+    description:
+      "Experimental predefined-case sequential sandbox. Research corpus, live judges, and live retrieval are unavailable. Not clinically validated.",
+    category: "Clinical",
+    tags: [
+      { label: "Clinical", tone: "cyan" },
+      { label: "Sequential", tone: "blue" },
+      { label: "Experimental", tone: "purple" },
+    ],
+    featured: true,
+    accent: "blue",
+    workflowKind: "panel",
+    metrics: {
+      successRate: "Not scored",
+      avgHandoffs: "ask / test / submit",
+      avgLatency: "sandbox",
+      totalRuns: "v1beta",
+    },
+    detail: {
+      longDescription:
+        "Research and education only. This is a predefined-case sandbox, not a system for entering personal cases. Official 897-case scoring, independent judges, and clinical validity remain unavailable. exact_match/alias_match are regression metrics only. gold_replay is an immutable recorded fixture and never counts as accuracy.",
+      highlights: [
+        "Research never falls back to the professional sandbox",
+        "Vague queries return evidence_not_available",
+        "Personal input is rejected on create and every action",
+        "Recorded fixtures are distinct from live sandbox runs",
+      ],
+      workflow: {
+        title: "Sequential lab flow",
+        stages: [
+          {
+            id: "user",
+            nodes: [{ id: "q", label: "Opening note", sublabel: "Blind case", tone: "navy" }],
+          },
+          {
+            id: "experts",
+            nodes: [
+              { id: "a", label: "Ask / test", sublabel: "Gatekeeper", tone: "blue" },
+              { id: "b", label: "Evidence", sublabel: "Not available if missing", tone: "cyan" },
+              { id: "c", label: "Differential", sublabel: "Structured only", tone: "purple" },
+            ],
+          },
+          {
+            id: "judge",
+            nodes: [{ id: "j", label: "Heuristic score", sublabel: "Not clinical validity", tone: "green" }],
+          },
+        ],
+      },
+      timeline: [
+        { id: "t1", label: "Opening", kind: "system", time: "0s", detail: "Blind id only" },
+        { id: "t2", label: "Action", kind: "agent", time: "1s", detail: "ask_question or request_test" },
+        { id: "t3", label: "Score", kind: "judge", time: "close", detail: "heuristic_only until independent judges exist" },
+      ],
+      runSummary: {
+        status: "Running",
+        runId: "clinical-lab-v1beta",
+        started: "sandbox",
+        duration: "n/a",
+        models: ["none live"],
+        handoffs: 0,
+        tokens: 0,
+        tokensLabel: "n/a",
+        cost: "resource units",
+      },
+      handoffs: [],
+      sampleOutput: "experimental / research and education only / not clinically validated",
+      player: { speed: "1x", current: "recorded", total: "recorded" },
+    },
+  },
+  {
     id: "mai-style-panel",
     title: "MAI-style Expert Panel",
     description:
-      "Three experts + a judge debate a real post-flight winter URI vignette on free NVIDIA NIM models, then ship calibrated top-3 weights with an auditable handoff trail.",
+      "Deprecated adapter of the clinical lab. Three experts + a judge on predefined vignettes only — not personal symptoms.",
     category: "Clinical",
     tags: [
       { label: "Clinical", tone: "cyan" },
       { label: "Multi-Agent", tone: "blue" },
-      { label: "Consensus", tone: "purple" },
+      { label: "Deprecated", tone: "purple" },
     ],
-    featured: true,
+    featured: false,
     accent: "blue",
     workflowKind: "panel",
     metrics: {

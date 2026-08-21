@@ -1,0 +1,14 @@
+{
+  "format": "handoffkit.browser.1.20.google_browser_live",
+  "format_version": 1,
+  "generated_at": "2026-08-16T03:17:20.618Z",
+  "query": "HandoffKit browser",
+  "elapsed_ms": 15362,
+  "browser_headless": true,
+  "provider": "google_browser",
+  "fallback_used": false,
+  "status": "unavailable",
+  "code": "timeout",
+  "error": "deadline exceeded",
+  "hits": []
+}

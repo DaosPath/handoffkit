@@ -35,11 +35,15 @@ def test_build_doctor_benchmark_creates_replayable_handoffs() -> None:
 
     assert report.case_count == 3
     assert report.correct_count == 3
-    assert report.accuracy == 1.0
+    assert report.accuracy is None
+    assert report.scoring_eligible is False
+    assert report.gold_replay_match_rate == 1.0
     assert report.validation.success is True
     assert report.quality.success is True
     assert len(report.trace.handoffs) == 6
-    assert "gold_replay" in report.to_json()
+    payload = report.to_json()
+    assert "gold_replay" in payload
+    assert '"accuracy": null' in payload or '"accuracy":null' in payload
 
 
 def test_run_doctor_benchmark_writes_reports(tmp_path: Path) -> None:

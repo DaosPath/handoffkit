@@ -14,7 +14,7 @@ export function DemosPageClient() {
   const [category, setCategory] = useState<DemoCategory>("All Demos");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("popular");
-  const [selectedId, setSelectedId] = useState("mai-style-panel");
+  const [selectedId, setSelectedId] = useState("clinical-lab");
 
   const filtered = useMemo(() => {
     let list = demos.filter((d) => {

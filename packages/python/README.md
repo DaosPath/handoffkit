@@ -264,10 +264,10 @@ handoffkit report runs/latest
 ```
 
 `benchmark-doctor` uses 30 real cases from the public MedCaseReasoning test
-split, derived from PMC Open Access case reports. It runs in `gold_replay` mode:
-it replays clinician-authored diagnoses and reasoning to test HandoffKit
-contracts, reports, quality scoring, and traceability. It does not claim model
-diagnostic accuracy and is not medical advice.
+split, derived from PMC Open Access case reports. It runs in `gold_replay` mode
+as a **regression fixture only**. It does not claim model diagnostic accuracy,
+is not medical advice, and is not the 1.20 official 897-case lab. Use
+`handoffkit clinical` and `/demos/clinical-lab` for sequential scoring.
 
 MAI/SDBench-style public benchmark preview:
 
@@ -618,11 +618,10 @@ unless explicitly requested.
 
 HandoffKit includes benchmark tooling to stress-test handoff contracts,
 traceability, report generation, and model routing. These workflows are
-educational and research-only.
-
-| Run | Model | Cases | Correct | Accuracy | Report |
-|---|---|---:|---:|---:|---|
-| MAI-style clinical panel | `mimo-v2.5` | 400 | 233 | 58.25% | [`clinical_benchmark_400_summary.md`](examples/fixtures/reports/clinical_benchmark_400_summary.md) |
+educational and research-only. **`gold_replay` never counts as diagnostic
+accuracy.** The 400-case MAI-style summary (`233/400`) is a legacy research
+artifact, not an official 1.20 result. Official 1.20 scored runs require
+exactly 897 MedCaseReasoning test cases, three judges, and a complete audit.
 
 This is not a medical device, not clinical validation, not patient care, and
 not a diagnostic claim. Full model outputs, partials, logs, and OpenCode live

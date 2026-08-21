@@ -9,7 +9,9 @@
 import {
   Agent,
   EchoProvider,
+  FailingProvider,
   HandoffProtocol,
+  OllamaProvider,
   OpenAIProvider,
   RunTrace,
   type HandoffState,
@@ -24,9 +26,18 @@ import {
   DEFAULT_NVIDIA_MODEL as NIM_DEFAULT,
   DEFAULT_PANEL_MODELS as NIM_PANEL_DEFAULTS,
 } from "./nvidia-models";
-import { ensureJudgeAnswer } from "./parse-rankings";
+import {
+  assessPanelConsensus,
+  ensureJudgeAnswer,
+  type ParsedPanelConsensus,
+} from "./parse-rankings";
+import {
+  DEFAULT_OLLAMA_BASE_URL,
+  DEFAULT_OLLAMA_MODEL,
+  defaultOllamaPanelModels,
+} from "./ollama-models";
 
-export type StudioProviderId = "nvidia" | "groq";
+export type StudioProviderId = "ollama" | "nvidia" | "groq";
 
 export type MaiPanelRole = {
   name: string;
@@ -43,7 +54,7 @@ export type TokenUsage = {
 
 export type MaiPanelRunInput = {
   task: string;
-  /** nvidia (NIM free) or groq */
+  /** ollama (local), nvidia (NIM), or groq */
   providerId?: StudioProviderId;
   apiKey?: string;
   baseUrl?: string;
@@ -67,7 +78,7 @@ export type MaiExpertResult = {
 
 export type MaiPanelRunResult = {
   success: boolean;
-  mode: "nvidia" | "groq" | "offline-echo";
+  mode: "ollama" | "nvidia" | "groq" | "offline-echo";
   providerId: StudioProviderId | "echo";
   task: string;
   provider: string;
@@ -80,6 +91,13 @@ export type MaiPanelRunResult = {
     usage?: TokenUsage;
   };
   finalAnswer: string;
+  consensus: ParsedPanelConsensus;
+  consensusEligible: boolean;
+  errorCode?:
+    | "provider_unavailable"
+    | "expert_incomplete"
+    | "judge_invalid"
+    | "judge_unavailable";
   handoffs: ReturnType<HandoffState["toJSON"]>[];
   timeline: Array<{
     id: string;
@@ -104,7 +122,7 @@ export type MaiPanelRunResult = {
 export type MaiPanelEvent =
   | {
       type: "run_start";
-      mode: "nvidia" | "groq" | "offline-echo";
+      mode: "ollama" | "nvidia" | "groq" | "offline-echo";
       task: string;
       provider: string;
       model: string;
@@ -352,13 +370,27 @@ export function defaultMaiExperts(
 }
 
 function makeProvider(opts: {
+  providerId: StudioProviderId;
   offline: boolean;
   apiKey: string;
   baseUrl: string;
   model: string;
 }) {
-  if (opts.offline || !opts.apiKey) {
+  if (opts.offline) {
     return new EchoProvider({ model: `echo-${opts.model}` });
+  }
+  if (opts.providerId === "ollama") {
+    return new OllamaProvider({
+      model: opts.model,
+      baseUrl: opts.baseUrl || DEFAULT_OLLAMA_BASE_URL,
+      timeout: 90_000,
+    });
+  }
+  if (!opts.apiKey) {
+    return new FailingProvider({
+      model: opts.model,
+      message: `provider_unavailable: ${opts.providerId} credentials are not configured`,
+    });
   }
   return new OpenAIProvider({
     model: opts.model,
@@ -408,34 +440,50 @@ export async function runMaiStylePanel(
     "Research-only case: analyze the user vignette with a 3-expert panel. Return exactly 3 comparable hypotheses with integer percents summing to 100, weight defense, red-flag re-rank trigger, and non-action research questions. Not a diagnosis.";
 
   const providerId: StudioProviderId =
-    input.providerId === "groq" ? "groq" : "nvidia";
+    input.providerId === "ollama"
+      ? "ollama"
+      : input.providerId === "groq"
+        ? "groq"
+        : "nvidia";
 
   const apiKey =
     input.apiKey ||
-    (providerId === "groq"
-      ? process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || ""
-      : process.env.NVIDIA_API_KEY || process.env.OPENAI_API_KEY || "");
+    (providerId === "ollama"
+      ? ""
+      : providerId === "groq"
+        ? process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || ""
+        : process.env.NVIDIA_API_KEY || process.env.OPENAI_API_KEY || "");
 
   const baseUrl = (
     input.baseUrl ||
-    (providerId === "groq"
-      ? process.env.GROQ_BASE_URL || GROQ_BASE_URL
-      : process.env.NVIDIA_BASE_URL || DEFAULT_NVIDIA_BASE)
+    (providerId === "ollama"
+      ? process.env.OLLAMA_BASE_URL || DEFAULT_OLLAMA_BASE_URL
+      : providerId === "groq"
+        ? process.env.GROQ_BASE_URL || GROQ_BASE_URL
+        : process.env.NVIDIA_BASE_URL || DEFAULT_NVIDIA_BASE)
   ).replace(/\/+$/, "");
 
   const defaultModel =
     input.model ||
-    (providerId === "groq"
-      ? process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL
-      : process.env.NVIDIA_MODEL || DEFAULT_NVIDIA_MODEL);
+    (providerId === "ollama"
+      ? process.env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL
+      : providerId === "groq"
+        ? process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL
+        : process.env.NVIDIA_MODEL || DEFAULT_NVIDIA_MODEL);
 
-  const offline = Boolean(input.offline) || !apiKey;
+  // Offline Echo is opt-in. Missing cloud credentials must produce a
+  // structured provider_unavailable result rather than a false live run.
+  const offline = Boolean(input.offline);
   const temperature = input.temperature ?? 0.4;
   const maxTokens = input.maxTokens ?? 1200;
   const judgeMaxTokens = Math.max(maxTokens, 1600);
 
   const panelDefaults =
-    providerId === "groq" ? DEFAULT_GROQ_PANEL_MODELS : NIM_PANEL_DEFAULTS;
+    providerId === "ollama"
+      ? defaultOllamaPanelModels(defaultModel)
+      : providerId === "groq"
+        ? DEFAULT_GROQ_PANEL_MODELS
+        : NIM_PANEL_DEFAULTS;
 
   const experts = input.experts?.length
     ? input.experts
@@ -449,14 +497,14 @@ export async function runMaiStylePanel(
   const protocol = new HandoffProtocol({ mode: "hybrid_state" });
   const mode = offline
     ? ("offline-echo" as const)
-    : providerId === "groq"
-      ? ("groq" as const)
-      : ("nvidia" as const);
+    : providerId;
   const providerLabel = offline
     ? "EchoProvider"
-    : providerId === "groq"
-      ? "Groq (OpenAI-compatible)"
-      : "NVIDIA NIM (OpenAI-compatible)";
+    : providerId === "ollama"
+      ? "Ollama (local)"
+      : providerId === "groq"
+        ? "Groq (OpenAI-compatible)"
+        : "NVIDIA NIM (OpenAI-compatible)";
 
   await emit(onEvent, {
     type: "run_start",
@@ -494,6 +542,7 @@ export async function runMaiStylePanel(
         name: ex.name,
         role: ex.role,
         provider: makeProvider({
+          providerId,
           offline,
           apiKey,
           baseUrl,
@@ -604,6 +653,7 @@ export async function runMaiStylePanel(
     name: "Judge",
     role: JUDGE_ROLE,
     provider: makeProvider({
+      providerId,
       offline,
       apiKey,
       baseUrl,
@@ -670,8 +720,14 @@ export async function runMaiStylePanel(
   }
 
   // Normalize / inject RANKINGS_JSON so UI cards always work when possible
-  const finalized = ensureJudgeAnswer(judgeOutput);
+  const rawJudgeOutput = judgeOutput;
+  const finalized = ensureJudgeAnswer(rawJudgeOutput);
   judgeOutput = finalized.text;
+  const consensusAssessment = assessPanelConsensus(
+    finalized.consensus,
+    finalized.synthetic,
+    rawJudgeOutput,
+  );
 
   const judgeUsage = readUsage(
     judgeAgent.provider,
@@ -726,7 +782,8 @@ export async function runMaiStylePanel(
       agentName: "Judge",
       task,
       finalOutput: judgeOutput,
-      success: !judgeOutput.startsWith("ERROR:"),
+      success:
+        !judgeOutput.startsWith("ERROR:") && consensusAssessment.eligible,
       provider: offline ? "EchoProvider" : providerLabel,
       model: judgeModel,
     },
@@ -776,12 +833,23 @@ export async function runMaiStylePanel(
     };
   }
 
-  // Treat the run as successful when the Judge produced a real synthesis.
-  // Partial expert failures still show in the report, but do not mark the
-  // whole panel "incomplete" if consensus text is present.
+  // A panel is complete only when every expert returned and the Judge emitted
+  // a non-synthetic, exactly-three ranking. Prose alone is not a valid gate.
   const judgeOk =
     !judgeOutput.startsWith("ERROR:") && judgeOutput.trim().length >= 80;
   const expertsOk = expertResults.filter((e) => e.success).length;
+  const expertsComplete = expertsOk === expertResults.length && expertsOk > 0;
+  const consensusEligible = judgeOk && consensusAssessment.eligible;
+  const providerFailed =
+    (!apiKey && providerId !== "ollama" && !offline) ||
+    expertResults.some((expert) =>
+      /ERROR:.*(?:provider_unavailable|Ollama|fetch failed|ECONNREFUSED|HTTP 401|HTTP 403|HTTP 404)/i.test(
+        expert.output,
+      ),
+    ) ||
+    /ERROR:.*(?:provider_unavailable|Ollama|fetch failed|ECONNREFUSED|HTTP 401|HTTP 403|HTTP 404)/i.test(
+      judgeOutput,
+    );
   const usageTotals = usageLines.reduce(
     (acc, u) => {
       acc.promptTokens += u.promptTokens;
@@ -794,7 +862,7 @@ export async function runMaiStylePanel(
   );
 
   const result: MaiPanelRunResult = {
-    success: judgeOk && expertsOk >= 1,
+    success: consensusEligible && expertsComplete,
     mode,
     providerId: offline ? "echo" : providerId,
     task,
@@ -803,6 +871,16 @@ export async function runMaiStylePanel(
     experts: expertResults,
     judge,
     finalAnswer: judgeOutput,
+    consensus: finalized.consensus,
+    consensusEligible,
+    errorCode:
+      providerFailed
+        ? "provider_unavailable"
+        : !expertsComplete
+          ? "expert_incomplete"
+          : !consensusEligible
+            ? "judge_invalid"
+            : undefined,
     handoffs: handoffStates.map((h) => h.toJSON()),
     timeline,
     trace: traceJson,
@@ -814,6 +892,8 @@ export async function runMaiStylePanel(
       note:
         providerId === "groq" && !offline
           ? "Measured tokens from Groq usage; cost from public groq.com/pricing rates."
+          : providerId === "ollama" && !offline
+            ? "Local Ollama run; token usage is not exposed by the /api/generate endpoint."
           : offline
             ? "Echo offline · no billable tokens."
             : "NVIDIA NIM free trial path · measured tokens when provided; cost $0 for trial endpoints.",

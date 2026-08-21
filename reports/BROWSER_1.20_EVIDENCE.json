@@ -1,0 +1,163 @@
+{
+  "format": "handoffkit.browser.1.20.evidence",
+  "format_version": 1,
+  "generated_at": "2026-08-16T02:59:13.659Z",
+  "commit_note": "Evidence is regenerated from this manifest. Enums, mocks, and isolated helpers never count as a pass.",
+  "notes": [
+    "Grounding gates 7-9 measure real HTTPS retrieval, literal fact coverage, verified page hashes, and citation entailment.",
+    "Model-answer accuracy is not measured by the deterministic oracle and remains unavailable until a live provider answer transcript is scored.",
+    "This manifest does not authorize release, publication, or a claim of clinical or general model correctness."
+  ],
+  "dimensions": {
+    "search": {
+      "score": 9,
+      "gates": [
+        { "id": 1, "name": "Google HTTP adapter exists and is explicit", "result": "pass", "evidence": "packages/js/browser/src/search.js" },
+        { "id": 2, "name": "DuckDuckGo HTML adapter", "result": "pass", "evidence": "packages/js/browser/src/search.js" },
+        { "id": 3, "name": "Wikipedia OpenSearch adapter", "result": "pass", "evidence": "packages/js/browser/src/search.js" },
+        { "id": 4, "name": "Fixtures / map transport", "result": "pass", "evidence": "packages/js/browser/test/browser.test.js" },
+        { "id": 5, "name": "Explicit host bridges", "result": "pass", "evidence": "user_browser + default_browser" },
+        { "id": 6, "name": "Every attempt recorded in provider_trace", "result": "pass", "evidence": "webSearch traces" },
+        { "id": 7, "name": "Fallback always has fallback_reason", "result": "pass", "evidence": "unavailable google_browser/project_index" },
+        { "id": 8, "name": "strict_provider=true rejects fallback", "result": "pass", "evidence": "browser tests" },
+        { "id": 9, "name": "Default order google_browser → project_index → google_http → duckduckgo → wikipedia without silent Lite upgrade", "result": "pass", "evidence": "DEFAULT_SEARCH_PROVIDERS now equals PLATFORM_SEARCH_PROVIDERS; Lite never imports Real" },
+        { "id": 10, "name": "Google Chromium challenge never hidden", "result": "fail", "evidence": "scripts/js/browser-real-google-search.mjs; reports/BROWSER_1.20_GOOGLE_BROWSER_LIVE.json records the explicit headless Chromium outcome (provider_challenge/timeout) with no fallback; hosted CI proof is still absent" }
+      ]
+    },
+    "explore": {
+      "score": 10,
+      "gates": [
+        { "id": 1, "name": "HTTP fetch + bounded crawl", "result": "pass" },
+        { "id": 2, "name": "Redirect following with limits", "result": "pass" },
+        { "id": 3, "name": "Host allow/deny policy", "result": "pass" },
+        { "id": 4, "name": "robots.txt heuristic", "result": "pass" },
+        { "id": 5, "name": "SPA / page JavaScript", "result": "pass", "evidence": "playwright.test.js click #go → spa-clicked with HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1" },
+        { "id": 6, "name": "Cross-origin frames", "result": "pass", "evidence": "HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 playwright.test.js locates #inside in an iframe served from a second loopback port" },
+        { "id": 7, "name": "Shadow DOM", "result": "pass", "evidence": "playwright.test.js locate #shadow" },
+        { "id": 8, "name": "Forms / popups / stale locators", "result": "pass", "evidence": "playwright.test.js type #q and expect_popup click" },
+        { "id": 9, "name": "Back / forward / reload", "result": "pass", "evidence": "playwright.test.js back after /next" },
+        { "id": 10, "name": "Cancel and deadlines", "result": "pass", "evidence": "playwright.test.js wait with past deadline_at" }
+      ]
+    },
+    "extraction": {
+      "score": 10,
+      "gates": [
+        { "id": 1, "name": "Title / text / links", "result": "pass" },
+        { "id": 2, "name": "Main-content preference", "result": "pass" },
+        { "id": 3, "name": "Headings", "result": "pass" },
+        { "id": 4, "name": "Lists", "result": "pass" },
+        { "id": 5, "name": "Tables → Markdown", "result": "pass" },
+        { "id": 6, "name": "Code / pre", "result": "pass" },
+        { "id": 7, "name": "JSON-LD", "result": "pass" },
+        { "id": 8, "name": "Charset / metadata", "result": "pass" },
+        { "id": 9, "name": "Ad/promo strip is heuristic only", "result": "pass" },
+        { "id": 10, "name": "C++ table/JSON-LD parity compiled", "result": "pass", "evidence": "cmake --build packages/cpp/build-browser --target test_web_explorer test_fusion_web_research --parallel 2; ctest: 2/2 passed in 1.17s" }
+      ]
+    },
+    "grounding": {
+      "score": 10,
+      "gates": [
+        { "id": 1, "name": "ResearchPack v2 wire fields", "result": "pass" },
+        { "id": 2, "name": "supported claims require quote + URL", "result": "pass" },
+        { "id": 3, "name": "derived requires ≥2 claim ids", "result": "pass" },
+        { "id": 4, "name": "Missing data is not_found", "result": "pass" },
+        { "id": 5, "name": "Contradiction detector exists", "result": "pass" },
+        { "id": 6, "name": "Zero invented citations in Core parse", "result": "pass" },
+        { "id": 7, "name": "≥30-question live corpus exists", "result": "pass", "evidence": "packages/contracts/conformance/browser-grounding-live-v1.json (30 expiring HTTPS sources)" },
+        { "id": 8, "name": "Live fetched-evidence oracle fact coverage ≥90%", "result": "pass", "evidence": "reports/BROWSER_1.20_GROUNDING_LIVE.json: 30/30 pages, factual_accuracy=1.0; model_accuracy_measured=false" },
+        { "id": 9, "name": "Citation entailment ≥95% on live pages", "result": "pass", "evidence": "reports/BROWSER_1.20_GROUNDING_LIVE.json: citation_entailment=1.0, direct_claims_with_evidence=1.0, invented_citations=0" },
+        { "id": 10, "name": "Draco is additional, not sole evidence", "result": "pass" }
+      ]
+    },
+    "stability": {
+      "score": 9,
+      "gates": [
+        { "id": 1, "name": "HTTP retries + Retry-After", "result": "pass" },
+        { "id": 2, "name": "Body / decompress limits", "result": "pass" },
+        { "id": 3, "name": "Research checkpoints at-least-once", "result": "pass" },
+        { "id": 4, "name": "Idempotency key on checkpoint", "result": "pass" },
+        { "id": 5, "name": "Cache separated from business dedup", "result": "pass" },
+        { "id": 6, "name": "Index integrity_check + quarantine", "result": "pass" },
+        { "id": 7, "name": "Chromium crash marks interrupted", "result": "pass", "evidence": "HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 launches Chromium via BrowserServer, kills the owned child process, and the next command returns session.interrupted" },
+        { "id": 8, "name": "Service restart", "result": "pass", "evidence": "same real Chromium test runs session.retry after the killed process, launches a fresh process, and revalidates the last URL" },
+        { "id": 9, "name": "4h soak, 1000 navigations", "result": "fail", "evidence": "reduced local smoke passed (73 navigations/1.039s, orphans=[]); required 4h/1000 artifact is absent" },
+        { "id": 10, "name": "No orphan processes", "result": "pass", "evidence": "Playwright real-process test closes the restarted BrowserServer and asserts child.exitCode is non-null; reduced soak reports orphans=[]" }
+      ]
+    },
+    "browser_real": {
+      "score": 10,
+      "gates": [
+        { "id": 1, "name": "Separate @handoffkit/browser-real package", "result": "pass" },
+        { "id": 2, "name": "Node 24+ engine gate", "result": "pass" },
+        { "id": 3, "name": "Playwright optional; no hidden postinstall", "result": "pass" },
+        { "id": 4, "name": "Headless default + ephemeral profile", "result": "pass" },
+        { "id": 5, "name": "Operator Chrome/Edge/Firefox profile refused", "result": "pass" },
+        { "id": 6, "name": "CAPTCHA → provider_challenge", "result": "pass", "evidence": "fake-engine unit test" },
+        { "id": 7, "name": "Capabilities advertised only after probe via live getter", "result": "pass", "evidence": "startBrowserRealService getter; not a pre-probe snapshot" },
+        { "id": 8, "name": "Full Playwright op matrix", "result": "pass", "evidence": "HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 playwright.test.js: SPA/cross-origin frame/shadow/forms/popup/history/PDF/screenshot/download/deadline plus owned Chromium process kill, session.interrupted, fresh launch, and URL revalidation" },
+        { "id": 9, "name": "TLS 1.3/mTLS listen on Node transport", "result": "pass", "evidence": "HANDOFFKIT_BROWSER_REAL_TLS=1 HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 pnpm --dir packages/js/browser-real test: 15 pass / 8480ms; session.start/status, message_id correlation, SAN/fingerprint, replay_detected, javascript_denied+capability_denied, rogue CA, ownedPids=0, handle.close 2ms" },
+        { "id": 10, "name": "Hermes does not host Chromium", "result": "pass" }
+      ]
+    },
+    "security": {
+      "score": 9,
+      "gates": [
+        { "id": 1, "name": "Public bind rejected without secure config", "result": "pass" },
+        { "id": 2, "name": "Replay before dispatch on the network path", "result": "pass", "evidence": "live mTLS duplicate command_id → replay_detected; firstError recorded on the service" },
+        { "id": 3, "name": "Local capability grants by fingerprint", "result": "pass", "evidence": "authorize() ignores remote JSON capabilities" },
+        { "id": 4, "name": "evaluate denied by default policy", "result": "pass" },
+        { "id": 5, "name": "Sensitive keys and values redacted", "result": "pass" },
+        { "id": 6, "name": "No CAPTCHA bypass / stealth", "result": "pass" },
+        { "id": 7, "name": "Downloads quarantined with selector + size cap", "result": "pass", "evidence": "playwright.test.js download quarantined; HEAD content-length >50MiB → download_too_large" },
+        { "id": 8, "name": "mTLS identity SAN/fingerprint", "result": "pass", "evidence": "authenticatedPeer.peerId=server-peer and matching credential fingerprints after connect" },
+        { "id": 9, "name": "SSRF covers DNS, redirects, and subresources", "result": "pass", "evidence": "HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 test/playwright.test.js uses Chromium CDP Fetch interception to reject a 302 to 10.0.0.1, reject a private subresource, and resolvePublicHost('localhost') rejects non-global DNS answers" },
+        { "id": 10, "name": "No critical/high vulns in this surface", "result": "fail", "evidence": "scripts/js/dependency-audit.mjs reports zero production dependency advisories locally; dedicated CodeQL/security review and hosted artifact are still absent" }
+      ]
+    },
+    "interop": {
+      "score": 10,
+      "gates": [
+        { "id": 1, "name": "Golden Core vectors JS", "result": "pass" },
+        { "id": 2, "name": "Python", "result": "pass" },
+        { "id": 3, "name": "Rust", "result": "pass" },
+        { "id": 4, "name": "Go", "result": "pass" },
+        { "id": 5, "name": "C++", "result": "pass" },
+        { "id": 6, "name": "snake_case wire", "result": "pass" },
+        { "id": 7, "name": "Real TLS clients in five runtimes", "result": "pass", "evidence": "reports/BROWSER_1.20_CPP_TCP_INTEROP.json: independent Python/Node/Go/Rust clients reached the C++ worker and an independent C++ client reached Python/Node/Go/Rust servers; every route negotiated TLSv1.3/mTLS" },
+        { "id": 8, "name": "Lite search traces JS/Python/C++", "result": "pass" },
+      { "id": 9, "name": "Live JS↔native sockets for Real", "result": "pass", "evidence": "reports/BROWSER_1.20_BROWSER_REAL_CPP_INTEROP.json: C++ BrowserRealTlsClient reached Node BrowserRealService over TCP TLS 1.3 + mTLS; C++ verified response correlation, peer identity, transcript, operation, sequence and nonce replay; session.started + session.status" },
+        { "id": 10, "name": "ResearchPack v2 golden round-trip in all five", "result": "pass" }
+      ]
+    },
+    "ux": {
+      "score": 10,
+      "gates": [
+        { "id": 1, "name": "Studio Inspector exists", "result": "pass" },
+        { "id": 2, "name": "Rejects mock telemetry", "result": "pass" },
+        { "id": 3, "name": "Empty when unconfigured", "result": "pass" },
+        { "id": 4, "name": "Keyboard-focusable controls (44px target)", "result": "pass" },
+        { "id": 5, "name": "Reduced motion", "result": "pass" },
+        { "id": 6, "name": "aria-live loading/success/error", "result": "pass", "evidence": "BrowserInspectorClient" },
+        { "id": 7, "name": "WCAG 2.2 AA audit", "result": "pass", "evidence": "reports/BROWSER_1.20_STUDIO_ACCESSIBILITY.json: axe-core 4.12.1 at 375/768/1024/1440, zero violations and keyboard/landmark checks pass" },
+        { "id": 8, "name": "375/768/1024/1440 visual QA", "result": "pass", "evidence": "node scripts/js/studio-visual-qa.mjs: real Chromium screenshots/status 200 at 375/768/1024/1440, all controls labelled and at least 44px; .local-tests/studio-visual-qa/report.json; local visual smoke only, not a formal WCAG audit" },
+        { "id": 9, "name": "Authorized screenshot only with MIME/size/hash", "result": "pass", "evidence": "verifyAuthorizedScreenshot" },
+        { "id": 10, "name": "Pause/resume/retry drive Real TLS", "result": "pass", "evidence": "reports/BROWSER_1.20_STUDIO_REAL_INTEROP.json: Studio API POST route drives pause/resume/cancel/retry over TCP TLS 1.3 + mTLS; all correlated events HTTP 200" }
+      ]
+    },
+    "performance": {
+      "score": 7,
+      "gates": [
+        { "id": 1, "name": "pnpm-only JS workspace", "result": "pass" },
+        { "id": 2, "name": "Explicit Chromium install command", "result": "pass" },
+        { "id": 3, "name": "CI matrix Win x64, Linux x64/ARM64, macOS x64/ARM64", "result": "fail", "evidence": "workflow definitions exist, but no archived hosted green run for all requested architectures is present in this tree" },
+        { "id": 4, "name": "Cold/hot startup archived", "result": "pass", "evidence": "node scripts/js/browser-real-bench.mjs: reports/BROWSER_1.20_REAL_BENCH.json contains 3 cold startups and 20 real Chromium navigations on win32/x64" },
+        { "id": 5, "name": "Navigation p50/p95/p99", "result": "pass", "evidence": "BROWSER_1.20_REAL_BENCH.json records hot navigation p50=9.468ms, p95=20.567ms, p99=94.496ms; environmental measurement only" },
+        { "id": 6, "name": "DOM/Markdown extract benchmarks", "result": "pass", "evidence": "Lite only" },
+        { "id": 7, "name": "Index query/ingest benchmarks", "result": "pass", "evidence": "Lite only" },
+        { "id": 8, "name": "Clean Core/Lite/Real tarball smoke", "result": "pass", "evidence": "pnpm run js:pack:check: all 12 JS tarballs contain required files, no links, and stay within the packaging limits; clean-tarball-consumer-smoke imports all 12" },
+        { "id": 9, "name": "Checksums per architecture", "result": "fail", "evidence": "scripts/js/package-checksums.mjs produced reports/BROWSER_1.20_PACKAGE_CHECKSUMS_win32_x64.json locally; hosted Linux/macOS architecture artifacts are not archived" },
+        { "id": 10, "name": "Soak archived", "result": "fail", "evidence": "browser-real-soak.yml runs scripts/js/browser-real-soak.mjs for 4h/1000 navs and uploads JSON; reduced local smoke passed (73 navigations/1.039s, orphans=[]), but no 4h artifact exists" }
+      ]
+    }
+  }
+}
