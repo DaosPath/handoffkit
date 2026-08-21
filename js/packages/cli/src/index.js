@@ -551,14 +551,14 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     }
     if (command === "doctor-benchmark" || command === "doctor" || command === "-d") {
       const limit = parsePositiveInteger(rest[0] ?? "30", "doctor benchmark limit");
-      const { runDoctorBenchmark } = await import("./benchmarks/doctor.js");
+      const { runDoctorBenchmark } = await import("./validation/benchmarks/doctor.js");
       const report = await runDoctorBenchmark(limit);
       stdout(report.toMarkdown());
       return 0;
     }
     if (command === "mai-benchmark" || command === "mai" || command === "-m") {
       const limit = parsePositiveInteger(rest[0] ?? "30", "MAI benchmark limit");
-      const { runMAIStyleBenchmark } = await import("./benchmarks/mai.js");
+      const { runMAIStyleBenchmark } = await import("./validation/benchmarks/mai.js");
       const report = await runMAIStyleBenchmark(limit);
       stdout(report.toMarkdown());
       return 0;
@@ -588,14 +588,14 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       return 0;
     }
     if (command === "demo-media") {
-      const { runMediaDemo } = await import("./benchmarks/media_demo.js");
+      const { runMediaDemo } = await import("./validation/benchmarks/media_demo.js");
       const { report, markdownPath } = await runMediaDemo();
       stdout(`Media Localization demo complete. Success: ${report.success}`);
       stdout(`Markdown report: ${markdownPath}`);
       return 0;
     }
     if (command === "demo-fusion") {
-      const { runFusionDemo } = await import("./benchmarks/fusion_demo.js");
+      const { runFusionDemo } = await import("./validation/benchmarks/fusion_demo.js");
       const { report, markdownPath } = await runFusionDemo();
       stdout(`Fusion demo complete. Success: ${report.success}`);
       stdout(`Markdown report: ${markdownPath}`);

@@ -56,7 +56,7 @@ fn envelope(session_id: &str, kind: &str, channel: &str, payload: Value) -> Mess
 async fn exercise_worker(program: &Path, args: &[String], runtime_name: &str, session_id: &str) {
     let root = repository_root();
     let fixture: Value = serde_json::from_str(
-        &std::fs::read_to_string(root.join("packages/contracts/fixtures/handoff_state.json"))
+        &std::fs::read_to_string(root.join("shared/contracts/fixtures/handoff_state.json"))
             .unwrap(),
     )
     .unwrap();
@@ -102,7 +102,7 @@ async fn rust_starts_python_worker_over_stdio() {
         return;
     }
     let root = repository_root();
-    let script = root.join("packages/python/examples/csp_rust_worker.py");
+    let script = root.join("python/packages/handoffkit/examples/csp_rust_worker.py");
     exercise_worker(
         Path::new("python"),
         &[script.to_string_lossy().into_owned()],
@@ -118,7 +118,7 @@ async fn rust_starts_javascript_worker_over_stdio() {
         return;
     }
     let root = repository_root();
-    let script = root.join("packages/js/node/examples/csp_worker.mjs");
+    let script = root.join("js/packages/node/examples/csp_worker.mjs");
     exercise_worker(
         Path::new("node"),
         &[script.to_string_lossy().into_owned()],

@@ -6,8 +6,8 @@ vcpkg_from_github(
     HEAD_REF main
 )
 
-# Monorepo layout: library lives under packages/cpp
-set(SOURCE_PATH "${SOURCE_PATH}/packages/cpp")
+# Monorepo layout: library lives under cpp/packages/handoffkit
+set(SOURCE_PATH "${SOURCE_PATH}/cpp/packages/handoffkit")
 
 vcpkg_cmake_configure(
     SOURCE_PATH "${SOURCE_PATH}"

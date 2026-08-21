@@ -85,9 +85,9 @@ std::vector<BenchCase> load_or_builtin() {
     }
     // Optional well-known monorepo path (runtime only — not compiled into LOC)
     const std::filesystem::path candidates[] = {
-        "packages/python/handoffkit/benchmarks/data/doctor_cases_30.json",
-        "../packages/python/handoffkit/benchmarks/data/doctor_cases_30.json",
-        "../../packages/python/handoffkit/benchmarks/data/doctor_cases_30.json",
+        "python/packages/handoffkit/handoffkit/validation/benchmarks/data/doctor_cases_30.json",
+        "../python/packages/handoffkit/handoffkit/validation/benchmarks/data/doctor_cases_30.json",
+        "../../python/packages/handoffkit/handoffkit/validation/benchmarks/data/doctor_cases_30.json",
     };
     for (const auto& p : candidates) {
         auto loaded = load_bench_cases_json(p);

@@ -17,7 +17,7 @@ find_package(handoffkit CONFIG REQUIRED)
 if(NOT TARGET handoffkit::core)
   message(FATAL_ERROR
     "handoffkit::core not found. Install a build that exports handoffkit_core "
-    "(monorepo packages/cpp with current CMakeLists)."
+    "(monorepo cpp/packages/handoffkit with current CMakeLists)."
   )
 endif()
 

@@ -1,7 +1,7 @@
 """Workflow metrics for external credibility (P2).
 
 Offline-friendly aggregates for cost, latency, context loss, and recovery.
-Not a substitute for independent third-party benchmarks.
+Not a substitute for independent third-party validation/benchmarks.
 """
 
 from __future__ import annotations
@@ -227,5 +227,5 @@ def build_workflow_metrics(
         cost=cost,
         context_loss=ctx,
         recovery=rec,
-        metadata=metadata or {"method": "handoffkit.benchmarks.metrics"},
+        metadata=metadata or {"method": "handoffkit.validation/benchmarks.metrics"},
     )

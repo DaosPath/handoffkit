@@ -38,7 +38,7 @@ export async function GET(request: Request) {
       kind: "benchmark-corpus",
       workspaceId,
       ...corpus,
-      note: "Aggregated studio runs with benchmarkReady=true. Use for future public benchmarks when volume is high.",
+      note: "Aggregated studio runs with benchmarkReady=true. Use for future public validation/benchmarks when volume is high.",
     });
   }
 
@@ -70,7 +70,7 @@ type PostBody = {
 
 /**
  * POST /api/demos/mai-panel/runs
- * Persist a completed panel run for history + future benchmarks.
+ * Persist a completed panel run for history + future validation/benchmarks.
  */
 export async function POST(request: Request) {
   try {

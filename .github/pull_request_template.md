@@ -9,7 +9,7 @@ Write `None` only when the change is entirely internal.
 
 ## Validation
 
-List the tests, benchmarks, or manual checks performed.
+List the tests, validation/benchmarks, or manual checks performed.
 
 ## Changelog
 

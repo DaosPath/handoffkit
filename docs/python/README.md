@@ -1,7 +1,7 @@
 # Python documentation
 
-- [Python package README](../../packages/python/README.md)
-- [Python changelog](../../packages/python/CHANGELOG.md)
+- [Python package README](../../python/packages/handoffkit/README.md)
+- [Python changelog](../../python/packages/handoffkit/CHANGELOG.md)
 - [Python demos](demos/README.md)
 
 ## API and compatibility

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from handoffkit.benchmarks.independent import (
+from handoffkit.validation/benchmarks.independent import (
     METHODOLOGY_ID,
     METHODOLOGY_VERSION,
     PROTOCOL_TASKS_V1,

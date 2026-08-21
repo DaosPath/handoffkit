@@ -8,37 +8,37 @@ Out-of-tree smoke that proves an **installed** HandoffKit prefix works with
 Build and install the C++ package once:
 
 ```powershell
-cmake -S packages/cpp -B packages/cpp/build -DCMAKE_BUILD_TYPE=Release -DHANDOFFKIT_WITH_HTTP=OFF
-cmake --build packages/cpp/build --config Release
-cmake --install packages/cpp/build --prefix $env:USERPROFILE/handoffkit-prefix --config Release
+cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build -DCMAKE_BUILD_TYPE=Release -DHANDOFFKIT_WITH_HTTP=OFF
+cmake --build cpp/packages/handoffkit/build --config Release
+cmake --install cpp/packages/handoffkit/build --prefix $env:USERPROFILE/handoffkit-prefix --config Release
 ```
 
 ## Configure / run
 
 ```powershell
-cmake -S packages/cpp/examples/consumer_core -B packages/cpp/build-consumer `
+cmake -S cpp/packages/handoffkit/examples/consumer_core -B cpp/packages/handoffkit/build-consumer `
   -DCMAKE_PREFIX_PATH="$env:USERPROFILE/handoffkit-prefix"
-cmake --build packages/cpp/build-consumer --config Release
-./packages/cpp/build-consumer/consumer_core.exe runs/consumer_core
+cmake --build cpp/packages/handoffkit/build-consumer --config Release
+./cpp/packages/handoffkit/build-consumer/consumer_core.exe runs/consumer_core
 ```
 
 Linux:
 
 ```bash
-cmake -S packages/cpp/examples/consumer_core -B packages/cpp/build-consumer \
+cmake -S cpp/packages/handoffkit/examples/consumer_core -B cpp/packages/handoffkit/build-consumer \
   -DCMAKE_PREFIX_PATH="$HOME/handoffkit-prefix"
-cmake --build packages/cpp/build-consumer
-./packages/cpp/build-consumer/consumer_core runs/consumer_core
+cmake --build cpp/packages/handoffkit/build-consumer
+./cpp/packages/handoffkit/build-consumer/consumer_core runs/consumer_core
 ```
 
 Or use the monorepo helper:
 
 ```powershell
-pwsh packages/cpp/scripts/consumer_install_smoke.ps1
+pwsh cpp/packages/handoffkit/scripts/consumer_install_smoke.ps1
 ```
 
 ```bash
-bash packages/cpp/scripts/consumer_install_smoke.sh
+bash cpp/packages/handoffkit/scripts/consumer_install_smoke.sh
 ```
 
 Expected stdout includes `consumer_core OK` and `target=handoffkit::core`.

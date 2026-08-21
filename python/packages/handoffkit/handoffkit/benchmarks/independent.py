@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from handoffkit.agent import Agent
-from handoffkit.benchmarks.metrics import (
+from handoffkit.validation/benchmarks.metrics import (
     WorkflowMetricsReport,
     build_workflow_metrics,
 )

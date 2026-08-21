@@ -1,6 +1,6 @@
-"""Sub-package for clinical reasoning benchmarks, metrics, and independent suite."""
+"""Sub-package for clinical reasoning validation/benchmarks, metrics, and independent suite."""
 
-from handoffkit.benchmarks.doctor import (
+from handoffkit.validation/benchmarks.doctor import (
     DoctorBenchmarkCase,
     DoctorBenchmarkCaseResult,
     DoctorBenchmarkReport,
@@ -8,7 +8,7 @@ from handoffkit.benchmarks.doctor import (
     load_doctor_benchmark_cases,
     run_doctor_benchmark,
 )
-from handoffkit.benchmarks.independent import (
+from handoffkit.validation/benchmarks.independent import (
     METHODOLOGY_ID,
     METHODOLOGY_VERSION,
     PROTOCOL_TASKS_V1,
@@ -19,7 +19,7 @@ from handoffkit.benchmarks.independent import (
     methodology_manifest,
     run_independent_benchmark,
 )
-from handoffkit.benchmarks.mai import (
+from handoffkit.validation/benchmarks.mai import (
     MAIAction,
     MAICaseResult,
     MAICostModel,
@@ -30,7 +30,7 @@ from handoffkit.benchmarks.mai import (
     SequentialDoctorCase,
     run_mai_style_benchmark,
 )
-from handoffkit.benchmarks.metrics import (
+from handoffkit.validation/benchmarks.metrics import (
     ContextLossStats,
     CostStats,
     LatencyStats,

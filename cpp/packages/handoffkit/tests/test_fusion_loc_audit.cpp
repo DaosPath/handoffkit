@@ -13,16 +13,16 @@ bool looks_like_packages_cpp(const std::filesystem::path& p) {
            std::filesystem::exists(p / "include" / "handoffkit");
 }
 
-/// Resolve packages/cpp whether ctest cwd is repo root, packages/cpp, or packages/cpp/build*.
+/// Resolve cpp/packages/handoffkit whether ctest cwd is repo root, cpp/packages/handoffkit, or cpp/packages/handoffkit/build*.
 std::filesystem::path find_packages_cpp_root() {
     namespace fs = std::filesystem;
     std::vector<fs::path> candidates = {
         ".",
         "..",
-        "packages/cpp",
-        "../packages/cpp",
-        "../../packages/cpp",
-        "../../../packages/cpp",
+        "cpp/packages/handoffkit",
+        "../cpp/packages/handoffkit",
+        "../../cpp/packages/handoffkit",
+        "../../../cpp/packages/handoffkit",
     };
 
     std::error_code ec;
@@ -53,7 +53,7 @@ std::filesystem::path find_packages_cpp_root() {
 int main() {
     const auto root = find_packages_cpp_root();
     if (root.empty()) {
-        std::cerr << "packages/cpp root not found (cwd="
+        std::cerr << "cpp/packages/handoffkit root not found (cwd="
                   << std::filesystem::current_path().string() << ")\n";
         return 2;
     }

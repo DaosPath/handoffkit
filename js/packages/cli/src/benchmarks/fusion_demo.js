@@ -1,7 +1,7 @@
 /**
  * Model Fusion-style multi-model panel demo (offline by default).
  *
- * Mirrors packages/python/examples/fusion_style_demo.py and the Python
+ * Mirrors python/packages/handoffkit/examples/fusion_style_demo.py and the Python
  * recipes.fusion module, but implemented entirely with JS/Node primitives
  * so the benchmark runs without a Python interpreter.
  *

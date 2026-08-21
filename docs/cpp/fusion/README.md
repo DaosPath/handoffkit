@@ -6,7 +6,7 @@ quality behavior, limitations, tests, and every file connected to Fusion in the
 current monorepo audit.
 
 - **Audited scope:** 107 files.
-- **Primary implementation:** native C++ under `packages/cpp`.
+- **Primary implementation:** native C++ under `cpp/packages/handoffkit`.
 - **Package location:** optional `handoffkit_demos` target; it is not part of the
   minimal `handoffkit_core` target.
 - **Wire convention:** `snake_case` JSON.
@@ -110,7 +110,7 @@ the same per-branch `HandoffState` chain as lean/ultra/DAG.
 
 ```bash
 handoffkit-cli fusion \
-  --config packages/cpp/examples/fusion/configs/fusion_research_genius.json \
+  --config cpp/packages/handoffkit/examples/fusion/configs/fusion_research_genius.json \
   --prompt "Your task"
 ```
 
@@ -143,7 +143,7 @@ Main config groups:
 
 ```bash
 handoffkit-cli fusion \
-  --prompt-config packages/cpp/examples/fusion/configs/prompt_pack_example.json \
+  --prompt-config cpp/packages/handoffkit/examples/fusion/configs/prompt_pack_example.json \
   --tier pro --prompt "Your task"
 ```
 
@@ -168,7 +168,7 @@ the built-in safety and quality structure.
 handoffkit-cli fusion roles --profile research
 handoffkit-cli fusion roles --pack incident
 handoffkit-cli fusion roles \
-  --file packages/cpp/examples/fusion/role_packs/custom_review.json
+  --file cpp/packages/handoffkit/examples/fusion/role_packs/custom_review.json
 ```
 
 Built-in product profiles are `shipping`, `neutral`, `dialectic`, `diagnostic`,
@@ -315,7 +315,7 @@ fusion cache stats|clear [--cache-dir DIR]
 fusion bench [--provider P] [--case ID]
 fusion scenarios [run-all]
 fusion war-room [--tiers CSV] [--provider P] [--json]
-fusion audit-loc [--root packages/cpp]
+fusion audit-loc [--root cpp/packages/handoffkit]
 ```
 
 ## Build and tests
@@ -323,12 +323,12 @@ fusion audit-loc [--root packages/cpp]
 Fusion is compiled when demos are enabled:
 
 ```bash
-cmake -S packages/cpp -B packages/cpp/build \
+cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build \
   -DHANDOFFKIT_BUILD_DEMOS=ON \
   -DHANDOFFKIT_BUILD_CLI=ON \
   -DHANDOFFKIT_WITH_HTTP=OFF
-cmake --build packages/cpp/build --config Release
-ctest --test-dir packages/cpp/build -C Release --output-on-failure
+cmake --build cpp/packages/handoffkit/build --config Release
+ctest --test-dir cpp/packages/handoffkit/build -C Release --output-on-failure
 ```
 
 Enable `HANDOFFKIT_WITH_HTTP=ON` for live OpenAI-compatible providers. The
@@ -380,125 +380,125 @@ outputs are intentionally excluded.
 
 | File | Responsibility | Audit finding / status |
 |---|---|---|
-| `packages/cpp/include/handoffkit/demos/fusion/algo_align.hpp` | Sequence-alignment API for token and branch similarity. | Declares Needleman-Wunsch, Smith-Waterman, and normalized branch similarity. |
-| `packages/cpp/include/handoffkit/demos/fusion/algo_dag.hpp` | DAG data model and topology analysis API. | Declares graph builders, cycle/topological analysis, critical path, and expected call count. |
-| `packages/cpp/include/handoffkit/demos/fusion/algo_handoff_sim.hpp` | Offline handoff simulation contracts. | Builds synthetic linear/Fusion HandoffState traces and metrics without providers. |
-| `packages/cpp/include/handoffkit/demos/fusion/algo_quality_gates.hpp` | Deterministic run-quality gate API. | Declares structural, cache, branch, rubric, timing, and call-count checks. |
-| `packages/cpp/include/handoffkit/demos/fusion/algo_rate_limit.hpp` | Rate/budget primitives. | Declares token bucket, sliding window limiter, and Fusion call admission decisions. |
-| `packages/cpp/include/handoffkit/demos/fusion/algo_report.hpp` | Rich report composition API. | Combines run, branch diff, rubric, Markdown, HTML, and wire JSON. |
-| `packages/cpp/include/handoffkit/demos/fusion/algo_rubric.hpp` | Offline rubric types and scoring API. | Provides diagnostic, shipping, and task-faithful rubric definitions. |
-| `packages/cpp/include/handoffkit/demos/fusion/algo_stats.hpp` | Small numeric/statistics library. | Mean, percentiles, correlations, errors, normalization, histograms, and entropy. |
-| `packages/cpp/include/handoffkit/demos/fusion/audit_loc.hpp` | Fusion source-volume audit contracts. | Defines per-file LOC stats and anti-padding audit output. |
-| `packages/cpp/include/handoffkit/demos/fusion/bench.hpp` | Benchmark case and batch contracts. | Defines case execution, batch aggregation, Markdown, and JSON reports. |
-| `packages/cpp/include/handoffkit/demos/fusion/bench_corpus_eval.hpp` | Offline corpus-evaluation entry point. | Exposes deterministic MedCase corpus evaluation. |
-| `packages/cpp/include/handoffkit/demos/fusion/branch_compare.hpp` | Branch-difference contracts. | Captures shared bullets, unique claims, conflicts, overlap, and preferred branch. |
-| `packages/cpp/include/handoffkit/demos/fusion/cache.hpp` | Memory/disk cache public API. | LRU, TTL, checksums, statistics, invalidation, compaction; not concurrent-writer safe. |
-| `packages/cpp/include/handoffkit/demos/fusion/cache_index.hpp` | Persistent cache-index API. | Loads, saves, rebuilds, prunes, and compacts disk shard metadata. |
-| `packages/cpp/include/handoffkit/demos/fusion/cases_medcase.hpp` | MedCase benchmark loader API. | Loads JSON cases and exposes built-in corpus lookup helpers. |
-| `packages/cpp/include/handoffkit/demos/fusion/cases_validate.hpp` | Benchmark corpus validation API. | Checks ids, prompts, labels, disclaimers, leakage heuristics, and text bounds. |
-| `packages/cpp/include/handoffkit/demos/fusion/engine.hpp` | Public native FusionEngine API. | Dispatches lean, ultra, DAG, and panel execution with optional cache/provider injection. |
-| `packages/cpp/include/handoffkit/demos/fusion/engine_internal.hpp` | Shared engine implementation helpers. | Builds frame options, resolves custom roles/models/web context, and emits protocol handoffs. |
-| `packages/cpp/include/handoffkit/demos/fusion/engine_resume.hpp` | Checkpoint and resume API. | Supports step serialization and merge-only resume; current resume path is dual-branch oriented. |
-| `packages/cpp/include/handoffkit/demos/fusion/fusion_docs.hpp` | In-binary documentation API. | Exposes generated overview, quickstart, and improvements notes used by tests/tools. |
-| `packages/cpp/include/handoffkit/demos/fusion/fusion_style.hpp` | Demo-catalog adapters. | Bridges FusionRunResult into generic DemoResult and exposes router/cache/offline demos. |
-| `packages/cpp/include/handoffkit/demos/fusion/hash.hpp` | Hashing API. | FNV/content hashes, SHA-256 when available, and cache-key composition. |
-| `packages/cpp/include/handoffkit/demos/fusion/merge_strategy.hpp` | Merge strategy API. | Task-faithful, shipping sections, bullet-vote, and conflict-annotated strategies. |
-| `packages/cpp/include/handoffkit/demos/fusion/metrics.hpp` | Text and batch metric contracts. | Token/label scoring and aggregation for benchmark runs. |
-| `packages/cpp/include/handoffkit/demos/fusion/panel.hpp` | Panel/judge public API. | Model slots, deterministic analysis, overlap, direct-answer extraction, and anti-dilution. |
-| `packages/cpp/include/handoffkit/demos/fusion/persist.hpp` | Run persistence API. | Defines artifact layout, write/load operations, and HTML rendering. |
-| `packages/cpp/include/handoffkit/demos/fusion/policy.hpp` | Execution policy and budget API. | Call count, prompt size, wall limit, cache allowances, and config validation. |
-| `packages/cpp/include/handoffkit/demos/fusion/prompt.hpp` | Prompt construction public API. | Sanitization, templating, structured handoffs, and tier-aware branch/skeptic/merge frames. |
-| `packages/cpp/include/handoffkit/demos/fusion/prompt_sanitize_tables.hpp` | Punctuation-map helper API. | Declares named Windows punctuation mappings used by prompt sanitation. |
-| `packages/cpp/include/handoffkit/demos/fusion/provider_wrap.hpp` | Fusion provider/cache wrapper API. | Wraps AnyProvider with content-addressed response caching. |
-| `packages/cpp/include/handoffkit/demos/fusion/roles.hpp` | Role-pack public API. | Built-in profiles, JSON loading/validation, text dump, and execution-plan explanation. |
-| `packages/cpp/include/handoffkit/demos/fusion/scenarios.hpp` | Base scenario-test API. | Catalogs deterministic end-to-end Fusion behavior checks. |
-| `packages/cpp/include/handoffkit/demos/fusion/scenarios_deep.hpp` | Deep scenario-test API. | Adds cache-index, resume, merge, text, policy, and benchmark scenarios. |
-| `packages/cpp/include/handoffkit/demos/fusion/text_pipeline.hpp` | Text-analysis pipeline API. | Sentence/paragraph/token/style stats and task/domain heuristics. |
-| `packages/cpp/include/handoffkit/demos/fusion/types.hpp` | Canonical Fusion wire/config/result types. | Defines tiers, modes, capability packs, prompts, generation, policy, cache, metrics, and results. |
-| `packages/cpp/include/handoffkit/demos/fusion/war_room.hpp` | Multi-tier comparison API. | Runs selected tiers against one task and reports latency, calls, judge data, and previews. |
-| `packages/cpp/include/handoffkit/demos/fusion/web_research.hpp` | Fusion web-research API. | Search/fetch/explore registry and bounded Markdown context result. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/algo_align.hpp` | Sequence-alignment API for token and branch similarity. | Declares Needleman-Wunsch, Smith-Waterman, and normalized branch similarity. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/algo_dag.hpp` | DAG data model and topology analysis API. | Declares graph builders, cycle/topological analysis, critical path, and expected call count. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/algo_handoff_sim.hpp` | Offline handoff simulation contracts. | Builds synthetic linear/Fusion HandoffState traces and metrics without providers. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/algo_quality_gates.hpp` | Deterministic run-quality gate API. | Declares structural, cache, branch, rubric, timing, and call-count checks. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/algo_rate_limit.hpp` | Rate/budget primitives. | Declares token bucket, sliding window limiter, and Fusion call admission decisions. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/algo_report.hpp` | Rich report composition API. | Combines run, branch diff, rubric, Markdown, HTML, and wire JSON. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/algo_rubric.hpp` | Offline rubric types and scoring API. | Provides diagnostic, shipping, and task-faithful rubric definitions. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/algo_stats.hpp` | Small numeric/statistics library. | Mean, percentiles, correlations, errors, normalization, histograms, and entropy. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/audit_loc.hpp` | Fusion source-volume audit contracts. | Defines per-file LOC stats and anti-padding audit output. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/bench.hpp` | Benchmark case and batch contracts. | Defines case execution, batch aggregation, Markdown, and JSON reports. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/bench_corpus_eval.hpp` | Offline corpus-evaluation entry point. | Exposes deterministic MedCase corpus evaluation. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/branch_compare.hpp` | Branch-difference contracts. | Captures shared bullets, unique claims, conflicts, overlap, and preferred branch. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/cache.hpp` | Memory/disk cache public API. | LRU, TTL, checksums, statistics, invalidation, compaction; not concurrent-writer safe. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/cache_index.hpp` | Persistent cache-index API. | Loads, saves, rebuilds, prunes, and compacts disk shard metadata. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/cases_medcase.hpp` | MedCase benchmark loader API. | Loads JSON cases and exposes built-in corpus lookup helpers. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/cases_validate.hpp` | Benchmark corpus validation API. | Checks ids, prompts, labels, disclaimers, leakage heuristics, and text bounds. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/engine.hpp` | Public native FusionEngine API. | Dispatches lean, ultra, DAG, and panel execution with optional cache/provider injection. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/engine_internal.hpp` | Shared engine implementation helpers. | Builds frame options, resolves custom roles/models/web context, and emits protocol handoffs. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/engine_resume.hpp` | Checkpoint and resume API. | Supports step serialization and merge-only resume; current resume path is dual-branch oriented. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/fusion_docs.hpp` | In-binary documentation API. | Exposes generated overview, quickstart, and improvements notes used by tests/tools. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/fusion_style.hpp` | Demo-catalog adapters. | Bridges FusionRunResult into generic DemoResult and exposes router/cache/offline demos. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/hash.hpp` | Hashing API. | FNV/content hashes, SHA-256 when available, and cache-key composition. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/merge_strategy.hpp` | Merge strategy API. | Task-faithful, shipping sections, bullet-vote, and conflict-annotated strategies. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/metrics.hpp` | Text and batch metric contracts. | Token/label scoring and aggregation for benchmark runs. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/panel.hpp` | Panel/judge public API. | Model slots, deterministic analysis, overlap, direct-answer extraction, and anti-dilution. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/persist.hpp` | Run persistence API. | Defines artifact layout, write/load operations, and HTML rendering. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/policy.hpp` | Execution policy and budget API. | Call count, prompt size, wall limit, cache allowances, and config validation. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/prompt.hpp` | Prompt construction public API. | Sanitization, templating, structured handoffs, and tier-aware branch/skeptic/merge frames. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/prompt_sanitize_tables.hpp` | Punctuation-map helper API. | Declares named Windows punctuation mappings used by prompt sanitation. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/provider_wrap.hpp` | Fusion provider/cache wrapper API. | Wraps AnyProvider with content-addressed response caching. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/roles.hpp` | Role-pack public API. | Built-in profiles, JSON loading/validation, text dump, and execution-plan explanation. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/scenarios.hpp` | Base scenario-test API. | Catalogs deterministic end-to-end Fusion behavior checks. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/scenarios_deep.hpp` | Deep scenario-test API. | Adds cache-index, resume, merge, text, policy, and benchmark scenarios. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/text_pipeline.hpp` | Text-analysis pipeline API. | Sentence/paragraph/token/style stats and task/domain heuristics. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/types.hpp` | Canonical Fusion wire/config/result types. | Defines tiers, modes, capability packs, prompts, generation, policy, cache, metrics, and results. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/war_room.hpp` | Multi-tier comparison API. | Runs selected tiers against one task and reports latency, calls, judge data, and previews. |
+| `cpp/packages/handoffkit/include/handoffkit/demos/fusion/web_research.hpp` | Fusion web-research API. | Search/fetch/explore registry and bounded Markdown context result. |
 
 ### Native implementations (43)
 
 | File | Responsibility | Audit finding / status |
 |---|---|---|
-| `packages/cpp/src/demos/fusion/algo_align.cpp` | Implements global/local dynamic-programming alignment and branch similarity. | Used by quality analysis; deterministic and offline. |
-| `packages/cpp/src/demos/fusion/algo_dag.cpp` | Implements DAG topology, cycle detection, critical path, and standard graph builders. | Dead critical-path temporary removed; Debug tests now assert lean/ultra/multi critical costs. |
-| `packages/cpp/src/demos/fusion/algo_handoff_sim.cpp` | Implements synthetic protocol handoff traces and summary metrics. | Useful for offline validation, not the live engine path. |
-| `packages/cpp/src/demos/fusion/algo_quality_gates.cpp` | Implements the deterministic run-quality checks. | Validates shape and heuristics; it is not an independent LLM judge. |
-| `packages/cpp/src/demos/fusion/algo_rate_limit.cpp` | Implements token bucket, sliding-window, and call-gate admission. | Separate utility; main engine policy uses FusionBudget. |
-| `packages/cpp/src/demos/fusion/algo_report.cpp` | Builds rich Markdown/HTML/JSON analysis reports. | Combines branch comparison, rubric, and text-pipeline details. |
-| `packages/cpp/src/demos/fusion/algo_rubric.cpp` | Implements keyword/structure-based offline rubric scoring. | Contains heuristic scoring and one remaining TODO; not a public benchmark authority. |
-| `packages/cpp/src/demos/fusion/algo_stats.cpp` | Implements numeric/statistical helpers. | Reformatted during the audit to remove misleading-indentation warnings without changing formulas. |
-| `packages/cpp/src/demos/fusion/audit_loc.cpp` | Walks Fusion code/tests and flags suspicious padding patterns. | Excludes build dependencies and reports productive/source LOC. |
-| `packages/cpp/src/demos/fusion/bench_case.cpp` | Runs individual and batch Fusion benchmark cases. | Uses FusionEngine and aggregates deterministic text metrics. |
-| `packages/cpp/src/demos/fusion/bench_corpus_eval.cpp` | Evaluates the MedCase corpus offline. | Combines validation, label metrics, rubric, text analysis, and statistics. |
-| `packages/cpp/src/demos/fusion/branch_compare.cpp` | Extracts bullets and computes LCS/overlap, unique claims, and conflicts. | Feeds merge analysis and branch preference heuristics. |
-| `packages/cpp/src/demos/fusion/cache_disk.cpp` | Implements disk shard read/write/remove and checksum verification. | Corrupt entries are rejected rather than returned. |
-| `packages/cpp/src/demos/fusion/cache_index.cpp` | Implements persistent cache index lifecycle. | Supports rebuild from shards, pruning, and compaction. |
-| `packages/cpp/src/demos/fusion/cache_memory.cpp` | Implements LRU memory cache, TTL, eviction, serialization, and stats. | The class intentionally assumes non-concurrent writers. |
-| `packages/cpp/src/demos/fusion/cache_stats.cpp` | Formats cache health/statistics and computes deltas. | Used by CLI reports and cache lab. |
-| `packages/cpp/src/demos/fusion/cases_medcase_loader.cpp` | Loads built-in or external MedCaseReasoning cases. | Adds the research-only vignette/output wrapper required by validation, then exposes fallback and lookup helpers. |
-| `packages/cpp/src/demos/fusion/cases_validate.cpp` | Implements corpus integrity and leakage-oriented heuristics. | Validation is structural/research-oriented, not clinical validation. |
-| `packages/cpp/src/demos/fusion/engine_dag_run.cpp` | Executes N architect branches, merge, and optional meta-judge. | Bounded parallelism is active only with cache disabled; Genius final output is replaced by meta-judge. |
-| `packages/cpp/src/demos/fusion/engine_lean_ultra.cpp` | Executes dual architects, optional skeptics, merge, and optional meta-judge. | Includes overlap early-stop, structured handoffs, pre-merge analysis, and anti-dilution. |
-| `packages/cpp/src/demos/fusion/engine_panel_run.cpp` | Executes multi-model panel slots and deterministic judge. | Echo mode substitutes deterministic role answers; panel mode does not build the same handoff chain as branch modes. |
-| `packages/cpp/src/demos/fusion/engine_resume.cpp` | Serializes checkpoints and performs a merge-only resumed call. | Now forwards merge token/sampling/extra_body settings; current discovery expects dual branch step ids. |
-| `packages/cpp/src/demos/fusion/engine_run.cpp` | Central call wrapper, validation, dispatch, observability, and persistence. | Records errors, latency, chars, hash, cache hit, and generation options per phase. |
-| `packages/cpp/src/demos/fusion/fusion_docs.cpp` | Stores generated Fusion overview/quickstart text in the binary. | Updated with current 3/3/5/5/8 tiers and advanced features. |
-| `packages/cpp/src/demos/fusion/fusion_style_offline.cpp` | Legacy deterministic two-team Fusion-style demo. | Kept as a simpler catalog demonstration, separate from the advanced engine. |
-| `packages/cpp/src/demos/fusion/fusion_style_router.cpp` | Maps DemoOptions/CLI/config JSON into FusionConfig and reports. | Explicit CLI values now override config while unspecified output/cache settings remain file-authoritative. |
-| `packages/cpp/src/demos/fusion/hash.cpp` | Implements content/SHA/cache-key hashing. | Cache-key inputs distinguish provider/model/role/prompts and generation controls. |
-| `packages/cpp/src/demos/fusion/merge_strategy.cpp` | Implements merge-plan selection, prompts, and offline bullet voting. | Resume uses this strategy layer; live main engine uses tier-aware prompt frames. |
-| `packages/cpp/src/demos/fusion/metrics.cpp` | Implements tokenizer, label normalization, text-vs-gold, and batch metrics. | Metrics are proxy/structural and must not be presented as clinical capability. |
-| `packages/cpp/src/demos/fusion/panel.cpp` | Implements roles, model-spec parsing, deterministic judge, overlap, and anti-dilution. | Judge is heuristic; optional meta-judge is the LLM refinement layer. |
-| `packages/cpp/src/demos/fusion/persist.cpp` | Writes/loads manifests, config, metrics, reports, branches, and handoffs. | Persistence is per-run and produces JSON, Markdown, and HTML artifacts. |
-| `packages/cpp/src/demos/fusion/policy.cpp` | Implements FusionBudget and base config validation. | Call count/prompt size are enforced; max_wall_ms is not yet a strict whole-run deadline. |
-| `packages/cpp/src/demos/fusion/prompt_builder.cpp` | Builds tier-aware branch, skeptic, dual-merge, and multi-merge prompts. | Injects custom templates, requirements, quality/output contracts, web, panel analysis, and handoffs. |
-| `packages/cpp/src/demos/fusion/prompt_sanitize.cpp` | Implements BOM/punctuation sanitation, truncation, and {{variable}} rendering. | Unknown template keys can be retained or removed according to caller choice. |
-| `packages/cpp/src/demos/fusion/prompt_sanitize_tables.cpp` | Implements named Windows punctuation mapping tables. | Complements the main sanitizer for deterministic ASCII-safe prompts. |
-| `packages/cpp/src/demos/fusion/provider_wrap.cpp` | Implements cached AnyProvider wrapping and model override construction. | Cache key now includes extra_body so thinking/reasoning settings cannot alias. |
-| `packages/cpp/src/demos/fusion/roles.cpp` | Implements six profiles, incident/product helpers, JSON packs, and plan explanation. | DAG synthesizes additional branch variants when a pack has fewer roles than requested. |
-| `packages/cpp/src/demos/fusion/scenarios_catalog.cpp` | Implements base deterministic scenario catalog. | Full-call Ultra scenarios explicitly disable overlap early-stop; other scenarios cover cache, policy, sanitation, profiles, templates, and toy bench. |
-| `packages/cpp/src/demos/fusion/scenarios_deep.cpp` | Implements deeper integration scenarios. | Full-call Ultra checks disable early-stop; the catalog also covers merge, conflicts, cache index, resume, text, policy, and MedCase echo. |
-| `packages/cpp/src/demos/fusion/text_pipeline.cpp` | Implements text segmentation, normalization, label and shipping-plan heuristics. | Supports reports/gates; does not semantically verify factual correctness. |
-| `packages/cpp/src/demos/fusion/types.cpp` | Implements serialization, tier contracts/defaults, config parsing, and result rendering. | Canonical source of current tier behavior and 3/3/5/5/8 call plans. |
-| `packages/cpp/src/demos/fusion/war_room.cpp` | Runs the same task across multiple tiers and formats comparison output. | Useful for engineering comparisons; defaults exclude Genius for speed. |
-| `packages/cpp/src/demos/fusion/web_research.cpp` | Implements query derivation, Wikipedia/DDG search, fetch/explore, and Markdown assembly. | Network is opt-in and bounded by page/depth/context/timeout controls. |
+| `cpp/packages/handoffkit/src/demos/fusion/algo_align.cpp` | Implements global/local dynamic-programming alignment and branch similarity. | Used by quality analysis; deterministic and offline. |
+| `cpp/packages/handoffkit/src/demos/fusion/algo_dag.cpp` | Implements DAG topology, cycle detection, critical path, and standard graph builders. | Dead critical-path temporary removed; Debug tests now assert lean/ultra/multi critical costs. |
+| `cpp/packages/handoffkit/src/demos/fusion/algo_handoff_sim.cpp` | Implements synthetic protocol handoff traces and summary metrics. | Useful for offline validation, not the live engine path. |
+| `cpp/packages/handoffkit/src/demos/fusion/algo_quality_gates.cpp` | Implements the deterministic run-quality checks. | Validates shape and heuristics; it is not an independent LLM judge. |
+| `cpp/packages/handoffkit/src/demos/fusion/algo_rate_limit.cpp` | Implements token bucket, sliding-window, and call-gate admission. | Separate utility; main engine policy uses FusionBudget. |
+| `cpp/packages/handoffkit/src/demos/fusion/algo_report.cpp` | Builds rich Markdown/HTML/JSON analysis reports. | Combines branch comparison, rubric, and text-pipeline details. |
+| `cpp/packages/handoffkit/src/demos/fusion/algo_rubric.cpp` | Implements keyword/structure-based offline rubric scoring. | Contains heuristic scoring and one remaining TODO; not a public benchmark authority. |
+| `cpp/packages/handoffkit/src/demos/fusion/algo_stats.cpp` | Implements numeric/statistical helpers. | Reformatted during the audit to remove misleading-indentation warnings without changing formulas. |
+| `cpp/packages/handoffkit/src/demos/fusion/audit_loc.cpp` | Walks Fusion code/tests and flags suspicious padding patterns. | Excludes build dependencies and reports productive/source LOC. |
+| `cpp/packages/handoffkit/src/demos/fusion/bench_case.cpp` | Runs individual and batch Fusion benchmark cases. | Uses FusionEngine and aggregates deterministic text metrics. |
+| `cpp/packages/handoffkit/src/demos/fusion/bench_corpus_eval.cpp` | Evaluates the MedCase corpus offline. | Combines validation, label metrics, rubric, text analysis, and statistics. |
+| `cpp/packages/handoffkit/src/demos/fusion/branch_compare.cpp` | Extracts bullets and computes LCS/overlap, unique claims, and conflicts. | Feeds merge analysis and branch preference heuristics. |
+| `cpp/packages/handoffkit/src/demos/fusion/cache_disk.cpp` | Implements disk shard read/write/remove and checksum verification. | Corrupt entries are rejected rather than returned. |
+| `cpp/packages/handoffkit/src/demos/fusion/cache_index.cpp` | Implements persistent cache index lifecycle. | Supports rebuild from shards, pruning, and compaction. |
+| `cpp/packages/handoffkit/src/demos/fusion/cache_memory.cpp` | Implements LRU memory cache, TTL, eviction, serialization, and stats. | The class intentionally assumes non-concurrent writers. |
+| `cpp/packages/handoffkit/src/demos/fusion/cache_stats.cpp` | Formats cache health/statistics and computes deltas. | Used by CLI reports and cache lab. |
+| `cpp/packages/handoffkit/src/demos/fusion/cases_medcase_loader.cpp` | Loads built-in or external MedCaseReasoning cases. | Adds the research-only vignette/output wrapper required by validation, then exposes fallback and lookup helpers. |
+| `cpp/packages/handoffkit/src/demos/fusion/cases_validate.cpp` | Implements corpus integrity and leakage-oriented heuristics. | Validation is structural/research-oriented, not clinical validation. |
+| `cpp/packages/handoffkit/src/demos/fusion/engine_dag_run.cpp` | Executes N architect branches, merge, and optional meta-judge. | Bounded parallelism is active only with cache disabled; Genius final output is replaced by meta-judge. |
+| `cpp/packages/handoffkit/src/demos/fusion/engine_lean_ultra.cpp` | Executes dual architects, optional skeptics, merge, and optional meta-judge. | Includes overlap early-stop, structured handoffs, pre-merge analysis, and anti-dilution. |
+| `cpp/packages/handoffkit/src/demos/fusion/engine_panel_run.cpp` | Executes multi-model panel slots and deterministic judge. | Echo mode substitutes deterministic role answers; panel mode does not build the same handoff chain as branch modes. |
+| `cpp/packages/handoffkit/src/demos/fusion/engine_resume.cpp` | Serializes checkpoints and performs a merge-only resumed call. | Now forwards merge token/sampling/extra_body settings; current discovery expects dual branch step ids. |
+| `cpp/packages/handoffkit/src/demos/fusion/engine_run.cpp` | Central call wrapper, validation, dispatch, observability, and persistence. | Records errors, latency, chars, hash, cache hit, and generation options per phase. |
+| `cpp/packages/handoffkit/src/demos/fusion/fusion_docs.cpp` | Stores generated Fusion overview/quickstart text in the binary. | Updated with current 3/3/5/5/8 tiers and advanced features. |
+| `cpp/packages/handoffkit/src/demos/fusion/fusion_style_offline.cpp` | Legacy deterministic two-team Fusion-style demo. | Kept as a simpler catalog demonstration, separate from the advanced engine. |
+| `cpp/packages/handoffkit/src/demos/fusion/fusion_style_router.cpp` | Maps DemoOptions/CLI/config JSON into FusionConfig and reports. | Explicit CLI values now override config while unspecified output/cache settings remain file-authoritative. |
+| `cpp/packages/handoffkit/src/demos/fusion/hash.cpp` | Implements content/SHA/cache-key hashing. | Cache-key inputs distinguish provider/model/role/prompts and generation controls. |
+| `cpp/packages/handoffkit/src/demos/fusion/merge_strategy.cpp` | Implements merge-plan selection, prompts, and offline bullet voting. | Resume uses this strategy layer; live main engine uses tier-aware prompt frames. |
+| `cpp/packages/handoffkit/src/demos/fusion/metrics.cpp` | Implements tokenizer, label normalization, text-vs-gold, and batch metrics. | Metrics are proxy/structural and must not be presented as clinical capability. |
+| `cpp/packages/handoffkit/src/demos/fusion/panel.cpp` | Implements roles, model-spec parsing, deterministic judge, overlap, and anti-dilution. | Judge is heuristic; optional meta-judge is the LLM refinement layer. |
+| `cpp/packages/handoffkit/src/demos/fusion/persist.cpp` | Writes/loads manifests, config, metrics, reports, branches, and handoffs. | Persistence is per-run and produces JSON, Markdown, and HTML artifacts. |
+| `cpp/packages/handoffkit/src/demos/fusion/policy.cpp` | Implements FusionBudget and base config validation. | Call count/prompt size are enforced; max_wall_ms is not yet a strict whole-run deadline. |
+| `cpp/packages/handoffkit/src/demos/fusion/prompt_builder.cpp` | Builds tier-aware branch, skeptic, dual-merge, and multi-merge prompts. | Injects custom templates, requirements, quality/output contracts, web, panel analysis, and handoffs. |
+| `cpp/packages/handoffkit/src/demos/fusion/prompt_sanitize.cpp` | Implements BOM/punctuation sanitation, truncation, and {{variable}} rendering. | Unknown template keys can be retained or removed according to caller choice. |
+| `cpp/packages/handoffkit/src/demos/fusion/prompt_sanitize_tables.cpp` | Implements named Windows punctuation mapping tables. | Complements the main sanitizer for deterministic ASCII-safe prompts. |
+| `cpp/packages/handoffkit/src/demos/fusion/provider_wrap.cpp` | Implements cached AnyProvider wrapping and model override construction. | Cache key now includes extra_body so thinking/reasoning settings cannot alias. |
+| `cpp/packages/handoffkit/src/demos/fusion/roles.cpp` | Implements six profiles, incident/product helpers, JSON packs, and plan explanation. | DAG synthesizes additional branch variants when a pack has fewer roles than requested. |
+| `cpp/packages/handoffkit/src/demos/fusion/scenarios_catalog.cpp` | Implements base deterministic scenario catalog. | Full-call Ultra scenarios explicitly disable overlap early-stop; other scenarios cover cache, policy, sanitation, profiles, templates, and toy bench. |
+| `cpp/packages/handoffkit/src/demos/fusion/scenarios_deep.cpp` | Implements deeper integration scenarios. | Full-call Ultra checks disable early-stop; the catalog also covers merge, conflicts, cache index, resume, text, policy, and MedCase echo. |
+| `cpp/packages/handoffkit/src/demos/fusion/text_pipeline.cpp` | Implements text segmentation, normalization, label and shipping-plan heuristics. | Supports reports/gates; does not semantically verify factual correctness. |
+| `cpp/packages/handoffkit/src/demos/fusion/types.cpp` | Implements serialization, tier contracts/defaults, config parsing, and result rendering. | Canonical source of current tier behavior and 3/3/5/5/8 call plans. |
+| `cpp/packages/handoffkit/src/demos/fusion/war_room.cpp` | Runs the same task across multiple tiers and formats comparison output. | Useful for engineering comparisons; defaults exclude Genius for speed. |
+| `cpp/packages/handoffkit/src/demos/fusion/web_research.cpp` | Implements query derivation, Wikipedia/DDG search, fetch/explore, and Markdown assembly. | Network is opt-in and bounded by page/depth/context/timeout controls. |
 
 ### Tests (11)
 
 | File | Responsibility | Audit finding / status |
 |---|---|---|
-| `packages/cpp/tests/test_fusion_algo.cpp` | Algorithms, DAG, rate limits, rubrics, reports, corpus, generated docs, and quality gates. | Primary broad offline algorithm regression suite. |
-| `packages/cpp/tests/test_fusion_cache.cpp` | Hash, sanitation, memory/disk round-trip, LRU eviction, and provider cache-key isolation. | Verifies that changing `extra_body`/thinking settings cannot reuse an incompatible cached completion. |
-| `packages/cpp/tests/test_fusion_depth.cpp` | Branch comparison, merge strategies, cache index, resume, text pipeline, and deep scenarios. | Covers advanced support modules; the audit added the direct metrics include required by Debug builds. |
-| `packages/cpp/tests/test_fusion_engine_echo.cpp` | Profiles, tiers, capability differentiation, handoffs, prompt templates, parallel reports, and persistence. | Verifies current 3/3/5/5/8 tier architecture; full-call assertions explicitly disable overlap early-stop. |
-| `packages/cpp/tests/test_fusion_loc_audit.cpp` | Repository discovery and anti-padding LOC audit. | Ensures the audit can locate packages/cpp and produce a valid report. |
-| `packages/cpp/tests/test_fusion_panel.cpp` | Panel roles/specs/judge, routing, meta-judge, anti-dilution, overlap, and war-room fields. | Covers deterministic panel behavior and model routing. |
-| `packages/cpp/tests/test_fusion_roles.cpp` | Built-in and JSON role packs plus validation. | Protects role schema and all shipped profiles. |
-| `packages/cpp/tests/test_fusion_scenarios.cpp` | Base scenario catalog execution. | Small wrapper asserting all catalog scenarios pass. |
-| `packages/cpp/tests/test_fusion_war_room.cpp` | Multi-tier war-room report. | Checks tier rows, calls, cache/provider fields, and Markdown. |
-| `packages/cpp/tests/test_fusion_web_research.cpp` | URL extraction, query generation, fixture research, prompt injection, and tool registry. | No live network is required. |
-| `packages/cpp/tests/test_http_parse.cpp` | OpenAI-compatible parse/request support used by Fusion. | Rejects reasoning-only empty completions and checks generation request fields. |
+| `cpp/packages/handoffkit/tests/test_fusion_algo.cpp` | Algorithms, DAG, rate limits, rubrics, reports, corpus, generated docs, and quality gates. | Primary broad offline algorithm regression suite. |
+| `cpp/packages/handoffkit/tests/test_fusion_cache.cpp` | Hash, sanitation, memory/disk round-trip, LRU eviction, and provider cache-key isolation. | Verifies that changing `extra_body`/thinking settings cannot reuse an incompatible cached completion. |
+| `cpp/packages/handoffkit/tests/test_fusion_depth.cpp` | Branch comparison, merge strategies, cache index, resume, text pipeline, and deep scenarios. | Covers advanced support modules; the audit added the direct metrics include required by Debug builds. |
+| `cpp/packages/handoffkit/tests/test_fusion_engine_echo.cpp` | Profiles, tiers, capability differentiation, handoffs, prompt templates, parallel reports, and persistence. | Verifies current 3/3/5/5/8 tier architecture; full-call assertions explicitly disable overlap early-stop. |
+| `cpp/packages/handoffkit/tests/test_fusion_loc_audit.cpp` | Repository discovery and anti-padding LOC audit. | Ensures the audit can locate cpp/packages/handoffkit and produce a valid report. |
+| `cpp/packages/handoffkit/tests/test_fusion_panel.cpp` | Panel roles/specs/judge, routing, meta-judge, anti-dilution, overlap, and war-room fields. | Covers deterministic panel behavior and model routing. |
+| `cpp/packages/handoffkit/tests/test_fusion_roles.cpp` | Built-in and JSON role packs plus validation. | Protects role schema and all shipped profiles. |
+| `cpp/packages/handoffkit/tests/test_fusion_scenarios.cpp` | Base scenario catalog execution. | Small wrapper asserting all catalog scenarios pass. |
+| `cpp/packages/handoffkit/tests/test_fusion_war_room.cpp` | Multi-tier war-room report. | Checks tier rows, calls, cache/provider fields, and Markdown. |
+| `cpp/packages/handoffkit/tests/test_fusion_web_research.cpp` | URL extraction, query generation, fixture research, prompt injection, and tool registry. | No live network is required. |
+| `cpp/packages/handoffkit/tests/test_http_parse.cpp` | OpenAI-compatible parse/request support used by Fusion. | Rejects reasoning-only empty completions and checks generation request fields. |
 
 ### Configuration and role-pack examples (3)
 
 | File | Responsibility | Audit finding / status |
 |---|---|---|
-| `packages/cpp/examples/fusion/configs/fusion_research_genius.json` | Complete Genius/research/OpenCode Go configuration. | Shows 8-call policy, prompt requirements, token budgets, cache-off parallel DAG. |
-| `packages/cpp/examples/fusion/configs/prompt_pack_example.json` | Reusable prompt-pack fragment. | Demonstrates phase preambles, custom requirements, variables, and tier-contract inclusion. |
-| `packages/cpp/examples/fusion/role_packs/custom_review.json` | Custom correctness-vs-operability role pack. | Executable example for external architect/skeptic/merger definitions. |
+| `cpp/packages/handoffkit/examples/fusion/configs/fusion_research_genius.json` | Complete Genius/research/OpenCode Go configuration. | Shows 8-call policy, prompt requirements, token budgets, cache-off parallel DAG. |
+| `cpp/packages/handoffkit/examples/fusion/configs/prompt_pack_example.json` | Reusable prompt-pack fragment. | Demonstrates phase preambles, custom requirements, variables, and tier-contract inclusion. |
+| `cpp/packages/handoffkit/examples/fusion/role_packs/custom_review.json` | Custom correctness-vs-operability role pack. | Executable example for external architect/skeptic/merger definitions. |
 
 ### Build, CLI, provider, and package support (5)
 
 | File | Responsibility | Audit finding / status |
 |---|---|---|
-| `packages/cpp/CMakeLists.txt` | Build graph for Fusion sources/tests/targets. | Fusion belongs to optional demos; live HTTP is controlled by HANDOFFKIT_WITH_HTTP. |
-| `packages/cpp/src/cli/cli_app.cpp` | Complete Fusion CLI surface and precedence layer. | Routes all Fusion commands; the audit fixed an `extra` reset that erased explicit `--out` and `--no-write` markers. |
-| `packages/cpp/include/handoffkit/runtime/provider.hpp` | Shared GenerateOptions/AnyProvider contract. | Fusion depends on max_tokens, sampling, extra_body, usage, and type-erased provider calls. |
-| `packages/cpp/src/runtime/http_provider.cpp` | OpenAI-compatible request/response implementation. | Merges extra_body and rejects reasoning_content without final content. |
-| `packages/cpp/README.md` | C++ package overview and concise Fusion entry point. | Links to the centralized Fusion guide, changelog, and example documentation. |
+| `cpp/packages/handoffkit/CMakeLists.txt` | Build graph for Fusion sources/tests/targets. | Fusion belongs to optional demos; live HTTP is controlled by HANDOFFKIT_WITH_HTTP. |
+| `cpp/packages/handoffkit/src/cli/cli_app.cpp` | Complete Fusion CLI surface and precedence layer. | Routes all Fusion commands; the audit fixed an `extra` reset that erased explicit `--out` and `--no-write` markers. |
+| `cpp/packages/handoffkit/include/handoffkit/runtime/provider.hpp` | Shared GenerateOptions/AnyProvider contract. | Fusion depends on max_tokens, sampling, extra_body, usage, and type-erased provider calls. |
+| `cpp/packages/handoffkit/src/runtime/http_provider.cpp` | OpenAI-compatible request/response implementation. | Merges extra_body and rejects reasoning_content without final content. |
+| `cpp/packages/handoffkit/README.md` | C++ package overview and concise Fusion entry point. | Links to the centralized Fusion guide, changelog, and example documentation. |
 
 ### Fusion documentation (4)
 
@@ -513,10 +513,10 @@ outputs are intentionally excluded.
 
 | File | Responsibility | Audit finding / status |
 |---|---|---|
-| `packages/python/handoffkit/recipes/fusion.py` | Python deterministic/real-provider panel recipe. | Smaller panel+judge implementation; no native C++ tier/DAG/cache/prompt parity. |
-| `packages/python/examples/demos/fusion_style_demo.py` | Python CLI/example wrapper. | Runs the Python recipe and writes JSON/Markdown reports. |
-| `packages/python/tests/test_fusion_style_demo.py` | Python offline Fusion smoke test. | Validates the smaller deterministic recipe. |
-| `packages/js/cli/src/benchmarks/fusion_demo.js` | JavaScript offline Echo panel and judge demo. | Deterministic demonstration only; real providers and advanced native engine are not wired. |
+| `python/packages/handoffkit/handoffkit/recipes/fusion.py` | Python deterministic/real-provider panel recipe. | Smaller panel+judge implementation; no native C++ tier/DAG/cache/prompt parity. |
+| `python/packages/handoffkit/examples/demos/fusion_style_demo.py` | Python CLI/example wrapper. | Runs the Python recipe and writes JSON/Markdown reports. |
+| `python/packages/handoffkit/tests/test_fusion_style_demo.py` | Python offline Fusion smoke test. | Validates the smaller deterministic recipe. |
+| `js/packages/cli/src/validation/benchmarks/fusion_demo.js` | JavaScript offline Echo panel and judge demo. | Deterministic demonstration only; real providers and advanced native engine are not wired. |
 
 **Audited total: 107 files.**
 
@@ -527,7 +527,7 @@ When Fusion behavior changes, update the relevant files in the same change:
 1. `docs/cpp/fusion/README.md` for architecture, flags, limitations, tests, and inventory.
 2. `docs/cpp/fusion/CHANGELOG.md` for detailed Fusion history.
 3. `docs/cpp/fusion/CONFIGURATION.md` or `ROLE_PACKS.md` when those schemas change.
-4. `packages/cpp/README.md` only for the concise package entry point.
-5. `packages/cpp/src/demos/fusion/fusion_docs.cpp` for in-binary docs.
+4. `cpp/packages/handoffkit/README.md` only for the concise package entry point.
+5. `cpp/packages/handoffkit/src/demos/fusion/fusion_docs.cpp` for in-binary docs.
 6. Root `CHANGELOG.md` only when the change has monorepo or release-level impact.
 7. Tests that encode tier call counts, request shapes, configuration, or report fields.

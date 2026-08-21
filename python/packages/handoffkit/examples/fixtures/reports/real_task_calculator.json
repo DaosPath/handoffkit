@@ -145,7 +145,7 @@
   "commands_executed": [
     {
       "command": "python -m pytest -q",
-      "cwd": "packages/python/examples/output/calculator_cli",
+      "cwd": "python/packages/handoffkit/examples/output/calculator_cli",
       "returncode": 0,
       "stdout": "....                                                                     [100%]\n",
       "stderr": ""

@@ -61,7 +61,7 @@ pip install handoffkit
 - [Media Workflows](#media-workflows)
 - [Tool Creation and Evidence Tools](#tool-creation-and-evidence-tools)
 - [Wow in 5 Minutes](#wow-in-5-minutes)
-- [Research-only Benchmarks](#research-only-benchmarks)
+- [Research-only Benchmarks](#research-only-validation/benchmarks)
 - [Integrations](#integrations)
 - [Stable API Surface](#stable-api-surface)
 - [Repository Layout](#repository-layout)
@@ -121,7 +121,7 @@ cancellation, deadlines, and NDJSON stdio. Existing `Agent`, `Team`, and
 ```bash
 handoffkit csp doctor
 handoffkit csp demo
-handoffkit csp inspect packages/contracts/fixtures/message_envelope.json
+handoffkit csp inspect shared/contracts/fixtures/message_envelope.json
 ```
 
 `RuntimeMode.DISTRIBUTED` is reserved and fails clearly until the distributed
@@ -131,7 +131,7 @@ runtime lands. See the [HK-CSP specification](../../docs/spec/HK_CSP.md).
 
 HandoffKit 1.16 makes the Python, JavaScript, Rust, and C++ layers speak the
 same wire format. The canonical JSON contracts live in
-[`packages/contracts`](https://github.com/DaosPath/handoffkit/tree/main/packages/contracts).
+[`shared/contracts`](https://github.com/DaosPath/handoffkit/tree/main/shared/contracts).
 
 - Python uses `HandoffState.to_dict()` and `RunTrace.to_dict()`.
 - JavaScript uses `toJSON()` / `JSON.stringify()`.
@@ -171,7 +171,7 @@ print(report.to_markdown())
 ## Repository Layout
 
 HandoffKit is organized as a clean monorepo. The Python package published to
-PyPI lives in `packages/python`:
+PyPI lives in `python/packages/handoffkit`:
 
 ```text
 handoffkit/
@@ -391,7 +391,7 @@ const result = await team.arun("Build a calculator.");
 const trace = RunTrace.fromTeamResult(result);
 ```
 
-Package source: [`packages/js/core`](https://github.com/DaosPath/handoffkit/tree/main/packages/js/core).
+Package source: [`js/packages/core`](https://github.com/DaosPath/handoffkit/tree/main/js/packages/core).
 
 ## What 1.5.0 Adds
 
@@ -1386,7 +1386,7 @@ python examples/demos/real_task_calculator.py
 ```bash
 git clone https://github.com/DaosPath/handoffkit.git
 cd handoffkit
-cd packages/python
+cd python/packages/handoffkit
 pip install -e ".[dev]"
 ```
 

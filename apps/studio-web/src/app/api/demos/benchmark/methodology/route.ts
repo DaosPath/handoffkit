@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 /**
  * GET /api/demos/benchmark/methodology
  * Published independent protocol methodology (no leaderboard, no scores).
- * Mirrors handoffkit.benchmarks.independent.methodology_manifest().
+ * Mirrors handoffkit.validation/benchmarks.independent.methodology_manifest().
  */
 export async function GET() {
   return NextResponse.json({
@@ -14,7 +14,7 @@ export async function GET() {
     seed_default: "handoffkit-independent-2026",
     leaderboard: false,
     run_offline: "handoffkit benchmark-independent",
-    docs: "https://github.com/DaosPath/handoffkit/blob/main/packages/python/docs/EXTERNAL_BENCHMARK.md",
+    docs: "https://github.com/DaosPath/handoffkit/blob/main/python/packages/handoffkit/docs/EXTERNAL_BENCHMARK.md",
     scoring: {
       dimensions: [
         "handoff_validation",

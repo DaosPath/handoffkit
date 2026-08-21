@@ -11,8 +11,8 @@
 
 | Package | Role |
 |---------|------|
-| `packages/cpp` | Core: agents, distill jobs, echo/process |
-| `packages/cpp-ml` (**this**) | Tensors, BPE, GPT/llama-like, GGUF, LoRA/QLoRA, DP |
+| `cpp/packages/handoffkit` | Core: agents, distill jobs, echo/process |
+| `cpp/packages/handoffkit-ml` (**this**) | Tensors, BPE, GPT/llama-like, GGUF, LoRA/QLoRA, DP |
 
 ## HK-CSP worker (experimental)
 
@@ -35,9 +35,9 @@ fixes are active.
 
 ```powershell
 # CPU (default)
-cmake -S packages/cpp-ml -B packages/cpp-ml/build -DCMAKE_BUILD_TYPE=Release
-cmake --build packages/cpp-ml/build --config Release
-ctest --test-dir packages/cpp-ml/build -C Release --output-on-failure
+cmake -S cpp/packages/handoffkit-ml -B cpp/packages/handoffkit-ml/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/packages/handoffkit-ml/build --config Release
+ctest --test-dir cpp/packages/handoffkit-ml/build -C Release --output-on-failure
 ```
 
 ### CUDA (own kernels, **cudart only — no cuBLAS/cuDNN**)
@@ -46,8 +46,8 @@ On Windows use **MSVC + nvcc** (Visual Studio generator). MinGW host is not supp
 
 ```powershell
 # From "x64 Native Tools" / after vcvars64.bat:
-cmake -S packages/cpp-ml -B packages/cpp-ml/build-cuda -G "Visual Studio 17 2022" -A x64 -DHANDOFFKIT_ML_CUDA=ON
-cmake --build packages/cpp-ml/build-cuda --config Release
+cmake -S cpp/packages/handoffkit-ml -B cpp/packages/handoffkit-ml/build-cuda -G "Visual Studio 17 2022" -A x64 -DHANDOFFKIT_ML_CUDA=ON
+cmake --build cpp/packages/handoffkit-ml/build-cuda --config Release
 .\packages\cpp-ml\build-cuda\Release\test_ml_cuda_parity.exe
 .\packages\cpp-ml\build-cuda\Release\test_ml_resident_gpt.exe
 .\packages\cpp-ml\build-cuda\Release\handoffkit-ml.exe doctor
@@ -144,4 +144,4 @@ Non-tiny defaults without `--profile`: `n_embd=128`, `n_layer=4`, `block_size=12
 
 ## License
 
-Same as monorepo / `packages/cpp/LICENSE`.
+Same as monorepo / `cpp/packages/handoffkit/LICENSE`.

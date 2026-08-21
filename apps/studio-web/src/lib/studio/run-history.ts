@@ -1,6 +1,6 @@
 /**
  * Local filesystem run history for Studio MAI panel.
- * Stored under apps/web/.data/mai-runs/ (gitignored).
+ * Stored under apps/studio-web/.data/mai-runs/ (gitignored).
  *
  * IMPORTANT — not database-backed yet.
  * This is a single-node bootstrap for demos and early traffic.

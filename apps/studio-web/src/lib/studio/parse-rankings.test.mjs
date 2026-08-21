@@ -1,6 +1,6 @@
 /**
  * Minimal node tests for parse-rankings.
- * Run from apps/web: pnpm test:studio
+ * Run from apps/studio-web: pnpm test:studio
  */
 
 import assert from "node:assert/strict";

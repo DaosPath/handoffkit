@@ -40,8 +40,8 @@ handoffkit browse tools
 ## Tests
 
 ```bash
-pytest packages/python/tests/test_browser.py -q
-HANDOFFKIT_BROWSER_LIVE=1 pytest packages/python/tests/test_browser.py -q -k live
+pytest python/packages/handoffkit/tests/test_browser.py -q
+HANDOFFKIT_BROWSER_LIVE=1 pytest python/packages/handoffkit/tests/test_browser.py -q -k live
 ```
 
 ## Recipe

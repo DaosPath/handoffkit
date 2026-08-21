@@ -12,7 +12,7 @@ foreach(item IN ITEMS
   cmake
   include
   src
-  benchmarks
+  validation/benchmarks
   examples
   tests
   scripts

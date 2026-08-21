@@ -170,10 +170,10 @@ Result<DemoResult> run_validation_quality_demo(const DemoOptions& options) {
     strong.to_agent = "Coder";
     strong.summary = "Design complete for CLI dispatch, demo catalog, and report writers with snake_case wire format.";
     strong.decisions = {"Use Echo providers in demos", "Keep HTTP optional and off by default"};
-    strong.important_files = {"packages/cpp/src/cli/cli_app.cpp", "packages/cpp/src/demos"};
+    strong.important_files = {"cpp/packages/handoffkit/src/cli/cli_app.cpp", "cpp/packages/handoffkit/src/demos"};
     strong.errors = {"Watch Windows path separators in artifact writers"};
     strong.next_steps = {"Implement CLI commands", "Run ctest offline", "Write report JSON"};
-    strong.context_refs = {"packages/cpp/README.md", "packages/contracts/fixtures"};
+    strong.context_refs = {"cpp/packages/handoffkit/README.md", "shared/contracts/fixtures"};
 
     HandoffStateValidator validator;
     HandoffQualityEvaluator evaluator;

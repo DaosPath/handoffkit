@@ -17,16 +17,16 @@ fn main() {
             "Keep wire snake_case parity.".to_string(),
         ],
         important_files: vec![
-            "packages/cpp/examples/consumer_core/".to_string(),
-            "packages/python/examples/demos/core_runtime_safety_demo.py".to_string(),
-            "packages/js/core/examples/core_runtime_safety_demo.js".to_string(),
+            "cpp/packages/handoffkit/examples/consumer_core/".to_string(),
+            "python/packages/handoffkit/examples/demos/core_runtime_safety_demo.py".to_string(),
+            "js/packages/core/examples/core_runtime_safety_demo.js".to_string(),
         ],
         errors: vec![],
         next_steps: vec![
             "Validate Rust contract and protocol crates.".to_string(),
             "Fill conandata.yml sha256 from SHA256SUMS.".to_string(),
         ],
-        context_refs: vec!["packages/cpp/RELEASE.md".to_string()],
+        context_refs: vec!["cpp/packages/handoffkit/RELEASE.md".to_string()],
         metadata: Default::default(),
     };
 

@@ -1,7 +1,7 @@
 /**
  * Studio persistence adapter (P1 foundation).
  *
- * Today: file-backed JSON under apps/web/.data/studio/
+ * Today: file-backed JSON under apps/studio-web/.data/studio/
  * Next: Postgres (or compatible) implementing the same interfaces.
  */
 

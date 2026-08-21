@@ -45,10 +45,10 @@ console.log(pack.promptSection());
 ## CLI
 
 ```bash
-pnpm --dir packages/js/cli exec handoffkit-js browse search "metformin"
-pnpm --dir packages/js/cli exec handoffkit-js browse research "metformin" --max-pages 2 --markdown
-pnpm --dir packages/js/cli exec handoffkit-js browse fixture
-pnpm --dir packages/js/cli exec handoffkit-js browse tools
+pnpm --dir js/packages/cli exec handoffkit-js browse search "metformin"
+pnpm --dir js/packages/cli exec handoffkit-js browse research "metformin" --max-pages 2 --markdown
+pnpm --dir js/packages/cli exec handoffkit-js browse fixture
+pnpm --dir js/packages/cli exec handoffkit-js browse tools
 ```
 
 ## Recipe helper
@@ -61,8 +61,8 @@ const out = await runWebGroundedAnswer({ query: "metformin", maxPages: 2 });
 ## Offline tests / live smoke
 
 ```bash
-pnpm --dir packages/js/browser test
-BROWSER_LIVE=1 pnpm --dir packages/js/browser test
+pnpm --dir js/packages/browser test
+BROWSER_LIVE=1 pnpm --dir js/packages/browser test
 ```
 
 ## Python parity

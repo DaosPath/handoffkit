@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from handoffkit import HandoffState
-from handoffkit.benchmarks.metrics import (
+from handoffkit.validation/benchmarks.metrics import (
     build_workflow_metrics,
     context_loss_stats,
     latency_stats,

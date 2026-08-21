@@ -103,7 +103,7 @@ void test_integrated_pipeline_smoke() {
     assert(jobs.value().front().success);
 
     PathPolicy policy(std::filesystem::current_path());
-    auto okp = policy.check("packages/cpp/README.md", PathAccess::Read);
+    auto okp = policy.check("cpp/packages/handoffkit/README.md", PathAccess::Read);
     assert(okp.allowed || !okp.allowed);  // either is fine if path exists rules differ; just call API
     // Prefer resolved workspace check with relative path
     auto rel = policy.check("README.md", PathAccess::Read);

@@ -87,7 +87,7 @@ pip install handoffkit-localize
 From this monorepo (editable):
 
 ```bash
-pip install -e packages/localize
+pip install -e python/packages/handoffkit-localize
 # requires handoffkit available (sibling package / already installed)
 ```
 
@@ -388,7 +388,7 @@ run_apply(langs=["es"])
 ## Project layout (package source)
 
 ```
-packages/localize/
+python/packages/handoffkit-localize/
   handoffkit_localize/
     cli.py              # hk-localize entry
     tui_app.py          # Textual UI

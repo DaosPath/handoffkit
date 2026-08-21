@@ -18,7 +18,7 @@ option(HANDOFFKIT_ML_BUILD_TESTS "Build handoffkit-ml unit tests" ON)
 option(HANDOFFKIT_ML_BUILD_CLI "Build handoffkit-ml CLI" ON)
 option(HANDOFFKIT_ML_LINK_CORE "Link handoffkit_core when available" OFF)
 set(HANDOFFKIT_CORE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cpp"
-    CACHE PATH "In-tree path to packages/cpp (core)")
+    CACHE PATH "In-tree path to cpp/packages/handoffkit (core)")
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)

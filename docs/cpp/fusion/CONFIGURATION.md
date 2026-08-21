@@ -3,11 +3,11 @@
 Full architecture and schema reference: [Fusion architecture](README.md).
 
 Fusion can be configured without recompiling. Shipped example files remain under
-[`packages/cpp/examples/fusion/configs/`](../../../packages/cpp/examples/fusion/configs/).
+[`cpp/packages/handoffkit/examples/fusion/configs/`](../../../cpp/packages/handoffkit/examples/fusion/configs/).
 
 
 ```bash
-handoffkit-cli fusion --config packages/cpp/examples/fusion/configs/fusion_research_genius.json --prompt "Your task"
+handoffkit-cli fusion --config cpp/packages/handoffkit/examples/fusion/configs/fusion_research_genius.json --prompt "Your task"
 ```
 
 Useful CLI overrides:

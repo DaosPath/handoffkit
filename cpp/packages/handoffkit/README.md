@@ -2,7 +2,7 @@
 
 Native **C++20** multi-agent runtime with structured handoffs.
 
-- **Wire parity** with Python/JS: JSON uses `snake_case` and shared fixtures under `packages/contracts/`.
+- **Wire parity** with Python/JS: JSON uses `snake_case` and shared fixtures under `shared/contracts/`.
 - **API is idiomatic C++** (not a 1:1 clone of Python class names).
 - **Packaging-first**: CMake `install`/`find_package`, Conan recipe, vcpkg overlay, release tarball + OIDC attestations (see [RELEASE.md](RELEASE.md)).
 
@@ -12,7 +12,7 @@ Native **C++20** multi-agent runtime with structured handoffs.
 
 | Area | Status |
 |------|--------|
-| Contract types + all `packages/contracts/fixtures/*` round-trips | Done |
+| Contract types + all `shared/contracts/fixtures/*` round-trips | Done |
 | HK-CSP 1.0 contracts, exact security-profile selection, validation, and JSON codecs | Done; five-runtime conformance |
 | Bounded native HK-CSP worker (`std::jthread`/`std::stop_token`) | Experimental; concurrent tests and benchmark |
 | Ed25519 artifact sign/verify | Provider-dependent; OpenSSL Crypto and `HANDOFFKIT_WITH_CRYPTO=ON` |
@@ -130,18 +130,18 @@ JSONL wire is shared: `{"prompt":"...","completion":"..."}` (extra `format`/`met
 **Core does not ship a neural trainer** (no autograd/CUDA in `handoffkit_core`).  
 For **C++-only** SFT/LoRA/QLoRA/device-resident train, see the sibling complement:
 
-- [`packages/cpp-ml/`](../cpp-ml/) — `handoffkit-ml` `0.4+` (opt-in; **not** linked from core)
+- [`cpp/packages/handoffkit-ml/`](../cpp-ml/) — `handoffkit-ml` `0.4+` (opt-in; **not** linked from core)
 - Product split: `handoffkit-cli train …` = jobs/distill; `handoffkit-ml sft|generate …` = native weights (CPU / CUDA / cuda-resident)
 - **Status:** `cpp-ml` is **FROZEN** while other monorepo work proceeds — use as documented; no feature expansion there for now ([STATUS.md](../cpp-ml/STATUS.md)).
 
-Default Conan/tarball/core CI remain light. See `packages/cpp-ml/NONGOALS.md`.
+Default Conan/tarball/core CI remain light. See `cpp/packages/handoffkit-ml/NONGOALS.md`.
 
 ## Quick start (in-tree)
 
 ```powershell
-cmake -S packages/cpp -B packages/cpp/build -DCMAKE_BUILD_TYPE=Release
-cmake --build packages/cpp/build --config Release
-ctest --test-dir packages/cpp/build -C Release --output-on-failure
+cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/packages/handoffkit/build --config Release
+ctest --test-dir cpp/packages/handoffkit/build -C Release --output-on-failure
 .\packages\cpp\build\example_team_handoff.exe
 ```
 
@@ -151,25 +151,25 @@ Validates the path real apps use (`find_package`, not monorepo `add_subdirectory
 
 ```powershell
 # 1) Build + install
-cmake -S packages/cpp -B packages/cpp/build -DCMAKE_BUILD_TYPE=Release -DHANDOFFKIT_WITH_HTTP=OFF
-cmake --build packages/cpp/build --config Release
-cmake --install packages/cpp/build --prefix "$env:USERPROFILE/handoffkit-prefix" --config Release
+cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build -DCMAKE_BUILD_TYPE=Release -DHANDOFFKIT_WITH_HTTP=OFF
+cmake --build cpp/packages/handoffkit/build --config Release
+cmake --install cpp/packages/handoffkit/build --prefix "$env:USERPROFILE/handoffkit-prefix" --config Release
 
 # 2) Out-of-tree consumer (links handoffkit::core only)
-cmake -S packages/cpp/examples/consumer_core -B packages/cpp/build-consumer `
+cmake -S cpp/packages/handoffkit/examples/consumer_core -B cpp/packages/handoffkit/build-consumer `
   -DCMAKE_PREFIX_PATH="$env:USERPROFILE/handoffkit-prefix"
-cmake --build packages/cpp/build-consumer --config Release
+cmake --build cpp/packages/handoffkit/build-consumer --config Release
 .\packages\cpp\build-consumer\consumer_core.exe runs/consumer_core
 ```
 
 One-shot helper (configure, install, build consumer, run):
 
 ```powershell
-pwsh packages/cpp/scripts/consumer_install_smoke.ps1
+pwsh cpp/packages/handoffkit/scripts/consumer_install_smoke.ps1
 ```
 
 ```bash
-bash packages/cpp/scripts/consumer_install_smoke.sh
+bash cpp/packages/handoffkit/scripts/consumer_install_smoke.sh
 ```
 
 See [examples/consumer_core/README.md](examples/consumer_core/README.md).
@@ -247,9 +247,9 @@ weighted scoring, checkpoints, and JSON/Markdown reports all remain in C++.
 Build the HTTP-enabled CLI before using a remote provider:
 
 ```powershell
-cmake -S packages/cpp -B packages/cpp/build-http -G Ninja `
+cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build-http -G Ninja `
   -DHANDOFFKIT_WITH_HTTP=ON -DHANDOFFKIT_BUILD_TESTS=ON
-cmake --build packages/cpp/build-http --target handoffkit-cli
+cmake --build cpp/packages/handoffkit/build-http --target handoffkit-cli
 ```
 
 Validate the dataset and discover the provider's current model IDs:
@@ -329,21 +329,21 @@ When built with FetchContent for nlohmann_json, headers are installed into the s
 ### FetchContent / monorepo
 
 ```cmake
-add_subdirectory(path/to/handoffkit/packages/cpp)
+add_subdirectory(path/to/handoffkit/cpp/packages/handoffkit)
 target_link_libraries(app PRIVATE handoffkit::handoffkit)
 ```
 
 ### Conan 2
 
 ```bash
-cd packages/cpp
+cd cpp/packages/handoffkit
 conan create . --build=missing
 ```
 
 ### vcpkg (overlay)
 
 ```bash
-vcpkg install handoffkit --overlay-ports=packages/cpp/vcpkg-overlay/ports
+vcpkg install handoffkit --overlay-ports=cpp/packages/handoffkit/vcpkg-overlay/ports
 ```
 
 ## Minimal runtime example

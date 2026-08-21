@@ -257,10 +257,10 @@ CliResult cmd_quality(const std::vector<std::string>& args) {
     state.to_agent = "Coder";
     state.summary = "Complete design for CLI commands, demos, and packaging with clear acceptance checks.";
     state.decisions = {"Keep demos offline", "Prefer snake_case wire reports"};
-    state.important_files = {"packages/cpp/src/cli/cli_app.cpp"};
+    state.important_files = {"cpp/packages/handoffkit/src/cli/cli_app.cpp"};
     state.errors = {"None observed in Echo path"};
     state.next_steps = {"Run ctest", "Write reports", "Review CLI help"};
-    state.context_refs = {"packages/cpp/README.md"};
+    state.context_refs = {"cpp/packages/handoffkit/README.md"};
     if (args.size() >= 2 && args[1].rfind("--", 0) != 0) {
         auto loaded = load_report_json(args[1]);
         if (!loaded) return fail(1, loaded.error().message + "\n");
@@ -664,7 +664,7 @@ CliResult cmd_fusion(const std::vector<std::string>& args) {
         return ok(ss.str());
     }
     if (args.size() >= 2 && args[1] == "audit-loc") {
-        std::string root = "packages/cpp";
+        std::string root = "cpp/packages/handoffkit";
         const std::string root_flag = optional_flag_value(args, "--root");
         if (!root_flag.empty()) root = root_flag;
         auto audit = demos::fusion::audit_fusion_suite_loc(root);

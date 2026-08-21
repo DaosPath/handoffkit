@@ -136,9 +136,9 @@ void test_distill_then_train_pipeline() {
 
 std::filesystem::path find_train_stub_script() {
     const char* candidates[] = {
-        "packages/cpp/scripts/hk_train_echo_stub.py",
-        "../packages/cpp/scripts/hk_train_echo_stub.py",
-        "../../packages/cpp/scripts/hk_train_echo_stub.py",
+        "cpp/packages/handoffkit/scripts/hk_train_echo_stub.py",
+        "../cpp/packages/handoffkit/scripts/hk_train_echo_stub.py",
+        "../../cpp/packages/handoffkit/scripts/hk_train_echo_stub.py",
         "scripts/hk_train_echo_stub.py",
         "../scripts/hk_train_echo_stub.py",
     };

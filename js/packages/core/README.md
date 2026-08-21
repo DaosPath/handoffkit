@@ -4,7 +4,7 @@ JavaScript contract layer for multi-agent workflows with structured handoffs.
 
 This package mirrors the Python HandoffKit contracts in a small dependency-free
 ESM package. Both runtimes share canonical JSON fixtures in
-`packages/contracts`.
+`shared/contracts`.
 
 `@handoffkit/core` is browser-safe: it does not import `fs`, `path`, or any
 Node.js builtin. Use it in browsers, Next.js client components, Vite,

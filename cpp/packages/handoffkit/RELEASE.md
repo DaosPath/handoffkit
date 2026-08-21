@@ -40,15 +40,15 @@ Permissions on publish-cpp job:
 ## Local packaging
 
 ```powershell
-cmake -S packages/cpp -B packages/cpp/build -DHANDOFFKIT_BUILD_TESTS=OFF -DHANDOFFKIT_BUILD_EXAMPLES=OFF
-cmake --build packages/cpp/build --target package_source_tarball --config Release
-# outputs: packages/cpp/build/handoffkit-cpp-<version>.tar.gz + SHA256SUMS
+cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build -DHANDOFFKIT_BUILD_TESTS=OFF -DHANDOFFKIT_BUILD_EXAMPLES=OFF
+cmake --build cpp/packages/handoffkit/build --target package_source_tarball --config Release
+# outputs: cpp/packages/handoffkit/build/handoffkit-cpp-<version>.tar.gz + SHA256SUMS
 ```
 
 Or:
 
 ```powershell
-pwsh packages/cpp/scripts/package_release.ps1
+pwsh cpp/packages/handoffkit/scripts/package_release.ps1
 ```
 
 ## Consumer install smoke (every PR / local)
@@ -56,11 +56,11 @@ pwsh packages/cpp/scripts/package_release.ps1
 CI runs this after `cmake --install`. Locally:
 
 ```powershell
-pwsh packages/cpp/scripts/consumer_install_smoke.ps1
+pwsh cpp/packages/handoffkit/scripts/consumer_install_smoke.ps1
 ```
 
 ```bash
-bash packages/cpp/scripts/consumer_install_smoke.sh
+bash cpp/packages/handoffkit/scripts/consumer_install_smoke.sh
 ```
 
 Must print `consumer_core OK` / `consumer_install_smoke OK` and link **`handoffkit::core`** only.
@@ -73,7 +73,7 @@ Reference app: `examples/consumer_core/`.
 
 - [ ] `project(VERSION)` in `CMakeLists.txt` matches `version.hpp` and `conanfile.py`
 - [ ] `cmake --build` + `ctest` green
-- [ ] Contract fixtures still round-trip (all files under `packages/contracts/fixtures/`)
+- [ ] Contract fixtures still round-trip (all files under `shared/contracts/fixtures/`)
 - [ ] `cmake --install` prefix is usable with `find_package(handoffkit CONFIG)`
 - [ ] Consumer smoke: `examples/consumer_core` builds against the install prefix (`handoffkit::core`)
 
@@ -105,7 +105,7 @@ FetchContent_Declare(
 ### Local Conan smoke
 
 ```bash
-cd packages/cpp
+cd cpp/packages/handoffkit
 conan create . --build=missing
 ```
 

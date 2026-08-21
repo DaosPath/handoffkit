@@ -32,7 +32,7 @@ pnpm exec next dev -p 3000
 
 | Layer | Status | Where |
 |-------|--------|--------|
-| **Local filesystem history** | **Done** | `apps/web/.data/mai-runs/*.json` (gitignored) |
+| **Local filesystem history** | **Done** | `apps/studio-web/.data/mai-runs/*.json` (gitignored) |
 | List / detail / export API | **Done** | `/api/demos/mai-panel/runs` · `?export=benchmark` |
 | UI “Run history” panel | **Done** | Bottom of MAI live demo |
 | **Database-backed history** | **Planned (P0)** | See root [ROADMAP.md](../../ROADMAP.md) |
@@ -43,9 +43,9 @@ Local history is enough for demos. **Do not treat it as production multi-user st
 ## Layout
 
 ```
-apps/web/src/app          # routes (docs, demos, APIs)
-apps/web/src/components   # UI
-apps/web/src/lib/studio   # MAI runner, models, rankings, run history
+apps/studio-web/src/app          # routes (docs, demos, APIs)
+apps/studio-web/src/components   # UI
+apps/studio-web/src/lib/studio   # MAI runner, models, rankings, run history
 ```
 
 ## Roadmap

@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from handoffkit.benchmarks.doctor import (
+from handoffkit.validation/benchmarks.doctor import (
     SAFETY_NOTE,
     SOURCE_NAME,
     SOURCE_PAPER,

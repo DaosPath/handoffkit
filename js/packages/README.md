@@ -8,14 +8,14 @@ Both browser-safe and server-side runtimes are supported natively in ES Modules.
 
 | Package | Directory | Description |
 |---|---|---|
-| [`@handoffkit/core`](./core) | `packages/js/core` | Browser-safe core runtime: `Agent`, `Team`, `HandoffState`, validation, and quality scoring. |
-| [`@handoffkit/csp`](./csp) | `packages/js/csp` | Browser-safe bounded channels, sessions, ACK/NACK, retries, cancellation, and backpressure. |
-| [`@handoffkit/node`](./node) | `packages/js/node` | Node.js filesystem integration plus NDJSON stdio/process transports. |
-| [`@handoffkit/providers`](./providers) | `packages/js/providers` | LLM provider registry, selectors, and fallbacks. |
-| [`@handoffkit/browser`](./browser) | `packages/js/browser` | Browser-safe search, fetch, extraction, and research tools. |
-| [`@handoffkit/recipes`](./recipes) | `packages/js/recipes` | Workflow recipe templates and workflow runners. |
-| [`@handoffkit/templates`](./templates) | `packages/js/templates` | Scaffolder and workspace starter templates. |
-| [`@handoffkit/cli`](./cli) | `packages/js/cli` | Autonomous Node.js CLI (`handoffkit-js`). |
+| [`@handoffkit/core`](./core) | `js/packages/core` | Browser-safe core runtime: `Agent`, `Team`, `HandoffState`, validation, and quality scoring. |
+| [`@handoffkit/csp`](./csp) | `js/packages/csp` | Browser-safe bounded channels, sessions, ACK/NACK, retries, cancellation, and backpressure. |
+| [`@handoffkit/node`](./node) | `js/packages/node` | Node.js filesystem integration plus NDJSON stdio/process transports. |
+| [`@handoffkit/providers`](./providers) | `js/packages/providers` | LLM provider registry, selectors, and fallbacks. |
+| [`@handoffkit/browser`](./browser) | `js/packages/browser` | Browser-safe search, fetch, extraction, and research tools. |
+| [`@handoffkit/recipes`](./recipes) | `js/packages/recipes` | Workflow recipe templates and workflow runners. |
+| [`@handoffkit/templates`](./templates) | `js/packages/templates` | Scaffolder and workspace starter templates. |
+| [`@handoffkit/cli`](./cli) | `js/packages/cli` | Autonomous Node.js CLI (`handoffkit-js`). |
 
 ## Installation
 

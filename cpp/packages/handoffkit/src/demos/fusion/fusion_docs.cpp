@@ -11,7 +11,7 @@ std::string fusion_suite_readme_markdown() {
 HandoffKit C++ Fusion is the native advanced orchestration implementation. It
 supports product tiers, lean/ultra/DAG/panel modes, structured handoffs,
 configurable prompts and roles, deterministic analysis, optional meta-judge
-refinement, web research, caching, persistence, resume, benchmarks, scenarios,
+refinement, web research, caching, persistence, resume, validation/benchmarks, scenarios,
 and report generation.
 
 ## Tiers
@@ -108,14 +108,14 @@ std::string fusion_suite_quickstart_text() {
     return R"FUSION_QS(handoffkit-cli fusion tiers
 handoffkit-cli fusion explain --tier genius --profile research
 handoffkit-cli fusion --provider echo --tier medium --profile neutral --prompt "..."
-handoffkit-cli fusion --config packages/cpp/examples/fusion/configs/fusion_research_genius.json --prompt "..."
-handoffkit-cli fusion --prompt-config packages/cpp/examples/fusion/configs/prompt_pack_example.json --prompt "..."
+handoffkit-cli fusion --config cpp/packages/handoffkit/examples/fusion/configs/fusion_research_genius.json --prompt "..."
+handoffkit-cli fusion --prompt-config cpp/packages/handoffkit/examples/fusion/configs/prompt_pack_example.json --prompt "..."
 handoffkit-cli fusion roles --profile neutral
 handoffkit-cli fusion roles --pack incident
-handoffkit-cli fusion roles --file packages/cpp/examples/fusion/role_packs/custom_review.json
+handoffkit-cli fusion roles --file cpp/packages/handoffkit/examples/fusion/role_packs/custom_review.json
 handoffkit-cli fusion scenarios run-all
 handoffkit-cli fusion cache clear --cache-dir runs/fusion-cache
-handoffkit-cli fusion audit-loc --root packages/cpp
+handoffkit-cli fusion audit-loc --root cpp/packages/handoffkit
 )FUSION_QS";
 }
 

@@ -1095,7 +1095,7 @@ function _formatTimeRange(start, end) {
 
 // ==========================================
 // 1.13 — Media operations (-ion) + context handoffs
-// Parity with packages/python/handoffkit/recipes/media.py
+// Parity with python/packages/handoffkit/handoffkit/recipes/media.py
 // Wire format stays snake_case in toDict() for Python/JS interchange.
 // ==========================================
 

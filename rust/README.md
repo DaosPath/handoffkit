@@ -41,19 +41,19 @@ secure recovery are unavailable.
 ## Commands
 
 ```bash
-cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit-cli -- csp doctor
-cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit-cli -- csp demo
-cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit-cli -- csp inspect trace.ndjson
-cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit-cli -- csp worker
-cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit-cli -- csp run <worker> [args...]
+cargo run --manifest-path rust/Cargo.toml -p handoffkit-cli -- csp doctor
+cargo run --manifest-path rust/Cargo.toml -p handoffkit-cli -- csp demo
+cargo run --manifest-path rust/Cargo.toml -p handoffkit-cli -- csp inspect trace.ndjson
+cargo run --manifest-path rust/Cargo.toml -p handoffkit-cli -- csp worker
+cargo run --manifest-path rust/Cargo.toml -p handoffkit-cli -- csp run <worker> [args...]
 ```
 
 ## Validation
 
 ```bash
-cargo fmt --manifest-path packages/rust/Cargo.toml --all --check
-cargo clippy --manifest-path packages/rust/Cargo.toml --workspace --all-targets -- -D warnings
-cargo test --manifest-path packages/rust/Cargo.toml --workspace
+cargo fmt --manifest-path rust/Cargo.toml --all --check
+cargo clippy --manifest-path rust/Cargo.toml --workspace --all-targets -- -D warnings
+cargo test --manifest-path rust/Cargo.toml --workspace
 ```
 
 Set `HANDOFFKIT_RUN_INTEROP_TESTS=1` to execute Rust-initiated Python and

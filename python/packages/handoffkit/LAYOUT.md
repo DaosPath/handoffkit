@@ -1,9 +1,9 @@
-# packages/python layout
+# python/packages/handoffkit layout
 
 Keep this package tidy: **library vs demos vs local output**.
 
 ```
-packages/python/
+python/packages/handoffkit/
   handoffkit/                 # installable library (import handoffkit)
   tests/                      # unit/integration tests (pytest)
   tests_api/                  # optional live-API tests
@@ -47,5 +47,5 @@ Do **not** reorganize imports under `handoffkit/` without a deprecation cycle.
 ## CLI output
 
 Commands still default to writing under `reports/` (cwd-relative when you run from
-`packages/python`). That directory is local-only; copy into
+`python/packages/handoffkit`). That directory is local-only; copy into
 `examples/fixtures/reports/` only when intentionally refreshing a golden report.

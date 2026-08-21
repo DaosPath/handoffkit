@@ -26,7 +26,7 @@ from examples.demos.mai_clinical_mimo_benchmark import (  # noqa: E402
     _extract_json_object,
     _is_match,
 )
-from handoffkit.benchmarks.mai import (  # noqa: E402
+from handoffkit.validation/benchmarks.mai import (  # noqa: E402
     SequentialDoctorCase,
     build_sequential_doctor_cases,
 )

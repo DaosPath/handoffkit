@@ -155,7 +155,7 @@ jobs:
           HANDOFFKIT_REQUIRE_HYBRID_PQ: "1"
         run: |
           mkdir -p .local-tests
-          node benchmarks/security/node-security-benchmark.mjs \
+          node validation/benchmarks/security/node-security-benchmark.mjs \
             --iterations=10 --warmup=3 --bytes=1048576 \
             | tee .local-tests/node-security-benchmark.json
           node -e "JSON.parse(require('fs').readFileSync('.local-tests/node-security-benchmark.json'))"

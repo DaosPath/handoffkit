@@ -1,6 +1,6 @@
 ﻿# Local report output (not versioned)
 
-CLI demos and benchmarks write here by default (`--output reports`).
+CLI demos and validation/benchmarks write here by default (`--output reports`).
 
 Golden showcase reports live in `examples/fixtures/reports/`.
 

@@ -32,6 +32,6 @@ Stack: own `.cu` kernels + **cudart only** (no cuBLAS / cuDNN / CUTLASS).
 ## Build
 
 ```powershell
-cmake -S packages/cpp-ml -B packages/cpp-ml/build-cuda -G "Visual Studio 17 2022" -A x64 -DHANDOFFKIT_ML_CUDA=ON
-cmake --build packages/cpp-ml/build-cuda --config Release --target test_ml_resident_gpt handoffkit-ml
+cmake -S cpp/packages/handoffkit-ml -B cpp/packages/handoffkit-ml/build-cuda -G "Visual Studio 17 2022" -A x64 -DHANDOFFKIT_ML_CUDA=ON
+cmake --build cpp/packages/handoffkit-ml/build-cuda --config Release --target test_ml_resident_gpt handoffkit-ml
 ```

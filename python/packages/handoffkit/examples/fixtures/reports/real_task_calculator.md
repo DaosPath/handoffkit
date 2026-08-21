@@ -55,7 +55,7 @@ Return code: 0
 
 ## Commands executed
 
-- `python -m pytest -q` in `packages/python/examples/output/calculator_cli`
+- `python -m pytest -q` in `python/packages/handoffkit/examples/output/calculator_cli`
 
 ## Test output
 

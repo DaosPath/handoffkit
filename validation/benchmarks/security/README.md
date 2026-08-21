@@ -1,6 +1,6 @@
-# Security benchmarks
+# Security validation/benchmarks
 
-These benchmarks exercise live runtime paths and emit JSON. Every result is an
+These validation/benchmarks exercise live runtime paths and emit JSON. Every result is an
 **environmental measurement — not a performance guarantee**.
 
 - `node-security-benchmark.mjs`: real TLS 1.3 TCP handshakes, reconnect latency,
@@ -19,7 +19,7 @@ and concurrency. A missing provider is recorded as unavailable; it is never
 converted into a successful standard-profile measurement.
 
 ```powershell
-node benchmarks/security/node-security-benchmark.mjs --iterations=25 --bytes=4194304
-cmake -S packages/cpp -B .local-tests/cpp-bench -DHANDOFFKIT_BUILD_BENCHMARKS=ON
+node validation/benchmarks/security/node-security-benchmark.mjs --iterations=25 --bytes=4194304
+cmake -S cpp/packages/handoffkit -B .local-tests/cpp-bench -DHANDOFFKIT_BUILD_BENCHMARKS=ON
 cmake --build .local-tests/cpp-bench --target native_compute_benchmark
 ```

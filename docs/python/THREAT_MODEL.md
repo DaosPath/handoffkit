@@ -1,6 +1,6 @@
 # HandoffKit Threat Model (P2)
 
-**Scope:** Python package `handoffkit`, JS `@handoffkit/*`, Studio web (`apps/web`).  
+**Scope:** Python package `handoffkit`, JS `@handoffkit/*`, Studio web (`apps/studio-web`).  
 **Not in scope:** Local gitignored workspaces under `.local-tests/`, third-party model hosts.
 
 ## Assets

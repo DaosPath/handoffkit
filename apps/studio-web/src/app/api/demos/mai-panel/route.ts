@@ -37,7 +37,7 @@ type Body = {
   temperature?: number;
   maxTokens?: number;
   stream?: boolean;
-  /** Optional case preset id for history / future benchmarks */
+  /** Optional case preset id for history / future validation/benchmarks */
   casePreset?: string;
 };
 

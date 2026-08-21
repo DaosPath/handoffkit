@@ -4,10 +4,10 @@ This folder is the language-neutral contract layer for HandoffKit.
 
 All runtimes must treat these JSON shapes as canonical:
 
-- Python package: `packages/python`
-- JavaScript package: `packages/js/core`
-- Rust package: `packages/rust`
-- C++ package: `packages/cpp`
+- Python package: `python/packages/handoffkit`
+- JavaScript package: `js/packages/core`
+- Rust package: `rust`
+- C++ package: `cpp/packages/handoffkit`
 
 Rules:
 
