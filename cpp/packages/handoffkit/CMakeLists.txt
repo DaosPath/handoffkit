@@ -231,7 +231,7 @@ list(APPEND _hk_install_libs handoffkit)
 if(HANDOFFKIT_BUILD_TESTS)
   enable_testing()
 
-  set(_default_contracts "${CMAKE_CURRENT_SOURCE_DIR}/../contracts")
+  set(_default_contracts "${CMAKE_CURRENT_SOURCE_DIR}/../../../shared/contracts")
   set(_packaged_contracts "${CMAKE_CURRENT_SOURCE_DIR}/contracts")
   if(DEFINED ENV{HANDOFFKIT_CONTRACTS_DIR})
     set(HANDOFFKIT_CONTRACTS_DIR "$ENV{HANDOFFKIT_CONTRACTS_DIR}")
