@@ -851,23 +851,27 @@ Provider tool adapters keep tool calling provider-agnostic:
 ```python
 from handoffkit import ProviderToolAdapter, ToolRegistry, tool
 
+
 @tool
 def read_file(path: str) -> str:
     """Read a file."""
     return f"read:{path}"
 
+
 adapter = ProviderToolAdapter()
 provider_tools = adapter.tools_to_provider_format([read_file])
-tool_calls = adapter.parse_tool_calls({
-    "tool_calls": [
-        {
-            "function": {
-                "name": "read_file",
-                "arguments": "{\"path\":\"README.md\"}",
+tool_calls = adapter.parse_tool_calls(
+    {
+        "tool_calls": [
+            {
+                "function": {
+                    "name": "read_file",
+                    "arguments": '{"path":"README.md"}',
+                }
             }
-        }
-    ]
-})
+        ]
+    }
+)
 
 registry = ToolRegistry([read_file])
 results = [registry.execute(call) for call in tool_calls]
@@ -930,10 +934,12 @@ from handoffkit import (
     tool,
 )
 
+
 @tool
 def add(a: int, b: int) -> int:
     """Add two integers."""
     return a + b
+
 
 schema = StructuredOutputSchema(
     name="Plan",
@@ -954,10 +960,12 @@ back into HandoffKit `ToolCall` objects.
 ```python
 from handoffkit import ProviderToolAdapter, tool
 
+
 @tool
 def read_file(path: str) -> str:
     """Read a file."""
     return f"read:{path}"
+
 
 openai_adapter = ProviderToolAdapter(provider_format="openai")
 anthropic_adapter = ProviderToolAdapter(provider_format="anthropic")
@@ -965,15 +973,17 @@ anthropic_adapter = ProviderToolAdapter(provider_format="anthropic")
 print(openai_adapter.tools_to_provider_format([read_file]))
 print(anthropic_adapter.tools_to_provider_format([read_file]))
 
-calls = openai_adapter.parse_tool_calls({
-    "tool_calls": [
-        {
-            "id": "call_123",
-            "type": "function",
-            "function": {"name": "read_file", "arguments": "{\"path\":\"README.md\"}"},
-        }
-    ]
-})
+calls = openai_adapter.parse_tool_calls(
+    {
+        "tool_calls": [
+            {
+                "id": "call_123",
+                "type": "function",
+                "function": {"name": "read_file", "arguments": '{"path":"README.md"}'},
+            }
+        ]
+    }
+)
 print(calls[0].tool_name, calls[0].arguments, calls[0].call_id)
 ```
 

@@ -294,8 +294,8 @@ class LengthDelimitedTransport(Transport):
             )
             cert_path = self.config.security_config.cert_path
             if self.config.tls_context_provider is not None:
-                self._local_certificate_identity = (
-                    self.config.tls_context_provider.local_identity(context=ssl_object.context)
+                self._local_certificate_identity = self.config.tls_context_provider.local_identity(
+                    context=ssl_object.context
                 )
             elif cert_path:
                 self._local_certificate_identity = peer_identity_from_certificate(cert_path)
@@ -574,6 +574,7 @@ class TcpTransport(LengthDelimitedTransport):
             is_server=True,
             supplied=ssl_context,
         )
+
         async def on_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
             try:
                 transport = cls(

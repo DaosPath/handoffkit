@@ -431,9 +431,7 @@ def web_search(
                 else:
                     trace["error_code"] = "index_unavailable"
                     trace["fallback_reason"] = "project_index_disabled"
-                    errors.append(
-                        "project_index: project_index is opt-in and was not configured"
-                    )
+                    errors.append("project_index: project_index is opt-in and was not configured")
                     provider_codes.append("index_unavailable")
                     provider_trace.append(trace)
                     if strict_provider:

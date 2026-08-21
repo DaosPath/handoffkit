@@ -118,7 +118,11 @@ def serve(host: str = "127.0.0.1", port: int = 8787, lab: ClinicalLab | None = N
     handler = type(
         "BoundHandler",
         (ClinicalHandler,),
-        {"lab": lab or ClinicalLab(), "bind_loopback": host in {"127.0.0.1", "localhost", "::1"}, "_hits": {}},
+        {
+            "lab": lab or ClinicalLab(),
+            "bind_loopback": host in {"127.0.0.1", "localhost", "::1"},
+            "_hits": {},
+        },
     )
     server = ThreadingHTTPServer((host, port), handler)
     print(f"clinical v1beta listening on http://{host}:{port}{PREFIX}")

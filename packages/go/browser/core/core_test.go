@@ -30,21 +30,21 @@ func vectors(t *testing.T) map[string]any {
 func TestGoldenRoundTrip(t *testing.T) {
 	payload := vectors(t)
 	models := map[string]string{
-		"browser_error":            "BrowserError",
-		"browser_capabilities":     "BrowserCapabilities",
-		"browser_policy":           "BrowserPolicy",
-		"browser_session_request":  "BrowserSessionRequest",
-		"browser_session_state":    "BrowserSessionState",
-		"browser_command":          "BrowserCommand",
-		"browser_event":            "BrowserEvent",
-		"search_request":           "SearchRequest",
-		"search_result":            "SearchResult",
-		"page_snapshot":            "PageSnapshot",
-		"document_record":          "DocumentRecord",
-		"provider_trace":           "ProviderTrace",
-		"research_job":             "ResearchJob",
-		"research_progress":        "ResearchProgress",
-		"research_result":          "ResearchResult",
+		"browser_error":           "BrowserError",
+		"browser_capabilities":    "BrowserCapabilities",
+		"browser_policy":          "BrowserPolicy",
+		"browser_session_request": "BrowserSessionRequest",
+		"browser_session_state":   "BrowserSessionState",
+		"browser_command":         "BrowserCommand",
+		"browser_event":           "BrowserEvent",
+		"search_request":          "SearchRequest",
+		"search_result":           "SearchResult",
+		"page_snapshot":           "PageSnapshot",
+		"document_record":         "DocumentRecord",
+		"provider_trace":          "ProviderTrace",
+		"research_job":            "ResearchJob",
+		"research_progress":       "ResearchProgress",
+		"research_result":         "ResearchResult",
 	}
 	all := payload["vectors"].(map[string]any)
 	for key, name := range models {

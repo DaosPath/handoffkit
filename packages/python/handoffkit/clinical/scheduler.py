@@ -81,9 +81,7 @@ class BenchmarkScheduler:
         return str(row[0]) if row else ""
 
     def _set_meta(self, key: str, value: str) -> None:
-        self._conn.execute(
-            "INSERT OR REPLACE INTO meta(key, value) VALUES (?,?)", (key, value)
-        )
+        self._conn.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?,?)", (key, value))
 
     def pending(self) -> list[dict[str, Any]]:
         rows = self._conn.execute(
@@ -108,9 +106,7 @@ class BenchmarkScheduler:
         return payload
 
     def checkpoint(self, blind_id: str, result: dict[str, Any]) -> None:
-        row = self._conn.execute(
-            "SELECT 1 FROM cases WHERE blind_id=?", (blind_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT 1 FROM cases WHERE blind_id=?", (blind_id,)).fetchone()
         if not row:
             raise ClinicalError("checkpoint does not exist", code="checkpoint_missing")
         status = str(result.get("status") or "incomplete")

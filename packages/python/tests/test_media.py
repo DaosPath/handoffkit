@@ -204,7 +204,7 @@ def test_screen_narration_prompt_and_parse_cover_full_episode() -> None:
     assert "producer agent" in prompt["system"]
 
     parsed = parse_screen_narration_json(
-        '```json\n[{"index":1,"start":0,"end":2,"text_zh":"他们为了出气","text_es":"Lo hicieron para desahogarse."}]\n```'
+        '```json\n[{"index":1,"start":0,"end":2,"text_zh":"他们为了出气","text_es":"Lo hicieron para desahogarse."}]\n```'  # noqa: E501
     )
     assert parsed[0]["text_es"] == "Lo hicieron para desahogarse."
     assert parsed[0]["text_zh"] == "他们为了出气"

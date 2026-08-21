@@ -10,12 +10,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
-
-import re
 
 
 def _is_fetchable_web_candidate(url: Any) -> bool:
@@ -24,10 +23,27 @@ def _is_fetchable_web_candidate(url: Any) -> bool:
         path = urlparse(str(url or "")).path.lower()
     except (TypeError, ValueError):
         return False
-    return not any(
-        path.endswith(suffix) or f"{suffix}/" in path
-        for suffix in (".pdf", ".zip", ".gz", ".tar", ".tgz", ".7z", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx")
-    ) and "/download/" not in path and "/pdf/" not in path
+    return (
+        not any(
+            path.endswith(suffix) or f"{suffix}/" in path
+            for suffix in (
+                ".pdf",
+                ".zip",
+                ".gz",
+                ".tar",
+                ".tgz",
+                ".7z",
+                ".doc",
+                ".docx",
+                ".xls",
+                ".xlsx",
+                ".ppt",
+                ".pptx",
+            )
+        )
+        and "/download/" not in path
+        and "/pdf/" not in path
+    )
 
 
 def _provider_text(provider: Any, prompt: str, **options: Any) -> str:
@@ -42,7 +58,9 @@ def _provider_text(provider: Any, prompt: str, **options: Any) -> str:
             try:
                 result = asyncio.run(result)
             except RuntimeError as exc:
-                raise RuntimeError("async provider requires an async caller; use generate()") from exc
+                raise RuntimeError(
+                    "async provider requires an async caller; use generate()"
+                ) from exc
         return str(result or "").strip()
     if hasattr(provider, "generate"):
         try:
@@ -88,7 +106,9 @@ def _candidate_markdown(query: str, candidates: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def _select_urls(planner: dict[str, Any] | None, candidates: list[dict[str, Any]], limit: int) -> list[str]:
+def _select_urls(
+    planner: dict[str, Any] | None, candidates: list[dict[str, Any]], limit: int
+) -> list[str]:
     allowed = {str(candidate.get("url")): candidate for candidate in candidates}
     selected: list[str] = []
 
@@ -182,7 +202,8 @@ def _fallback_query_coverage(
             continue
         candidate = next(
             (
-                item for item in candidates
+                item
+                for item in candidates
                 if item.get("url") not in selected_set
                 and query in (item.get("source_queries") or [])
             ),
@@ -283,14 +304,22 @@ def _page_label_coverage(answer: str, pages: list[Any]) -> bool:
     text = answer.lower()
     stop = {"the", "and", "for", "with", "from", "page", "docs", "blog", "home", "about"}
     for raw_page in pages:
-        title = str(getattr(raw_page, "title", "") or (raw_page.get("title") if isinstance(raw_page, dict) else "") or "").lower()
-        tokens = [token for token in re.findall(r"[a-z0-9][a-z0-9._-]{2,}", title) if token not in stop]
+        title = str(
+            getattr(raw_page, "title", "")
+            or (raw_page.get("title") if isinstance(raw_page, dict) else "")
+            or ""
+        ).lower()
+        tokens = [
+            token for token in re.findall(r"[a-z0-9][a-z0-9._-]{2,}", title) if token not in stop
+        ]
         if tokens and not any(token in text for token in tokens):
             return False
     return True
 
 
-def _parse_answer(value: str, page_count: int, pages: list[Any] | None = None) -> tuple[str, bool, str]:
+def _parse_answer(
+    value: str, page_count: int, pages: list[Any] | None = None
+) -> tuple[str, bool, str]:
     parsed, error = _parse_json(value)
     if parsed is None:
         return _sanitize_answer(value, _extract_explicit_runtimes(pages)), False, error
@@ -309,7 +338,12 @@ def _parse_answer(value: str, page_count: int, pages: list[Any] | None = None) -
                 page_numbers.append(int(number))
             except (TypeError, ValueError):
                 continue
-    all_evidence = isinstance(raw_pages, str) and raw_pages.strip().lower() in {"all", "todo", "todos", "todas"}
+    all_evidence = isinstance(raw_pages, str) and raw_pages.strip().lower() in {
+        "all",
+        "todo",
+        "todos",
+        "todas",
+    }
     explicit_coverage = all_evidence or (
         len(set(page_numbers)) >= page_count
         and all(1 <= number <= page_count for number in page_numbers)
@@ -317,8 +351,16 @@ def _parse_answer(value: str, page_count: int, pages: list[Any] | None = None) -
     # An explicit `evidence_pages: "all"` marker covers the controlled page
     # set. Requiring every title in the prose polluted research answers with
     # a navigation catalogue. Keep title coverage for legacy numeric markers.
-    coverage = explicit_coverage if all_evidence else explicit_coverage and _page_label_coverage(answer, pages or [])
-    error = "answer contains protocol fields instead of content" if answer.lower().startswith(("answer:", "page_numbers", "evidence_pages", "selected_urls")) else ""
+    coverage = (
+        explicit_coverage
+        if all_evidence
+        else explicit_coverage and _page_label_coverage(answer, pages or [])
+    )
+    error = (
+        "answer contains protocol fields instead of content"
+        if answer.lower().startswith(("answer:", "page_numbers", "evidence_pages", "selected_urls"))
+        else ""
+    )
     return answer, coverage, error
 
 
@@ -334,7 +376,9 @@ def _normalize_evidence_sections(value: Any) -> list[dict[str, Any]]:
         )
         requirements = [
             str(item or "").strip()
-            for item in (raw.get("requirements") if isinstance(raw.get("requirements"), list) else [])
+            for item in (
+                raw.get("requirements") if isinstance(raw.get("requirements"), list) else []
+            )
             if str(item or "").strip()
         ][:24]
         if not section_id or section_id in seen or not requirements:
@@ -347,8 +391,13 @@ def _normalize_evidence_sections(value: Any) -> list[dict[str, Any]]:
                 "render": str(raw.get("render") or "bullets").lower()
                 if str(raw.get("render") or "").lower() in {"bullets", "paragraph", "table"}
                 else "bullets",
-                "columns": [str(item or "").strip() for item in raw.get("columns", []) if str(item or "").strip()][:8]
-                if isinstance(raw.get("columns"), list) else [],
+                "columns": [
+                    str(item or "").strip()
+                    for item in raw.get("columns", [])
+                    if str(item or "").strip()
+                ][:8]
+                if isinstance(raw.get("columns"), list)
+                else [],
                 "query": str(raw.get("query") or "").strip(),
                 "source_queries": [
                     str(item or "").strip()
@@ -368,7 +417,10 @@ def _normalize_evidence_sections(value: Any) -> list[dict[str, Any]]:
                     }
                     for item in (
                         raw.get("deterministic_evidence", raw.get("deterministicEvidence", []))
-                        if isinstance(raw.get("deterministic_evidence", raw.get("deterministicEvidence", [])), list)
+                        if isinstance(
+                            raw.get("deterministic_evidence", raw.get("deterministicEvidence", [])),
+                            list,
+                        )
                         else []
                     )
                     if isinstance(item, dict)
@@ -386,11 +438,15 @@ def _normalize_evidence_sections(value: Any) -> list[dict[str, Any]]:
                             if str(claim or "").strip()
                         ],
                         "cells": [str(cell or "").strip() for cell in item.get("cells", [])]
-                        if isinstance(item.get("cells"), list) else [],
+                        if isinstance(item.get("cells"), list)
+                        else [],
                     }
                     for item in (
                         raw.get("deterministic_findings", raw.get("deterministicFindings", []))
-                        if isinstance(raw.get("deterministic_findings", raw.get("deterministicFindings", [])), list)
+                        if isinstance(
+                            raw.get("deterministic_findings", raw.get("deterministicFindings", [])),
+                            list,
+                        )
                         else []
                     )
                     if isinstance(item, dict)
@@ -406,7 +462,9 @@ def _normalize_evidence_sections(value: Any) -> list[dict[str, Any]]:
     return sections
 
 
-def _evidence_page_record(raw_page: Any, index: int, candidates: list[dict[str, Any]]) -> dict[str, Any]:
+def _evidence_page_record(
+    raw_page: Any, index: int, candidates: list[dict[str, Any]]
+) -> dict[str, Any]:
     data = raw_page if isinstance(raw_page, dict) else {}
     url = str(
         getattr(raw_page, "url", "")
@@ -418,7 +476,9 @@ def _evidence_page_record(raw_page: Any, index: int, candidates: list[dict[str, 
     candidate = next((item for item in candidates if item.get("url") == url), {})
     return {
         "number": index + 1,
-        "title": str(getattr(raw_page, "title", "") or data.get("title") or "Untitled page").strip(),
+        "title": str(
+            getattr(raw_page, "title", "") or data.get("title") or "Untitled page"
+        ).strip(),
         "url": url,
         "content": str(
             getattr(raw_page, "markdown", "")
@@ -437,16 +497,40 @@ def _match_tokens(value: Any) -> list[str]:
     text = str(value or "").lower()
     text = re.sub(r"\\(?:ell|beta|hat|sum|sigma|equiv|bar|tilde)\b", " ", text)
     tokens = [
-        token for token in re.sub(r"[^a-z0-9]+", " ", text).split()
-        if len(token) > 1 and token not in {
-            "ell", "beta", "hat", "sigma", "the", "and", "for", "with", "from", "that", "this",
-            "only", "using", "use", "when", "where", "state", "describe", "report", "retrieved",
+        token
+        for token in re.sub(r"[^a-z0-9]+", " ", text).split()
+        if len(token) > 1
+        and token
+        not in {
+            "ell",
+            "beta",
+            "hat",
+            "sigma",
+            "the",
+            "and",
+            "for",
+            "with",
+            "from",
+            "that",
+            "this",
+            "only",
+            "using",
+            "use",
+            "when",
+            "where",
+            "state",
+            "describe",
+            "report",
+            "retrieved",
         }
     ]
     return [
-        token[:-3] if len(token) > 6 and token.endswith("ing")
-        else token[:-2] if len(token) > 5 and token.endswith("ed")
-        else token[:-1] if len(token) > 4 and token.endswith("s")
+        token[:-3]
+        if len(token) > 6 and token.endswith("ing")
+        else token[:-2]
+        if len(token) > 5 and token.endswith("ed")
+        else token[:-1]
+        if len(token) > 4 and token.endswith("s")
         else token
         for token in tokens
     ]
@@ -459,7 +543,7 @@ def _quote_matches(quote: Any, content: Any) -> bool:
         return False
     page_text = f" {' '.join(page_tokens)} "
     return any(
-        f" {' '.join(quote_tokens[index:index + 4])} " in page_text
+        f" {' '.join(quote_tokens[index : index + 4])} " in page_text
         for index in range(len(quote_tokens) - 3)
     )
 
@@ -469,13 +553,25 @@ def _evidence_section_pages(
 ) -> list[dict[str, Any]]:
     records = [_evidence_page_record(page, index, candidates) for index, page in enumerate(pages)]
     exact_queries = {str(item).lower() for item in section.get("source_queries", [])}
-    terms = set(_match_tokens(" ".join([
-        section.get("title", ""), section.get("query", ""), *section.get("requirements", [])
-    ])))
+    terms = set(
+        _match_tokens(
+            " ".join(
+                [
+                    section.get("title", ""),
+                    section.get("query", ""),
+                    *section.get("requirements", []),
+                ]
+            )
+        )
+    )
     scored: list[tuple[int, int, dict[str, Any]]] = []
     for page in records:
         exact = any(str(query).lower() in exact_queries for query in page["source_queries"])
-        haystack = set(_match_tokens(f"{page['title']} {' '.join(page['source_queries'])} {page['content'][:5000]}"))
+        haystack = set(
+            _match_tokens(
+                f"{page['title']} {' '.join(page['source_queries'])} {page['content'][:5000]}"
+            )
+        )
         scored.append(((1000 if exact else 0) + len(terms & haystack), page["number"], page))
     scored.sort(key=lambda item: (-item[0], item[1]))
     selected = [item[2] for item in scored if item[0] > 0][: section["max_pages"]]
@@ -483,7 +579,9 @@ def _evidence_section_pages(
 
 
 def _relevant_evidence_text(content: str, terms: list[str], max_chars: int) -> str:
-    chunks = [item.strip() for item in re.split(r"\n{2,}|(?<=\.)\s+(?=[A-Z])", content) if item.strip()]
+    chunks = [
+        item.strip() for item in re.split(r"\n{2,}|(?<=\.)\s+(?=[A-Z])", content) if item.strip()
+    ]
     unique_terms = {term.lower() for term in terms if len(term) >= 4}
     ranked = sorted(
         enumerate(chunks),
@@ -518,7 +616,14 @@ def _build_evidence_dossier(
     context_max_chars: int,
 ) -> dict[str, Any]:
     if not sections:
-        return {"enabled": False, "valid": True, "degraded": False, "sections": [], "errors": [], "warnings": []}
+        return {
+            "enabled": False,
+            "valid": True,
+            "degraded": False,
+            "sections": [],
+            "errors": [],
+            "warnings": [],
+        }
     extracted: list[dict[str, Any]] = []
     errors: list[str] = []
     all_warnings: list[str] = []
@@ -531,7 +636,11 @@ def _build_evidence_dossier(
         attempts = max(1, min(int(retries or 0) + 1, 3))
         for requirement in section["requirements"]:
             deterministic = next(
-                (item for item in section.get("deterministic_evidence", []) if item["requirement"] == requirement),
+                (
+                    item
+                    for item in section.get("deterministic_evidence", [])
+                    if item["requirement"] == requirement
+                ),
                 None,
             )
             if deterministic:
@@ -544,21 +653,34 @@ def _build_evidence_dossier(
                     and len(requirement_terms & quote_terms) >= minimum
                 )
                 matched_pages = [
-                    page["number"] for page in selected_pages
+                    page["number"]
+                    for page in selected_pages
                     if relevant and _quote_matches(deterministic["quote"], page["content"])
                 ]
                 if matched_pages:
-                    findings.append({
-                        "requirement": requirement,
-                        "status": "supported",
-                        "statement": deterministic["statement"],
-                        "quote": deterministic["quote"],
-                        "evidence_pages": matched_pages,
-                        "verification": {"quote_matched": True, "deterministic": True},
-                    })
+                    findings.append(
+                        {
+                            "requirement": requirement,
+                            "status": "supported",
+                            "statement": deterministic["statement"],
+                            "quote": deterministic["quote"],
+                            "evidence_pages": matched_pages,
+                            "verification": {"quote_matched": True, "deterministic": True},
+                        }
+                    )
                 else:
-                    warnings.append(f"{requirement}: deterministic evidence quote missing or irrelevant")
-                    findings.append({"requirement": requirement, "status": "not_found", "statement": "", "quote": "", "evidence_pages": []})
+                    warnings.append(
+                        f"{requirement}: deterministic evidence quote missing or irrelevant"
+                    )
+                    findings.append(
+                        {
+                            "requirement": requirement,
+                            "status": "not_found",
+                            "statement": "",
+                            "quote": "",
+                            "evidence_pages": [],
+                        }
+                    )
                 continue
             terms = _match_tokens(f"{section['title']} {section.get('query', '')} {requirement}")
             remaining = max(2000, int(context_max_chars or 12000))
@@ -569,28 +691,41 @@ def _build_evidence_dossier(
                 bounded = _relevant_evidence_text(page["content"], terms, min(remaining, 6000))
                 evidence_blocks.append(f"[P{page['number']}] {page['title']}\n{bounded}")
                 remaining -= len(bounded)
-            base_prompt = "\n".join([
-                "Extract evidence for exactly ONE requirement. Do not write the final answer. Do not use memory.",
-                f"Section: {section['title']}",
-                f"Focus: {section.get('query', '')}" if section.get("query") else "",
-                f"Requirement: {requirement}",
-                'Return exactly one finding. status is "supported" only when supplied pages explicitly support the statement; otherwise use "not_found".',
-                "For supported findings, quote must be one short verbatim fragment copied from the indicated page. A non-verbatim quote is rejected.",
-                "Do not infer adoption, popularity, ranking, dates, software, or causal mechanisms.",
-                'Return ONLY JSON: {"section_id":"...","findings":[{"status":"supported|not_found","statement":"...","quote":"verbatim page fragment","evidence_pages":[1]}]}',
-                "", f"Research question: {question}", "", "Evidence:", "\n\n---\n\n".join(evidence_blocks),
-            ])
+            base_prompt = "\n".join(
+                [
+                    "Extract evidence for exactly ONE requirement. Do not write the final answer. Do not use memory.",  # noqa: E501
+                    f"Section: {section['title']}",
+                    f"Focus: {section.get('query', '')}" if section.get("query") else "",
+                    f"Requirement: {requirement}",
+                    'Return exactly one finding. status is "supported" only when supplied pages explicitly support the statement; otherwise use "not_found".',  # noqa: E501
+                    "For supported findings, quote must be one short verbatim fragment copied from the indicated page. A non-verbatim quote is rejected.",  # noqa: E501
+                    "Do not infer adoption, popularity, ranking, dates, software, or causal mechanisms.",  # noqa: E501
+                    'Return ONLY JSON: {"section_id":"...","findings":[{"status":"supported|not_found","statement":"...","quote":"verbatim page fragment","evidence_pages":[1]}]}',  # noqa: E501
+                    "",
+                    f"Research question: {question}",
+                    "",
+                    "Evidence:",
+                    "\n\n---\n\n".join(evidence_blocks),
+                ]
+            )
             verdict: dict[str, Any] = {"valid": False, "error": "not attempted"}
             raw = ""
             for attempt in range(1, attempts + 1):
                 section_attempts += 1
-                prompt = base_prompt if attempt == 1 else (
-                    "Repair JSON. Return exactly one finding for the one requirement.\n"
-                    f"Previous error: {verdict['error']}\n\n{base_prompt}\n\nPrevious output: {raw}"
+                prompt = (
+                    base_prompt
+                    if attempt == 1
+                    else (
+                        "Repair JSON. Return exactly one finding for the one requirement.\n"
+                        f"Previous error: {verdict['error']}\n\n{base_prompt}\n\nPrevious output: {raw}"  # noqa: E501
+                    )
                 )
                 try:
                     raw = _provider_text(
-                        provider, prompt, temperature=0, max_tokens=max_tokens,
+                        provider,
+                        prompt,
+                        temperature=0,
+                        max_tokens=max_tokens,
                         response_format={"type": "json_object"},
                     )
                 except Exception as exc:  # pragma: no cover - provider-specific
@@ -606,26 +741,43 @@ def _build_evidence_dossier(
                     ranked: list[tuple[int, dict[str, Any]]] = []
                     for raw_finding in raw_findings:
                         finding = raw_finding if isinstance(raw_finding, dict) else {}
-                        overlap = len(requirement_terms & set(_match_tokens(finding.get("statement"))))
-                        grounded = any(_quote_matches(finding.get("quote"), page["content"]) for page in selected_pages)
+                        overlap = len(
+                            requirement_terms & set(_match_tokens(finding.get("statement")))
+                        )
+                        grounded = any(
+                            _quote_matches(finding.get("quote"), page["content"])
+                            for page in selected_pages
+                        )
                         ranked.append(((100 if grounded else 0) + overlap, finding))
                     ranked.sort(key=lambda item: item[0], reverse=True)
-                    raw_findings = [ranked[0][1] if ranked[0][0] >= 102 else {"status": "not_found"}]
+                    raw_findings = [
+                        ranked[0][1] if ranked[0][0] >= 102 else {"status": "not_found"}
+                    ]
                 raw_finding = raw_findings[0] if isinstance(raw_findings[0], dict) else {}
                 status = str(raw_finding.get("status") or "").lower()
                 statement = str(raw_finding.get("statement") or "").strip()
-                quote = str(raw_finding.get("quote") or "").strip().strip("\"'â€œâ€â€˜â€™")
-                matched_pages = [page["number"] for page in selected_pages if len(quote) >= 12 and _quote_matches(quote, page["content"])]
+                quote = str(raw_finding.get("quote") or "").strip().strip("\"'â€œâ€â€˜â€™")  # noqa: B005
+                matched_pages = [
+                    page["number"]
+                    for page in selected_pages
+                    if len(quote) >= 12 and _quote_matches(quote, page["content"])
+                ]
                 requirement_terms = set(_match_tokens(requirement))
                 statement_overlap = len(requirement_terms & set(_match_tokens(statement)))
                 quote_overlap = len(requirement_terms & set(_match_tokens(quote)))
                 minimum_overlap = 1 if len(requirement_terms) <= 4 else 2
                 supported = (
-                    status == "supported" and bool(statement) and bool(matched_pages)
-                    and statement_overlap >= minimum_overlap and quote_overlap >= minimum_overlap
+                    status == "supported"
+                    and bool(statement)
+                    and bool(matched_pages)
+                    and statement_overlap >= minimum_overlap
+                    and quote_overlap >= minimum_overlap
                 )
                 if status == "supported" and not supported:
-                    verdict = {"valid": False, "error": "supported finding lacks a grounded, requirement-relevant quote"}
+                    verdict = {
+                        "valid": False,
+                        "error": "supported finding lacks a grounded, requirement-relevant quote",
+                    }
                     continue
                 verdict = {
                     "valid": True,
@@ -647,7 +799,15 @@ def _build_evidence_dossier(
             raw_outputs.append(raw)
             if not verdict.get("valid"):
                 warnings.append(f"{requirement}: {verdict.get('error', 'invalid evidence output')}")
-                findings.append({"requirement": requirement, "status": "not_found", "statement": "", "quote": "", "evidence_pages": []})
+                findings.append(
+                    {
+                        "requirement": requirement,
+                        "status": "not_found",
+                        "statement": "",
+                        "quote": "",
+                        "evidence_pages": [],
+                    }
+                )
             else:
                 findings.append(verdict["finding"])
         section_result = {
@@ -657,7 +817,10 @@ def _build_evidence_dossier(
             "title": section["title"],
             "required": section["required"],
             "findings": findings,
-            "pages": [{"number": page["number"], "title": page["title"], "url": page["url"]} for page in selected_pages],
+            "pages": [
+                {"number": page["number"], "title": page["title"], "url": page["url"]}
+                for page in selected_pages
+            ],
             "raw": "\n---\n".join(raw_outputs),
             "attempts": section_attempts,
             "error": "",
@@ -680,85 +843,211 @@ def _build_evidence_dossier(
 
 
 def _build_synthesis_dossier(
-    sections: list[dict[str, Any]], evidence_dossier: dict[str, Any], provider: Any,
-    question: str, *, max_tokens: int, retries: int,
+    sections: list[dict[str, Any]],
+    evidence_dossier: dict[str, Any],
+    provider: Any,
+    question: str,
+    *,
+    max_tokens: int,
+    retries: int,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     claims: list[dict[str, str]] = []
     for section in evidence_dossier.get("sections", []):
         for index, finding in enumerate(section.get("findings", [])):
-            claims.append({
-                "id": f"{section['id']}:{index}",
-                "status": str(finding.get("status") or "not_found"),
-                "text": str(finding.get("statement") if finding.get("status") == "supported" else finding.get("requirement") or ""),
-            })
+            claims.append(
+                {
+                    "id": f"{section['id']}:{index}",
+                    "status": str(finding.get("status") or "not_found"),
+                    "text": str(
+                        finding.get("statement")
+                        if finding.get("status") == "supported"
+                        else finding.get("requirement") or ""
+                    ),
+                }
+            )
     by_id = {claim["id"]: claim for claim in claims}
-    ledger = "\n".join(f"- [{claim['id']}] {claim['status'].upper()}: {claim['text']}" for claim in claims)
+    ledger = "\n".join(
+        f"- [{claim['id']}] {claim['status'].upper()}: {claim['text']}" for claim in claims
+    )
     output: list[dict[str, Any]] = []
     warnings: list[str] = []
     for section in sections:
         findings: list[dict[str, Any]] = []
         for requirement in section["requirements"]:
             deterministic = next(
-                (item for item in section.get("deterministic_findings", []) if item["requirement"] == requirement),
+                (
+                    item
+                    for item in section.get("deterministic_findings", [])
+                    if item["requirement"] == requirement
+                ),
                 None,
             )
             if deterministic:
-                refs = list(dict.fromkeys(ref for ref in deterministic["evidence_claims"] if ref in by_id))
+                refs = list(
+                    dict.fromkeys(ref for ref in deterministic["evidence_claims"] if ref in by_id)
+                )
                 statuses = [by_id[ref]["status"] for ref in refs]
-                limitation = bool(re.search(r"\b(?:cannot|can't|no|not|insufficient|unavailable|lack|missing|no permite|insuficiente|falta)\b", deterministic["statement"], re.I))
+                limitation = bool(
+                    re.search(
+                        r"\b(?:cannot|can't|no|not|insufficient|unavailable|lack|missing|no permite|insuficiente|falta)\b",  # noqa: E501
+                        deterministic["statement"],
+                        re.I,
+                    )
+                )
                 positive_ok = len(refs) >= 2 and all(status == "supported" for status in statuses)
-                limitation_ok = bool(refs) and any(status == "not_found" for status in statuses) and limitation
-                if len(refs) != len(deterministic["evidence_claims"]) or not (positive_ok or limitation_ok):
-                    warnings.append(f"{section['id']}: {requirement}: deterministic inference references invalid or incompatible claims")
-                    findings.append({"requirement": requirement, "status": "not_found", "statement": "", "evidence_claims": refs, "evidence_pages": [], "quote": ""})
+                limitation_ok = (
+                    bool(refs) and any(status == "not_found" for status in statuses) and limitation
+                )
+                if len(refs) != len(deterministic["evidence_claims"]) or not (
+                    positive_ok or limitation_ok
+                ):
+                    warnings.append(
+                        f"{section['id']}: {requirement}: deterministic inference references invalid or incompatible claims"  # noqa: E501
+                    )
+                    findings.append(
+                        {
+                            "requirement": requirement,
+                            "status": "not_found",
+                            "statement": "",
+                            "evidence_claims": refs,
+                            "evidence_pages": [],
+                            "quote": "",
+                        }
+                    )
                 else:
-                    findings.append({"requirement": requirement, "status": "derived", "statement": deterministic["statement"], "evidence_claims": refs, "evidence_pages": [], "quote": "", "cells": deterministic["cells"]})
+                    findings.append(
+                        {
+                            "requirement": requirement,
+                            "status": "derived",
+                            "statement": deterministic["statement"],
+                            "evidence_claims": refs,
+                            "evidence_pages": [],
+                            "quote": "",
+                            "cells": deterministic["cells"],
+                        }
+                    )
                 continue
-            base_prompt = "\n".join([
-                "Derive exactly ONE transparent research inference from the supplied claim ledger. Do not use memory.",
-                f"Section: {section['title']}", f"Requirement: {requirement}",
-                "Use derived only when at least two supported claims justify a positive inference. One or more NOT_FOUND claims may justify only a clearly worded limitation.",
-                'Return ONLY JSON: {"finding":{"status":"derived|not_found","statement":"...","evidence_claims":["section:0","section:1"]}}',
-                "", f"Research question: {question}", "", "Claim ledger:", ledger,
-            ])
+            base_prompt = "\n".join(
+                [
+                    "Derive exactly ONE transparent research inference from the supplied claim ledger. Do not use memory.",  # noqa: E501
+                    f"Section: {section['title']}",
+                    f"Requirement: {requirement}",
+                    "Use derived only when at least two supported claims justify a positive inference. One or more NOT_FOUND claims may justify only a clearly worded limitation.",  # noqa: E501
+                    'Return ONLY JSON: {"finding":{"status":"derived|not_found","statement":"...","evidence_claims":["section:0","section:1"]}}',  # noqa: E501
+                    "",
+                    f"Research question: {question}",
+                    "",
+                    "Claim ledger:",
+                    ledger,
+                ]
+            )
             normalized: dict[str, Any] | None = None
             raw = ""
             error = "not attempted"
             for attempt in range(1, max(1, min(int(retries or 0) + 1, 3)) + 1):
-                prompt = base_prompt if attempt == 1 else f"{base_prompt}\n\nRepair: {error}\nPrevious output: {raw}"
+                prompt = (
+                    base_prompt
+                    if attempt == 1
+                    else f"{base_prompt}\n\nRepair: {error}\nPrevious output: {raw}"
+                )
                 try:
-                    raw = _provider_text(provider, prompt, temperature=0, max_tokens=max_tokens, response_format={"type": "json_object"})
+                    raw = _provider_text(
+                        provider,
+                        prompt,
+                        temperature=0,
+                        max_tokens=max_tokens,
+                        response_format={"type": "json_object"},
+                    )
                     parsed, parse_error = _parse_json(raw)
                     finding = parsed.get("finding", {}) if parsed else {}
-                    refs = list(dict.fromkeys(str(ref) for ref in finding.get("evidence_claims", []) if str(ref) in by_id))
+                    refs = list(
+                        dict.fromkeys(
+                            str(ref)
+                            for ref in finding.get("evidence_claims", [])
+                            if str(ref) in by_id
+                        )
+                    )
                     statement = str(finding.get("statement") or "").strip()
                     statuses = [by_id[ref]["status"] for ref in refs]
-                    limitation = bool(re.search(r"\b(?:cannot|can't|no|not|insufficient|unavailable|lack|missing|no permite|insuficiente|falta)\b", statement, re.I))
-                    positive_ok = len(refs) >= 2 and all(status == "supported" for status in statuses)
-                    limitation_ok = bool(refs) and any(status == "not_found" for status in statuses) and limitation
-                    if str(finding.get("status") or "").lower() == "derived" and statement and (positive_ok or limitation_ok):
-                        normalized = {"requirement": requirement, "status": "derived", "statement": statement, "evidence_claims": refs, "evidence_pages": [], "quote": ""}
+                    limitation = bool(
+                        re.search(
+                            r"\b(?:cannot|can't|no|not|insufficient|unavailable|lack|missing|no permite|insuficiente|falta)\b",  # noqa: E501
+                            statement,
+                            re.I,
+                        )
+                    )
+                    positive_ok = len(refs) >= 2 and all(
+                        status == "supported" for status in statuses
+                    )
+                    limitation_ok = (
+                        bool(refs)
+                        and any(status == "not_found" for status in statuses)
+                        and limitation
+                    )
+                    if (
+                        str(finding.get("status") or "").lower() == "derived"
+                        and statement
+                        and (positive_ok or limitation_ok)
+                    ):
+                        normalized = {
+                            "requirement": requirement,
+                            "status": "derived",
+                            "statement": statement,
+                            "evidence_claims": refs,
+                            "evidence_pages": [],
+                            "quote": "",
+                        }
                         break
                     if str(finding.get("status") or "").lower() == "not_found":
-                        normalized = {"requirement": requirement, "status": "not_found", "statement": "", "evidence_claims": refs, "evidence_pages": [], "quote": ""}
+                        normalized = {
+                            "requirement": requirement,
+                            "status": "not_found",
+                            "statement": "",
+                            "evidence_claims": refs,
+                            "evidence_pages": [],
+                            "quote": "",
+                        }
                         break
                     error = parse_error or "invalid derived finding"
                 except Exception as exc:  # pragma: no cover - provider-specific
                     error = str(exc)
             if normalized is None:
                 warnings.append(f"{section['id']}: {requirement}: {error}")
-                normalized = {"requirement": requirement, "status": "not_found", "statement": "", "evidence_claims": [], "evidence_pages": [], "quote": ""}
+                normalized = {
+                    "requirement": requirement,
+                    "status": "not_found",
+                    "statement": "",
+                    "evidence_claims": [],
+                    "evidence_pages": [],
+                    "quote": "",
+                }
             findings.append(normalized)
-        output.append({"id": section["id"], "title": section["title"], "required": section["required"], "valid": True, "derived": True, "findings": findings, "warnings": [], "render": section["render"], "columns": section["columns"]})
+        output.append(
+            {
+                "id": section["id"],
+                "title": section["title"],
+                "required": section["required"],
+                "valid": True,
+                "derived": True,
+                "findings": findings,
+                "warnings": [],
+                "render": section["render"],
+                "columns": section["columns"],
+            }
+        )
     return output, warnings
 
 
 def _evidence_dossier_markdown(dossier: dict[str, Any], *, fallback: bool = False) -> str:
     def clean(value: Any) -> str:
         return (
-            str(value or "").replace("â€™", "'").replace("â€˜", "'")
-            .replace("â€œ", '"').replace("â€", '"')
-            .replace("â€“", "–").replace("â€”", "—")
+            str(value or "")
+            .replace("â€™", "'")
+            .replace("â€˜", "'")
+            .replace("â€œ", '"')
+            .replace("â€", '"')
+            .replace("â€“", "–")
+            .replace("â€”", "—")
         )
 
     def table_cell(value: Any) -> str:
@@ -768,8 +1057,12 @@ def _evidence_dossier_markdown(dossier: dict[str, Any], *, fallback: bool = Fals
     for section in dossier.get("sections", []):
         lines = [f"## {section.get('title', section.get('id', 'Evidence'))}"]
         findings = list(section.get("findings", []))
-        supported = [finding for finding in findings if finding.get("status") in {"supported", "derived"}]
-        missing = [finding for finding in findings if finding.get("status") not in {"supported", "derived"}]
+        supported = [
+            finding for finding in findings if finding.get("status") in {"supported", "derived"}
+        ]
+        missing = [
+            finding for finding in findings if finding.get("status") not in {"supported", "derived"}
+        ]
         if fallback and section.get("render") == "table" and section.get("columns"):
             columns = [table_cell(column) for column in section["columns"]]
             lines.append(f"| {' | '.join(columns)} |")
@@ -779,8 +1072,16 @@ def _evidence_dossier_markdown(dossier: dict[str, Any], *, fallback: bool = Fals
                 if isinstance(cells, list) and len(cells) == len(columns):
                     lines.append(f"| {' | '.join(table_cell(cell) for cell in cells)} |")
         elif fallback and section.get("render") == "paragraph":
-            direct = [clean(finding.get("statement")) for finding in supported if finding.get("status") == "supported"]
-            inferred = [clean(finding.get("statement")) for finding in supported if finding.get("status") == "derived"]
+            direct = [
+                clean(finding.get("statement"))
+                for finding in supported
+                if finding.get("status") == "supported"
+            ]
+            inferred = [
+                clean(finding.get("statement"))
+                for finding in supported
+                if finding.get("status") == "derived"
+            ]
             if direct:
                 lines.append(f"Direct evidence: {' '.join(direct)}")
             if inferred:
@@ -788,9 +1089,17 @@ def _evidence_dossier_markdown(dossier: dict[str, Any], *, fallback: bool = Fals
         else:
             for finding in supported:
                 if finding.get("status") == "supported":
-                    prefix = "Direct evidence: " if fallback else f"SUPPORTED [{', '.join(f'P{number}' for number in finding.get('evidence_pages', []))}]: "
+                    prefix = (
+                        "Direct evidence: "
+                        if fallback
+                        else f"SUPPORTED [{', '.join(f'P{number}' for number in finding.get('evidence_pages', []))}]: "  # noqa: E501
+                    )
                 else:
-                    prefix = "Inference: " if fallback else f"DERIVED [{', '.join(finding.get('evidence_claims', []))}]: "
+                    prefix = (
+                        "Inference: "
+                        if fallback
+                        else f"DERIVED [{', '.join(finding.get('evidence_claims', []))}]: "
+                    )
                 lines.append(f"- {prefix}{clean(finding.get('statement', ''))}")
         for finding in missing:
             label = "Evidence not found" if fallback else "NOT FOUND"
@@ -800,7 +1109,7 @@ def _evidence_dossier_markdown(dossier: dict[str, Any], *, fallback: bool = Fals
             lines = [f"## {section.get('title', section.get('id', 'Evidence'))}"]
             for finding in findings:
                 if finding.get("status") == "supported":
-                    prefix = f"SUPPORTED [{', '.join(f'P{number}' for number in finding.get('evidence_pages', []))}]: "
+                    prefix = f"SUPPORTED [{', '.join(f'P{number}' for number in finding.get('evidence_pages', []))}]: "  # noqa: E501
                     lines.append(f"- {prefix}{clean(finding.get('statement', ''))}")
                 elif finding.get("status") == "derived":
                     prefix = f"DERIVED [{', '.join(finding.get('evidence_claims', []))}]: "
@@ -848,7 +1157,12 @@ def run_web_grounded_answer(
 ) -> dict[str, Any]:
     """Run live-search → provider-selection → fetch/Markdown → grounded answer."""
     try:
-        from handoffkit.browser import ResearchPack, gather_web_research, research_prompt_section, web_search
+        from handoffkit.browser import (
+            ResearchPack,
+            gather_web_research,
+            research_prompt_section,
+            web_search,
+        )
     except ImportError as exc:  # pragma: no cover
         raise ImportError(
             "Install handoffkit with browser support to use run_web_grounded_answer()."
@@ -882,16 +1196,18 @@ def run_web_grounded_answer(
     for query_index, search_query in enumerate(search_query_list):
         if query_index and safe_search_delay_ms:
             time.sleep(safe_search_delay_ms / 1000)
-        search_results.append(web_search(
-            search_query,
-            transport=transport,
-            max_results=results_limit,
-            timeout_ms=30000,
-            allow_hosts=allow_hosts,
-            deny_hosts=deny_hosts,
-            providers=providers,
-            user_browser=user_browser or default_browser,
-        ))
+        search_results.append(
+            web_search(
+                search_query,
+                transport=transport,
+                max_results=results_limit,
+                timeout_ms=30000,
+                allow_hosts=allow_hosts,
+                deny_hosts=deny_hosts,
+                providers=providers,
+                user_browser=user_browser or default_browser,
+            )
+        )
     merged_search_hits: dict[str, dict[str, Any]] = {}
     search_errors: list[str] = []
     search_provider_codes: list[str] = []
@@ -936,15 +1252,23 @@ def run_web_grounded_answer(
             continue
         raw_source_queries = raw_seed.get("source_queries", raw_seed.get("sourceQueries", []))
         query_indexes = [
-            index for index, query in enumerate(search_query_list)
-            if any(query.lower() == str(source).strip().lower() for source in (raw_source_queries if isinstance(raw_source_queries, list) else []))
+            index
+            for index, query in enumerate(search_query_list)
+            if any(
+                query.lower() == str(source).strip().lower()
+                for source in (raw_source_queries if isinstance(raw_source_queries, list) else [])
+            )
         ]
         existing = merged_search_hits.get(url)
         if existing:
             existing["score"] = 100000 - seed_index
             existing["seeded"] = True
-            existing["query_indexes"] = list(dict.fromkeys([*existing["query_indexes"], *query_indexes]))
-            existing["query_matches"] = max(int(existing["query_matches"]), len(existing["query_indexes"]), 1)
+            existing["query_indexes"] = list(
+                dict.fromkeys([*existing["query_indexes"], *query_indexes])
+            )
+            existing["query_matches"] = max(
+                int(existing["query_matches"]), len(existing["query_indexes"]), 1
+            )
             continue
         merged_search_hits[url] = {
             "title": str(raw_seed.get("title") or url),
@@ -990,18 +1314,30 @@ def run_web_grounded_answer(
         "keywords": " ".join(search_query_list),
         "results": [
             {
-                **{key: value for key, value in item.items() if key not in {"query_matches", "query_indexes"}},
-                "source_queries": [search_query_list[i] for i in item.get("query_indexes", []) if i < len(search_query_list)],
+                **{
+                    key: value
+                    for key, value in item.items()
+                    if key not in {"query_matches", "query_indexes"}
+                },
+                "source_queries": [
+                    search_query_list[i]
+                    for i in item.get("query_indexes", [])
+                    if i < len(search_query_list)
+                ],
             }
             for item in merged_results
         ],
         "count": len(merged_results),
-        "providers_requested": list(search_results[0].get("providers_requested") or []) if search_results else list(providers or []),
+        "providers_requested": list(search_results[0].get("providers_requested") or [])
+        if search_results
+        else list(providers or []),
         "providers_used": search_providers_used,
         "errors": search_errors,
         "provider_codes": search_provider_codes,
         "engine": "+".join(search_engines),
-        "error_code": "" if merged_results else (search_provider_codes[0] if search_provider_codes else "no_results"),
+        "error_code": ""
+        if merged_results
+        else (search_provider_codes[0] if search_provider_codes else "no_results"),
         "error": "" if merged_results else "no search results",
     }
     excluded_urls: list[str] = []
@@ -1013,12 +1349,14 @@ def run_web_grounded_answer(
         if not _is_fetchable_web_candidate(url):
             excluded_urls.append(url)
             continue
-        candidates.append({
-            "rank": index + 1,
-            "title": item.get("title", ""),
-            "url": url,
-            "source_queries": list(item.get("source_queries") or []),
-        })
+        candidates.append(
+            {
+                "rank": index + 1,
+                "title": item.get("title", ""),
+                "url": url,
+                "source_queries": list(item.get("source_queries") or []),
+            }
+        )
     search_markdown = _candidate_markdown(q, candidates)
     planner = selection_provider or provider
     selection: dict[str, Any] = {
@@ -1066,8 +1404,8 @@ def run_web_grounded_answer(
             repair_prompt = "\n".join(
                 [
                     "La salida anterior no cumplió el contrato.",
-                    'Devuelve SOLO JSON válido con esta forma exacta: {"selected_urls":["URL exacta"]}.',
-                    f"Elige hasta {limit} URLs copiadas literalmente del índice; no incluyas explicación.",
+                    'Devuelve SOLO JSON válido con esta forma exacta: {"selected_urls":["URL exacta"]}.',  # noqa: E501
+                    f"Elige hasta {limit} URLs copiadas literalmente del índice; no incluyas explicación.",  # noqa: E501
                     "",
                     search_markdown,
                 ]
@@ -1092,7 +1430,9 @@ def run_web_grounded_answer(
             search_query_list,
             limit,
         )
-    selection["valid"] = bool(search.get("success") and search_markdown and selection["selected_urls"])
+    selection["valid"] = bool(
+        search.get("success") and search_markdown and selection["selected_urls"]
+    )
 
     if selection["valid"]:
         pack = gather_web_research(
@@ -1203,11 +1543,25 @@ def run_web_grounded_answer(
             retries=evidence_retries,
             context_max_chars=evidence_context_max_chars,
         )
-        if provider is not None and selection.get("fetch_complete", False) and normalized_evidence_sections
-        else {"enabled": False, "valid": True, "degraded": False, "sections": [], "errors": [], "warnings": []}
+        if provider is not None
+        and selection.get("fetch_complete", False)
+        and normalized_evidence_sections
+        else {
+            "enabled": False,
+            "valid": True,
+            "degraded": False,
+            "sections": [],
+            "errors": [],
+            "warnings": [],
+        }
     )
     normalized_synthesis_sections = _normalize_evidence_sections(synthesis_sections)
-    if evidence_dossier["enabled"] and evidence_dossier["valid"] and provider is not None and normalized_synthesis_sections:
+    if (
+        evidence_dossier["enabled"]
+        and evidence_dossier["valid"]
+        and provider is not None
+        and normalized_synthesis_sections
+    ):
         synthesis_findings, synthesis_warnings = _build_synthesis_dossier(
             normalized_synthesis_sections,
             evidence_dossier,
@@ -1219,7 +1573,9 @@ def run_web_grounded_answer(
         evidence_dossier["sections"].extend(synthesis_findings)
         evidence_dossier["warnings"].extend(synthesis_warnings)
         evidence_dossier["degraded"] = bool(evidence_dossier["degraded"] or synthesis_warnings)
-    deterministic_dossier = evidence_dossier["enabled"] and dossier_compose_mode.lower() == "deterministic"
+    deterministic_dossier = (
+        evidence_dossier["enabled"] and dossier_compose_mode.lower() == "deterministic"
+    )
     if deterministic_dossier and evidence_dossier["valid"]:
         answer = _evidence_dossier_markdown(evidence_dossier, fallback=True)
         answer_raw = answer
@@ -1227,30 +1583,54 @@ def run_web_grounded_answer(
         if answer_validator is not None and answer:
             try:
                 verdict = answer_validator(
-                    {"answer": answer, "query": q, "pages": pack.pages, "research": pack, "evidence_dossier": evidence_dossier}
+                    {
+                        "answer": answer,
+                        "query": q,
+                        "pages": pack.pages,
+                        "research": pack,
+                        "evidence_dossier": evidence_dossier,
+                    }
                 )
-                validator_passed = bool(verdict.get("valid")) if isinstance(verdict, dict) else bool(verdict)
+                validator_passed = (
+                    bool(verdict.get("valid")) if isinstance(verdict, dict) else bool(verdict)
+                )
                 if isinstance(verdict, dict) and isinstance(verdict.get("answer"), str):
                     answer = verdict["answer"].strip()
                 if not validator_passed:
-                    validator_error = str(verdict.get("error") or "answer validator rejected deterministic dossier") if isinstance(verdict, dict) else "answer validator rejected deterministic dossier"
+                    validator_error = (
+                        str(
+                            verdict.get("error")
+                            or "answer validator rejected deterministic dossier"
+                        )
+                        if isinstance(verdict, dict)
+                        else "answer validator rejected deterministic dossier"
+                    )
             except Exception as exc:  # pragma: no cover - caller validator
                 validator_passed = False
                 validator_error = str(exc)
-    elif provider is not None and pack.pages_ok > 0 and selection.get("fetch_complete", False) and evidence_dossier["valid"]:
-        evidence = _evidence_dossier_markdown(evidence_dossier) if evidence_dossier["enabled"] else _page_evidence(pack)
+    elif (
+        provider is not None
+        and pack.pages_ok > 0
+        and selection.get("fetch_complete", False)
+        and evidence_dossier["valid"]
+    ):
+        evidence = (
+            _evidence_dossier_markdown(evidence_dossier)
+            if evidence_dossier["enabled"]
+            else _page_evidence(pack)
+        )
         prompt = "\n".join(
             [
-                "Usa exclusivamente el dossier estructurado. Incluye cada hallazgo SUPPORTED y conserva cada NOT FOUND como límite explícito."
+                "Usa exclusivamente el dossier estructurado. Incluye cada hallazgo SUPPORTED y conserva cada NOT FOUND como límite explícito."  # noqa: E501
                 if evidence_dossier["enabled"]
                 else "Lee TODAS las páginas Markdown recuperadas y responde solo con esos datos.",
                 "No hagas otra búsqueda ni uses memoria externa.",
-                "Si una subpregunta no está respaldada por las páginas, di explícitamente que la evidencia disponible no permite responderla.",
-                "No afirmes que un método es dominante, más usado o preferido sin una fuente recuperada que mida esa adopción.",
+                "Si una subpregunta no está respaldada por las páginas, di explícitamente que la evidencia disponible no permite responderla.",  # noqa: E501
+                "No afirmes que un método es dominante, más usado o preferido sin una fuente recuperada que mida esa adopción.",  # noqa: E501
                 "No atribuyas a un artículo un mecanismo que su página no describa literalmente.",
-                'Devuelve SOLO JSON válido: {"answer":"respuesta Markdown sin URLs ni citas","evidence_pages":"all"}.',
-                'evidence_pages debe ser "all" después de leer todas las páginas. Si falta un dato, indícalo.',
-                "Cubre explÃ­citamente Goodman-Bacon, Callaway-Sant'Anna, Sun-Abraham, Borusyak-Jaravel-Spiess, did2s y Roth/Rambachan-Roth; si la evidencia de alguno falta, declÃ¡ralo como no demostrado.",
+                'Devuelve SOLO JSON válido: {"answer":"respuesta Markdown sin URLs ni citas","evidence_pages":"all"}.',  # noqa: E501
+                'evidence_pages debe ser "all" después de leer todas las páginas. Si falta un dato, indícalo.',  # noqa: E501
+                "Cubre explÃ­citamente Goodman-Bacon, Callaway-Sant'Anna, Sun-Abraham, Borusyak-Jaravel-Spiess, did2s y Roth/Rambachan-Roth; si la evidencia de alguno falta, declÃ¡ralo como no demostrado.",  # noqa: E501
                 "No agregues URLs, fuentes ni capacidades no demostradas.",
                 "",
                 f"Pregunta: {question or q}",
@@ -1264,7 +1644,7 @@ def run_web_grounded_answer(
                 retry_prompt = "\n".join(
                     [
                         "Corrige la salida anterior: incumplió JSON o no cubrió todas las páginas.",
-                        'evidence_pages debe ser exactamente "all" después de leer todas las páginas.',
+                        'evidence_pages debe ser exactamente "all" después de leer todas las páginas.',  # noqa: E501
                         "No agregues URLs ni hechos fuera de las páginas.",
                         "",
                         prompt,
@@ -1285,9 +1665,17 @@ def run_web_grounded_answer(
             if answer_validator is not None and answer and not answer_error:
                 try:
                     verdict = answer_validator(
-                        {"answer": answer, "query": q, "pages": pack.pages, "research": pack, "evidence_dossier": evidence_dossier}
+                        {
+                            "answer": answer,
+                            "query": q,
+                            "pages": pack.pages,
+                            "research": pack,
+                            "evidence_dossier": evidence_dossier,
+                        }
                     )
-                    validator_passed = bool(verdict.get("valid")) if isinstance(verdict, dict) else bool(verdict)
+                    validator_passed = (
+                        bool(verdict.get("valid")) if isinstance(verdict, dict) else bool(verdict)
+                    )
                     if not validator_passed:
                         validator_error = (
                             str(verdict.get("error") or "answer validator rejected output")
@@ -1297,7 +1685,12 @@ def run_web_grounded_answer(
                 except Exception as exc:  # pragma: no cover - caller validator
                     validator_passed = False
                     validator_error = str(exc)
-            if answer and (not strict_grounding or coverage) and not answer_error and validator_passed:
+            if (
+                answer
+                and (not strict_grounding or coverage)
+                and not answer_error
+                and validator_passed
+            ):
                 break
     if (
         (not answer or answer_error or not validator_passed or (strict_grounding and not coverage))
@@ -1311,13 +1704,27 @@ def run_web_grounded_answer(
         if answer_validator is not None and fallback_answer:
             try:
                 verdict = answer_validator(
-                    {"answer": fallback_answer, "query": q, "pages": pack.pages, "research": pack, "evidence_dossier": evidence_dossier}
+                    {
+                        "answer": fallback_answer,
+                        "query": q,
+                        "pages": pack.pages,
+                        "research": pack,
+                        "evidence_dossier": evidence_dossier,
+                    }
                 )
-                fallback_valid = bool(verdict.get("valid")) if isinstance(verdict, dict) else bool(verdict)
+                fallback_valid = (
+                    bool(verdict.get("valid")) if isinstance(verdict, dict) else bool(verdict)
+                )
                 if isinstance(verdict, dict) and isinstance(verdict.get("answer"), str):
                     answer = verdict["answer"].strip()
-                validator_error = "" if fallback_valid else str(
-                    verdict.get("error") if isinstance(verdict, dict) else "answer validator rejected dossier fallback"
+                validator_error = (
+                    ""
+                    if fallback_valid
+                    else str(
+                        verdict.get("error")
+                        if isinstance(verdict, dict)
+                        else "answer validator rejected dossier fallback"
+                    )
                 )
             except Exception as exc:  # pragma: no cover - caller validator
                 fallback_valid = False
@@ -1338,7 +1745,12 @@ def run_web_grounded_answer(
         and validator_passed
     )
     return {
-        "success": bool(selection["valid"] and selection.get("fetch_complete", False) and pack.pages_ok > 0 and (provider is None or answer_valid)),
+        "success": bool(
+            selection["valid"]
+            and selection.get("fetch_complete", False)
+            and pack.pages_ok > 0
+            and (provider is None or answer_valid)
+        ),
         "query": q,
         "research": pack.to_dict(),
         "prompt_section": section,

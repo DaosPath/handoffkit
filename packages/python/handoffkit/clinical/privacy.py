@@ -17,9 +17,7 @@ from handoffkit.clinical.constants import (
 from handoffkit.clinical.errors import ClinicalError
 
 EMAIL_RE = re.compile(r"[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}", re.I)
-PHONE_RE = re.compile(
-    r"(?:\+?\d{1,3}[\s.\-]*)?(?:\(?\d{3}\)?[\s.\-]*)\d{3}[\s.\-]*\d{4}"
-)
+PHONE_RE = re.compile(r"(?:\+?\d{1,3}[\s.\-]*)?(?:\(?\d{3}\)?[\s.\-]*)\d{3}[\s.\-]*\d{4}")
 SSN_RE = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
 MRN_RE = re.compile(r"\b(mrn|niss|curp|dni|ssn)[:#\s]+\w+", re.I)
 ADDRESS_RE = re.compile(

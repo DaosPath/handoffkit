@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from handoffkit.clinical.constants import PROVIDER_STATUS, ROLES
 from handoffkit.clinical.errors import ClinicalError
 from handoffkit.clinical.providers import get_provider

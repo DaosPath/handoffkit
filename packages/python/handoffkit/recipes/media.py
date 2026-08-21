@@ -646,19 +646,46 @@ def screen_dubbing_agent_recipe(
         ),
         steps=[
             RecipeStep("inspect", "Inspect source video and subtitle band.", agent=inspector),
-            RecipeStep("transcribe", "OCR burned-in titles and ASR speech.", agent=transcriber, use_context=True),
-            RecipeStep("consensus", "Merge OCR+ASR into one narration script.", agent=editor, use_context=True),
+            RecipeStep(
+                "transcribe",
+                "OCR burned-in titles and ASR speech.",
+                agent=transcriber,
+                use_context=True,
+            ),
+            RecipeStep(
+                "consensus",
+                "Merge OCR+ASR into one narration script.",
+                agent=editor,
+                use_context=True,
+            ),
             RecipeStep(
                 "translate",
                 f"Long-context translate the full consensus into {target_language}. {task}",
                 agent=translator,
                 use_context=True,
             ),
-            RecipeStep("localize", "Fit spoken LATAM copy to slot timing.", agent=localizer, use_context=True),
+            RecipeStep(
+                "localize",
+                "Fit spoken LATAM copy to slot timing.",
+                agent=localizer,
+                use_context=True,
+            ),
             RecipeStep("generate", "TTS each consensus line.", agent=generator, use_context=True),
-            RecipeStep("compose", "Mux dubbed audio onto picture.", agent=composer, use_context=True),
-            RecipeStep("validate", "Check empty lines, speed caps, plot holes.", agent=validator, use_context=True),
-            RecipeStep("publish", "Write dubbed file, SRT, and MediaWorkflowReport.", agent=publisher, use_context=True),
+            RecipeStep(
+                "compose", "Mux dubbed audio onto picture.", agent=composer, use_context=True
+            ),
+            RecipeStep(
+                "validate",
+                "Check empty lines, speed caps, plot holes.",
+                agent=validator,
+                use_context=True,
+            ),
+            RecipeStep(
+                "publish",
+                "Write dubbed file, SRT, and MediaWorkflowReport.",
+                agent=publisher,
+                use_context=True,
+            ),
         ],
         metadata={
             "pipeline": "screen_dubbing",

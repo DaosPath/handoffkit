@@ -6,9 +6,7 @@ CONTRACT_VERSION = "1.20.0-v1beta"
 CONTRACT_FORMAT = "handoffkit.clinical.v1beta"
 HANDOFFKIT_CLINICAL_VERSION = CONTRACT_VERSION
 OFFICIAL_CASE_COUNT = 897
-STATUS_PUBLIC = (
-    "experimental / research and education only / not clinically validated"
-)
+STATUS_PUBLIC = "experimental / research and education only / not clinically validated"
 DATASET_NAME = "zou-lab/MedCaseReasoning"
 DATASET_URL = "https://huggingface.co/datasets/zou-lab/MedCaseReasoning"
 DATASET_PAPER = "https://arxiv.org/abs/2505.11733"

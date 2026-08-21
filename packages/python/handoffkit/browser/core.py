@@ -641,9 +641,7 @@ def _classify_host_kind(host: str) -> str:
         if hex_mapped:
             hi = int(hex_mapped.group(1), 16)
             lo = int(hex_mapped.group(2), 16)
-            return _classify_host_kind(
-                f"{(hi >> 8) & 255}.{hi & 255}.{(lo >> 8) & 255}.{lo & 255}"
-            )
+            return _classify_host_kind(f"{(hi >> 8) & 255}.{hi & 255}.{(lo >> 8) & 255}.{lo & 255}")
         if host in {":", "::", "0:0:0:0:0:0:0:0"} or host.startswith("::ffff:0."):
             return "loopback"
         if host.startswith(("fc", "fd", "fe80:", "ff")):

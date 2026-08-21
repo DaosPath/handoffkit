@@ -73,14 +73,14 @@ func (c *Client) Send(command map[string]any) (map[string]any, error) {
 			source = c.Identity.PeerID
 		}
 		peer = map[string]any{
-			"peer_id":                 c.Identity.PeerID,
-			"node_id":                 c.Identity.NodeID,
-			"worker_id":               c.Identity.WorkerID,
-			"trust_domain":            c.Identity.TrustDomain,
-			"credential_fingerprint":  c.Identity.CredentialFingerprint,
-			"capabilities":            c.Identity.Capabilities,
-			"issued_at":               c.Identity.IssuedAt,
-			"expires_at":              c.Identity.ExpiresAt,
+			"peer_id":                c.Identity.PeerID,
+			"node_id":                c.Identity.NodeID,
+			"worker_id":              c.Identity.WorkerID,
+			"trust_domain":           c.Identity.TrustDomain,
+			"credential_fingerprint": c.Identity.CredentialFingerprint,
+			"capabilities":           c.Identity.Capabilities,
+			"issued_at":              c.Identity.IssuedAt,
+			"expires_at":             c.Identity.ExpiresAt,
 		}
 	}
 	env := contract.MessageEnvelope{

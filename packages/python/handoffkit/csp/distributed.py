@@ -435,10 +435,7 @@ class DistributedScheduler:
         """Return restart-interrupted assignments without retrying them."""
 
         with self._lock:
-            return [
-                self._interrupted[key].assignment
-                for key in sorted(self._interrupted)
-            ]
+            return [self._interrupted[key].assignment for key in sorted(self._interrupted)]
 
     def retry_interrupted(self, assignment_id: str) -> bool:
         """Explicitly requeue one restart-interrupted assignment."""
@@ -566,9 +563,7 @@ class DistributedScheduler:
             type(value) is not int or not 0 <= value <= _MAX_SAFE_INTEGER
             for value in (self._completed, self._failed, generation)
         ):
-            raise RuntimeError(
-                "scheduler state counters exceed the interoperable integer range"
-            )
+            raise RuntimeError("scheduler state counters exceed the interoperable integer range")
         return {
             "completed": self._completed,
             "failed": self._failed,
@@ -591,12 +586,10 @@ class DistributedScheduler:
                 for _key, state in sorted(self._interrupted.items())
             ],
             "queued": [
-                {"attempt": state.attempt, "job": state.job.to_dict()}
-                for state in self._queue
+                {"attempt": state.attempt, "job": state.job.to_dict()} for state in self._queue
             ],
             "seen": [
-                {"idempotency_key": key, "job_id": job_id}
-                for key, job_id in self._seen.items()
+                {"idempotency_key": key, "job_id": job_id} for key, job_id in self._seen.items()
             ],
         }
 
@@ -703,10 +696,7 @@ class DistributedScheduler:
             if raw["reason"] != "scheduler_restart":
                 raise ValueError("interrupted scheduler reason is invalid")
             assignment, job = self._decode_assignment_record(raw)
-            if (
-                assignment.assignment_id in assignments
-                or assignment.assignment_id in interrupted
-            ):
+            if assignment.assignment_id in assignments or assignment.assignment_id in interrupted:
                 raise ValueError("scheduler interrupted assignment is duplicated")
             interrupted[assignment.assignment_id] = _InterruptedState(assignment, job)
             record_active(job)

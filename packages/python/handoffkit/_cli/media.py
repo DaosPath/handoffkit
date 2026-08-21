@@ -46,7 +46,11 @@ def build_media_demo_report(output_dir: Path | None = None) -> MediaWorkflowRepo
         media_type="video",
         language="zh",
         duration_seconds=13.2,
-        metadata={"mode": "offline-demo", "real_video_required": False, "pipeline": "screen_dubbing"},
+        metadata={
+            "mode": "offline-demo",
+            "real_video_required": False,
+            "pipeline": "screen_dubbing",
+        },
     )
     asr = [
         TranscriptSegment(
@@ -76,8 +80,12 @@ def build_media_demo_report(output_dir: Path | None = None) -> MediaWorkflowRepo
     ]
     ocr = [
         TranscriptSegment(1, 0.0, 3.4, "我们今天要检查新的库存系统", speaker="NARR", language="zh"),
-        TranscriptSegment(2, 3.5, 7.2, "订单同步失败，但付款记录还在", speaker="NARR", language="zh"),
-        TranscriptSegment(3, 7.4, 13.2, "先保留日志，然后通知技术团队", speaker="NARR", language="zh"),
+        TranscriptSegment(
+            2, 3.5, 7.2, "订单同步失败，但付款记录还在", speaker="NARR", language="zh"
+        ),
+        TranscriptSegment(
+            3, 7.4, 13.2, "先保留日志，然后通知技术团队", speaker="NARR", language="zh"
+        ),
     ]
     transcript = merge_ocr_asr_segments(ocr, asr, language="zh")
     speakers = [
@@ -106,7 +114,7 @@ def build_media_demo_report(output_dir: Path | None = None) -> MediaWorkflowRepo
                     "start": 3.5,
                     "end": 7.2,
                     "text_zh": transcript[1].text,
-                    "text_es": "La sincronización de pedidos falló, pero los registros de pago siguen ahí.",
+                    "text_es": "La sincronización de pedidos falló, pero los registros de pago siguen ahí.",  # noqa: E501
                 },
                 {
                     "index": 3,
@@ -128,15 +136,21 @@ def build_media_demo_report(output_dir: Path | None = None) -> MediaWorkflowRepo
     recipe = screen_dubbing_agent_recipe(target_language="es")
     inspected = build_media_context(
         "inspection",
-        brief="Screen-dub a Chinese clip: OCR titles plus spoken ASR, one long-context ES narration.",
+        brief="Screen-dub a Chinese clip: OCR titles plus spoken ASR, one long-context ES narration.",  # noqa: E501
         target_language="es",
         pipeline="screen_dubbing",
         source=source,
     )
-    transcribed = handoff_media_context(inspected, "transcription", from_agent="Inspector", to_agent="Transcriber")
-    edited = handoff_media_context(transcribed, "edition", from_agent="Transcriber", to_agent="Editor")
+    transcribed = handoff_media_context(
+        inspected, "transcription", from_agent="Inspector", to_agent="Transcriber"
+    )
+    edited = handoff_media_context(
+        transcribed, "edition", from_agent="Transcriber", to_agent="Editor"
+    )
     edited.transcript_segments = transcript
-    translated = handoff_media_context(edited, "translation", from_agent="Editor", to_agent="Translator")
+    translated = handoff_media_context(
+        edited, "translation", from_agent="Editor", to_agent="Translator"
+    )
     translated.dubbing_segments = dubbing_segments
     translated.generation_prompts = [prompt["user"][:400]]
     handoff = translated.to_handoff_state(

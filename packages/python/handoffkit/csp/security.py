@@ -398,14 +398,10 @@ class SecurityTranscript:
             selected_profile=selected_profile,
             sender_peer_id=sender.peer_id,
             sender_node_id=sender.node_id,
-            sender_credential_fingerprint=_normalize_fingerprint(
-                sender.credential_fingerprint
-            ),
+            sender_credential_fingerprint=_normalize_fingerprint(sender.credential_fingerprint),
             receiver_peer_id=receiver.peer_id,
             receiver_node_id=receiver.node_id,
-            receiver_credential_fingerprint=_normalize_fingerprint(
-                receiver.credential_fingerprint
-            ),
+            receiver_credential_fingerprint=_normalize_fingerprint(receiver.credential_fingerprint),
             tls_version=tls_version,
             negotiated_group=negotiated_group,
             session_id=session_id,
@@ -458,9 +454,7 @@ class SecurityTranscript:
                 sender_credential_fingerprint=str(value["sender_credential_fingerprint"]),
                 receiver_peer_id=str(value["receiver_peer_id"]),
                 receiver_node_id=str(value["receiver_node_id"]),
-                receiver_credential_fingerprint=str(
-                    value["receiver_credential_fingerprint"]
-                ),
+                receiver_credential_fingerprint=str(value["receiver_credential_fingerprint"]),
                 tls_version=str(value["tls_version"]),
                 negotiated_group=(
                     str(value["negotiated_group"])
@@ -608,8 +602,11 @@ def _sha256_canonical(value: Any) -> str:
 
 def _is_sha256_fingerprint(value: str) -> bool:
     prefix, separator, digest = value.partition(":")
-    return separator == ":" and prefix == "sha256" and len(digest) == 64 and all(
-        character in "0123456789abcdef" for character in digest
+    return (
+        separator == ":"
+        and prefix == "sha256"
+        and len(digest) == 64
+        and all(character in "0123456789abcdef" for character in digest)
     )
 
 
@@ -1023,9 +1020,7 @@ class ReplayProtection:
         if nonce:
             self.prune_old_nonces(now)
             if nonce_key in self._seen_nonces:
-                raise ReplayDetectedError(
-                    f"Duplicate nonce detected: {nonce}", code="replay_nonce"
-                )
+                raise ReplayDetectedError(f"Duplicate nonce detected: {nonce}", code="replay_nonce")
 
         if nonce_key and len(self._seen_nonces) >= self.max_seen_nonces:
             raise SecurityError(
@@ -1640,9 +1635,9 @@ class ReloadableTLSContext:
         self._current_certificate_identity = (
             peer_identity_from_certificate(config.cert_path) if config.cert_path else None
         )
-        self._identities_by_context: weakref.WeakKeyDictionary[
-            ssl.SSLContext, PeerIdentity
-        ] = weakref.WeakKeyDictionary()
+        self._identities_by_context: weakref.WeakKeyDictionary[ssl.SSLContext, PeerIdentity] = (
+            weakref.WeakKeyDictionary()
+        )
         if self._current_certificate_identity is not None:
             self._identities_by_context[context] = self._current_certificate_identity
         self._router_context: ssl.SSLContext | None = None
@@ -1806,9 +1801,8 @@ def get_supported_crypto_capabilities() -> dict[str, Any]:
         "profiles_supported": profiles,
         "profiles_recognized": [profile.value for profile in SecurityProfile],
         "digest_algorithms": ["sha256"],
-        "signature_algorithms": ["ed25519"] + (
-            [ARTIFACT_ALGORITHM_ECDSA_P256_SHA256] if has_ecdsa else []
-        ),
+        "signature_algorithms": ["ed25519"]
+        + ([ARTIFACT_ALGORITHM_ECDSA_P256_SHA256] if has_ecdsa else []),
         "hybrid_pq_group": HYBRID_PQ_GROUP if has_hybrid_pq else None,
         "hybrid_pq_supported": has_hybrid_pq,
     }

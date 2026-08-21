@@ -269,7 +269,7 @@ def test_default_browser_bridge_uses_bounded_loopback_json_and_feeds_research():
                 "status": 200,
                 "url": payload["url"],
                 "final_url": payload["url"],
-                "html": "<html><head><title>Default page</title></head><body><main><h1>Evidence</h1><p>Browser bridge page.</p></main></body></html>",
+                "html": "<html><head><title>Default page</title></head><body><main><h1>Evidence</h1><p>Browser bridge page.</p></main></body></html>",  # noqa: E501
             }
         )
 
@@ -315,7 +315,7 @@ def test_default_browser_bridge_interoperates_over_real_loopback_tcp():
                     "status": 200,
                     "url": payload["url"],
                     "final_url": payload["url"],
-                    "html": "<html><head><title>TCP page</title></head><body><main><p>Real loopback evidence.</p></main></body></html>",
+                    "html": "<html><head><title>TCP page</title></head><body><main><p>Real loopback evidence.</p></main></body></html>",  # noqa: E501
                 }
             encoded = json.dumps(body).encode("utf-8")
             self.send_response(200)
@@ -668,11 +668,11 @@ def test_run_web_grounded_answer_builds_dossier_and_falls_back_deterministically
 
     transport.set_page(
         "https://html.duckduckgo.com/html/?q=Dossier",
-        '<a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Ffixture.local%2Fdossier.html">Dossier Evidence</a>',
+        '<a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Ffixture.local%2Fdossier.html">Dossier Evidence</a>',  # noqa: E501
     )
     transport.set_page(
         "https://fixture.local/dossier.html",
-        "<html><head><title>Dossier Evidence</title></head><body><main><p>The verified mechanism uses two explicit stages.</p></main></body></html>",
+        "<html><head><title>Dossier Evidence</title></head><body><main><p>The verified mechanism uses two explicit stages.</p></main></body></html>",  # noqa: E501
     )
     out = run_web_grounded_answer(
         "Dossier",
@@ -757,7 +757,7 @@ def test_run_web_grounded_answer_rejects_semantically_unrelated_real_quote():
     )
     transport.set_page(
         "https://fixture.local/adoption.html",
-        "<html><body><main>The estimator aggregates cohort-specific effects, but this page has no journal counts.</main></body></html>",
+        "<html><body><main>The estimator aggregates cohort-specific effects, but this page has no journal counts.</main></body></html>",  # noqa: E501
     )
     out = run_web_grounded_answer(
         "Adoption",
@@ -797,7 +797,7 @@ def test_run_web_grounded_answer_merges_focused_native_browser_queries():
     )
     transport.set_page(
         "https://www.google.com/search?hl=en&num=8&q=fixture+guide",
-        '<a href="/url?q=https%3A%2F%2Ffixture.local%2Fdocs%2Fguide.html&amp;sa=U">Fixture Guide</a>',
+        '<a href="/url?q=https%3A%2F%2Ffixture.local%2Fdocs%2Fguide.html&amp;sa=U">Fixture Guide</a>',  # noqa: E501
     )
     out = run_web_grounded_answer(
         "Fixture research",

@@ -285,7 +285,9 @@ def _pro_run(**kwargs):
 def test_false_diagnosis_is_never_correct_from_coverage() -> None:
     run = _pro_run()
     apply_action(run, {"name": "ask_question", "query": "history of present illness"})
-    apply_action(run, {"name": "submit_diagnosis", "query": "Completely fabricated zeolite poisoning"})
+    apply_action(
+        run, {"name": "submit_diagnosis", "query": "Completely fabricated zeolite poisoning"}
+    )
     assert run.score is not None
     assert run.score.correct is False
     assert run.score.exact_match is False
@@ -366,7 +368,11 @@ def test_ineligible_and_gold_replay_never_count_as_accuracy() -> None:
 def test_personal_input_rejected_on_create_and_action_without_persist() -> None:
     lab = ClinicalLab()
     samples = [
-        {"experience": "professional", "blind_id": "pro-sandbox-001", "symptoms": "I have chest pain"},
+        {
+            "experience": "professional",
+            "blind_id": "pro-sandbox-001",
+            "symptoms": "I have chest pain",
+        },
         {"experience": "professional", "blind_id": "pro-sandbox-001", "personal_input": True},
         {"experience": "professional", "blind_id": "pro-sandbox-001", "email": "ada@example.com"},
     ]
@@ -456,7 +462,9 @@ def test_gold_is_absent_from_participant_view() -> None:
 
 def test_idempotency_conflict_and_budget_before_mutate() -> None:
     run = _pro_run(budget_units=1)
-    apply_action(run, {"action_id": "a1", "name": "ask_question", "query": "history of present illness"})
+    apply_action(
+        run, {"action_id": "a1", "name": "ask_question", "query": "history of present illness"}
+    )
     with pytest.raises(ClinicalError) as exc:
         apply_action(
             run,
@@ -521,7 +529,7 @@ def test_durable_store_checksum_quarantine_and_close(tmp_path: Path) -> None:
         store.load(run.run_id)
     assert exc.value.code == "store_corrupt"
     assert (tmp_path / "runs" / "quarantine" / f"{run.run_id}.json").is_file()
-    backup = store.backup(tmp_path / "backup")
+    backup = store.backup(tmp_path / "backup")  # noqa: F841
     store.close()
     with pytest.raises(ClinicalError):
         store.save(run)
@@ -578,7 +586,13 @@ def test_http_snapshot_and_personal_rejection() -> None:
         conn.request(
             "POST",
             "/api/clinical/v1beta/runs",
-            json.dumps({"experience": "professional", "blind_id": "pro-sandbox-001", "symptoms": "I have chest pain"}),
+            json.dumps(
+                {
+                    "experience": "professional",
+                    "blind_id": "pro-sandbox-001",
+                    "symptoms": "I have chest pain",
+                }
+            ),
             {"Content-Type": "application/json", "Host": "127.0.0.1"},
         )
         personal = json.loads(conn.getresponse().read())
@@ -592,7 +606,9 @@ def test_http_snapshot_and_personal_rejection() -> None:
         )
         created = json.loads(conn.getresponse().read())
         run_id = created["run_id"]
-        conn.request("GET", f"/api/clinical/v1beta/runs/{run_id}/events", headers={"Host": "127.0.0.1"})
+        conn.request(
+            "GET", f"/api/clinical/v1beta/runs/{run_id}/events", headers={"Host": "127.0.0.1"}
+        )
         events = json.loads(conn.getresponse().read())
         assert events["stream"] == "snapshot"
         assert "sealed" not in json.dumps(events)
@@ -602,4 +618,3 @@ def test_http_snapshot_and_personal_rejection() -> None:
     finally:
         server.shutdown()
         server.server_close()
-

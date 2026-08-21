@@ -58,18 +58,45 @@ fn nested(map: &Map<String, Value>, key: &str) -> Map<String, Value> {
 
 fn require_code(code: &str) -> Result<(), BrowserCoreError> {
     const CODES: &[&str] = &[
-        "", "invalid_request", "unauthorized", "replay_detected", "capability_denied", "policy_denied",
-        "provider_unavailable", "provider_challenge", "timeout", "cancelled", "interrupted", "not_found",
-        "index_corrupt", "index_unavailable", "public_bind_rejected", "profile_denied", "javascript_denied",
-        "download_quarantined", "engine_crash", "engine_unsupported", "strict_provider_rejected",
-        "user_browser_bridge_required", "default_browser_bridge_required", "query_required", "no_results",
-        "robots_denied", "rate_limited", "unsupported_provider",
-        "artifact_write_failed", "artifact_integrity_failed", "download_too_large",
+        "",
+        "invalid_request",
+        "unauthorized",
+        "replay_detected",
+        "capability_denied",
+        "policy_denied",
+        "provider_unavailable",
+        "provider_challenge",
+        "timeout",
+        "cancelled",
+        "interrupted",
+        "not_found",
+        "index_corrupt",
+        "index_unavailable",
+        "public_bind_rejected",
+        "profile_denied",
+        "javascript_denied",
+        "download_quarantined",
+        "engine_crash",
+        "engine_unsupported",
+        "strict_provider_rejected",
+        "user_browser_bridge_required",
+        "default_browser_bridge_required",
+        "query_required",
+        "no_results",
+        "robots_denied",
+        "rate_limited",
+        "unsupported_provider",
+        "artifact_write_failed",
+        "artifact_integrity_failed",
+        "download_too_large",
     ];
     if CODES.contains(&code) {
         Ok(())
     } else {
-        Err(err("invalid_request", &format!("Unknown browser error code: {code}")))
+        Err(err(
+            "invalid_request",
+            &format!("Unknown browser error code: {code}"),
+        ))
     }
 }
 
@@ -131,8 +158,13 @@ fn parse_error(input: &Value) -> Result<Value, BrowserCoreError> {
 fn parse_policy(input: &Value) -> Result<Value, BrowserCoreError> {
     let data = obj(input);
     let credentials = nested(&data, "credentials");
-    if bool_field(&credentials, "reuse_user_profile", false) || bool_field(&credentials, "share_cookies", false) {
-        return Err(err("profile_denied", "Sharing cookies or reusing the operator browser profile is forbidden"));
+    if bool_field(&credentials, "reuse_user_profile", false)
+        || bool_field(&credentials, "share_cookies", false)
+    {
+        return Err(err(
+            "profile_denied",
+            "Sharing cookies or reusing the operator browser profile is forbidden",
+        ));
     }
     let network = nested(&data, "network");
     let filesystem = nested(&data, "filesystem");
@@ -221,7 +253,10 @@ fn parse_snapshot(input: &Value) -> Result<Value, BrowserCoreError> {
     let data = obj(input);
     let digest = text(&data, "sha256", "").to_lowercase();
     if !digest.is_empty() && !sha256_ok(&digest) {
-        return Err(err("invalid_request", "sha256 must be a 64-character hex digest"));
+        return Err(err(
+            "invalid_request",
+            "sha256 must be a 64-character hex digest",
+        ));
     }
     Ok(json!({
         "contract_version": text(&data, "contract_version", CONTRACT_VERSION),
@@ -248,10 +283,16 @@ fn parse_claim(input: &Value) -> Result<Value, BrowserCoreError> {
     let source_url = text(&data, "source_url", "");
     let derived = arr(&data, "derived_from");
     if status == "supported" && (quote.is_empty() || source_url.is_empty()) {
-        return Err(err("invalid_request", "supported claims require a verbatim quote and source URL"));
+        return Err(err(
+            "invalid_request",
+            "supported claims require a verbatim quote and source URL",
+        ));
     }
     if status == "derived" && derived.len() < 2 {
-        return Err(err("invalid_request", "derived claims require two or more compatible claim ids"));
+        return Err(err(
+            "invalid_request",
+            "derived claims require two or more compatible claim ids",
+        ));
     }
     Ok(json!({
         "claim_id": text(&data, "claim_id", ""),
@@ -306,15 +347,25 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
             if product == "core" {
                 out["local_index"] = json!(false);
             }
-            if out["engine_ready"].as_bool() == Some(true) && out["probed_at"].as_str() == Some("") {
-                return Err(err("invalid_request", "engine_ready requires a completed probe timestamp"));
+            if out["engine_ready"].as_bool() == Some(true) && out["probed_at"].as_str() == Some("")
+            {
+                return Err(err(
+                    "invalid_request",
+                    "engine_ready requires a completed probe timestamp",
+                ));
             }
             Ok(out)
         }
         "SearchRequest" => {
             let data = obj(input);
             let providers = data.get("providers").cloned().unwrap_or_else(|| {
-                json!(["google_browser", "project_index", "google_http", "duckduckgo", "wikipedia"])
+                json!([
+                    "google_browser",
+                    "project_index",
+                    "google_http",
+                    "duckduckgo",
+                    "wikipedia"
+                ])
             });
             Ok(json!({
                 "contract_version": text(&data, "contract_version", CONTRACT_VERSION),
@@ -343,7 +394,9 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
             }
             let strict = bool_field(&data, "strict_provider", false);
             if strict {
-                let fallback = traces.iter().any(|item| item["fallback_reason"].as_str().unwrap_or("").is_empty() == false);
+                let fallback = traces
+                    .iter()
+                    .any(|item| item["fallback_reason"].as_str().unwrap_or("").is_empty() == false);
                 let requested = arr(&data, "providers_requested");
                 let first = requested.first().and_then(Value::as_str).unwrap_or("");
                 let used_other = arr(&data, "providers_used").iter().any(|name| {
@@ -351,7 +404,10 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
                     !value.is_empty() && value != first
                 });
                 if fallback || used_other {
-                    return Err(err("strict_provider_rejected", "strict_provider forbids fallback"));
+                    return Err(err(
+                        "strict_provider_rejected",
+                        "strict_provider forbids fallback",
+                    ));
                 }
             }
             Ok(json!({
@@ -379,7 +435,10 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
             let profile_dir = text(&data, "profile_dir", "");
             let profile_id = text(&data, "profile_id", "");
             if persistent && profile_dir.is_empty() && profile_id.is_empty() {
-                return Err(err("profile_denied", "Persistent profiles require an explicit isolated profile_dir"));
+                return Err(err(
+                    "profile_denied",
+                    "Persistent profiles require an explicit isolated profile_dir",
+                ));
             }
             require_rfc3339(&text(&data, "issued_at", ""), "issued_at")?;
             require_rfc3339(&text(&data, "deadline_at", ""), "deadline_at")?;
@@ -399,7 +458,19 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
         "BrowserSessionState" => {
             let data = obj(input);
             let status = text(&data, "status", "pending");
-            require_one(&status, &["pending", "starting", "ready", "running", "paused", "interrupted", "closed"], "status")?;
+            require_one(
+                &status,
+                &[
+                    "pending",
+                    "starting",
+                    "ready",
+                    "running",
+                    "paused",
+                    "interrupted",
+                    "closed",
+                ],
+                "status",
+            )?;
             let product = text(&data, "product", "lite");
             require_one(&product, &["core", "lite", "real"], "product")?;
             Ok(json!({
@@ -427,10 +498,30 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
             require_one(
                 &name_field,
                 &[
-                    "session.start", "session.close", "session.status", "session.pause", "session.resume",
-                    "session.retry", "navigate", "back", "forward", "reload", "wait",
-                    "snapshot.dom", "snapshot.ax", "locate", "click", "type", "select", "press",
-                    "markdown", "screenshot", "pdf", "download", "cancel", "evaluate",
+                    "session.start",
+                    "session.close",
+                    "session.status",
+                    "session.pause",
+                    "session.resume",
+                    "session.retry",
+                    "navigate",
+                    "back",
+                    "forward",
+                    "reload",
+                    "wait",
+                    "snapshot.dom",
+                    "snapshot.ax",
+                    "locate",
+                    "click",
+                    "type",
+                    "select",
+                    "press",
+                    "markdown",
+                    "screenshot",
+                    "pdf",
+                    "download",
+                    "cancel",
+                    "evaluate",
                 ],
                 "name",
             )?;
@@ -458,10 +549,28 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
             require_one(
                 &name_field,
                 &[
-                    "session.started", "session.closed", "session.interrupted", "session.status",
-                    "session.paused", "session.resumed", "session.retry", "navigated", "wait.done",
-                    "snapshot", "located", "action.done", "network", "console", "page.error", "markdown",
-                    "screenshot", "pdf", "download", "cancelled", "error", "research.progress",
+                    "session.started",
+                    "session.closed",
+                    "session.interrupted",
+                    "session.status",
+                    "session.paused",
+                    "session.resumed",
+                    "session.retry",
+                    "navigated",
+                    "wait.done",
+                    "snapshot",
+                    "located",
+                    "action.done",
+                    "network",
+                    "console",
+                    "page.error",
+                    "markdown",
+                    "screenshot",
+                    "pdf",
+                    "download",
+                    "cancelled",
+                    "error",
+                    "research.progress",
                     "capability.updated",
                 ],
                 "name",
@@ -481,7 +590,10 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
             let data = obj(input);
             let digest = text(&data, "sha256", "").to_lowercase();
             if !digest.is_empty() && !sha256_ok(&digest) {
-                return Err(err("invalid_request", "sha256 must be a 64-character hex digest"));
+                return Err(err(
+                    "invalid_request",
+                    "sha256 must be a 64-character hex digest",
+                ));
             }
             Ok(json!({
                 "contract_version": text(&data, "contract_version", CONTRACT_VERSION),
@@ -520,7 +632,18 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
             let stage = text(&data, "stage", "plan");
             require_one(
                 &stage,
-                &["plan", "search", "select", "fetch", "extract", "ground", "recover", "complete", "failed", "cancelled"],
+                &[
+                    "plan",
+                    "search",
+                    "select",
+                    "fetch",
+                    "extract",
+                    "ground",
+                    "recover",
+                    "complete",
+                    "failed",
+                    "cancelled",
+                ],
                 "stage",
             )?;
             Ok(json!({
@@ -553,7 +676,11 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
             let mut allowed: Vec<String> = selected.clone();
             for snap in &snapshots {
                 let url = snap["final_url"].as_str().unwrap_or("");
-                let url = if url.is_empty() { snap["url"].as_str().unwrap_or("") } else { url };
+                let url = if url.is_empty() {
+                    snap["url"].as_str().unwrap_or("")
+                } else {
+                    url
+                };
                 if !url.is_empty() {
                     allowed.push(url.to_string());
                 }
@@ -566,7 +693,10 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
                     return Err(err("invalid_request", "citations cannot be empty"));
                 }
                 if !allowed.iter().any(|item| item == &url) {
-                    return Err(err("invalid_request", "citation URL was not fetched or selected"));
+                    return Err(err(
+                        "invalid_request",
+                        "citation URL was not fetched or selected",
+                    ));
                 }
                 citations.push(json!({"title": text(&row, "title", ""), "url": url}));
             }
@@ -587,7 +717,10 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
                 "error": parse_error(data.get("error").unwrap_or(&json!({})))?,
             }))
         }
-        _ => Err(err("invalid_request", &format!("Unknown core model: {name}"))),
+        _ => Err(err(
+            "invalid_request",
+            &format!("Unknown core model: {name}"),
+        )),
     }
 }
 
@@ -597,12 +730,19 @@ pub fn reject_public_bind(policy: &Value, host: &str) -> Result<(), BrowserCoreE
     let loopback = matches!(value.as_str(), "127.0.0.1" | "localhost" | "::1");
     let bind = obj(&parsed["bind"]);
     if !loopback && !bool_field(&bind, "allow_public_bind", false) {
-        return Err(err("public_bind_rejected", &format!("Public bind rejected for {host}")));
+        return Err(err(
+            "public_bind_rejected",
+            &format!("Public bind rejected for {host}"),
+        ));
     }
-    if !loopback && bool_field(&bind, "allow_public_bind", false)
+    if !loopback
+        && bool_field(&bind, "allow_public_bind", false)
         && (!bool_field(&bind, "require_tls", true) || !bool_field(&bind, "require_mtls", true))
     {
-        return Err(err("public_bind_rejected", "Public bind requires TLS 1.3 and mTLS"));
+        return Err(err(
+            "public_bind_rejected",
+            "Public bind requires TLS 1.3 and mTLS",
+        ));
     }
     Ok(())
 }
@@ -663,7 +803,11 @@ fn classify_host_kind(host: &str) -> &'static str {
                 }
             }
         }
-        if host.starts_with("fc") || host.starts_with("fd") || host.starts_with("fe80:") || host.starts_with("ff") {
+        if host.starts_with("fc")
+            || host.starts_with("fd")
+            || host.starts_with("fe80:")
+            || host.starts_with("ff")
+        {
             return "private";
         }
         return "public";
@@ -780,7 +924,10 @@ pub fn assert_network_url(policy: &Value, url: &str) -> Result<(), BrowserCoreEr
     }
     let allow = arr(&network, "allow_hosts");
     if !allow.is_empty() && !host_listed(host, &allow) {
-        return Err(err("policy_denied", &format!("Host not allowlisted: {host}")));
+        return Err(err(
+            "policy_denied",
+            &format!("Host not allowlisted: {host}"),
+        ));
     }
     if kind == "loopback" && !bool_field(&network, "allow_loopback", false) {
         return Err(err("policy_denied", "Loopback navigation is denied"));

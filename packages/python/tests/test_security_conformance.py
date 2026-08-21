@@ -18,9 +18,7 @@ from handoffkit.csp import (
 )
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
-VECTORS = json.loads(
-    (CONTRACTS / "conformance/security-v1.json").read_text(encoding="utf-8")
-)
+VECTORS = json.loads((CONTRACTS / "conformance/security-v1.json").read_text(encoding="utf-8"))
 
 
 def test_security_wire_conformance() -> None:
@@ -45,8 +43,9 @@ def test_security_wire_conformance() -> None:
 
 def test_finalization_unavailable_fixture_is_fail_closed() -> None:
     fixture = json.loads(
-        (CONTRACTS / "test-fixtures/security/finalization-unavailable-v1.json")
-        .read_text(encoding="utf-8")
+        (CONTRACTS / "test-fixtures/security/finalization-unavailable-v1.json").read_text(
+            encoding="utf-8"
+        )
     )
     expected = {
         "ocsp_fetch": "ocsp_fetch_unavailable",
@@ -78,9 +77,7 @@ def test_profile_negotiation_conformance(case: dict[str, object]) -> None:
             negotiate_security_profile(case["required"], case["offered"], case["supported"])
         assert raised.value.code == case["error_code"]
     else:
-        selected = negotiate_security_profile(
-            case["required"], case["offered"], case["supported"]
-        )
+        selected = negotiate_security_profile(case["required"], case["offered"], case["supported"])
         assert selected.value == case["selected"]
 
 

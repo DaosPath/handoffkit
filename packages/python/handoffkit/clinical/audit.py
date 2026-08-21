@@ -33,9 +33,7 @@ def audit_report(payload: dict[str, Any]) -> dict[str, Any]:
                 code="run_incomplete",
             )
     leaks = [
-        item
-        for item in results
-        if (item.get("error") or {}).get("code") == "gold_leak_detected"
+        item for item in results if (item.get("error") or {}).get("code") == "gold_leak_detected"
     ]
     if leaks:
         raise ClinicalError(

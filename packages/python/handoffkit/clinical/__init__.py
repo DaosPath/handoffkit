@@ -14,7 +14,12 @@ from handoffkit.clinical.constants import (
     STATUS_PUBLIC,
     TRACKS,
 )
-from handoffkit.clinical.corpus import build_manifest, download_official, official_corpus_status, row_to_case
+from handoffkit.clinical.corpus import (
+    build_manifest,
+    download_official,
+    official_corpus_status,
+    row_to_case,
+)
 from handoffkit.clinical.engine import ClinicalLab, default_lab
 from handoffkit.clinical.errors import ClinicalError
 from handoffkit.clinical.machine import apply_action, start_run

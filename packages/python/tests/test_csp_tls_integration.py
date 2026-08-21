@@ -807,9 +807,7 @@ def test_python_tls_credentials_reload_atomically_on_live_listener() -> None:
             config=client_config,
             server_hostname="localhost",
         )
-        await rotated.send(
-            secure_envelope(new_client, session_id="rotated-new", nonce="rotated")
-        )
+        await rotated.send(secure_envelope(new_client, session_id="rotated-new", nonce="rotated"))
         assert await asyncio.wait_for(accepted.get(), 2) == new_client.credential_fingerprint
         await rotated.close()
 

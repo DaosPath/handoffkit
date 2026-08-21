@@ -45,10 +45,7 @@ class BrowserRealClient:
         wire = dict(identity or {})
         self._peer_id = str(peer_id or wire.get("peer_id") or "")
         self._fingerprint = str(
-            fingerprint
-            or wire.get("credential_fingerprint")
-            or wire.get("fingerprint")
-            or ""
+            fingerprint or wire.get("credential_fingerprint") or wire.get("fingerprint") or ""
         )
         self._identity = {
             "peer_id": self._peer_id,

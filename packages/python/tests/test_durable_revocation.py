@@ -76,12 +76,8 @@ def test_python_loads_shared_durable_revocation_fixture(tmp_path):
         "entries": 3,
         "active": 2,
     }
-    assert policy.is_revoked(
-        "certificate_fingerprint", "sha256:" + "a" * 64, now=1_800_000_000
-    )
-    assert policy.is_revoked(
-        "signer_fingerprint", "sha256:" + "b" * 64, now=1_800_000_000
-    )
+    assert policy.is_revoked("certificate_fingerprint", "sha256:" + "a" * 64, now=1_800_000_000)
+    assert policy.is_revoked("signer_fingerprint", "sha256:" + "b" * 64, now=1_800_000_000)
     assert not policy.is_revoked("peer_id", "peer-b", now=1_800_000_000)
 
 

@@ -176,30 +176,30 @@ func parsePolicy(input any) (map[string]any, error) {
 	return map[string]any{
 		"contract_version": text(data, "contract_version", ContractVersion),
 		"network": map[string]any{
-			"allow_loopback":        asBool(network, "allow_loopback", false),
-			"allow_private":         asBool(network, "allow_private", false),
-			"allow_public":          asBool(network, "allow_public", true),
-			"allow_hosts":           allowHosts,
-			"deny_hosts":            denyHosts,
-			"max_redirects":         asInt(network, "max_redirects", 5),
-			"max_body_bytes":        asInt(network, "max_body_bytes", 2*1024*1024),
-			"max_decompress_bytes":  asInt(network, "max_decompress_bytes", 8*1024*1024),
-			"timeout_ms":            asInt(network, "timeout_ms", 15000),
-			"respect_robots":        asBool(network, "respect_robots", true),
+			"allow_loopback":       asBool(network, "allow_loopback", false),
+			"allow_private":        asBool(network, "allow_private", false),
+			"allow_public":         asBool(network, "allow_public", true),
+			"allow_hosts":          allowHosts,
+			"deny_hosts":           denyHosts,
+			"max_redirects":        asInt(network, "max_redirects", 5),
+			"max_body_bytes":       asInt(network, "max_body_bytes", 2*1024*1024),
+			"max_decompress_bytes": asInt(network, "max_decompress_bytes", 8*1024*1024),
+			"timeout_ms":           asInt(network, "timeout_ms", 15000),
+			"respect_robots":       asBool(network, "respect_robots", true),
 		},
 		"filesystem": map[string]any{
-			"allow_read":             asBool(filesystem, "allow_read", false),
-			"allow_write":            asBool(filesystem, "allow_write", false),
-			"download_dir":           text(filesystem, "download_dir", ""),
-			"quarantine_downloads":   asBool(filesystem, "quarantine_downloads", true),
-			"max_download_bytes":     asInt(filesystem, "max_download_bytes", 50*1024*1024),
+			"allow_read":           asBool(filesystem, "allow_read", false),
+			"allow_write":          asBool(filesystem, "allow_write", false),
+			"download_dir":         text(filesystem, "download_dir", ""),
+			"quarantine_downloads": asBool(filesystem, "quarantine_downloads", true),
+			"max_download_bytes":   asInt(filesystem, "max_download_bytes", 50*1024*1024),
 		},
 		"javascript": map[string]any{"allow_evaluate": asBool(javascript, "allow_evaluate", false)},
 		"credentials": map[string]any{
-			"share_cookies":        asBool(credentials, "share_cookies", false),
-			"persistent_profile":   asBool(credentials, "persistent_profile", false),
-			"profile_dir":          text(credentials, "profile_dir", ""),
-			"reuse_user_profile":   false,
+			"share_cookies":      asBool(credentials, "share_cookies", false),
+			"persistent_profile": asBool(credentials, "persistent_profile", false),
+			"profile_dir":        text(credentials, "profile_dir", ""),
+			"reuse_user_profile": false,
 		},
 		"index": map[string]any{
 			"enabled":        asBool(index, "enabled", false),
@@ -323,20 +323,20 @@ func ParseCoreModel(name string, input any) (map[string]any, error) {
 			return nil, err
 		}
 		out := map[string]any{
-			"contract_version":    text(data, "contract_version", ContractVersion),
-			"product":             product,
-			"engine":              text(data, "engine", ""),
-			"engine_ready":        asBool(data, "engine_ready", false),
-			"search_providers":    asArray(data, "search_providers"),
-			"operations":          asArray(data, "operations"),
-			"javascript":          asBool(data, "javascript", false),
-			"screenshots":         asBool(data, "screenshots", false),
-			"pdf":                 asBool(data, "pdf", false),
-			"downloads":           asBool(data, "downloads", false),
-			"persistent_profile":  asBool(data, "persistent_profile", false),
-			"local_index":         asBool(data, "local_index", false),
-			"probed_at":           text(data, "probed_at", ""),
-			"probe_results":       asArray(data, "probe_results"),
+			"contract_version":   text(data, "contract_version", ContractVersion),
+			"product":            product,
+			"engine":             text(data, "engine", ""),
+			"engine_ready":       asBool(data, "engine_ready", false),
+			"search_providers":   asArray(data, "search_providers"),
+			"operations":         asArray(data, "operations"),
+			"javascript":         asBool(data, "javascript", false),
+			"screenshots":        asBool(data, "screenshots", false),
+			"pdf":                asBool(data, "pdf", false),
+			"downloads":          asBool(data, "downloads", false),
+			"persistent_profile": asBool(data, "persistent_profile", false),
+			"local_index":        asBool(data, "local_index", false),
+			"probed_at":          text(data, "probed_at", ""),
+			"probe_results":      asArray(data, "probe_results"),
 		}
 		if product != "real" {
 			out["javascript"] = false
@@ -418,20 +418,20 @@ func ParseCoreModel(name string, input any) (map[string]any, error) {
 			}
 		}
 		return map[string]any{
-			"contract_version":     text(data, "contract_version", ContractVersion),
-			"request_id":           text(data, "request_id", ""),
-			"success":              asBool(data, "success", false),
-			"query":                text(data, "query", ""),
-			"keywords":             text(data, "keywords", ""),
-			"results":              results,
-			"count":                asInt(data, "count", len(results)),
-			"strict_provider":      strict,
-			"providers_requested":  asArray(data, "providers_requested"),
-			"providers_used":       asArray(data, "providers_used"),
-			"provider_trace":       traces,
-			"errors":               asArray(data, "errors"),
-			"error_code":           errorCode,
-			"error":                text(data, "error", ""),
+			"contract_version":    text(data, "contract_version", ContractVersion),
+			"request_id":          text(data, "request_id", ""),
+			"success":             asBool(data, "success", false),
+			"query":               text(data, "query", ""),
+			"keywords":            text(data, "keywords", ""),
+			"results":             results,
+			"count":               asInt(data, "count", len(results)),
+			"strict_provider":     strict,
+			"providers_requested": asArray(data, "providers_requested"),
+			"providers_used":      asArray(data, "providers_used"),
+			"provider_trace":      traces,
+			"errors":              asArray(data, "errors"),
+			"error_code":          errorCode,
+			"error":               text(data, "error", ""),
 		}, nil
 	case "BrowserSessionRequest":
 		product := text(data, "product", "lite")
@@ -455,16 +455,16 @@ func ParseCoreModel(name string, input any) (map[string]any, error) {
 			return nil, err
 		}
 		return map[string]any{
-			"contract_version":    text(data, "contract_version", ContractVersion),
-			"request_id":          text(data, "request_id", ""),
-			"session_id":          text(data, "session_id", ""),
-			"product":             product,
-			"headless":            asBool(data, "headless", true),
-			"persistent_profile":  persistent,
-			"profile_dir":         profileDir,
-			"issued_at":           text(data, "issued_at", ""),
-			"deadline_at":         text(data, "deadline_at", ""),
-			"policy":              policy,
+			"contract_version":   text(data, "contract_version", ContractVersion),
+			"request_id":         text(data, "request_id", ""),
+			"session_id":         text(data, "session_id", ""),
+			"product":            product,
+			"headless":           asBool(data, "headless", true),
+			"persistent_profile": persistent,
+			"profile_dir":        profileDir,
+			"issued_at":          text(data, "issued_at", ""),
+			"deadline_at":        text(data, "deadline_at", ""),
+			"policy":             policy,
 		}, nil
 	case "BrowserSessionState":
 		status := text(data, "status", "pending")
@@ -480,18 +480,18 @@ func ParseCoreModel(name string, input any) (map[string]any, error) {
 			return nil, err
 		}
 		return map[string]any{
-			"contract_version":    text(data, "contract_version", ContractVersion),
-			"session_id":          text(data, "session_id", ""),
-			"request_id":          text(data, "request_id", ""),
-			"status":              status,
-			"product":             product,
-			"engine":              text(data, "engine", ""),
-			"headless":            asBool(data, "headless", true),
-			"persistent_profile":  asBool(data, "persistent_profile", false),
-			"created_at":          text(data, "created_at", ""),
-			"updated_at":          text(data, "updated_at", ""),
-			"current_url":         text(data, "current_url", ""),
-			"error":               parsedError,
+			"contract_version":   text(data, "contract_version", ContractVersion),
+			"session_id":         text(data, "session_id", ""),
+			"request_id":         text(data, "request_id", ""),
+			"status":             status,
+			"product":            product,
+			"engine":             text(data, "engine", ""),
+			"headless":           asBool(data, "headless", true),
+			"persistent_profile": asBool(data, "persistent_profile", false),
+			"created_at":         text(data, "created_at", ""),
+			"updated_at":         text(data, "updated_at", ""),
+			"current_url":        text(data, "current_url", ""),
+			"error":              parsedError,
 		}, nil
 	case "BrowserCommand":
 		commandID := text(data, "command_id", "")
@@ -514,15 +514,15 @@ func ParseCoreModel(name string, input any) (map[string]any, error) {
 			return nil, err
 		}
 		return map[string]any{
-			"contract_version":  text(data, "contract_version", ContractVersion),
-			"command_id":        commandID,
-			"request_id":        text(data, "request_id", ""),
-			"session_id":        text(data, "session_id", ""),
-			"name":              cmd,
-			"issued_at":         text(data, "issued_at", ""),
-			"deadline_at":       text(data, "deadline_at", ""),
-			"idempotency_key":   text(data, "idempotency_key", ""),
-			"payload":           asObj(data, "payload"),
+			"contract_version": text(data, "contract_version", ContractVersion),
+			"command_id":       commandID,
+			"request_id":       text(data, "request_id", ""),
+			"session_id":       text(data, "session_id", ""),
+			"name":             cmd,
+			"issued_at":        text(data, "issued_at", ""),
+			"deadline_at":      text(data, "deadline_at", ""),
+			"idempotency_key":  text(data, "idempotency_key", ""),
+			"payload":          asObj(data, "payload"),
 		}, nil
 	case "BrowserEvent":
 		eventID := text(data, "event_id", "")
@@ -569,18 +569,18 @@ func ParseCoreModel(name string, input any) (map[string]any, error) {
 		}, nil
 	case "ResearchJob":
 		return map[string]any{
-			"contract_version":  text(data, "contract_version", ContractVersion),
-			"job_id":            text(data, "job_id", ""),
-			"request_id":        text(data, "request_id", ""),
-			"session_id":        text(data, "session_id", ""),
-			"query":             text(data, "query", ""),
-			"status":            text(data, "status", "running"),
-			"pack_version":      asInt(data, "pack_version", 2),
-			"strict_provider":   asBool(data, "strict_provider", false),
-			"created_at":        text(data, "created_at", ""),
-			"updated_at":        text(data, "updated_at", ""),
-			"checkpoint_id":     text(data, "checkpoint_id", ""),
-			"idempotency_key":   text(data, "idempotency_key", ""),
+			"contract_version": text(data, "contract_version", ContractVersion),
+			"job_id":           text(data, "job_id", ""),
+			"request_id":       text(data, "request_id", ""),
+			"session_id":       text(data, "session_id", ""),
+			"query":            text(data, "query", ""),
+			"status":           text(data, "status", "running"),
+			"pack_version":     asInt(data, "pack_version", 2),
+			"strict_provider":  asBool(data, "strict_provider", false),
+			"created_at":       text(data, "created_at", ""),
+			"updated_at":       text(data, "updated_at", ""),
+			"checkpoint_id":    text(data, "checkpoint_id", ""),
+			"idempotency_key":  text(data, "idempotency_key", ""),
 		}, nil
 	case "ResearchProgress":
 		stage := text(data, "stage", "plan")
