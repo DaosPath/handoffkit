@@ -1,0 +1,56 @@
+name: Browser Real soak
+
+on:
+  workflow_dispatch:
+
+jobs:
+  soak:
+    name: 4h soak ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 270
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - windows-2025
+          - macos-15
+          - macos-14
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+      - name: Install JavaScript workspace
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        shell: bash
+        run: |
+          if ! pnpm --dir packages/js/browser-real run install-chromium; then
+            echo "Playwright managed Chromium unavailable; requiring HANDOFFKIT_BROWSER_CHROMIUM"
+            if [ -z "${HANDOFFKIT_BROWSER_CHROMIUM:-}" ]; then
+              echo "No system Chromium executablePath configured; failing instead of skipping"
+              exit 1
+            fi
+          fi
+      - name: Run 4h / 1000-navigation soak
+        env:
+          HANDOFFKIT_BROWSER_REAL_SOAK: "1"
+          HANDOFFKIT_BROWSER_REAL_SOAK_NAVIGATIONS: "1000"
+          HANDOFFKIT_BROWSER_REAL_SOAK_MS: "14400000"
+          HANDOFFKIT_BROWSER_REAL_SOAK_OUTPUT: browser-real-soak.json
+        run: node scripts/js/browser-real-soak.mjs
+      - name: Archive soak JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-real-soak-${{ matrix.os }}
+          path: browser-real-soak.json
+          if-no-files-found: error
