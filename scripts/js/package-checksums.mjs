@@ -65,6 +65,7 @@ function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+await mkdir(path.join(root, ".local-tests"), { recursive: true });
 const tempRoot = await mkdtemp(path.join(root, ".local-tests", "package-checksums-"));
 const artifacts = [];
 try {
