@@ -169,6 +169,14 @@ jobs:
       - name: Install JavaScript workspace
         run: pnpm install --frozen-lockfile
 
+      - name: Set up Python for TLS fixture generation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install TLS fixture generator dependency
+        run: python -m pip install "cryptography>=46,<50"
+
       - name: Browser Core, Lite, and Real unit tests
         shell: bash
         run: |
