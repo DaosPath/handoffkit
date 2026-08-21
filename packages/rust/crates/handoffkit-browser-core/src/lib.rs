@@ -396,7 +396,7 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
             if strict {
                 let fallback = traces
                     .iter()
-                    .any(|item| item["fallback_reason"].as_str().unwrap_or("").is_empty() == false);
+                    .any(|item| !item["fallback_reason"].as_str().unwrap_or("").is_empty());
                 let requested = arr(&data, "providers_requested");
                 let first = requested.first().and_then(Value::as_str).unwrap_or("");
                 let used_other = arr(&data, "providers_used").iter().any(|name| {
