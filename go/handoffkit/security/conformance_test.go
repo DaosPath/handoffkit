@@ -57,7 +57,7 @@ func contractsRoot(t *testing.T) string {
 	if !ok {
 		t.Fatal("cannot locate conformance test")
 	}
-	return filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", "contracts"))
+	return filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", "..", "shared", "contracts"))
 }
 
 func loadJSON(t *testing.T, path string, target any) {

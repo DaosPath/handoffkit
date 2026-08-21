@@ -25,7 +25,7 @@ func repositoryRoot(t *testing.T) string {
 
 func fixture(t *testing.T, root string) any {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(root, "packages", "contracts", "fixtures", "handoff_state.json"))
+	data, err := os.ReadFile(filepath.Join(root, "shared", "contracts", "fixtures", "handoff_state.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -124,7 +124,7 @@ func TestHybridPQCapabilityIsProviderDetectedAndFailsClosed(t *testing.T) {
 
 func TestEd25519ArtifactSignaturesMatchSharedVectorAndPolicy(t *testing.T) {
 	fixture := func(name string) string {
-		return filepath.Join("..", "..", "contracts", "test-fixtures", "artifact-signing", name)
+		return filepath.Join("..", "..", "..", "shared", "contracts", "test-fixtures", "artifact-signing", name)
 	}
 	vectorData, err := os.ReadFile(fixture("vector.json"))
 	if err != nil {

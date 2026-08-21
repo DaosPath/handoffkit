@@ -17,7 +17,7 @@ func GenerateTLSFixtures() (string, func(), error) {
 		return "", nil, fmt.Errorf("cannot locate TLS fixture generator")
 	}
 	generator := filepath.Clean(filepath.Join(
-		filepath.Dir(source), "..", "..", "..", "contracts", "test-fixtures", "tls", "generate.py",
+		filepath.Dir(source), "..", "..", "..", "..", "shared", "contracts", "test-fixtures", "tls", "generate.py",
 	))
 	directory, err := os.MkdirTemp("", "handoffkit-go-tls-")
 	if err != nil {

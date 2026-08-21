@@ -23,7 +23,7 @@ type corpusFile struct {
 }
 
 func TestSharedDifferentialCorpus(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "contracts", "corpus", "csp-validation.json"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "shared", "contracts", "corpus", "csp-validation.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestErrorSanitization(t *testing.T) {
 
 func TestDistributedFixtures(t *testing.T) {
 	for _, name := range []string{"worker_heartbeat.json", "distributed_job.json", "job_assignment.json"} {
-		data, err := os.ReadFile(filepath.Join("..", "..", "contracts", "fixtures", name))
+		data, err := os.ReadFile(filepath.Join("..", "..", "..", "shared", "contracts", "fixtures", name))
 		if err != nil {
 			t.Fatal(err)
 		}
