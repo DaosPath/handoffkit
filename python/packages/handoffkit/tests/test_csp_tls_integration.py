@@ -35,7 +35,12 @@ from handoffkit.csp import (
 )
 
 TLS_GENERATOR = (
-    Path(__file__).resolve().parents[4] / "shared" / "contracts" / "test-fixtures" / "tls" / "generate.py"
+    Path(__file__).resolve().parents[4]
+    / "shared"
+    / "contracts"
+    / "test-fixtures"
+    / "tls"
+    / "generate.py"
 )
 _TLS_TEMP_DIRECTORY = tempfile.TemporaryDirectory(prefix="handoffkit-python-tls-")
 TLS_FIXTURES = Path(_TLS_TEMP_DIRECTORY.name)

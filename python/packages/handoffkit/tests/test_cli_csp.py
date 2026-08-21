@@ -25,7 +25,9 @@ def test_csp_demo(capsys: pytest.CaptureFixture[str]) -> None:
 
 @pytest.mark.monorepo
 def test_csp_inspect(capsys: pytest.CaptureFixture[str]) -> None:
-    fixture = Path(__file__).resolve().parents[4] / "shared/contracts/fixtures/message_envelope.json"
+    fixture = (
+        Path(__file__).resolve().parents[4] / "shared/contracts/fixtures/message_envelope.json"
+    )
     assert main(["csp", "inspect", str(fixture)]) == 0
     data = json.loads(capsys.readouterr().out)
     assert data["protocol_version"] == "1.0"
