@@ -1,0 +1,32 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": "allow",
+    "edit": "allow",
+    "write": "allow",
+    "read": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "list": "allow",
+    "todowrite": "allow",
+    "webfetch": "allow",
+    "skill": "allow"
+  },
+  "instructions": ["AGENTS.md"],
+  "agent": {
+    "release-manager": {
+      "description": "Gestiona el release train de HandoffKit (1.20 Browser Platform). Usar para cerrar versiones, validar scorecard y pushear a hosted.",
+      "mode": "primary",
+      "permission": {
+        "bash": "allow",
+        "edit": "allow",
+        "read": "allow",
+        "glob": "allow",
+        "grep": "allow",
+        "list": "allow",
+        "todowrite": "allow",
+        "webfetch": "allow"
+      }
+    }
+  }
+}
