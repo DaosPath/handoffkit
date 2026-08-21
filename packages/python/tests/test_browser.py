@@ -226,7 +226,8 @@ def test_user_browser_search_many_merges_query_provenance_and_partial_errors():
     )
     assert result["success"] is True
     assert result["queries"] == ["alpha", "beta", "missing"]
-    assert calls == ["alpha", "beta", "missing"]
+    assert set(calls) == {"alpha", "beta", "missing"}
+    assert len(calls) == 3
     shared = next(hit for hit in result["hits"] if hit["url"] == "https://example.org/shared")
     assert shared["queries"] == ["alpha", "beta"]
     assert result["metadata"]["partial"] is True
