@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 
 fn fixture(name: &str) -> Value {
-    let path = format!("../../../contracts/fixtures/{name}");
+    let path = format!("../../../shared/contracts/fixtures/{name}");
     let text = std::fs::read_to_string(path).expect("shared HK-CSP fixture should exist");
     serde_json::from_str(&text).expect("fixture should contain valid JSON")
 }
@@ -51,3 +51,5 @@ fn version_negotiation_and_retry_identity_are_stable() {
     assert_eq!(retry.idempotency_key, envelope.idempotency_key);
     assert_eq!(retry.attempt, 2);
 }
+
+

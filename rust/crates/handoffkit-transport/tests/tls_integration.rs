@@ -31,7 +31,7 @@ fn fixture_root() -> &'static Path {
                 .tempdir()
                 .unwrap();
             let generator = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../../contracts/test-fixtures/tls/generate.py");
+                .join("../../../shared/contracts/test-fixtures/tls/generate.py");
             let mut candidates = Vec::new();
             if let Ok(value) = env::var("HANDOFFKIT_PYTHON_BIN") {
                 candidates.push(value);
@@ -570,3 +570,5 @@ fn rust_hybrid_pq_is_unavailable_and_fails_closed() {
     };
     assert_eq!(error.code, "security_profile_unavailable");
 }
+
+

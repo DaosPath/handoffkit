@@ -27,7 +27,7 @@ struct Vector {
 
 fn vector_path() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../contracts/test-fixtures/artifact-signing/vector.json")
+        .join("../../../shared/contracts/test-fixtures/artifact-signing/vector.json")
 }
 
 fn key_material() -> (String, String) {
@@ -123,3 +123,5 @@ fn rust_signs_with_ephemeral_key_and_rejects_negative_policies() {
         "artifact_algorithm_unsupported"
     );
 }
+
+

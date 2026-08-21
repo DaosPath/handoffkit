@@ -48,7 +48,7 @@ where
 fn shared_differential_validation_corpus() {
     let corpus: Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../../contracts/corpus/csp-validation.json"
+        "/../../../shared/contracts/corpus/csp-validation.json"
     )))
     .unwrap();
     for case in corpus["cases"].as_array().unwrap() {
@@ -206,3 +206,5 @@ fn auxiliary_contracts_validate() {
     );
     assert_eq!(DEFAULT_MAX_MESSAGE_BYTES, 8 * 1024 * 1024);
 }
+
+

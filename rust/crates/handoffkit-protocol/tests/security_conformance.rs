@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 fn vectors() -> Value {
     serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../../contracts/conformance/security-v1.json"
+        "/../../../shared/contracts/conformance/security-v1.json"
     )))
     .unwrap()
 }
@@ -17,7 +17,7 @@ fn vectors() -> Value {
 fn security_wire_conformance() {
     let config_value: Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../../contracts/fixtures/security_config.json"
+        "/../../../shared/contracts/fixtures/security_config.json"
     )))
     .unwrap();
     let config: SecurityConfig = serde_json::from_value(config_value.clone()).unwrap();
@@ -25,7 +25,7 @@ fn security_wire_conformance() {
 
     let peer_value: Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../../contracts/fixtures/peer_identity.json"
+        "/../../../shared/contracts/fixtures/peer_identity.json"
     )))
     .unwrap();
     let peer: PeerIdentity = serde_json::from_value(peer_value.clone()).unwrap();
@@ -33,7 +33,7 @@ fn security_wire_conformance() {
 
     let artifact_value: Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../../contracts/fixtures/signed_artifact.json"
+        "/../../../shared/contracts/fixtures/signed_artifact.json"
     )))
     .unwrap();
     let artifact: SignedArtifact = serde_json::from_value(artifact_value.clone()).unwrap();
@@ -123,3 +123,5 @@ fn profile_authorization_and_replay_conformance() {
         }
     }
 }
+
+

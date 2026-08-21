@@ -4,7 +4,7 @@ use handoffkit_contracts::{
 };
 
 fn fixture(name: &str) -> serde_json::Value {
-    let path = format!("../../../contracts/fixtures/{}", name);
+    let path = format!("../../../shared/contracts/fixtures/{}", name);
     let text = std::fs::read_to_string(path).expect("shared contract fixture should exist");
     serde_json::from_str(&text).expect("fixture should be valid json")
 }
@@ -149,3 +149,5 @@ fn test_contract_parity_report_marks_supported_contracts() {
     assert_eq!(report.fixture_count, 4);
     assert!(report.to_markdown().contains("Contract Parity Report"));
 }
+
+

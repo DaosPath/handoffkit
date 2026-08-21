@@ -15,17 +15,17 @@ use std::time::Duration;
 fn distributed_contract_fixtures_roundtrip_canonically() {
     let heartbeat: WorkerHeartbeat = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../../contracts/fixtures/worker_heartbeat.json"
+        "/../../../shared/contracts/fixtures/worker_heartbeat.json"
     )))
     .unwrap();
     let job: DistributedJob = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../../contracts/fixtures/distributed_job.json"
+        "/../../../shared/contracts/fixtures/distributed_job.json"
     )))
     .unwrap();
     let assignment: JobAssignment = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../../contracts/fixtures/job_assignment.json"
+        "/../../../shared/contracts/fixtures/job_assignment.json"
     )))
     .unwrap();
     heartbeat.validate().unwrap();
@@ -224,3 +224,5 @@ async fn scheduler_retry_never_exceeds_queue_capacity() {
     assert_eq!(snapshot.queued_jobs, 1);
     assert_eq!(snapshot.failed_jobs, 1);
 }
+
+
