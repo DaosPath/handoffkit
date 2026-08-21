@@ -38,7 +38,7 @@ test("csp doctor, demo, and inspect work offline", async () => {
   assert.equal(await main(["csp", "demo"], { stdout: (text) => output.push(text) }), 0);
   assert.equal(JSON.parse(output.pop()).success, true);
 
-  const fixture = join(import.meta.dirname, "..", "..", "..", "contracts", "fixtures", "message_envelope.json");
+  const fixture = join(import.meta.dirname, "..", "..", "..", "..", "shared", "contracts", "fixtures", "message_envelope.json");
   assert.equal(await main(["csp", "inspect", fixture], { stdout: (text) => output.push(text) }), 0);
   assert.equal(JSON.parse(output.pop()).protocol_version, "1.0");
 });
@@ -248,7 +248,7 @@ test("dynamic extensions ignore only missing config and report malformed config"
 });
 
 test("CLI version and source imports use public package boundaries", async () => {
-  assert.equal(VERSION, "1.16.0");
+  assert.equal(VERSION, "1.19.5");
   const source = await readFile(join(import.meta.dirname, "..", "src", "index.js"), "utf8");
   assert.doesNotMatch(source, /\.\.\/\.\.\/recipes\/src/);
   assert.doesNotMatch(source, /\.\.\/\.\.\/templates\/src/);

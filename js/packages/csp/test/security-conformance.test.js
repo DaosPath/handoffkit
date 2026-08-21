@@ -14,7 +14,7 @@ import {
   negotiateSecurityProfile,
 } from "../src/index.js";
 
-const contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts");
+const contractsRoot = join(import.meta.dirname, "..", "..", "..", "..", "shared", "contracts");
 const vectors = JSON.parse(await readFile(
   join(contractsRoot, "conformance", "security-v1.json"),
   "utf8",

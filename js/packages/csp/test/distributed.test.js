@@ -15,7 +15,7 @@ import {
   WorkerStatus,
 } from "../src/index.js";
 
-const fixtures = join(import.meta.dirname, "..", "..", "..", "contracts", "fixtures");
+const fixtures = join(import.meta.dirname, "..", "..", "..", "..", "shared", "contracts", "fixtures");
 
 for (const [name, Contract] of [
   ["worker_heartbeat.json", WorkerHeartbeat],

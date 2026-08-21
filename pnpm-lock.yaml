@@ -10,16 +10,16 @@ importers:
     devDependencies:
       '@handoffkit/browser':
         specifier: workspace:*
-        version: link:packages/js/browser
+        version: link:js/packages/browser
       '@handoffkit/core':
         specifier: workspace:*
-        version: link:packages/js/core
+        version: link:js/packages/core
       '@handoffkit/csp':
         specifier: workspace:*
-        version: link:packages/js/csp
+        version: link:js/packages/csp
       '@handoffkit/node':
         specifier: workspace:*
-        version: link:packages/js/node
+        version: link:js/packages/node
       '@types/node':
         specifier: ^26.1.1
         version: 26.1.1
@@ -55,11 +55,11 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
-  apps/web:
+  apps/studio-web:
     dependencies:
       '@handoffkit/core':
         specifier: workspace:*
-        version: link:../../packages/js/core
+        version: link:../../js/packages/core
       framer-motion:
         specifier: ^12.42.2
         version: 12.42.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -101,13 +101,13 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
-  packages/js/browser:
+  js/packages/browser:
     dependencies:
       '@handoffkit/core':
         specifier: workspace:*
         version: link:../core
 
-  packages/js/cli:
+  js/packages/cli:
     dependencies:
       '@handoffkit/browser':
         specifier: workspace:*
@@ -131,15 +131,15 @@ importers:
         specifier: workspace:*
         version: link:../templates
 
-  packages/js/core: {}
+  js/packages/core: {}
 
-  packages/js/csp:
+  js/packages/csp:
     devDependencies:
       fast-check:
         specifier: 4.3.0
         version: 4.3.0
 
-  packages/js/node:
+  js/packages/node:
     dependencies:
       '@handoffkit/core':
         specifier: workspace:*
@@ -148,9 +148,9 @@ importers:
         specifier: workspace:*
         version: link:../csp
 
-  packages/js/providers: {}
+  js/packages/providers: {}
 
-  packages/js/recipes:
+  js/packages/recipes:
     dependencies:
       '@handoffkit/core':
         specifier: workspace:*
@@ -163,7 +163,7 @@ importers:
         specifier: workspace:*
         version: link:../providers
 
-  packages/js/templates: {}
+  js/packages/templates: {}
 
 packages:
 
@@ -1208,6 +1208,7 @@ packages:
   eslint@9.39.4:
     resolution: {integrity: sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'

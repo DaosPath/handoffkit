@@ -1,6 +1,6 @@
 packages:
   - "apps/*"
-  - "packages/js/*"
+  - "js/packages/*"
 
 allowBuilds:
   sharp: true

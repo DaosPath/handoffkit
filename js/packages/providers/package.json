@@ -1,11 +1,11 @@
 {
   "name": "@handoffkit/providers",
-  "version": "1.16.0",
+  "version": "1.19.5",
   "description": "Standalone JavaScript LLM provider adapters and routing utilities for HandoffKit.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DaosPath/handoffkit.git",
-    "directory": "packages/js/providers"
+    "directory": "js/packages/providers"
   },
   "type": "module",
   "main": "./src/index.js",

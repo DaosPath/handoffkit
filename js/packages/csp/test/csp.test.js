@@ -16,7 +16,7 @@ import {
   makeEnvelope,
 } from "../src/index.js";
 
-const contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts");
+const contractsRoot = join(import.meta.dirname, "..", "..", "..", "..", "shared", "contracts");
 
 test("package entrypoint stays browser-safe", async () => {
   const files = ["contracts.js", "runtime.js", "index.js"];

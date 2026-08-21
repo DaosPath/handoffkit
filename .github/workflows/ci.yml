@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: packages/python
+        working-directory: python/packages/handoffkit
     strategy:
       fail-fast: false
       matrix:
@@ -108,10 +108,10 @@ jobs:
         run: pnpm web:lint
 
       - name: Typecheck web app
-        run: pnpm --dir apps/web exec tsc --noEmit
+        run: pnpm --dir apps/studio-web exec tsc --noEmit
 
       - name: Studio unit tests (parse-rankings)
-        run: pnpm --dir apps/web run test:studio
+        run: pnpm --dir apps/studio-web run test:studio
 
       - name: Build web app
         run: pnpm web:build
@@ -148,7 +148,7 @@ jobs:
       - name: Prove X25519MLKEM768 negotiation and fail-closed profile handling
         env:
           HANDOFFKIT_REQUIRE_HYBRID_PQ: "1"
-        run: node --test packages/js/node/test/tls.integration.test.js
+        run: node --test js/packages/node/test/tls.integration.test.js
 
       - name: Benchmark standard and hybrid-PQ TLS on the active provider
         env:
@@ -182,17 +182,17 @@ jobs:
       - name: Check declared Rust 1.82 MSRV
         run: |
           rustup toolchain install 1.82.0 --profile minimal
-          cargo +1.82.0 check --manifest-path packages/rust/Cargo.toml \
+          cargo +1.82.0 check --manifest-path rust/Cargo.toml \
             --workspace --all-targets --locked
 
       - name: Check Rust formatting
-        run: cargo fmt --manifest-path packages/rust/Cargo.toml --all --check
+        run: cargo fmt --manifest-path rust/Cargo.toml --all --check
 
       - name: Lint Rust workspace
-        run: cargo clippy --manifest-path packages/rust/Cargo.toml --workspace --all-targets --locked -- -D warnings
+        run: cargo clippy --manifest-path rust/Cargo.toml --workspace --all-targets --locked -- -D warnings
 
       - name: Test Rust workspace
-        run: cargo test --manifest-path packages/rust/Cargo.toml --workspace --locked
+        run: cargo test --manifest-path rust/Cargo.toml --workspace --locked
 
       - name: Validate publishable Rust crates
         shell: bash
@@ -207,13 +207,13 @@ jobs:
             handoffkit
           do
             cargo package \
-              --manifest-path packages/rust/Cargo.toml \
+              --manifest-path rust/Cargo.toml \
               --package "$crate" \
               --locked \
               --allow-dirty \
               --list >/dev/null
           done
-          cargo package --manifest-path packages/rust/Cargo.toml \
+          cargo package --manifest-path rust/Cargo.toml \
             --workspace --locked --allow-dirty --no-verify
 
   cpp:
@@ -226,21 +226,21 @@ jobs:
 
       - name: Configure C++ package
         run: >
-          cmake -S packages/cpp -B packages/cpp/build
+          cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build
           -DCMAKE_BUILD_TYPE=Release
           -DHANDOFFKIT_WITH_HTTP=OFF
           -DHANDOFFKIT_WITH_CRYPTO=ON
           -DHANDOFFKIT_BUILD_BENCHMARKS=ON
 
       - name: Build C++ package
-        run: cmake --build packages/cpp/build --config Release
+        run: cmake --build cpp/packages/handoffkit/build --config Release
 
       - name: Test C++ package
-        run: ctest --test-dir packages/cpp/build -C Release --output-on-failure
+        run: ctest --test-dir cpp/packages/handoffkit/build -C Release --output-on-failure
 
       - name: Configure C++ security sanitizers
         run: >
-          cmake -S packages/cpp -B packages/cpp/build-sanitizers
+          cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build-sanitizers
           -DCMAKE_BUILD_TYPE=Debug
           -DHANDOFFKIT_WITH_HTTP=OFF
           -DHANDOFFKIT_WITH_CRYPTO=ON
@@ -255,23 +255,23 @@ jobs:
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: |
-          cmake --build packages/cpp/build-sanitizers --config Debug --parallel 2 \
+          cmake --build cpp/packages/handoffkit/build-sanitizers --config Debug --parallel 2 \
             --target test_csp_security test_security_conformance \
               test_artifact_signatures test_native_compute
-          ctest --test-dir packages/cpp/build-sanitizers -C Debug \
+          ctest --test-dir cpp/packages/handoffkit/build-sanitizers -C Debug \
             -R '^(test_csp_security|test_security_conformance|test_artifact_signatures|test_native_compute)$' \
             --output-on-failure
 
       - name: Benchmark C++ native compute worker
         run: |
           mkdir -p .local-tests
-          packages/cpp/build/native_compute_benchmark 500 \
+          cpp/packages/handoffkit/build/native_compute_benchmark 500 \
             > .local-tests/cpp-native-compute-benchmark.json
           python3 -m json.tool .local-tests/cpp-native-compute-benchmark.json >/dev/null
 
       - name: Configure cpp-ml CSP adapters
         run: >
-          cmake -S packages/cpp-ml -B packages/cpp-ml/build-csp
+          cmake -S cpp/packages/handoffkit-ml -B cpp/packages/handoffkit-ml/build-csp
           -DCMAKE_BUILD_TYPE=Release
           -DHANDOFFKIT_ML_LINK_CORE=ON
           -DHANDOFFKIT_ML_BUILD_TESTS=ON
@@ -282,16 +282,16 @@ jobs:
           -DHANDOFFKIT_BUILD_DEMOS=OFF
 
       - name: Build cpp-ml CSP workers
-        run: cmake --build packages/cpp-ml/build-csp --config Release
+        run: cmake --build cpp/packages/handoffkit-ml/build-csp --config Release
 
       - name: Test complete cpp-ml suite including CSP workers
-        run: ctest --test-dir packages/cpp-ml/build-csp -C Release --output-on-failure
+        run: ctest --test-dir cpp/packages/handoffkit-ml/build-csp -C Release --output-on-failure
 
       - name: Fusion roles --file smoke (offline)
         run: |
-          CLI=packages/cpp/build/handoffkit-cli
-          PACK=packages/cpp/examples/fusion/role_packs/custom_review.json
-          test -x "$CLI" || CLI=packages/cpp/build/Release/handoffkit-cli
+          CLI=cpp/packages/handoffkit/build/handoffkit-cli
+          PACK=cpp/packages/handoffkit/examples/fusion/role_packs/custom_review.json
+          test -x "$CLI" || CLI=cpp/packages/handoffkit/build/Release/handoffkit-cli
           test -f "$PACK"
           out="$("$CLI" fusion roles --file "$PACK")"
           echo "$out" | head -n 40
@@ -304,11 +304,11 @@ jobs:
           grep -q 'skeptic' /tmp/fusion-explain.txt
 
       - name: Package source tarball (smoke)
-        run: cmake --build packages/cpp/build --target package_source_tarball --config Release
+        run: cmake --build cpp/packages/handoffkit/build --target package_source_tarball --config Release
 
       - name: Install prefix smoke
         run: |
-          cmake --install packages/cpp/build --prefix "$HOME/handoffkit-prefix" --config Release
+          cmake --install cpp/packages/handoffkit/build --prefix "$HOME/handoffkit-prefix" --config Release
           test -f "$HOME/handoffkit-prefix/include/handoffkit/handoffkit.hpp"
           test -f "$HOME/handoffkit-prefix/include/handoffkit/handoffkit_core.hpp"
           test -f "$HOME/handoffkit-prefix/lib/cmake/handoffkit/HandoffKitConfig.cmake" \
@@ -318,18 +318,18 @@ jobs:
 
       - name: Consumer core find_package smoke
         run: |
-          cmake -S packages/cpp/examples/consumer_core -B packages/cpp/build-consumer \
+          cmake -S cpp/packages/handoffkit/examples/consumer_core -B cpp/packages/handoffkit/build-consumer \
             -DCMAKE_PREFIX_PATH="$HOME/handoffkit-prefix" \
             -DCMAKE_BUILD_TYPE=Release
-          cmake --build packages/cpp/build-consumer --config Release
-          packages/cpp/build-consumer/consumer_core /tmp/handoffkit-consumer-reports
+          cmake --build cpp/packages/handoffkit/build-consumer --config Release
+          cpp/packages/handoffkit/build-consumer/consumer_core /tmp/handoffkit-consumer-reports
 
   go:
     name: Go
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: packages/go
+        working-directory: go/handoffkit
 
     steps:
       - name: Check out repository
@@ -409,7 +409,7 @@ jobs:
           go test -count=1
           -run "TestGoHybridPQNegotiatesX25519MLKEM768|TestGoHybridPQRejectsDirectStandardTLSWrapping|TestGoNodeHybridPQMTLSInteroperability"
           ./transport
-        working-directory: packages/go
+        working-directory: go/handoffkit
 
   csp-interop:
     name: HK-CSP Python / JavaScript / Rust / Go stdio
@@ -446,41 +446,42 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Python package
-        run: python -m pip install -e packages/python
+        run: python -m pip install -e python/packages/handoffkit
 
       - name: Build Rust worker
-        run: cargo build --manifest-path packages/rust/Cargo.toml -p handoffkit-cli
+        run: cargo build --manifest-path rust/Cargo.toml -p handoffkit-cli
 
       - name: Build Go worker
         run: |
           mkdir -p .local-tests/bin
-          (cd packages/go && go build -o ../../.local-tests/bin/handoffkit-worker ./cmd/handoffkit-worker)
+          (cd go/handoffkit && go build -o ../../.local-tests/bin/handoffkit-worker ./cmd/handoffkit-worker)
 
       - name: Rust starts Python, JavaScript, and Go workers
         env:
           HANDOFFKIT_RUN_INTEROP_TESTS: "1"
         run: >
-          cargo test --manifest-path packages/rust/Cargo.toml
+          cargo test --manifest-path rust/Cargo.toml
           -p handoffkit-transport --test cross_runtime -- --nocapture
 
       - name: Go starts Python, JavaScript, and Rust workers
         env:
           HANDOFFKIT_RUN_INTEROP_TESTS: "1"
         run: >
-          (cd packages/go && go test -v ./interop/...)
+          (cd go/handoffkit && go test -v ./interop/...)
 
       - name: Python starts JavaScript worker
-        run: python packages/python/examples/csp_python_js_stdio_demo.py
+        run: python python/packages/handoffkit/examples/csp_python_js_stdio_demo.py
 
       - name: Python starts Rust worker
-        run: python packages/python/examples/csp_python_rust_stdio_demo.py
+        run: python python/packages/handoffkit/examples/csp_python_rust_stdio_demo.py
 
       - name: Python starts Go worker
-        run: python packages/python/examples/csp_python_go_stdio_demo.py
+        run: python python/packages/handoffkit/examples/csp_python_go_stdio_demo.py
 
       - name: JavaScript starts Rust worker
-        run: node packages/js/node/examples/csp_js_rust_stdio_demo.mjs
+        run: node js/packages/node/examples/csp_js_rust_stdio_demo.mjs
 
       - name: JavaScript starts Go worker
-        run: node packages/js/node/examples/csp_js_go_stdio_demo.mjs
+        run: node js/packages/node/examples/csp_js_go_stdio_demo.mjs
+
 

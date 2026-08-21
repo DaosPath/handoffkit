@@ -11,7 +11,7 @@ resolver = "2"
 exclude = ["fuzz"]
 
 [workspace.package]
-version = "1.19.0"
+version = "1.19.5"
 edition = "2021"
 authors = ["DaosPath <daospath@gmail.com>"]
 license = "MIT"

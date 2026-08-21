@@ -1,11 +1,11 @@
 {
   "name": "@handoffkit/templates",
-  "version": "1.16.0",
+  "version": "1.19.5",
   "description": "Offline JavaScript starter templates for HandoffKit.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DaosPath/handoffkit.git",
-    "directory": "packages/js/templates"
+    "directory": "js/packages/templates"
   },
   "type": "module",
   "main": "./src/index.js",

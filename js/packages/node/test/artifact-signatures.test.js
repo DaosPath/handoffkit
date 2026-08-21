@@ -17,7 +17,7 @@ import {
 
 const VECTOR_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../contracts/test-fixtures/artifact-signing/vector.json",
+  "../../../../shared/contracts/test-fixtures/artifact-signing/vector.json",
 );
 const NOW = 1_800_000_000;
 const IDENTITY = "spiffe://handoffkit.internal/producer/build-1";

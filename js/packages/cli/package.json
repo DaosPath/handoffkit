@@ -1,11 +1,11 @@
 {
   "name": "@handoffkit/cli",
-  "version": "1.16.0",
+  "version": "1.19.5",
   "description": "Autonomous Node.js CLI and offline demos for HandoffKit.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DaosPath/handoffkit.git",
-    "directory": "packages/js/cli"
+    "directory": "js/packages/cli"
   },
   "type": "module",
   "main": "./src/index.js",

@@ -1,11 +1,11 @@
 {
   "name": "@handoffkit/node",
-  "version": "1.19.0",
+  "version": "1.19.5",
   "description": "Node.js filesystem and HK-CSP stdio utilities for HandoffKit.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DaosPath/handoffkit.git",
-    "directory": "packages/js/node"
+    "directory": "js/packages/node"
   },
   "type": "module",
   "main": "./src/index.js",

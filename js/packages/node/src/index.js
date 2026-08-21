@@ -116,7 +116,7 @@ export async function loadReportJSON(filePath) {
 export async function buildNodeContractParityReport({
   runtime = "node",
   version = HANDOFFKIT_CORE_VERSION,
-  contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts"),
+  contractsRoot = join(import.meta.dirname, "..", "..", "..", "..", "shared", "contracts"),
   expectedFixtures,
   expectedSchemas,
 } = {}) {

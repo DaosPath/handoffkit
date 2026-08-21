@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const generator = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../contracts/test-fixtures/tls/generate.py",
+  "../../../../shared/contracts/test-fixtures/tls/generate.py",
 );
 
 export function generateTlsFixtures() {

@@ -25,7 +25,7 @@ import {
   validationErrorCode,
 } from "../src/index.js";
 
-const contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts");
+const contractsRoot = join(import.meta.dirname, "..", "..", "..", "..", "shared", "contracts");
 const propertyOptions = { numRuns: 100, seed: 0x1180, endOnFailure: true };
 
 function validateCorpusCase(kind, value) {

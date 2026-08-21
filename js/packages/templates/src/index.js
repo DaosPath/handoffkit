@@ -200,7 +200,7 @@ export function builtinTemplates() {
             "  \"packageManager\": \"pnpm@11.1.1\",",
             "  \"engines\": { \"node\": \">=18.17.0\" },",
             "  \"dependencies\": {",
-            "    \"@handoffkit/core\": \"^1.16.0\"",
+            "    \"@handoffkit/core\": \"^1.19.5\"",
             "  },",
             "  \"scripts\": {",
             "    \"check\": \"node --check main.js\",",

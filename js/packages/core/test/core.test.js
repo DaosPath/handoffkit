@@ -43,7 +43,7 @@ import {
   ExtensionRegistry,
 } from "../src/index.js";
 
-const contractsRoot = join(import.meta.dirname, "..", "..", "..", "contracts");
+const contractsRoot = join(import.meta.dirname, "..", "..", "..", "..", "shared", "contracts");
 
 async function readContractFixture(name) {
   return JSON.parse(await readFile(join(contractsRoot, "fixtures", name), "utf8"));

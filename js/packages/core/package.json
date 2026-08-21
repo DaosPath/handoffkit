@@ -1,11 +1,11 @@
 {
   "name": "@handoffkit/core",
-  "version": "1.16.0",
+  "version": "1.19.5",
   "description": "Browser-safe JavaScript contract layer for multi-agent workflows with structured handoffs.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DaosPath/handoffkit.git",
-    "directory": "packages/js/core"
+    "directory": "js/packages/core"
   },
   "type": "module",
   "main": "./src/index.js",
