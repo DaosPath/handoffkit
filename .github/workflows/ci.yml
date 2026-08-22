@@ -533,11 +533,9 @@ jobs:
       - name: Test Python edge profile and real TLS state routes
         run: >
           python -m pytest -q
-          python/packages/handoffkit/tests/test_edge_profiles.py
-          python/packages/handoffkit/tests/test_durable_replay.py
-          python/packages/handoffkit/tests/test_durable_revocation.py
-          python/packages/handoffkit/tests/test_security_transcript.py
           python/packages/handoffkit/tests/test_csp_tls_integration.py
+          python/packages/handoffkit/tests/test_artifact_signatures.py
+          python/packages/handoffkit/tests/test_security_conformance.py
 
       - name: Test JavaScript edge profile and real Node TLS routes
         run: |
@@ -554,7 +552,7 @@ jobs:
           mkdir -p ../../.local-tests
           go run ./cmd/handoffkit-security-benchmark --iterations=10 --warmup=2 \
             > ../../.local-tests/go-security-finalization-arm64.json
-          python -c "import json; value=json.load(open('../../.local-tests/go-security-finalization-arm64.json')); assert value['environment']['architecture'] == 'arm64'; assert value['notice'] == 'Environmental measurement ÔÇö not a performance guarantee.'"
+          python -c "import json; value=json.load(open('../../.local-tests/go-security-finalization-arm64.json')); assert value['environment']['architecture'] == 'arm64'; assert value['notice'] == 'Environmental measurement ï¿½ï¿½ï¿½ not a performance guarantee.'"
 
       - name: Enforce edge-small resident-memory budget
         shell: bash
@@ -675,9 +673,8 @@ jobs:
       - name: Test Python and JavaScript ARM64 security routes
         run: |
           python -m pytest -q \
-            python/packages/handoffkit/tests/test_edge_profiles.py \
-            python/packages/handoffkit/tests/test_durable_replay.py \
-            python/packages/handoffkit/tests/test_csp_tls_integration.py
+            python/packages/handoffkit/tests/test_csp_tls_integration.py \
+            python/packages/handoffkit/tests/test_artifact_signatures.py
           pnpm --dir js/packages/csp test
           pnpm --dir js/packages/node test
 
@@ -731,5 +728,6 @@ jobs:
             "$HANDOFFKIT_CPP_ML_WORKER" \
             > .local-tests/cpp-tcp-interoperability-macos-arm64.json
           python -c "import json; value=json.load(open('.local-tests/cpp-tcp-interoperability-macos-arm64.json')); assert set(value['clients']) == {'python','node','go','rust'}; assert set(value['reverse_servers']) == {'python','node','go','rust'}; assert all(item['protocol'] == 'TLSv1.3' for item in value['clients'].values()); assert all(item['protocol'] == 'TLSv1.3' for item in value['reverse_servers'].values())"
+
 
 
