@@ -57,7 +57,7 @@ func TestGoNodeHybridPQMTLSInteroperability(t *testing.T) {
 	}()
 
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	script := filepath.Join(root, "packages", "js", "node", "test-support", "hybrid-go-client.mjs")
+	script := filepath.Join(root, "js", "packages", "node", "test-support", "hybrid-go-client.mjs")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	nodeBinary := os.Getenv("HANDOFFKIT_NODE_BIN")

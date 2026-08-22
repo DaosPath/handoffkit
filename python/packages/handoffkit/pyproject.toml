@@ -61,7 +61,7 @@ handoffkit = "handoffkit.cli:main"
 include = ["handoffkit*"]
 
 [tool.setuptools.package-data]
-handoffkit = ["py.typed", "validation/benchmarks/data/*.json"]
+handoffkit = ["py.typed", "benchmarks/data/*.json", "clinical/data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -75,7 +75,7 @@ branch = true
 source = ["handoffkit"]
 omit = [
   "handoffkit/cli.py",
-  "handoffkit/validation/benchmarks/*",
+  "handoffkit/benchmarks/*",
 ]
 
 [tool.coverage.report]

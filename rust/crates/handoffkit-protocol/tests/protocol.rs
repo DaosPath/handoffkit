@@ -51,5 +51,3 @@ fn version_negotiation_and_retry_identity_are_stable() {
     assert_eq!(retry.idempotency_key, envelope.idempotency_key);
     assert_eq!(retry.attempt, 2);
 }
-
-

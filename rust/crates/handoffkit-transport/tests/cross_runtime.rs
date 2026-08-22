@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 fn repository_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .nth(4)
+        .nth(3)
         .expect("repository root")
         .to_path_buf()
 }

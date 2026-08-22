@@ -224,5 +224,3 @@ async fn scheduler_retry_never_exceeds_queue_capacity() {
     assert_eq!(snapshot.queued_jobs, 1);
     assert_eq!(snapshot.failed_jobs, 1);
 }
-
-

@@ -206,5 +206,3 @@ fn auxiliary_contracts_validate() {
     );
     assert_eq!(DEFAULT_MAX_MESSAGE_BYTES, 8 * 1024 * 1024);
 }
-
-

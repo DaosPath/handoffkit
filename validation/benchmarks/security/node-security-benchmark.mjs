@@ -4,7 +4,7 @@ import { arch, cpus, platform, release, totalmem } from "node:os";
 import { performance } from "node:perf_hooks";
 import { join } from "node:path";
 
-import { SecurityConfig, SecurityProfile } from "../../js/packages/csp/src/index.js";
+import { SecurityConfig, SecurityProfile } from "../../../js/packages/csp/src/index.js";
 import {
   ArtifactSigner,
   ArtifactSigningCredential,
@@ -12,8 +12,8 @@ import {
   buildTlsOptions,
   getSupportedNodeCryptoCapabilities,
   verifySignedArtifact,
-} from "../../js/packages/node/src/security.js";
-import { generateTlsFixtures } from "../../js/packages/node/test-support/security-fixtures.mjs";
+} from "../../../js/packages/node/src/security.js";
+import { generateTlsFixtures } from "../../../js/packages/node/test-support/security-fixtures.mjs";
 
 const generatedFixtures = generateTlsFixtures();
 const tlsFixtures = generatedFixtures.root;
@@ -225,3 +225,5 @@ if (process.env.HANDOFFKIT_REQUIRE_HYBRID_PQ === "1" && !result.hybrid_pq.availa
   throw new Error(`${capabilities.provider} does not expose X25519MLKEM768`);
 }
 process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+
+

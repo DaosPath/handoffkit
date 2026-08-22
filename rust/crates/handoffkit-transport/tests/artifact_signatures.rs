@@ -123,5 +123,3 @@ fn rust_signs_with_ephemeral_key_and_rejects_negative_policies() {
         "artifact_algorithm_unsupported"
     );
 }
-
-

@@ -570,5 +570,3 @@ fn rust_hybrid_pq_is_unavailable_and_fails_closed() {
     };
     assert_eq!(error.code, "security_profile_unavailable");
 }
-
-
