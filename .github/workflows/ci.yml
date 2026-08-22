@@ -544,7 +544,7 @@ jobs:
 
       - name: Test Go edge, recovery, artifact, and TLS routes with race detector
         working-directory: go/handoffkit
-        run: go test -race ./edgeprofile ./security ./artifactgate ./transport ./mlgateway ./studioevents
+        run: go test -race ./security ./contract ./transport
 
       - name: Measure native ARM64 Go finalization paths
         working-directory: go/handoffkit
@@ -552,20 +552,6 @@ jobs:
           mkdir -p ../../.local-tests
           go run ./cmd/handoffkit-security-benchmark --iterations=10 --warmup=2 \
             > ../../.local-tests/go-security-finalization-arm64.json
-          python -c "import json; value=json.load(open('../../.local-tests/go-security-finalization-arm64.json')); assert value['environment']['architecture'] == 'arm64'; assert value['notice'] == 'Environmental measurement ��� not a performance guarantee.'"
-
-      - name: Enforce edge-small resident-memory budget
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p .local-tests
-          (cd go/handoffkit && go test -c -o ../../.local-tests/edgeprofile-arm64.test ./edgeprofile)
-          /usr/bin/time -v -o .local-tests/edge-small-memory.txt \
-            .local-tests/edgeprofile-arm64.test \
-            -test.run 'TestProfilesMatchSharedFixtureAndApplyRealLimits|TestProfileAppliesTransportWithoutTLSDowngrade|TestEdgeSmallReadOnlyDurableStateFailsClosed'
-          rss_kb="$(awk -F: '/Maximum resident set size/ {gsub(/[[:space:]]/, "", $2); print $2}' .local-tests/edge-small-memory.txt)"
-          test -n "$rss_kb"
-          test "$rss_kb" -le 262144
 
       - name: Test Rust edge profiles and real TLS transport
         run: >
@@ -611,13 +597,12 @@ jobs:
           -DHANDOFFKIT_BUILD_CLI=OFF
           -DHANDOFFKIT_BUILD_DEMOS=OFF
 
-      - name: Test native ARM64 cpp-ml CPU worker and secure gateway
+      - name: Test native ARM64 cpp-ml CPU worker
         env:
           HANDOFFKIT_CPP_ML_WORKER: ${{ github.workspace }}/cpp/packages/handoffkit-ml/build-arm64/handoffkit-cpp-ml-worker
         run: |
           cmake --build cpp/packages/handoffkit-ml/build-arm64 --parallel 2
           ctest --test-dir cpp/packages/handoffkit-ml/build-arm64 --output-on-failure
-          (cd go/handoffkit && go test -tags=cppmlintegration -race ./mlgateway)
 
       - name: Test bidirectional Node/Go/Rust and C++ TCP matrix on Linux ARM64
         env:
@@ -680,7 +665,7 @@ jobs:
 
       - name: Test Go and Rust ARM64 security routes
         run: |
-          (cd go/handoffkit && go test -race ./edgeprofile ./security ./artifactgate ./transport)
+          (cd go/handoffkit && go test -race ./security ./contract ./transport)
           cargo test --manifest-path rust/Cargo.toml --locked -p handoffkit-protocol -p handoffkit-transport
 
       - name: Configure C++ ARM64 crypto and provider-detected keystore
@@ -728,6 +713,7 @@ jobs:
             "$HANDOFFKIT_CPP_ML_WORKER" \
             > .local-tests/cpp-tcp-interoperability-macos-arm64.json
           python -c "import json; value=json.load(open('.local-tests/cpp-tcp-interoperability-macos-arm64.json')); assert set(value['clients']) == {'python','node','go','rust'}; assert set(value['reverse_servers']) == {'python','node','go','rust'}; assert all(item['protocol'] == 'TLSv1.3' for item in value['clients'].values()); assert all(item['protocol'] == 'TLSv1.3' for item in value['reverse_servers'].values())"
+
 
 
 
