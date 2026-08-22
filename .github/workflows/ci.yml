@@ -485,3 +485,251 @@ jobs:
         run: node js/packages/node/examples/csp_js_go_stdio_demo.mjs
 
 
+
+  arm64-edge:
+    name: Linux ARM64 edge qualification
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Prove execution is native ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -s)" = Linux
+          test "$(uname -m)" = aarch64
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "python/packages/handoffkit[dev]"
+          pnpm install --frozen-lockfile
+
+      - name: Test Python edge profile and real TLS state routes
+        run: >
+          python -m pytest -q
+          python/packages/handoffkit/tests/test_edge_profiles.py
+          python/packages/handoffkit/tests/test_durable_replay.py
+          python/packages/handoffkit/tests/test_durable_revocation.py
+          python/packages/handoffkit/tests/test_security_transcript.py
+          python/packages/handoffkit/tests/test_csp_tls_integration.py
+
+      - name: Test JavaScript edge profile and real Node TLS routes
+        run: |
+          pnpm --dir js/packages/csp test
+          pnpm --dir js/packages/node test
+
+      - name: Test Go edge, recovery, artifact, and TLS routes with race detector
+        working-directory: go/handoffkit
+        run: go test -race ./edgeprofile ./security ./artifactgate ./transport ./mlgateway ./studioevents
+
+      - name: Measure native ARM64 Go finalization paths
+        working-directory: go/handoffkit
+        run: |
+          mkdir -p ../../.local-tests
+          go run ./cmd/handoffkit-security-benchmark --iterations=10 --warmup=2 \
+            > ../../.local-tests/go-security-finalization-arm64.json
+          python -c "import json; value=json.load(open('../../.local-tests/go-security-finalization-arm64.json')); assert value['environment']['architecture'] == 'arm64'; assert value['notice'] == 'Environmental measurement ÔÇö not a performance guarantee.'"
+
+      - name: Enforce edge-small resident-memory budget
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .local-tests
+          (cd go/handoffkit && go test -c -o ../../.local-tests/edgeprofile-arm64.test ./edgeprofile)
+          /usr/bin/time -v -o .local-tests/edge-small-memory.txt \
+            .local-tests/edgeprofile-arm64.test \
+            -test.run 'TestProfilesMatchSharedFixtureAndApplyRealLimits|TestProfileAppliesTransportWithoutTLSDowngrade|TestEdgeSmallReadOnlyDurableStateFailsClosed'
+          rss_kb="$(awk -F: '/Maximum resident set size/ {gsub(/[[:space:]]/, "", $2); print $2}' .local-tests/edge-small-memory.txt)"
+          test -n "$rss_kb"
+          test "$rss_kb" -le 262144
+
+      - name: Test Rust edge profiles and real TLS transport
+        run: >
+          cargo test --manifest-path rust/Cargo.toml --locked
+          -p handoffkit-protocol -p handoffkit-transport
+
+      - name: Configure native ARM64 C++ edge and security tests
+        run: |
+          cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build-arm64 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DHANDOFFKIT_WITH_HTTP=OFF \
+            -DHANDOFFKIT_WITH_CRYPTO=ON \
+            -DHANDOFFKIT_WITH_TLS=ON \
+            -DHANDOFFKIT_BUILD_EXAMPLES=OFF \
+            -DHANDOFFKIT_BUILD_DEMOS=OFF \
+            -DHANDOFFKIT_BUILD_CLI=OFF
+
+      - name: Build and test native ARM64 C++ edge and security routes
+        run: |
+          cmake --build cpp/packages/handoffkit/build-arm64 --parallel 2 \
+            --target test_edge_profiles test_csp_security test_security_conformance test_tls_transport \
+              test_os_keystore test_secure_memory test_durable_scheduler test_artifact_signatures test_artifact_gate test_native_compute
+          ctest --test-dir cpp/packages/handoffkit/build-arm64 --output-on-failure \
+            -R '^(test_edge_profiles|test_csp_security|test_security_conformance|test_tls_transport|test_os_keystore|test_secure_memory|test_durable_scheduler|test_artifact_signatures|test_artifact_gate|test_native_compute)$'
+
+      - name: Benchmark native ARM64 C++ TLS handshakes
+        run: |
+          mkdir -p .local-tests
+          cpp/packages/handoffkit/build-arm64/test_tls_transport --benchmark \
+            > .local-tests/cpp-tls-handshake-arm64.json
+          python -c "import json; value=json.load(open('.local-tests/cpp-tls-handshake-arm64.json')); assert value['iterations'] >= 20; assert value['p50_ms'] <= value['p95_ms'] <= value['p99_ms']; assert value['notice'] == 'Environmental measurement - not a performance guarantee.'"
+
+      - name: Configure native ARM64 cpp-ml CPU worker
+        run: >
+          cmake -S cpp/packages/handoffkit-ml -B cpp/packages/handoffkit-ml/build-arm64
+          -DCMAKE_BUILD_TYPE=Release
+          -DHANDOFFKIT_ML_LINK_CORE=ON
+          -DHANDOFFKIT_ML_TLS=ON
+          -DHANDOFFKIT_ML_BUILD_TESTS=ON
+          -DHANDOFFKIT_ML_BUILD_CLI=OFF
+          -DHANDOFFKIT_BUILD_TESTS=OFF
+          -DHANDOFFKIT_BUILD_EXAMPLES=OFF
+          -DHANDOFFKIT_BUILD_CLI=OFF
+          -DHANDOFFKIT_BUILD_DEMOS=OFF
+
+      - name: Test native ARM64 cpp-ml CPU worker and secure gateway
+        env:
+          HANDOFFKIT_CPP_ML_WORKER: ${{ github.workspace }}/cpp/packages/handoffkit-ml/build-arm64/handoffkit-cpp-ml-worker
+        run: |
+          cmake --build cpp/packages/handoffkit-ml/build-arm64 --parallel 2
+          ctest --test-dir cpp/packages/handoffkit-ml/build-arm64 --output-on-failure
+          (cd go/handoffkit && go test -tags=cppmlintegration -race ./mlgateway)
+
+      - name: Test bidirectional Node/Go/Rust and C++ TCP matrix on Linux ARM64
+        env:
+          HANDOFFKIT_CPP_ML_WORKER: ${{ github.workspace }}/cpp/packages/handoffkit-ml/build-arm64/handoffkit-cpp-ml-worker
+        run: |
+          python cpp/packages/handoffkit-ml/tests/interop/test_tcp_interoperability.py \
+            "$HANDOFFKIT_CPP_ML_WORKER" \
+            > .local-tests/cpp-tcp-interoperability-linux-arm64.json
+          python -c "import json; value=json.load(open('.local-tests/cpp-tcp-interoperability-linux-arm64.json')); assert set(value['clients']) == {'python','node','go','rust'}; assert set(value['reverse_servers']) == {'python','node','go','rust'}; assert all(item['protocol'] == 'TLSv1.3' for item in value['clients'].values()); assert all(item['protocol'] == 'TLSv1.3' for item in value['reverse_servers'].values())"
+
+  arm64-macos:
+    name: macOS ARM64 runtime qualification
+    runs-on: macos-15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Prove execution is native ARM64
+        run: |
+          test "$(uname -s)" = Darwin
+          test "$(uname -m)" = arm64
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "python/packages/handoffkit[dev]"
+          pnpm install --frozen-lockfile
+
+      - name: Test Python and JavaScript ARM64 security routes
+        run: |
+          python -m pytest -q \
+            python/packages/handoffkit/tests/test_edge_profiles.py \
+            python/packages/handoffkit/tests/test_durable_replay.py \
+            python/packages/handoffkit/tests/test_csp_tls_integration.py
+          pnpm --dir js/packages/csp test
+          pnpm --dir js/packages/node test
+
+      - name: Test Go and Rust ARM64 security routes
+        run: |
+          (cd go/handoffkit && go test -race ./edgeprofile ./security ./artifactgate ./transport)
+          cargo test --manifest-path rust/Cargo.toml --locked -p handoffkit-protocol -p handoffkit-transport
+
+      - name: Configure C++ ARM64 crypto and provider-detected keystore
+        run: |
+          brew install openssl@3
+          cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build-macos-arm64 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
+            -DHANDOFFKIT_WITH_HTTP=OFF \
+            -DHANDOFFKIT_WITH_CRYPTO=ON \
+            -DHANDOFFKIT_WITH_TLS=ON \
+            -DHANDOFFKIT_BUILD_EXAMPLES=OFF \
+            -DHANDOFFKIT_BUILD_DEMOS=OFF \
+            -DHANDOFFKIT_BUILD_CLI=OFF
+
+      - name: Test C++ ARM64 recovery, keystore, signatures, and edge routes
+        run: |
+          cmake --build cpp/packages/handoffkit/build-macos-arm64 --parallel 2 \
+            --target test_edge_profiles test_csp_security test_os_keystore \
+              test_secure_memory test_durable_scheduler test_artifact_signatures test_tls_transport
+          ctest --test-dir cpp/packages/handoffkit/build-macos-arm64 --output-on-failure \
+            -R '^(test_edge_profiles|test_csp_security|test_os_keystore|test_secure_memory|test_durable_scheduler|test_artifact_signatures|test_tls_transport)$'
+
+      - name: Configure native macOS ARM64 cpp-ml TLS worker
+        run: |
+          cmake -S cpp/packages/handoffkit-ml -B cpp/packages/handoffkit-ml/build-macos-arm64 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DHANDOFFKIT_CORE_SOURCE_DIR=${{ github.workspace }}/cpp/packages/handoffkit \
+            -DHANDOFFKIT_ML_LINK_CORE=ON \
+            -DHANDOFFKIT_ML_TLS=ON \
+            -DHANDOFFKIT_ML_BUILD_TESTS=ON \
+            -DHANDOFFKIT_ML_BUILD_CLI=OFF \
+            -DHANDOFFKIT_BUILD_TESTS=OFF \
+            -DHANDOFFKIT_BUILD_EXAMPLES=OFF \
+            -DHANDOFFKIT_BUILD_CLI=OFF \
+            -DHANDOFFKIT_BUILD_DEMOS=OFF
+
+      - name: Test native macOS ARM64 cpp-ml and bidirectional TCP matrix
+        env:
+          HANDOFFKIT_CPP_ML_WORKER: ${{ github.workspace }}/cpp/packages/handoffkit-ml/build-macos-arm64/handoffkit-cpp-ml-worker
+        run: |
+          cmake --build cpp/packages/handoffkit-ml/build-macos-arm64 --parallel 2
+          ctest --test-dir cpp/packages/handoffkit-ml/build-macos-arm64 --output-on-failure
+          python cpp/packages/handoffkit-ml/tests/interop/test_tcp_interoperability.py \
+            "$HANDOFFKIT_CPP_ML_WORKER" \
+            > .local-tests/cpp-tcp-interoperability-macos-arm64.json
+          python -c "import json; value=json.load(open('.local-tests/cpp-tcp-interoperability-macos-arm64.json')); assert set(value['clients']) == {'python','node','go','rust'}; assert set(value['reverse_servers']) == {'python','node','go','rust'}; assert all(item['protocol'] == 'TLSv1.3' for item in value['clients'].values()); assert all(item['protocol'] == 'TLSv1.3' for item in value['reverse_servers'].values())"
+
+
