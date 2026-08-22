@@ -4,10 +4,9 @@ import { fileURLToPath } from "node:url";
 import { MessageEnvelope, SessionConfig } from "@handoffkit/csp";
 import { SubprocessStdioTransport } from "@handoffkit/node";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../..");
 const defaultBinary = path.join(
   root,
-  "packages",
   "rust",
   "target",
   "debug",
