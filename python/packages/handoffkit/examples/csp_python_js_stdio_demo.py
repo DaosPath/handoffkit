@@ -22,8 +22,8 @@ async def run_demo() -> dict[str, object]:
     if node is None:
         raise RuntimeError("Node.js is required for the Python/JS stdio demo.")
 
-    root = Path(__file__).resolve().parents[3]
-    worker = root / "packages" / "js" / "node" / "examples" / "csp_worker.mjs"
+    root = Path(__file__).resolve().parents[4]
+    worker = root / "js" / "packages" / "node" / "examples" / "csp_worker.mjs"
     transport = await SubprocessStdioTransport.spawn([node, str(worker)], cwd=str(root))
     config = SessionConfig(session_id="python-js-demo", runtime_mode=RuntimeMode.SESSION)
     opening = make_envelope(

@@ -17,7 +17,7 @@ from handoffkit.csp import (
 
 
 def go_binary() -> Path:
-    root = Path(__file__).resolve().parents[3]
+    root = Path(__file__).resolve().parents[4]
     default = (
         root
         / ".local-tests"

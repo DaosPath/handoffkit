@@ -17,10 +17,9 @@ from handoffkit.csp import (
 
 
 def rust_binary() -> Path:
-    root = Path(__file__).resolve().parents[3]
+    root = Path(__file__).resolve().parents[4]
     default = (
         root
-        / "packages"
         / "rust"
         / "target"
         / "debug"
