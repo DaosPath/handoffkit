@@ -140,19 +140,19 @@ func exerciseWorker(t *testing.T, argv []string, expectedRuntime string, wrapped
 
 func TestGoStartsPythonWorker(t *testing.T) {
 	root := repositoryRoot(t)
-	exerciseWorker(t, []string{"python", filepath.Join(root, "packages", "python", "examples", "csp_rust_worker.py")}, "python", true)
+	exerciseWorker(t, []string{"python", filepath.Join(root, "python", "packages", "handoffkit", "examples", "csp_rust_worker.py")}, "python", true)
 }
 
 func TestGoStartsJavaScriptWorker(t *testing.T) {
 	root := repositoryRoot(t)
-	exerciseWorker(t, []string{"node", filepath.Join(root, "packages", "js", "node", "examples", "csp_worker.mjs")}, "javascript", true)
+	exerciseWorker(t, []string{"node", filepath.Join(root, "js", "packages", "node", "examples", "csp_worker.mjs")}, "javascript", true)
 }
 
 func TestGoStartsRustWorker(t *testing.T) {
 	root := repositoryRoot(t)
 	binary := os.Getenv("HANDOFFKIT_RUST_BIN")
 	if binary == "" {
-		binary = filepath.Join(root, "packages", "rust", "target", "debug", "handoffkit-rs")
+		binary = filepath.Join(root, "rust", "target", "debug", "handoffkit-rs")
 		if goruntime.GOOS == "windows" {
 			binary += ".exe"
 		}
