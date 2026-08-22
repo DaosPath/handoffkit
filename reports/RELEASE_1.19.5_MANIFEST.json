@@ -2,9 +2,9 @@
   "format": "handoffkit.release.manifest",
   "format_version": 1,
   "release_train": "1.19.5",
-  "commit": "cb72916994476b3739b317aeca5a1ac483558eee",
-  "commit_short": "cb72916",
-  "generated_at": "2026-08-21T17:15:24.411278Z",
+  "commit": "a85d1e30ecc20fa0402d6bf958009597df0a5a88",
+  "commit_short": "a85d1e3",
+  "generated_at": "2026-08-22T05:56:35.003592Z",
   "products": [
     {
       "product": "js/core",
@@ -70,6 +70,15 @@
       "status": "pass"
     },
     {
+      "product": "js/cli",
+      "version": "1.19.5",
+      "filename": "js/packages/cli/handoffkit-cli-1.19.5.tgz",
+      "sha256": "5bbed0508f112bbe718366455f181daa30cfafc95a369dff1bbe16687871223b",
+      "bytes": 471148,
+      "platform": "any",
+      "status": "pass"
+    },
+    {
       "product": "rust/workspace",
       "version": "1.19.5",
       "filename": "rust/Cargo.toml",
@@ -91,8 +100,8 @@
       "product": "cpp/handoffkit",
       "version": "1.19.5",
       "filename": "cpp/packages/handoffkit/CMakeLists.txt",
-      "sha256": "5fab17c88d41b0469c0dc2549974fe810cb2bf9c7b6ccedd9125c5d6f5b15755",
-      "bytes": 16557,
+      "sha256": "b5af6379a1a8ecbb83bce101a1372d6abfe4817273b5cb8cc51eb87902f42b11",
+      "bytes": 16559,
       "platform": "any",
       "status": "pass"
     }
