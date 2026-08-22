@@ -25,7 +25,7 @@ def test_pyproject_marks_119_as_development_baseline() -> None:
     project = data["project"]
     classifiers = project["classifiers"]
 
-    assert project["version"] == "1.19.0"
+    assert project["version"] == "1.19.5"
     assert "Development Status :: 4 - Beta" in classifiers
     assert "Development Status :: 5 - Production/Stable" not in classifiers
 

@@ -6,7 +6,7 @@ import os
 
 class HandoffKitConan(ConanFile):
     name = "handoffkit"
-    version = "1.19.0"
+    version = "1.19.5"
     license = "MIT"
     author = "DaosPath <daospath@gmail.com>"
     url = "https://github.com/DaosPath/handoffkit"
@@ -86,3 +86,4 @@ class HandoffKitConan(ConanFile):
         self.cpp_info.components["demos"].libs = ["handoffkit_demos"]
         self.cpp_info.components["demos"].requires = ["browser", "nlohmann_json::nlohmann_json"]
         self.cpp_info.components["demos"].set_property("cmake_target_name", "handoffkit::demos")
+
