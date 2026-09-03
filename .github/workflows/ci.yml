@@ -175,16 +175,47 @@ jobs:
         run: python -m pip install "cryptography>=46,<50"
 
       - name: Browser unit tests (new layout)
-        # 1.20 browser-core/browser-lite/browser-real/clinical are not yet
-        # migrated to js/packages/*; qualify the present browser surface here.
         shell: bash
         run: |
           pnpm --dir js/packages/browser test
+          pnpm --dir js/packages/browser-core test
+          pnpm --dir js/packages/browser-lite test
+          pnpm --dir js/packages/clinical test
 
       - name: Produce per-runner package checksums
         env:
           HANDOFFKIT_PACKAGE_CHECKSUMS_OUTPUT: browser-package-checksums.json
         run: pnpm js:pack:checksums
+
+      - name: Install Chromium for the explicit Google probe (best effort)
+        shell: bash
+        continue-on-error: true
+        run: pnpm --dir js/packages/browser-real run install-chromium
+
+      - name: Run explicit Google Browser Real probe (records outcome, no fallback)
+        shell: bash
+        continue-on-error: true
+        env:
+          HANDOFFKIT_GOOGLE_BROWSER_OUTPUT: browser-google-probe.json
+        run: node scripts/js/browser-real-google-search.mjs
+
+      - name: Verify probe report is explicit (not its Google outcome)
+        shell: bash
+        run: >
+          node -e "const r=require('./browser-google-probe.json');
+          for (const k of ['format','format_version','status','code','fallback_used','elapsed_ms'])
+            if (!(k in r)) throw new Error('missing '+k);
+          if (r.format!=='handoffkit.browser.1.20.google_browser_live') throw new Error('bad format');
+          if (r.fallback_used!==false) throw new Error('fallback must stay false');
+          console.log('probe outcome:', r.status, r.code || '(no code)')"
+
+      - name: Archive Google probe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-google-probe-${{ matrix.os }}
+          path: browser-google-probe.json
+          if-no-files-found: error
 
       - name: Archive per-runner package checksums
         if: always()

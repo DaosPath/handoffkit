@@ -47,7 +47,7 @@ async function save(report) {
 let playwright;
 try {
   const require = createRequire(import.meta.url);
-  const packageRoot = path.join(root, "packages", "js", "browser-real");
+  const packageRoot = path.join(root, "js", "packages", "browser-real");
   const resolved = require.resolve("playwright", { paths: [packageRoot] });
   const imported = await import(pathToFileURL(resolved).href);
   playwright = imported.default || imported;
