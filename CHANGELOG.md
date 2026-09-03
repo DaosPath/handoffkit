@@ -58,6 +58,14 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
   oracle, not an LLM answer-accuracy claim; the corpus must be refreshed after
   its expiry date.
 
+- Added a deterministic model-answer judge (`judgeModelAnswer` /
+  `judge_model_answer`) in JavaScript and Python with a shared conformance
+  vector (`shared/contracts/conformance/model-answer-v1.json`). It scores a
+  live provider answer transcript against fetched pages only (answer present,
+  citations resolve, literal quotes, claim coverage, no invented URLs) and
+  fails closed on anything unverifiable. This judges grounding fidelity, not
+  general model correctness.
+
 - Screen-dubbing media pipeline and agent recipe (`screen_dubbing` /
   `screen-dubbing`): OCR + ASR consensus, a long-context producer prompt for
   one full-episode translation pass, and an improved offline `demo-media`

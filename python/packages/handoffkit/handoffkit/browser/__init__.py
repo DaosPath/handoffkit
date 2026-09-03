@@ -51,6 +51,7 @@ from handoffkit.browser.html_extract import (
     prefer_main_content,
 )
 from handoffkit.browser.kit import create_browser_agent_kit
+from handoffkit.browser.model_answer import judge_model_answer
 from handoffkit.browser.page import (
     PageMarkdown,
     format_readme_bundle,
@@ -218,6 +219,7 @@ __all__ = [
     "ResearchPack",
     "live_grounding_oracle",
     "score_live_grounding_run",
+    "judge_model_answer",
     "TransportResponse",
     "browser_toolkit",
     "canonical_url",

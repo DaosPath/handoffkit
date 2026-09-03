@@ -109,6 +109,7 @@ export {
   liveGroundingOracle,
   scoreLiveGroundingRun,
 } from "./grounding_scorer.js";
+export { judgeModelAnswer } from "./model_answer.js";
 export {
   detectSoftBlock,
   smartTruncate,

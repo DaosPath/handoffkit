@@ -515,3 +515,4 @@ export declare function runFixtureGrounding(corpus: Record<string, unknown>): Re
 export declare function scoreGroundingRun(corpus: Record<string, unknown>, answers: Record<string, unknown>): Record<string, unknown>;
 export declare function liveGroundingOracle(corpus: Record<string, unknown>, pages: unknown): Record<string, Record<string, unknown>>;
 export declare function scoreLiveGroundingRun(corpus: Record<string, unknown>, answers: Record<string, unknown>, pages: unknown, options?: Record<string, unknown>): Record<string, unknown>;
+export declare function judgeModelAnswer(transcript: Record<string, unknown>): Record<string, unknown>;

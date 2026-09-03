@@ -1,0 +1,238 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "score": 1.0,
+        "verdict": "pass"
+      },
+      "name": "passing_answer",
+      "transcript": {
+        "answer": "HandoffKit uses bounded channels (see https://example.test/docs/channels).",
+        "citations": [
+          {
+            "quote": "channels are bounded FIFO queues",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "claims": [
+          {
+            "citation_urls": [
+              "https://example.test/docs/channels"
+            ],
+            "claim_id": "q1-1",
+            "statement": "HandoffKit uses bounded channels"
+          }
+        ],
+        "model": "fixture/model-a",
+        "pages": [
+          {
+            "markdown": "# Channels\n\nHandoffKit channels are bounded FIFO queues with backpressure.",
+            "url": "https://example.test/docs/channels"
+          },
+          {
+            "markdown": "# Sessions\n\nSessions carry deadlines and cancellation.",
+            "url": "https://example.test/docs/sessions"
+          }
+        ],
+        "question": "How are HandoffKit channels bounded?",
+        "question_id": "q1"
+      }
+    },
+    {
+      "expected": {
+        "failing_gates": [
+          "answer_present"
+        ],
+        "score": 0.8,
+        "verdict": "fail"
+      },
+      "name": "empty_answer",
+      "transcript": {
+        "answer": "   ",
+        "citations": [
+          {
+            "quote": "channels are bounded FIFO queues",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "claims": [
+          {
+            "citation_urls": [
+              "https://example.test/docs/channels"
+            ],
+            "claim_id": "q1-1",
+            "statement": "HandoffKit uses bounded channels"
+          }
+        ],
+        "model": "fixture/model-a",
+        "pages": [
+          {
+            "markdown": "# Channels\n\nHandoffKit channels are bounded FIFO queues with backpressure.",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "question": "How are HandoffKit channels bounded?",
+        "question_id": "q1"
+      }
+    },
+    {
+      "expected": {
+        "failing_gates": [
+          "no_invented_urls"
+        ],
+        "score": 0.8,
+        "verdict": "fail"
+      },
+      "name": "invented_url_in_answer",
+      "transcript": {
+        "answer": "See https://example.test/docs/channels and https://evil.test/made-up.",
+        "citations": [
+          {
+            "quote": "channels are bounded FIFO queues",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "claims": [
+          {
+            "citation_urls": [
+              "https://example.test/docs/channels"
+            ],
+            "claim_id": "q1-1",
+            "statement": "HandoffKit uses bounded channels"
+          }
+        ],
+        "model": "fixture/model-a",
+        "pages": [
+          {
+            "markdown": "# Channels\n\nHandoffKit channels are bounded FIFO queues with backpressure.",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "question": "How are HandoffKit channels bounded?",
+        "question_id": "q1"
+      }
+    },
+    {
+      "expected": {
+        "failing_gates": [
+          "quotes_literal"
+        ],
+        "score": 0.8,
+        "verdict": "fail"
+      },
+      "name": "quote_mismatch",
+      "transcript": {
+        "answer": "Channels are magic (see https://example.test/docs/channels).",
+        "citations": [
+          {
+            "quote": "channels are infinite and magical",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "claims": [
+          {
+            "citation_urls": [
+              "https://example.test/docs/channels"
+            ],
+            "claim_id": "q1-1",
+            "statement": "Channels are magic"
+          }
+        ],
+        "model": "fixture/model-a",
+        "pages": [
+          {
+            "markdown": "# Channels\n\nHandoffKit channels are bounded FIFO queues with backpressure.",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "question": "How are HandoffKit channels bounded?",
+        "question_id": "q1"
+      }
+    },
+    {
+      "expected": {
+        "failing_gates": [
+          "citations_resolve",
+          "quotes_literal",
+          "claims_covered",
+          "no_invented_urls"
+        ],
+        "score": 0.2,
+        "verdict": "fail"
+      },
+      "name": "citation_to_unfetched_page",
+      "transcript": {
+        "answer": "Per https://example.test/docs/missing, all good.",
+        "citations": [
+          {
+            "quote": "something",
+            "url": "https://example.test/docs/missing"
+          }
+        ],
+        "claims": [
+          {
+            "citation_urls": [
+              "https://example.test/docs/missing"
+            ],
+            "claim_id": "q1-1",
+            "statement": "All good"
+          }
+        ],
+        "model": "fixture/model-a",
+        "pages": [
+          {
+            "markdown": "# Channels\n\nHandoffKit channels are bounded FIFO queues with backpressure.",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "question": "How are HandoffKit channels bounded?",
+        "question_id": "q1"
+      }
+    },
+    {
+      "expected": {
+        "failing_gates": [
+          "claims_covered"
+        ],
+        "score": 0.8,
+        "verdict": "fail"
+      },
+      "name": "uncovered_claim",
+      "transcript": {
+        "answer": "Channels are bounded and sessions never expire (see https://example.test/docs/channels).",
+        "citations": [
+          {
+            "quote": "channels are bounded FIFO queues",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "claims": [
+          {
+            "citation_urls": [
+              "https://example.test/docs/channels"
+            ],
+            "claim_id": "q1-1",
+            "statement": "Channels are bounded"
+          },
+          {
+            "citation_urls": [],
+            "claim_id": "q1-2",
+            "statement": "Sessions never expire"
+          }
+        ],
+        "model": "fixture/model-a",
+        "pages": [
+          {
+            "markdown": "# Channels\n\nHandoffKit channels are bounded FIFO queues with backpressure.",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "question": "How are Handoffkit channels bounded?",
+        "question_id": "q1"
+      }
+    }
+  ],
+  "format": "handoffkit.browser.model_answer_conformance",
+  "format_version": 1,
+  "notice": "Deterministic fixture only. Live provider answers are judged per transcript; no model correctness beyond the fetched pages is claimed."
+}
