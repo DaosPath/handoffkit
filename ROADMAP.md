@@ -6,8 +6,10 @@ The maintained roadmap now lives in [`docs/roadmap/README.md`](docs/roadmap/READ
 It covers the evidence-gated 1.19.5 release closure, repository convergence,
 Browser Core/Lite/Real in 1.20 (absorbing the former 1.20-1.29 split), and planned trains through 1.70 LTS.
 
-HandoffKit 1.19 is **not** a completed public release. Its current green branch
-is an experimental development baseline with release-candidate security paths;
+HandoffKit 1.19.5 is a completed public stable release (Production/Stable,
+published to PyPI, npm, crates.io, and as C++ assets). The 1.20 Browser
+Platform line continues from it as an experimental development baseline
+with release-candidate security paths;
 see
 [`HK_CSP_SECURITY.md`](docs/spec/HK_CSP_SECURITY.md) for the authoritative
 capability ledger.
