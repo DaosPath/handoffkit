@@ -349,3 +349,106 @@ test("managed profiles reject traversal and unmarked directories", async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+function actuationFakeEngine(calls) {
+  const locator = (selector) => ({
+    async hover(options) { calls.push(["hover", selector, options]); },
+    async focus(options) { calls.push(["focus", selector, options]); },
+    async check(options) { calls.push(["check", selector, options]); },
+    async uncheck(options) { calls.push(["uncheck", selector, options]); },
+    async dblclick(options) { calls.push(["dblclick", selector, options]); },
+    async scrollIntoViewIfNeeded(options) { calls.push(["scroll", selector, options]); },
+    async setInputFiles(path, options) { calls.push(["upload", selector, String(path), options]); },
+  });
+  return {
+    async launch() {
+      return {
+        page: {
+          locator,
+          async evaluate(fn, arg) { calls.push(["evaluate", String(fn).slice(0, 24), arg]); },
+        },
+        async close() {},
+      };
+    },
+  };
+}
+
+async function startActuationSession(engine) {
+  const service = new BrowserRealService({ engine });
+  await service.dispatch({
+    command_id: "act-start",
+    session_id: "s-act",
+    name: "session.start",
+    payload: { product: "real", session_id: "s-act" },
+  });
+  return service;
+}
+
+async function act(service, name, payload, commandId) {
+  const event = await service.dispatch({
+    command_id: commandId,
+    session_id: "s-act",
+    name,
+    payload,
+  });
+  assert.equal(event.name, "action.done");
+  return event.payload;
+}
+
+test("hover/focus/check/uncheck/dblclick actuate through locators", async () => {
+  const calls = [];
+  const service = await startActuationSession(actuationFakeEngine(calls));
+  for (const [name, extra] of [
+    ["hover", {}],
+    ["focus", {}],
+    ["check", {}],
+    ["uncheck", {}],
+    ["dblclick", {}],
+  ]) {
+    const event = await act(service, name, { selector: "button", ...extra }, `act-${name}`);
+    assert.equal(event.action, name);
+  }
+  assert.deepEqual(
+    calls.map(([action, selector]) => [action, selector]),
+    [["hover", "button"], ["focus", "button"], ["check", "button"], ["uncheck", "button"], ["dblclick", "button"]],
+  );
+});
+
+test("scroll targets selectors or explicit distance", async () => {
+  const calls = [];
+  const service = await startActuationSession(actuationFakeEngine(calls));
+  await act(service, "scroll", { selector: "main" }, "act-scroll-sel");
+  await act(service, "scroll", { by: 400 }, "act-scroll-by");
+  assert.deepEqual(calls[0].slice(0, 2), ["scroll", "main"]);
+  assert.equal(calls[1][0], "evaluate");
+  await assert.rejects(
+    () => service.dispatch({ command_id: "act-scroll-bad", session_id: "s-act", name: "scroll", payload: {} }),
+    (error) => error instanceof BrowserCoreError && error.code === "invalid_request",
+  );
+});
+
+test("upload requires selector, existing file, and size cap", async () => {
+  const { mkdtemp, rm, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const root = await mkdtemp(join(tmpdir(), "hk-upload-"));
+  try {
+    const calls = [];
+    const service = await startActuationSession(actuationFakeEngine(calls));
+    const file = join(root, "a.txt");
+    await writeFile(file, "hello");
+    const event = await act(service, "upload", { selector: "input", path: file }, "act-upload");
+    assert.equal(event.bytes, 5);
+    assert.deepEqual(calls[0].slice(0, 3), ["upload", "input", file]);
+    await assert.rejects(
+      () => service.dispatch({ command_id: "act-up-missing", session_id: "s-act", name: "upload", payload: { selector: "input", path: join(root, "nope.txt") } }),
+      (error) => error instanceof BrowserCoreError && error.code === "upload_missing_file",
+    );
+    await assert.rejects(
+      () => service.dispatch({ command_id: "act-up-sel", session_id: "s-act", name: "upload", payload: { path: file } }),
+      (error) => error instanceof BrowserCoreError && error.code === "invalid_request",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
