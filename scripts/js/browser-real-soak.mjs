@@ -59,7 +59,7 @@ if (!soakEnabled) {
 let playwright;
 try {
   const require = createRequire(import.meta.url);
-  const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "packages", "js", "browser-real");
+  const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "js", "packages", "browser-real");
   const resolved = require.resolve("playwright", { paths: [packageRoot] });
   const imported = await import(pathToFileURL(resolved).href);
   playwright = imported.default || imported;
