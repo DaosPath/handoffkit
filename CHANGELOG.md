@@ -7,42 +7,16 @@ HandoffKit uses semantic versioning for published releases. Subsystem changelogs
 contain deeper engineering history; this root file remains the concise public
 release summary.
 
-## [1.19.5] - 2026-08-21
-
-Repository reorganization and mass release alignment. This is the 1.19.5 train
-that completes the repository convergence before the Browser Platform.
-
-### Changed
-
-- Repository layout now language-first: `python/packages/handoffkit`,
-  `python/packages/handoffkit-localize`, `js/packages/*`, `rust/`,
-  `go/handoffkit`, `cpp/packages/handoffkit`, `cpp/packages/handoffkit-ml`,
-  `shared/contracts`, `apps/studio-web`, `validation/benchmarks`. History-preserving
-  `git mv`, pnpm workspace `js/packages/*`, Cargo `rust/`, Go `go/handoffkit`,
-  CMake `cpp/packages/handoffkit`, Python `python/packages/handoffkit`, and CI/docs/scripts
-  updated. Public package names (`handoffkit`, `@handoffkit/*`, Rust crates, Go import
-  path, C++ `handoffkit::*`, HK-CSP `1.0` wire) and `snake_case` canonical JSON remain unchanged.
-- Aligned participating products to **1.19.5**: Python `handoffkit==1.19.5`,
-  JS `@handoffkit/core@1.19.5`, `@handoffkit/csp@1.19.5`, `@handoffkit/providers@1.19.5`,
-  `@handoffkit/node@1.19.5`, `@handoffkit/recipes@1.19.5`, `@handoffkit/templates@1.19.5`,
-  `@handoffkit/cli@1.19.5`, `@handoffkit/browser@1.19.5` (Lite facade), Rust workspace `1.19.5`,
-  C++ `1.19.5`. Browser `Core/Lite/Real` split and `clinical` remain at `1.20` and are not part of the 1.19.5 train.
-- `pnpm-workspace.yaml`, `scripts/js/tsconfig.json`, `scripts/js/validate-workspace.mjs`,
-  `scripts/validate-repository-path-map.mjs` (`wave-5-validation`), `package.json` scripts
-  (`js:check`, `python:*`, `rust:test`, `cpp:test`, `web:*`), and JS package `repository.directory`
-  fields updated for the new layout. Contracts moved `packages/contracts` → `shared/contracts`.
-
-### Validation
-
-- `pnpm workspace:validate` (8 JS pkgs + studio-web), `workspace:paths` (13 paths),
-  `js:pack:check` (8 tarballs), `js:test` (all packages), `check` (workspace + studio + media)
-  pass on the reorg tree. Python Ruff, Rust `cargo fmt --check` / `clippy -D warnings`,
-  and Go `gofmt -l` gates pass; `shared/contracts` parity restored.
-
 ## [Unreleased]
 
-The current 1.19 development branch is a security contract and hardening
-baseline. It is not yet a complete or publishable 1.19 release.
+No pending changes. The 1.20 Browser Platform work continues on its own
+branches and is not part of the 1.19.5 train.
+
+## [1.19.5] - 2026-09-03
+
+Final 1.19 stable release. Security contract and hardening baseline plus
+repository convergence. This train is publishable: Python `handoffkit==1.19.5`
+is `Production/Stable`, and the JS/Rust/C++ products below ship at 1.19.5.
 
 ### Added
 
@@ -74,7 +48,27 @@ baseline. It is not yet a complete or publishable 1.19 release.
   benchmarks for TLS/reconnect/throughput/signatures and C++ workers.
 - Added development file-backed credential stores in Python and Node with
   lifecycle/path/POSIX private-key permission checks.
-- Added experimental isolated Crypto Lab (`packages/python/handoffkit/crypto_research`) for education, fuzzing, and research, strictly forbidden from production runtime fallbacks.
+- Added experimental isolated Crypto Lab (`python/packages/handoffkit/handoffkit/crypto_research`) for education, fuzzing, and research, strictly forbidden from production runtime fallbacks.
+
+### Changed
+
+- Repository layout now language-first: `python/packages/handoffkit`,
+  `python/packages/handoffkit-localize`, `js/packages/*`, `rust/`,
+  `go/handoffkit`, `cpp/packages/handoffkit`, `cpp/packages/handoffkit-ml`,
+  `shared/contracts`, `apps/studio-web`, `validation/benchmarks`. History-preserving
+  `git mv`, pnpm workspace `js/packages/*`, Cargo `rust/`, Go `go/handoffkit`,
+  CMake `cpp/packages/handoffkit`, Python `python/packages/handoffkit`, and CI/docs/scripts
+  updated. Public package names (`handoffkit`, `@handoffkit/*`, Rust crates, Go import
+  path, C++ `handoffkit::*`, HK-CSP `1.0` wire) and `snake_case` canonical JSON remain unchanged.
+- Aligned participating products to **1.19.5**: Python `handoffkit==1.19.5`,
+  JS `@handoffkit/core@1.19.5`, `@handoffkit/csp@1.19.5`, `@handoffkit/providers@1.19.5`,
+  `@handoffkit/node@1.19.5`, `@handoffkit/recipes@1.19.5`, `@handoffkit/templates@1.19.5`,
+  `@handoffkit/cli@1.19.5`, `@handoffkit/browser@1.19.5` (Lite facade), Rust workspace `1.19.5`,
+  C++ `1.19.5`. Browser `Core/Lite/Real` split and `clinical` remain at `1.20` and are not part of the 1.19.5 train.
+- `pnpm-workspace.yaml`, `scripts/js/tsconfig.json`, `scripts/js/validate-workspace.mjs`,
+  `scripts/validate-repository-path-map.mjs` (`wave-5-validation`), `package.json` scripts
+  (`js:check`, `python:*`, `rust:test`, `cpp:test`, `web:*`), and JS package `repository.directory`
+  fields updated for the new layout. Contracts moved `packages/contracts` → `shared/contracts`.
 
 ### Security
 
@@ -100,10 +94,17 @@ baseline. It is not yet a complete or publishable 1.19 release.
   covers Python, JavaScript, Go, Rust, and C++; TLS implementations use the
   same ephemeral certificate-generation profile, not pairwise interoperability
   across every runtime.
-- Python package metadata marks this development baseline as Beta rather than
-  Production/Stable.
+- Python package metadata marks this release as `Production/Stable`.
 - Rust dependency resolution is locked to the declared Rust 1.82 MSRV and CI
   checks the complete workspace with that toolchain.
+
+### Validation
+
+- `pnpm workspace:validate` (8 JS pkgs + studio-web), `workspace:paths` (13 paths),
+  `js:pack:check` (8 tarballs), `js:test` (all packages), `check` (workspace + studio + media)
+  pass on the reorg tree. Python Ruff, Rust `cargo fmt --check` / `clippy -D warnings`,
+  and Go `gofmt -l` gates pass; `shared/contracts` parity restored.
+- Python `pytest` passes (stable metadata asserts `Production/Stable`).
 
 ## [1.18.0] - 2026-07-28
 

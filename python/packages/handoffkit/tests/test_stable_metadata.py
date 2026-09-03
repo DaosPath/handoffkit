@@ -10,7 +10,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback.
     import tomli as tomllib
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = PACKAGE_ROOT.parents[1]
+REPO_ROOT = PACKAGE_ROOT.parents[2]
 
 
 def _require_repo() -> None:
@@ -20,14 +20,14 @@ def _require_repo() -> None:
         pytest.skip("monorepo paths not available (sdist-safe)")
 
 
-def test_pyproject_marks_119_as_development_baseline() -> None:
+def test_pyproject_marks_119_as_stable() -> None:
     data = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = data["project"]
     classifiers = project["classifiers"]
 
     assert project["version"] == "1.19.5"
-    assert "Development Status :: 4 - Beta" in classifiers
-    assert "Development Status :: 5 - Production/Stable" not in classifiers
+    assert "Development Status :: 5 - Production/Stable" in classifiers
+    assert "Development Status :: 4 - Beta" not in classifiers
 
 
 def test_ci_python_matrix_includes_310_to_314() -> None:
