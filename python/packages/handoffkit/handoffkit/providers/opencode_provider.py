@@ -108,6 +108,11 @@ def infer_opencode_api_style(
             "OpenCodeProvider does not support yet. Choose a GPT, Claude, Qwen, "
             "DeepSeek, MiniMax, GLM, Kimi, MiMo, Grok, or free OpenCode model."
         )
+    # Muse Spark (1.2/1.3, contributor/free) requires OpenAI Responses API.
+    # Ref: https://opencode.ai/docs/zen/ lists muse-spark-*-free under
+    # /v1/responses (not /v1/chat/completions); /chat/completions returns HTTP 500.
+    if normalized_model.startswith("muse-"):
+        return "openai_responses"
     if resolved_catalog == "go":
         if normalized_model in _GO_ANTHROPIC_MODELS:
             return "anthropic_messages"
