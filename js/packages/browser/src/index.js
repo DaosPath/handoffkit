@@ -30,6 +30,7 @@ export {
   webSearch,
   multiSearch,
   searchGoogle,
+  providerEngine,
   DEFAULT_SEARCH_PROVIDERS,
   SUPPORTED_SEARCH_PROVIDERS,
   PLATFORM_SEARCH_PROVIDERS,

@@ -122,12 +122,15 @@ export const SUPPORTED_SEARCH_PROVIDERS = Object.freeze([
   "duckduckgo",
   "wikipedia",
   "searxng",
+  "brave",
+  "bing",
+  "kagi",
   USER_BROWSER_PROVIDER,
   DEFAULT_BROWSER_PROVIDER,
 ]);
 export { PLATFORM_SEARCH_PROVIDERS };
 
-function providerEngine(providers) {
+export function providerEngine(providers) {
   const names = [];
   for (const raw of providers ?? []) {
     const value = String(raw ?? "").trim().toLowerCase();
@@ -154,6 +157,12 @@ function providerEngine(providers) {
       ? "duckduckgo_html"
       : provider === "searxng"
         ? "searxng_json"
+      : provider === "brave"
+        ? "brave_json"
+      : provider === "bing"
+        ? "bing_json"
+      : provider === "kagi"
+        ? "kagi_json"
       : provider === "wikipedia"
         ? "wikipedia_opensearch"
         : provider === USER_BROWSER_PROVIDER
@@ -356,6 +365,147 @@ async function searxngJsonSearch(transport, query, maxResults, timeoutMs) {
   return { hits };
 }
 
+/**
+ * Brave Search JSON API (api.search.brave.com). Key via HANDOFFKIT_BRAVE_API_KEY;
+ * without it the provider reports provider_unavailable instead of calling.
+ */
+async function braveJsonSearch(transport, query, maxResults, timeoutMs) {
+  const hits = [];
+  if (!transport || !query || maxResults < 1) return { hits };
+  const key = String(process.env.HANDOFFKIT_BRAVE_API_KEY ?? "").trim();
+  if (!key) {
+    return {
+      hits,
+      error_code: "provider_unavailable",
+      error: "brave requires HANDOFFKIT_BRAVE_API_KEY",
+    };
+  }
+  const url = `https://api.search.brave.com/res/v1/web/search?q=${urlEncodeComponent(String(query))}&count=${Math.min(Math.max(maxResults, 1), 20)}`;
+  const resp = await transport.get(
+    new TransportRequest({
+      url,
+      timeoutMs: timeoutMs > 0 ? timeoutMs : 20000,
+      headers: {
+        "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
+        Accept: "application/json",
+        "X-Subscription-Token": key,
+      },
+    }),
+  );
+  if (resp.error) return { hits, error_code: "brave_transport_error", error: resp.error };
+  if (resp.status < 200 || resp.status >= 300 || !resp.body) {
+    return { hits, error_code: "brave_empty_response", error: "Brave returned no JSON results" };
+  }
+  let data;
+  try {
+    data = JSON.parse(resp.body);
+  } catch {
+    return { hits, error_code: "brave_invalid_response", error: "Brave returned invalid JSON" };
+  }
+  const results = Array.isArray(data?.web?.results) ? data.web.results : [];
+  for (const item of results) {
+    const itemUrl = String(item?.url ?? "");
+    const title = stripTags(String(item?.title ?? ""));
+    if (itemUrl.startsWith("http")) pushHit(hits, title || itemUrl, itemUrl, maxResults);
+    if (hits.length >= maxResults) break;
+  }
+  return { hits };
+}
+
+/**
+ * Bing Web Search JSON API (api.bing.microsoft.com). Key via HANDOFFKIT_BING_API_KEY;
+ * without it the provider reports provider_unavailable instead of calling.
+ */
+async function bingJsonSearch(transport, query, maxResults, timeoutMs) {
+  const hits = [];
+  if (!transport || !query || maxResults < 1) return { hits };
+  const key = String(process.env.HANDOFFKIT_BING_API_KEY ?? "").trim();
+  if (!key) {
+    return {
+      hits,
+      error_code: "provider_unavailable",
+      error: "bing requires HANDOFFKIT_BING_API_KEY",
+    };
+  }
+  const url = `https://api.bing.microsoft.com/v7.0/search?q=${urlEncodeComponent(String(query))}&count=${Math.min(Math.max(maxResults, 1), 20)}&responseFilter=Webpages`;
+  const resp = await transport.get(
+    new TransportRequest({
+      url,
+      timeoutMs: timeoutMs > 0 ? timeoutMs : 20000,
+      headers: {
+        "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
+        Accept: "application/json",
+        "Ocp-Apim-Subscription-Key": key,
+      },
+    }),
+  );
+  if (resp.error) return { hits, error_code: "bing_transport_error", error: resp.error };
+  if (resp.status < 200 || resp.status >= 300 || !resp.body) {
+    return { hits, error_code: "bing_empty_response", error: "Bing returned no JSON results" };
+  }
+  let data;
+  try {
+    data = JSON.parse(resp.body);
+  } catch {
+    return { hits, error_code: "bing_invalid_response", error: "Bing returned invalid JSON" };
+  }
+  const results = Array.isArray(data?.webPages?.value) ? data.webPages.value : [];
+  for (const item of results) {
+    const itemUrl = String(item?.url ?? "");
+    const title = stripTags(String(item?.name ?? ""));
+    if (itemUrl.startsWith("http")) pushHit(hits, title || itemUrl, itemUrl, maxResults);
+    if (hits.length >= maxResults) break;
+  }
+  return { hits };
+}
+
+/**
+ * Kagi Search JSON API (kagi.com). Key via HANDOFFKIT_KAGI_API_KEY;
+ * without it the provider reports provider_unavailable instead of calling.
+ */
+async function kagiJsonSearch(transport, query, maxResults, timeoutMs) {
+  const hits = [];
+  if (!transport || !query || maxResults < 1) return { hits };
+  const key = String(process.env.HANDOFFKIT_KAGI_API_KEY ?? "").trim();
+  if (!key) {
+    return {
+      hits,
+      error_code: "provider_unavailable",
+      error: "kagi requires HANDOFFKIT_KAGI_API_KEY",
+    };
+  }
+  const url = `https://kagi.com/api/v0/search?q=${urlEncodeComponent(String(query))}`;
+  const resp = await transport.get(
+    new TransportRequest({
+      url,
+      timeoutMs: timeoutMs > 0 ? timeoutMs : 20000,
+      headers: {
+        "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
+        Accept: "application/json",
+        Authorization: `Bot ${key}`,
+      },
+    }),
+  );
+  if (resp.error) return { hits, error_code: "kagi_transport_error", error: resp.error };
+  if (resp.status < 200 || resp.status >= 300 || !resp.body) {
+    return { hits, error_code: "kagi_empty_response", error: "Kagi returned no JSON results" };
+  }
+  let data;
+  try {
+    data = JSON.parse(resp.body);
+  } catch {
+    return { hits, error_code: "kagi_invalid_response", error: "Kagi returned invalid JSON" };
+  }
+  const results = Array.isArray(data?.data) ? data.data : [];
+  for (const item of results) {
+    const itemUrl = String(item?.url ?? "");
+    const title = stripTags(String(item?.title ?? ""));
+    if (itemUrl.startsWith("http")) pushHit(hits, title || itemUrl, itemUrl, maxResults);
+    if (hits.length >= maxResults) break;
+  }
+  return { hits };
+}
+
 async function duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs) {
   const hits = [];
   if (!transport || !query || maxResults < 1) return { hits };
@@ -476,6 +626,15 @@ async function searchWithProviders(transport, query, maxResults, timeoutMs, prov
         providerHits = providerResult.hits;
       } else if (provider === "searxng") {
         providerResult = await searxngJsonSearch(transport, query, maxResults, timeoutMs);
+        providerHits = providerResult.hits;
+      } else if (provider === "brave") {
+        providerResult = await braveJsonSearch(transport, query, maxResults, timeoutMs);
+        providerHits = providerResult.hits;
+      } else if (provider === "bing") {
+        providerResult = await bingJsonSearch(transport, query, maxResults, timeoutMs);
+        providerHits = providerResult.hits;
+      } else if (provider === "kagi") {
+        providerResult = await kagiJsonSearch(transport, query, maxResults, timeoutMs);
         providerHits = providerResult.hits;
       } else if (provider === "wikipedia") {
         providerHits = await wikipediaOpensearch(transport, query, maxResults, timeoutMs);

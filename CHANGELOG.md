@@ -66,6 +66,11 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
   fails closed on anything unverifiable. This judges grounding fidelity, not
   general model correctness.
 
+- Added key-gated JSON search providers (`brave`, `bing`, `kagi`) in
+  JavaScript and Python. Keys come from `HANDOFFKIT_BRAVE_API_KEY`,
+  `HANDOFFKIT_BING_API_KEY`, and `HANDOFFKIT_KAGI_API_KEY`; without its key
+  the provider reports `provider_unavailable` and never calls the network.
+
 - Screen-dubbing media pipeline and agent recipe (`screen_dubbing` /
   `screen-dubbing`): OCR + ASR consensus, a long-context producer prompt for
   one full-episode translation pass, and an improved offline `demo-media`

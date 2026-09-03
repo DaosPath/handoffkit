@@ -100,6 +100,16 @@ instance. Results are normalized to the same `{title, url}` hit shape as the
 other providers and flow through host ranking, allow/deny lists, and cache
 observability like any built-in engine.
 
+### Key-gated providers (`brave`, `bing`, `kagi`)
+
+`providers=["brave"]`, `["bing"]`, or `["kagi"]` query the vendor JSON APIs
+(Brave `api.search.brave.com`, Bing `api.bing.microsoft.com`, Kagi
+`kagi.com/api/v0/search`). Configure keys via `HANDOFFKIT_BRAVE_API_KEY`,
+`HANDOFFKIT_BING_API_KEY`, or `HANDOFFKIT_KAGI_API_KEY`; without its key the
+provider reports `provider_unavailable` with `<name>_unconfigured` and never
+calls the network. Keys travel only in the request `Authorization` header and
+are redacted from traces and errors like any secret.
+
 Grounded multi-query recipes run sequentially with a bounded delay by default,
 reducing burst rate limits against public HTML endpoints. Provider challenge
 pages fail closed with a structured error.

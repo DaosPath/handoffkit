@@ -164,7 +164,7 @@ def test_web_search_with_map_endpoints():
     assert wiki_only["providers_used"] == ["wikipedia"]
     assert wiki_only["errors"] == []
 
-    unavailable = web_search("OpenAI", transport=transport, providers=["bing"])
+    unavailable = web_search("OpenAI", transport=transport, providers=["not_a_provider"])
     assert unavailable["success"] is False
     assert unavailable["error_code"] == "provider_unavailable"
     assert "unsupported provider" in unavailable["errors"][0]

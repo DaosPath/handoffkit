@@ -85,6 +85,9 @@ SUPPORTED_SEARCH_PROVIDERS = (
     "duckduckgo",
     "wikipedia",
     "searxng",
+    "brave",
+    "bing",
+    "kagi",
     USER_BROWSER_PROVIDER,
     DEFAULT_BROWSER_PROVIDER,
 )
@@ -128,6 +131,9 @@ def provider_engine(providers: list[str] | tuple[str, ...] | None) -> str:
             "project_index": "project_index",
             "duckduckgo": "duckduckgo_html",
             "searxng": "searxng_json",
+            "brave": "brave_json",
+            "bing": "bing_json",
+            "kagi": "kagi_json",
             "wikipedia": "wikipedia_opensearch",
             USER_BROWSER_PROVIDER: "user_browser_bridge",
             DEFAULT_BROWSER_PROVIDER: "default_browser_bridge",
@@ -332,6 +338,166 @@ def search_searxng(
     return hits
 
 
+BRAVE_ENV_API_KEY = "HANDOFFKIT_BRAVE_API_KEY"
+BING_ENV_API_KEY = "HANDOFFKIT_BING_API_KEY"
+KAGI_ENV_API_KEY = "HANDOFFKIT_KAGI_API_KEY"
+
+
+def search_brave(
+    query: str,
+    *,
+    max_results: int = 8,
+    transport: WebTransport | None = None,
+    timeout_ms: int = 15000,
+    api_key: str | None = None,
+) -> list[dict[str, str]]:
+    """Search Brave's JSON API (api.search.brave.com)."""
+    import os
+
+    q = (query or "").strip()
+    if not q:
+        return []
+    key = str(api_key or os.environ.get(BRAVE_ENV_API_KEY, "")).strip()
+    if not key:
+        raise ValueError("brave: no API key configured (set HANDOFFKIT_BRAVE_API_KEY)")
+    tr = transport or default_transport(True)
+    count = min(max(int(max_results or 8), 1), 20)
+    api = f"https://api.search.brave.com/res/v1/web/search?q={quote_plus(q)}&count={count}"
+    resp = tr.get(
+        api,
+        timeout_ms=timeout_ms,
+        headers={
+            "User-Agent": DEFAULT_UA,
+            "Accept": "application/json",
+            "X-Subscription-Token": key,
+        },
+    )
+    if not resp.body:
+        return []
+    try:
+        data = json.loads(resp.body)
+    except Exception:  # noqa: BLE001
+        return []
+    results = data.get("web", {}).get("results") if isinstance(data, dict) else None
+    if not isinstance(results, list):
+        return []
+    hits: list[dict[str, str]] = []
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        url = str(item.get("url") or "")
+        title = _strip(item.get("title") or "")
+        if url.startswith("http"):
+            hits.append({"title": title or url, "url": url})
+        if len(hits) >= max_results * 2:
+            break
+    return hits
+
+
+def search_bing(
+    query: str,
+    *,
+    max_results: int = 8,
+    transport: WebTransport | None = None,
+    timeout_ms: int = 15000,
+    api_key: str | None = None,
+) -> list[dict[str, str]]:
+    """Search Bing's JSON API (api.bing.microsoft.com)."""
+    import os
+
+    q = (query or "").strip()
+    if not q:
+        return []
+    key = str(api_key or os.environ.get(BING_ENV_API_KEY, "")).strip()
+    if not key:
+        raise ValueError("bing: no API key configured (set HANDOFFKIT_BING_API_KEY)")
+    tr = transport or default_transport(True)
+    count = min(max(int(max_results or 8), 1), 20)
+    api = (
+        "https://api.bing.microsoft.com/v7.0/search"
+        f"?q={quote_plus(q)}&count={count}&responseFilter=Webpages"
+    )
+    resp = tr.get(
+        api,
+        timeout_ms=timeout_ms,
+        headers={
+            "User-Agent": DEFAULT_UA,
+            "Accept": "application/json",
+            "Ocp-Apim-Subscription-Key": key,
+        },
+    )
+    if not resp.body:
+        return []
+    try:
+        data = json.loads(resp.body)
+    except Exception:  # noqa: BLE001
+        return []
+    results = data.get("webPages", {}).get("value") if isinstance(data, dict) else None
+    if not isinstance(results, list):
+        return []
+    hits: list[dict[str, str]] = []
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        url = str(item.get("url") or "")
+        title = _strip(item.get("name") or "")
+        if url.startswith("http"):
+            hits.append({"title": title or url, "url": url})
+        if len(hits) >= max_results * 2:
+            break
+    return hits
+
+
+def search_kagi(
+    query: str,
+    *,
+    max_results: int = 8,
+    transport: WebTransport | None = None,
+    timeout_ms: int = 15000,
+    api_key: str | None = None,
+) -> list[dict[str, str]]:
+    """Search Kagi's JSON API (kagi.com)."""
+    import os
+
+    q = (query or "").strip()
+    if not q:
+        return []
+    key = str(api_key or os.environ.get(KAGI_ENV_API_KEY, "")).strip()
+    if not key:
+        raise ValueError("kagi: no API key configured (set HANDOFFKIT_KAGI_API_KEY)")
+    tr = transport or default_transport(True)
+    api = f"https://kagi.com/api/v0/search?q={quote_plus(q)}"
+    resp = tr.get(
+        api,
+        timeout_ms=timeout_ms,
+        headers={
+            "User-Agent": DEFAULT_UA,
+            "Accept": "application/json",
+            "Authorization": f"Bot {key}",
+        },
+    )
+    if not resp.body:
+        return []
+    try:
+        data = json.loads(resp.body)
+    except Exception:  # noqa: BLE001
+        return []
+    results = data.get("data") if isinstance(data, dict) else None
+    if not isinstance(results, list):
+        return []
+    hits: list[dict[str, str]] = []
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        url = str(item.get("url") or "")
+        title = _strip(item.get("title") or "")
+        if url.startswith("http"):
+            hits.append({"title": title or url, "url": url})
+        if len(hits) >= max_results * 2:
+            break
+    return hits
+
+
 def search_wikipedia(
     query: str,
     *,
@@ -519,6 +685,26 @@ def web_search(
                     trace["error_code"] = "provider_unavailable"
                     trace["fallback_reason"] = "searxng_unconfigured"
                     errors.append(f"searxng: {exc}")
+                    provider_codes.append("provider_unavailable")
+                    provider_trace.append(trace)
+                    if strict_provider:
+                        break
+                    continue
+            elif provider in ("brave", "bing", "kagi"):
+                try:
+                    search_fn = {"brave": search_brave, "bing": search_bing, "kagi": search_kagi}[
+                        provider
+                    ]
+                    hits = search_fn(
+                        q,
+                        max_results=max_results,
+                        transport=tr,
+                        timeout_ms=timeout_ms,
+                    )
+                except ValueError as exc:
+                    trace["error_code"] = "provider_unavailable"
+                    trace["fallback_reason"] = f"{provider}_unconfigured"
+                    errors.append(f"{provider}: {exc}")
                     provider_codes.append("provider_unavailable")
                     provider_trace.append(trace)
                     if strict_provider:

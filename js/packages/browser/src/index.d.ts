@@ -365,6 +365,7 @@ export declare function exploreDefaultBrowser(
 ): Promise<ExploreResult>;
 
 export declare function webSearch(query: string, opts?: Record<string, unknown>): Promise<SearchResult>;
+export declare function providerEngine(providers?: string[]): string;
 export declare function searchGoogle(
   transport: WebTransport,
   query: string,

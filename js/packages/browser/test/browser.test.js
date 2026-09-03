@@ -215,7 +215,7 @@ test("webSearch against fixture search endpoints", async () => {
 
   const unavailable = await webSearch("OpenAI", {
     transport,
-    providers: ["bing"],
+    providers: ["not_a_provider"],
   });
   assert.equal(unavailable.success, false);
   assert.equal(unavailable.error_code, "provider_unavailable");

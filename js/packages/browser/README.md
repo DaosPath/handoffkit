@@ -160,6 +160,11 @@ unreachable providers remain observable errors and never silently become
 another provider. Supplying `BrowserCache` also records cache hits, misses,
 and writes.
 
+Key-gated JSON providers (`brave`, `bing`, `kagi`) query the vendor APIs and
+need `HANDOFFKIT_BRAVE_API_KEY`, `HANDOFFKIT_BING_API_KEY`, or
+`HANDOFFKIT_KAGI_API_KEY`; without its key the provider reports
+`provider_unavailable` and never calls the network.
+
 The Google adapter is HandoffKit's native HTTP route. It does not open Chrome,
 read cookies, or use a user session. It unwraps Google result redirects and
 rejects sponsored/ad redirectors and Google navigation links before normal host
