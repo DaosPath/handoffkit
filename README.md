@@ -10,10 +10,10 @@ Move tasks, decisions, files, errors, evidence, and next steps between agents as
 validated data instead of fragile chat summaries.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/DaosPath/handoffkit/ci.yml?branch=main&label=CI&logo=github&logoColor=white&style=flat-square)](https://github.com/DaosPath/handoffkit/actions)
-[![Rust Runtime](https://img.shields.io/badge/Rust_runtime-1.19.0-38bdf8?style=flat-square)](packages/rust/README.md)
+[![Rust Runtime](https://img.shields.io/badge/Rust_runtime-1.17.0-38bdf8?style=flat-square)](rust/README.md)
 [![PyPI](https://img.shields.io/pypi/v/handoffkit.svg?logo=python&logoColor=white&style=flat-square)](https://pypi.org/project/handoffkit/)
 [![npm](https://img.shields.io/npm/v/@handoffkit/core.svg?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/@handoffkit/core)
-[![C++20](https://img.shields.io/badge/C%2B%2B-20-7c3aed?logo=cplusplus&logoColor=white&style=flat-square)](packages/cpp/README.md)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-7c3aed?logo=cplusplus&logoColor=white&style=flat-square)](cpp/packages/handoffkit/README.md)
 [![License](https://img.shields.io/github/license/DaosPath/handoffkit.svg?style=flat-square)](LICENSE)
 
 [Quick start](#quick-start) · [Runtime status](#runtime-status) · [Native Fusion](#native-c-fusion) · [Documentation](docs/README.md) · [Roadmap](ROADMAP.md)
@@ -89,9 +89,9 @@ const result = await team.arun("Prepare a release checklist.");
 ### C++20
 
 ```bash
-cmake -S packages/cpp -B packages/cpp/build -DCMAKE_BUILD_TYPE=Release
-cmake --build packages/cpp/build --config Release
-ctest --test-dir packages/cpp/build -C Release --output-on-failure
+cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/packages/handoffkit/build --config Release
+ctest --test-dir cpp/packages/handoffkit/build -C Release --output-on-failure
 ```
 
 ```cpp
@@ -110,9 +110,9 @@ auto result = team.run("Prepare a release checklist");
 ### Rust
 
 ```bash
-cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit-cli -- csp doctor
-cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit-cli -- csp demo
-cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit --example csp_runtime_demo
+cargo run --manifest-path rust/Cargo.toml -p handoffkit-cli -- csp doctor
+cargo run --manifest-path rust/Cargo.toml -p handoffkit-cli -- csp demo
+cargo run --manifest-path rust/Cargo.toml -p handoffkit --example csp_runtime_demo
 ```
 
 <img src="docs/assets/coding-review-terminal.svg" alt="Five-minute HandoffKit coding review demo" width="100%">
@@ -132,10 +132,10 @@ version and maturity level; wire compatibility remains governed by HK-CSP 1.0.
 | **Rust 1.19** | Native Tokio runtime; transport/security APIs experimental | Source workspace; crates.io publication prepared, not yet released | Contracts, protocol, sessions, TLS transport, processes, Agent/Team/Recipe, stdio/subprocess, CLI |
 
 Runtime documentation:
-[Python](packages/python/README.md) ·
-[JavaScript](packages/js/README.md) ·
-[C++](packages/cpp/README.md) ·
-[Rust](packages/rust/README.md)
+[Python](python/packages/handoffkit/README.md) ·
+[JavaScript](js/packages/README.md) ·
+[C++](cpp/packages/handoffkit/README.md) ·
+[Rust](rust/README.md)
 
 ---
 
@@ -160,7 +160,7 @@ durable security state; those capabilities remain experimental and are not
 implied by this historical baseline section.
 
 [Rust runtime guide](docs/rust/RUNTIME.md) ·
-[Rust workspace](packages/rust/README.md) ·
+[Rust workspace](rust/README.md) ·
 [HK-CSP roadmap](docs/spec/HK_CSP_ROADMAP.md)
 
 ---
@@ -183,7 +183,7 @@ implied by this historical baseline section.
 | **Native C++ Fusion** | Tiered multi-agent synthesis with role packs, configurable prompts, DAG execution, cache, persistence, and quality contracts |
 
 The canonical wire contracts and cross-runtime fixtures live in
-[`packages/contracts`](packages/contracts/README.md). Contract drift becomes a
+[`shared/contracts`](shared/contracts/README.md). Contract drift becomes a
 CI failure instead of a production surprise.
 
 ### HandoffState vs HK-CSP
@@ -203,7 +203,7 @@ session = runtime.create_session(session_id="release-review")
 ```bash
 handoffkit csp doctor
 handoffkit csp demo
-handoffkit csp inspect packages/contracts/fixtures/message_envelope.json
+handoffkit csp inspect shared/contracts/fixtures/message_envelope.json
 ```
 
 Defaults remain safe and explicit: bounded channels (`64`), blocking
@@ -231,7 +231,7 @@ Specification: [HK-CSP](docs/spec/HK_CSP.md) ·
 
 Additional offline demos cover media workflows, tools, structured outputs,
 provider formats, memory, project context, evaluations, medical research
-benchmarks, and Fusion-style panels.
+validation/benchmarks, and Fusion-style panels.
 
 - [Python demo index](docs/python/demos/README.md)
 - [JavaScript demo index](docs/js/demos/README.md)
@@ -261,7 +261,7 @@ print(trace.to_timeline())
 <img src="docs/assets/handoffkit-report-gallery.svg" alt="Inspectable HandoffKit JSON and Markdown reports" width="100%">
 
 Golden reports used by demos and tests live under
-[`packages/python/examples/fixtures/reports`](packages/python/examples/fixtures/reports/README.md).
+[`python/packages/handoffkit/examples/fixtures/reports`](python/packages/handoffkit/examples/fixtures/reports/README.md).
 
 ---
 
@@ -300,15 +300,15 @@ cache isolation, resume, provider routing, and local offline validation.
 
 ```text
 handoffkit/
-├── packages/
-│   ├── contracts/        shared schemas and cross-runtime fixtures
-│   ├── python/           production Python runtime and CLI
-│   ├── js/               core, CSP, node, providers, recipes, templates, CLI
-│   ├── cpp/              native C++20 runtime, CLI, tools, and Fusion
-│   ├── cpp-ml/           optional native training complement
-│   └── rust/             Rust contracts/protocol workspace and parity tests
+├── shared/contracts/   shared schemas and cross-runtime fixtures
+├── python/packages/    production Python runtime and CLI (handoffkit, handoffkit-localize)
+├── js/packages/        core, CSP, node, providers, recipes, templates, CLI, browser
+├── rust/               Rust contracts/protocol/runtime workspace and parity tests
+├── go/handoffkit/      Go distributed runtime and worker
+├── cpp/packages/       native C++20 runtime (handoffkit), CLI, tools, Fusion, handoffkit-ml
 ├── apps/
-│   └── web/              Next.js Studio and documentation experience
+│   ├── studio-web/     Next.js Studio and documentation experience
+│   └── media-studio/   media experience
 ├── docs/
 │   ├── cpp/fusion/       canonical Fusion documentation
 │   ├── python/           Python guides, integrations, and launch material
@@ -333,13 +333,13 @@ pnpm js:check
 pnpm js:test
 pnpm python:lint
 pnpm python:test
-cargo test --manifest-path packages/rust/Cargo.toml
-cargo fmt --manifest-path packages/rust/Cargo.toml --all --check
-cargo clippy --manifest-path packages/rust/Cargo.toml --workspace --all-targets -- -D warnings
+cargo test --manifest-path rust/Cargo.toml
+cargo fmt --manifest-path rust/Cargo.toml --all --check
+cargo clippy --manifest-path rust/Cargo.toml --workspace --all-targets -- -D warnings
 
-cmake -S packages/cpp -B packages/cpp/build -DCMAKE_BUILD_TYPE=Release
-cmake --build packages/cpp/build --config Release
-ctest --test-dir packages/cpp/build -C Release --output-on-failure
+cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/packages/handoffkit/build --config Release
+ctest --test-dir cpp/packages/handoffkit/build -C Release --output-on-failure
 ```
 
 Normal tests are designed to run offline. Live provider tests and network access

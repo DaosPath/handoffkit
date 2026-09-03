@@ -6,6 +6,10 @@ __pycache__/
 .ruff_cache/
 .cache/
 .local-tests/
+shared/contracts/test-fixtures/**/*.pem
+shared/contracts/test-fixtures/**/*.key
+shared/contracts/test-fixtures/**/*.p12
+shared/contracts/test-fixtures/**/*.pfx
 packages/contracts/test-fixtures/**/*.pem
 packages/contracts/test-fixtures/**/*.key
 packages/contracts/test-fixtures/**/*.p12
@@ -37,6 +41,15 @@ tests/_tmp_tool_execution/
 tests/_tmp_memory_context/
 
 # Python package: local outputs only (golden reports: examples/fixtures/reports/)
+python/packages/handoffkit/examples/output/
+python/packages/handoffkit/runs/
+python/packages/handoffkit/reports/**
+!python/packages/handoffkit/reports/README.md
+python/packages/handoffkit/build/
+python/packages/handoffkit/dist/
+python/packages/handoffkit/*.egg-info/
+python/packages/handoffkit/tests/_tmp_tool_execution/
+python/packages/handoffkit/tests/_tmp_memory_context/
 packages/python/examples/output/
 packages/python/runs/
 packages/python/reports/**
@@ -57,21 +70,33 @@ apps/*/.next/
 apps/*/out/
 apps/*/build/
 apps/*/dev-server.log
+apps/studio-web/.data/
 apps/web/.data/
 apps/*/.data/
+js/packages/*/node_modules/
+js/packages/*/dist/
+packages/js/*/node_modules/
+packages/js/*/dist/
 packages/*/node_modules/
 packages/*/dist/
 packages/*/target/
+rust/fuzz/artifacts/
+rust/fuzz/corpus/
+rust/fuzz/target/
+rust/fuzz/crashes/
 packages/rust/fuzz/artifacts/
 packages/rust/fuzz/corpus/
 packages/rust/fuzz/target/
 packages/rust/fuzz/crashes/
+rust/target/
 
 # Local agent terminal logs
 terminals/
 
 
 # CUDA MSVC build tree
+cpp/packages/handoffkit-ml/build-cuda/
+cpp/packages/handoffkit-ml/build-csp/
+cpp/packages/handoffkit/build/
 packages/cpp-ml/build-cuda/
 packages/cpp-ml/build-csp/
-

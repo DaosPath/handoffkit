@@ -33,7 +33,7 @@ jobs:
       - name: Install Chromium
         shell: bash
         run: |
-          if ! pnpm --dir packages/js/browser-real run install-chromium; then
+          if ! pnpm --dir js/packages/browser-real run install-chromium; then
             echo "Playwright managed Chromium unavailable; requiring HANDOFFKIT_BROWSER_CHROMIUM"
             if [ -z "${HANDOFFKIT_BROWSER_CHROMIUM:-}" ]; then
               echo "No system Chromium executablePath configured; failing instead of skipping"

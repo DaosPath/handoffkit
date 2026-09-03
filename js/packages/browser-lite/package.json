@@ -1,0 +1,51 @@
+{
+  "name": "@handoffkit/browser-lite",
+  "version": "1.20.0-alpha.1",
+  "description": "HandoffKit Browser Lite: HTTP search, fetch, extraction, and local index adapters over Browser Core contracts.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DaosPath/handoffkit.git",
+    "directory": "js/packages/browser-lite"
+  },
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "check": "node ../../../scripts/js/check-package.mjs",
+    "test": "node --test",
+    "prepack": "pnpm run check && pnpm run test"
+  },
+  "dependencies": {
+    "@handoffkit/browser": "workspace:*",
+    "@handoffkit/browser-core": "workspace:*"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/DaosPath/handoffkit#readme",
+  "bugs": {
+    "url": "https://github.com/DaosPath/handoffkit/issues"
+  },
+  "keywords": [
+    "handoffkit",
+    "browser",
+    "search",
+    "markdown"
+  ],
+  "sideEffects": false
+}

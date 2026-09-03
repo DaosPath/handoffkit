@@ -1,0 +1,109 @@
+{
+  "format": "handoffkit.release.manifest",
+  "format_version": 1,
+  "release_train": "1.19.5",
+  "commit": "a85d1e30ecc20fa0402d6bf958009597df0a5a88",
+  "commit_short": "a85d1e3",
+  "generated_at": "2026-08-22T05:56:35.003592Z",
+  "products": [
+    {
+      "product": "js/core",
+      "version": "1.19.5",
+      "filename": "js/packages/core/handoffkit-core-1.19.5.tgz",
+      "sha256": "dabcba5dd4bedef2cad97b60ca72466d15832ecb3acc19ec4d9f36b2851788ca",
+      "bytes": 26082,
+      "platform": "any",
+      "status": "pass"
+    },
+    {
+      "product": "js/csp",
+      "version": "1.19.5",
+      "filename": "js/packages/csp/handoffkit-csp-1.19.5.tgz",
+      "sha256": "78cda39b8363fc6fc907cb2e1a72707c37b94cbfe8c2ecf4be782a43801c75c9",
+      "bytes": 17862,
+      "platform": "any",
+      "status": "pass"
+    },
+    {
+      "product": "js/providers",
+      "version": "1.19.5",
+      "filename": "js/packages/providers/handoffkit-providers-1.19.5.tgz",
+      "sha256": "c5ba4ec90eb517714b98c9ac301cba9da294114f744cc649d694ac927c3b920c",
+      "bytes": 8773,
+      "platform": "any",
+      "status": "pass"
+    },
+    {
+      "product": "js/node",
+      "version": "1.19.5",
+      "filename": "js/packages/node/handoffkit-node-1.19.5.tgz",
+      "sha256": "90de335bbfb4c1ce46b1e4108ed157c443b6f193e595334e6b54e8e669dd097c",
+      "bytes": 15553,
+      "platform": "any",
+      "status": "pass"
+    },
+    {
+      "product": "js/browser",
+      "version": "1.19.5",
+      "filename": "js/packages/browser/handoffkit-browser-1.19.5.tgz",
+      "sha256": "0c3021741afb40c190ffe9651ed4d5a3bc9a141a335858062c7d79e5252e9cf2",
+      "bytes": 24559,
+      "platform": "any",
+      "status": "pass"
+    },
+    {
+      "product": "js/recipes",
+      "version": "1.19.5",
+      "filename": "js/packages/recipes/handoffkit-recipes-1.19.5.tgz",
+      "sha256": "cbc85213eb4aa3bee165b8a06b70c95948e662c18b9bd3dd1677681f7bf59ae8",
+      "bytes": 17418,
+      "platform": "any",
+      "status": "pass"
+    },
+    {
+      "product": "js/templates",
+      "version": "1.19.5",
+      "filename": "js/packages/templates/handoffkit-templates-1.19.5.tgz",
+      "sha256": "547f564dba7848a34430b897b485c6ec8e7ebcdafb70a0add37db45cfca1030d",
+      "bytes": 4602,
+      "platform": "any",
+      "status": "pass"
+    },
+    {
+      "product": "js/cli",
+      "version": "1.19.5",
+      "filename": "js/packages/cli/handoffkit-cli-1.19.5.tgz",
+      "sha256": "5bbed0508f112bbe718366455f181daa30cfafc95a369dff1bbe16687871223b",
+      "bytes": 471148,
+      "platform": "any",
+      "status": "pass"
+    },
+    {
+      "product": "rust/workspace",
+      "version": "1.19.5",
+      "filename": "rust/Cargo.toml",
+      "sha256": "8ea91080c4f7bee2644377a32c1b253ff4829ee6e9ae809c14bfbed9f3ae599a",
+      "bytes": 1236,
+      "platform": "any",
+      "status": "pass"
+    },
+    {
+      "product": "go/handoffkit",
+      "version": "1.19.5",
+      "filename": "go/handoffkit/go.mod",
+      "sha256": "5a98ac303a756bf5d4dab89b2aa0517e29177fc1683afc1e4a2b2ee1cdbb36ea",
+      "bytes": 50,
+      "platform": "any",
+      "status": "pass"
+    },
+    {
+      "product": "cpp/handoffkit",
+      "version": "1.19.5",
+      "filename": "cpp/packages/handoffkit/CMakeLists.txt",
+      "sha256": "b5af6379a1a8ecbb83bce101a1372d6abfe4817273b5cb8cc51eb87902f42b11",
+      "bytes": 16559,
+      "platform": "any",
+      "status": "pass"
+    }
+  ]
+}

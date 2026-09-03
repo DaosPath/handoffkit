@@ -27,7 +27,7 @@ Core workflow contracts and execution primitives listed under **Stable** in
 
 ### Extended (soft compatibility)
 
-Media context handoffs, showcase helpers, CLI convenience functions, benchmarks.
+Media context handoffs, showcase helpers, CLI convenience functions, validation/benchmarks.
 We avoid breaks, but may rename with aliases more aggressively.
 
 ### Experimental

@@ -36,7 +36,7 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
   research and education only / not clinically validated.
 
 - Browser Core I/O-free contracts (`@handoffkit/browser-core` and Python/Rust/Go/C++
-  equivalents) with golden vectors at `packages/contracts/conformance/browser-core-v1.json`.
+  equivalents) with golden vectors at `shared/contracts/conformance/browser-core-v1.json`.
 - Named Lite/Real packages: `@handoffkit/browser-lite` (facade re-export) and
   `@handoffkit/browser-real` (supervised Playwright service, Chromium only via
   explicit `install-chromium`). `@handoffkit/browser` never imports Real.
@@ -167,33 +167,28 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
   focus-indicator checks. Its pause/resume/cancel/retry controls are exercised
   through the live Studio API over TCP TLS 1.3+mTLS; hosted and cross-architecture
   qualification remain separate release gates.
+
+## [1.19.5] - 2026-09-03
+
+Final 1.19 stable release. Security contract and hardening baseline plus
+repository convergence. This train is publishable: Python `handoffkit==1.19.5`
+is `Production/Stable`, and the JS/Rust/C++ products below ship at 1.19.5.
+
+### Added
+
+- Added real TLS 1.3 client/server transports for Python, Node, Go, and Rust,
+  including configured/system roots, hostname verification, mTLS, structured
+  failures, timeouts, and real-socket positive and negative tests. C++ TLS is
+  unavailable.
 - Added certificate-derived peer identity for those four secure transports.
   URI SAN claims and locally calculated fingerprints are checked against every
   declared identity field; capabilities come from local fingerprint policy.
 - Integrated peer/session-scoped nonce, sequence, and timestamp replay checks
   and local capability authorization into secure receive paths before
-  dispatch. Added optional durable replay backends in Python, Node, Go, and
-  Rust with bounded versioned state, checksums, atomic replacement,
-  expiry/compaction, corruption quarantine, and real listener-restart tests.
-- Added atomic certificate/trust reload and transition-window rotation in the
-  four TLS runtimes, plus a durable local revocation policy for certificate,
-  signer, peer, issuer, and trust-domain subjects. C++ OpenSSL can also enforce
-  a configured PEM CRL and signed DER/PEM OCSP response on real mTLS
-  handshakes. OCSP responder fetch (AIA/HTTP/HTTPS) remains unavailable and
-  fails closed in every runtime.
-- Added an additive HK-CSP 1.0 security transcript on Python, Node, Go, Rust,
-  and C++ shared-vector paths. It binds profile, certificate endpoints, TLS
-  negotiation, session, nonce, capabilities, and timestamp; the canonical
-  UTF-8 payload/hash vector is checked byte-for-byte by all five runtimes and
-  rejects replay/tamper/downgrade.
+  dispatch. Cryptographic replay state remains process-local.
 - Added maintained-provider Ed25519 artifact signing and verification in
   Python, Node, Go, Rust, and optional C++ Crypto, with one canonical shared
   vector and negative trust/tamper/expiry/revocation tests.
-- Added provider-detected ECDSA-P256-SHA256 artifact signing and verification
-  in Python (`cryptography`) and optional C++ OpenSSL Crypto. The explicit
-  `ecdsa-p256-sha256` id uses SHA-256/DER signatures and uncompressed-point
-  fingerprints; JS/Go/Rust and the common five-runtime vector remain
-  unavailable, so no cross-runtime ECDSA capability is claimed.
 - Added provider-detected, fail-closed `X25519MLKEM768` TLS in compatible Node
   and Go environments, including a Node 24 to Go 1.26 mTLS interoperability
   gate that checks the negotiated curve and certificate-bound client identity.
@@ -205,120 +200,49 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
 - Added real local cpp-ml `TrainingJob` and `EvaluationJob` execution through
   the native worker, including progress, checkpoint/report artifacts,
   cancellation, deadlines, failures, and CPU/CUDA metadata.
-- Added mandatory Go/C++ artifact ingestion gates with root/media/size/hash,
-  Ed25519 producer/signer policy, quarantine records, and immutable snapshots.
-  cpp-ml consumes verified snapshots rather than reopening unverified inputs.
-- Added an optional Go TLS/mTLS gateway to the local cpp-ml process and a
-  provider-gated direct C++ TLS worker in cpp-ml 0.6.0. `--tls-policy` uses the
-  common dispatcher over real TCP, derives identity/capabilities from the
-  certificate and local fingerprint policy, and persists replay/scheduler
-  state. The older `--policy` NDJSON mode remains local-subprocess compatibility
-  only. CI is configured to exercise both real-process routes; exactly-once and
-  global zeroization remain unavailable.
-- Added a bidirectional real TCP interoperability gate: independent Python,
-  Node.js, Go, and Rust TLS 1.3+mTLS clients reach fresh C++ cpp-ml workers,
-  and the C++ client reaches independent Python, Node.js, Go, and Rust TLS
-  servers. Go and Rust reverse servers are standalone commands, not client
-  server modes. The gate verifies certificate admission, uint32-big-endian
-  framing, and real responses; it does not claim cross-runtime transcript byte
-  parity.
-- Added shared `edge-small`, `edge-standard`, and `server` profiles that apply
-  concrete session/frame/retry limits in Python, JavaScript, Go, Rust, and the
-  C++ local queue. Native Linux ARM64 and macOS ARM64 qualification jobs cover
-  the named runtime/security routes; no broader ARM64 device/OS or
-  unstable-network guarantee is claimed.
-- Added optional read-only Studio runtime security visibility for the Go ML
-  gateway. Its bounded atomic event sink records certificate-authenticated
-  sessions, profile/TLS state, replay and authorization rejections, jobs,
-  artifacts, reconnects, and sanitized runtime status. Studio rejects unsafe,
-  corrupt, or unconfigured sources and shows no mock session data.
-- Added optional durable distributed-scheduler state in Python, Node, Go, and
-  Rust. One shared checksummed/versioned fixture proves queued jobs, counters,
-  and dedup identities across runtimes. Restarted in-flight assignments become
-  explicit interrupted records and require retry/fail; no automatic execution
-  or exactly-once guarantee is claimed. Pre-commit failures roll back, while a
-  post-rename directory-sync uncertainty keeps the committed mutation visible.
-- Added fail-closed unavailable-capability admission checks across the runtime
-  scheduler/configuration paths: `metadata.require_exactly_once=true` is
-  rejected with `exactly_once_unavailable`; OCSP fetch/responder/response
-  configuration is rejected with `ocsp_fetch_unavailable` outside the scoped
-  C++ response-file validator; unsupported ML-DSA/SLH-DSA and non-provider
-  ECDSA artifact paths surface structured `artifact_algorithm_unsupported`
-  errors.
-- Added a checked, durable scheduler migration path for the supported legacy
-  `v0` envelope and opt-in deterministic `auto_resume`/`AutoResumeInterrupted`
-  in Python, Node, Go, and Rust. The mode is explicitly at-least-once; no
-  exactly-once side-effect guarantee is claimed.
-- Added validated private backup/restore operations to the four file-backed
-  scheduler stores and the Go gateway job ledger. Backups use the same checksum,
-  size, permission, and atomic replacement rules; unsupported state versions
-  still fail closed. The explicitly supported v0 scheduler envelope is migrated
-  in place with a new checksum. Automatic in-flight resume and exactly-once
-  side effects remain intentionally unclaimed by default.
-- Added live Go secure-frame checks for certificate expiry, durable revocation,
-  and rotation-window expiry on existing TLS connections, plus real-process
-  Studio event coverage for mTLS, progress, artifacts, reconnect, replay, and
-  authorization rejection.
-- Added bounded Go fuzz executions and property checks for durable state,
-  transcript parsing/canonicalization, artifact metadata, edge configuration,
-  Studio events, replay restart, revocation windows, and rotation windows.
 - Added shared five-runtime security conformance vectors and live security
   benchmarks for TLS/reconnect/throughput/signatures and C++ workers.
 - Added development file-backed credential stores in Python and Node with
   lifecycle/path/POSIX private-key permission checks.
-- Added a provider-dependent Windows C++ `OsKeyStore` backed by Credential
-  Manager, optional macOS Keychain/Linux Secret Service providers, plus a
-  scoped native `SecureBuffer` wipe primitive used for C++ artifact signer key
-  storage and tests. No cross-runtime OS-keystore or global zeroization
-  guarantee is claimed.
-- Added the C++ durable scheduler with private checksummed state, atomic
-  restart recovery, v0→v1 migration, interrupted assignments, and opt-in
-  deterministic at-least-once retry. C++ replay state also supports validated
-  private backup/restore and v0-to-v1 migration. Added the common C++ TLS dispatcher with
-  certificate-bound identity, replay, local authorization, and capability
-  claim rejection before handler dispatch, and connected it to the direct
-  cpp-ml TLS worker route.
-- Added experimental isolated Crypto Lab (`packages/python/handoffkit/crypto_research`) for education, fuzzing, and research, strictly forbidden from production runtime fallbacks.
-- Added a JavaScript package-consumer smoke gate: all eight tarballs are built,
-  installed offline from generated artifacts, imported through public entry
-  points, and checked for package metadata versions. This validates packaging;
-  it does not imply registry publication or version alignment.
+- Added experimental isolated Crypto Lab (`python/packages/handoffkit/handoffkit/crypto_research`) for education, fuzzing, and research, strictly forbidden from production runtime fallbacks.
 
 ### Changed
 
-- `gold_replay` and `mai_style_gold_replay` emit `accuracy: null`. They remain
-  regression fixtures and never count as diagnostic accuracy. Vague queries
-  return `evidence_not_available` instead of dumping `full_case`. Cost reports
-  use versioned resource units rather than invented clinical USD.
+- Repository layout now language-first: `python/packages/handoffkit`,
+  `python/packages/handoffkit-localize`, `js/packages/*`, `rust/`,
+  `go/handoffkit`, `cpp/packages/handoffkit`, `cpp/packages/handoffkit-ml`,
+  `shared/contracts`, `apps/studio-web`, `validation/benchmarks`. History-preserving
+  `git mv`, pnpm workspace `js/packages/*`, Cargo `rust/`, Go `go/handoffkit`,
+  CMake `cpp/packages/handoffkit`, Python `python/packages/handoffkit`, and CI/docs/scripts
+  updated. Public package names (`handoffkit`, `@handoffkit/*`, Rust crates, Go import
+  path, C++ `handoffkit::*`, HK-CSP `1.0` wire) and `snake_case` canonical JSON remain unchanged.
+- Aligned participating products to **1.19.5**: Python `handoffkit==1.19.5`,
+  JS `@handoffkit/core@1.19.5`, `@handoffkit/csp@1.19.5`, `@handoffkit/providers@1.19.5`,
+  `@handoffkit/node@1.19.5`, `@handoffkit/recipes@1.19.5`, `@handoffkit/templates@1.19.5`,
+  `@handoffkit/cli@1.19.5`, `@handoffkit/browser@1.19.5` (Lite facade), Rust workspace `1.19.5`,
+  C++ `1.19.5`. Browser `Core/Lite/Real` split and `clinical` remain at `1.20` and are not part of the 1.19.5 train.
+- `pnpm-workspace.yaml`, `scripts/js/tsconfig.json`, `scripts/js/validate-workspace.mjs`,
+  `scripts/validate-repository-path-map.mjs` (`wave-5-validation`), `package.json` scripts
+  (`js:check`, `python:*`, `rust:test`, `cpp:test`, `web:*`), and JS package `repository.directory`
+  fields updated for the new layout. Contracts moved `packages/contracts` → `shared/contracts`.
 
 ### Security
 
 - Public security status is now classified as stable, experimental,
-  provider-dependent, planned, or unavailable in `HK_CSP_SECURITY.md`.
+  provider-dependent, local-only, partially integrated, planned, or
+  unavailable in `HK_CSP_SECURITY.md`.
 - Algorithm names, signature fields, JSON identity claims, and profile enums no
   longer count as support. Runtime capability reports are provider-derived and
   unsupported profile selection fails closed.
 - Secure Python and Node sockets must originate from their validated transport
   factories; Go verifies the negotiated group when a TLS socket is wrapped as
   `hybrid-pq`. External contexts cannot silently bypass profile requirements.
-- OCSP responder fetch, global zeroization guarantees, durable channel/session
-  buffers, exactly-once external effects, and default automatic in-flight
-  resumption remain unavailable. The five
-  scheduler implementations expose opt-in at-least-once auto-resume only.
-  C++ OpenSSL file-CRL/response validation, provider-selected OS keystores, and
-  scoped native wiping are provider-dependent and integration-tested;
-  artifact gates, Ed25519, provider-gated Python/C++ ECDSA, the development keystore, C++ native
-  worker, benchmarks, ARM64/edge, and durable scheduler recovery are now
-  experimental within their named tested scopes. Studio visibility remains
-  experimental and limited to the optional Go gateway event source. Reload,
-  rotation, and secure replay remain experimental per-runtime controls, not
-  claims of universal production readiness.
+- CRL/OCSP, trust-store live reload, certificate rotation/reconnect lifecycle,
+  OS keystores, zeroization guarantees, durable secure recovery, ARM64/edge
+  qualification, and Studio security visibility remain unavailable.
 - TLS integration certificates and private keys are generated into temporary
   directories for each test process. No reusable TLS or artifact-signing
   private key is committed as a test fixture.
-- Added the evidence matrix in `docs/roadmap/1.19.0-FINAL-AUDIT.md`; it keeps
-  declared, implemented, integrated, interoperability-tested, and
-  production-ready claims separate for every scoped capability.
 
 ### Compatibility
 
@@ -326,10 +250,17 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
   covers Python, JavaScript, Go, Rust, and C++; TLS implementations use the
   same ephemeral certificate-generation profile, not pairwise interoperability
   across every runtime.
-- Python package metadata marks this development baseline as Beta rather than
-  Production/Stable.
+- Python package metadata marks this release as `Production/Stable`.
 - Rust dependency resolution is locked to the declared Rust 1.82 MSRV and CI
   checks the complete workspace with that toolchain.
+
+### Validation
+
+- `pnpm workspace:validate` (8 JS pkgs + studio-web), `workspace:paths` (13 paths),
+  `js:pack:check` (8 tarballs), `js:test` (all packages), `check` (workspace + studio + media)
+  pass on the reorg tree. Python Ruff, Rust `cargo fmt --check` / `clippy -D warnings`,
+  and Go `gofmt -l` gates pass; `shared/contracts` parity restored.
+- Python `pytest` passes (stable metadata asserts `Production/Stable`).
 
 ## [1.18.0] - 2026-07-28
 

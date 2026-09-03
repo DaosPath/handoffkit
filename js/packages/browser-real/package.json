@@ -1,0 +1,60 @@
+{
+  "name": "@handoffkit/browser-real",
+  "version": "1.20.0-alpha.1",
+  "description": "Supervised Browser Real service for HandoffKit 1.20. Chromium is installed only by an explicit command.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DaosPath/handoffkit.git",
+    "directory": "js/packages/browser-real"
+  },
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    }
+  },
+  "bin": {
+    "handoffkit-browser-real": "./src/bin.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "check": "node ../../../scripts/js/check-package.mjs",
+    "test": "node --test",
+    "install-chromium": "node src/install-chromium.js",
+    "prepack": "pnpm run check && pnpm run test"
+  },
+  "dependencies": {
+    "@handoffkit/browser": "workspace:*",
+    "@handoffkit/browser-core": "workspace:*",
+    "@handoffkit/csp": "workspace:*",
+    "@handoffkit/node": "workspace:*"
+  },
+  "optionalDependencies": {
+    "playwright": "^1.55.1"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/DaosPath/handoffkit#readme",
+  "bugs": {
+    "url": "https://github.com/DaosPath/handoffkit/issues"
+  },
+  "keywords": [
+    "handoffkit",
+    "playwright",
+    "chromium",
+    "browser"
+  ],
+  "sideEffects": false
+}

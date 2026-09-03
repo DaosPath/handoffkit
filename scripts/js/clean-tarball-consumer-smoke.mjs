@@ -6,20 +6,7 @@ import { dirname, join, resolve } from "node:path";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const smokeRoot = join(root, ".local-tests", "js-tarball-consumer");
 const archiveRoot = join(smokeRoot, "archives");
-const packageNames = [
-  "core",
-  "csp",
-  "providers",
-  "node",
-  "browser-core",
-  "browser",
-  "browser-lite",
-  "browser-real",
-  "clinical",
-  "recipes",
-  "templates",
-  "cli",
-];
+const packageNames = ["core", "csp", "providers", "node", "browser", "recipes", "templates", "cli"];
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 function windowsQuote(value) {
@@ -33,12 +20,7 @@ function run(command, args, cwd) {
     const child = spawn(
       windows ? process.env.ComSpec : command,
       windows ? ["/d", "/s", "/c", [command, ...args].map(windowsQuote).join(" ")] : args,
-      {
-        cwd,
-        env: { ...process.env, CI: process.env.CI || "1" },
-        stdio: "inherit",
-        shell: false,
-      },
+      { cwd, env: { ...process.env, CI: process.env.CI || "1" }, stdio: "inherit", shell: false },
     );
     child.once("error", reject);
     child.once("exit", (code, signal) => {
@@ -53,7 +35,7 @@ await mkdir(archiveRoot, { recursive: true });
 
 const manifests = [];
 for (const shortName of packageNames) {
-  const packageRoot = join(root, "packages", "js", shortName);
+  const packageRoot = join(root, "js", "packages", shortName);
   const manifest = JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8"));
   await run(pnpm, ["--dir", packageRoot, "pack", "--pack-destination", archiveRoot], root);
   const slug = manifest.name.replace(/^@/, "").replace("/", "-");

@@ -3,9 +3,9 @@
 The JavaScript CLI benchmark directory contains the current runnable showcase
 workflows.
 
-- [Benchmark and demo sources](../../../packages/js/cli/src/benchmarks/)
-- [Fusion demo](../../../packages/js/cli/src/benchmarks/fusion_demo.js)
-- [Doctor benchmark](../../../packages/js/cli/src/benchmarks/doctor.js)
-- [MAI-style benchmark](../../../packages/js/cli/src/benchmarks/mai.js)
-- [Media demo](../../../packages/js/cli/src/benchmarks/media_demo.js)
-- [CLI usage](../../../packages/js/cli/README.md)
+- [Benchmark and demo sources](../../../js/packages/cli/src/validation/benchmarks/)
+- [Fusion demo](../../../js/packages/cli/src/validation/benchmarks/fusion_demo.js)
+- [Doctor benchmark](../../../js/packages/cli/src/validation/benchmarks/doctor.js)
+- [MAI-style benchmark](../../../js/packages/cli/src/validation/benchmarks/mai.js)
+- [Media demo](../../../js/packages/cli/src/validation/benchmarks/media_demo.js)
+- [CLI usage](../../../js/packages/cli/README.md)

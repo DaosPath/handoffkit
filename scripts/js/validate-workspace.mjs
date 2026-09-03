@@ -3,20 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
-const packageNames = [
-  "core",
-  "csp",
-  "providers",
-  "node",
-  "browser-core",
-  "browser",
-  "browser-lite",
-  "browser-real",
-  "clinical",
-  "recipes",
-  "templates",
-  "cli",
-];
+const packageNames = ["core", "csp", "providers", "node", "browser", "recipes", "templates", "cli"];
 const manifests = [];
 
 function fail(message) {
@@ -24,7 +11,7 @@ function fail(message) {
 }
 
 for (const short of packageNames) {
-  const packageRoot = path.join(root, "packages", "js", short);
+  const packageRoot = path.join(root, "js", "packages", short);
   const manifest = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
   manifests.push({ short, packageRoot, manifest });
 }
@@ -34,11 +21,11 @@ for (const { short, packageRoot, manifest } of manifests) {
   if (names.has(manifest.name)) fail(`duplicate package name ${manifest.name}`);
   names.add(manifest.name);
   if (manifest.name !== `@handoffkit/${short}`) fail(`${short}: unexpected name ${manifest.name}`);
-  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(manifest.version)) fail(`${manifest.name}: invalid semantic version`);
+  if (!/^\d+\.\d+\.\d+$/.test(manifest.version)) fail(`${manifest.name}: invalid semantic version`);
   if (manifest.license !== "MIT") fail(`${manifest.name}: license must be MIT`);
   if (manifest.type !== "module") fail(`${manifest.name}: type must be module`);
   if (manifest.sideEffects !== false) fail(`${manifest.name}: sideEffects must be false`);
-  if (manifest.repository?.directory !== `packages/js/${short}`) fail(`${manifest.name}: repository.directory mismatch`);
+  if (manifest.repository?.directory !== `js/packages/${short}`) fail(`${manifest.name}: repository.directory mismatch`);
   if (!manifest.files?.includes("src") || !manifest.files?.includes("README.md")) fail(`${manifest.name}: files must include src and README.md`);
   if (!manifest.scripts?.check || !manifest.scripts?.test || !manifest.scripts?.prepack) fail(`${manifest.name}: missing quality scripts`);
   for (const [section, dependencies] of Object.entries({
@@ -67,21 +54,13 @@ for (const { short, packageRoot, manifest } of manifests) {
       ? module.HANDOFFKIT_PROVIDERS_VERSION
       : short === "cli"
         ? module.VERSION
-      : short === "browser-core"
-        ? module.HANDOFFKIT_BROWSER_CORE_VERSION
-      : short === "browser" || short === "browser-lite"
-        ? module.HANDOFFKIT_BROWSER_VERSION
-      : short === "browser-real"
-        ? module.HANDOFFKIT_BROWSER_REAL_VERSION
-      : short === "clinical"
-        ? module.HANDOFFKIT_CLINICAL_VERSION
         : undefined;
   if (runtimeVersion !== undefined && runtimeVersion !== manifest.version) {
     fail(`${manifest.name}: runtime version ${runtimeVersion} does not match manifest ${manifest.version}`);
   }
 }
 
-const web = JSON.parse(await readFile(path.join(root, "apps", "web", "package.json"), "utf8"));
+const web = JSON.parse(await readFile(path.join(root, "apps", "studio-web", "package.json"), "utf8"));
 if (web.private !== true) fail("@handoffkit/web must stay private");
 if (!web.scripts?.check || !web.scripts?.typecheck) fail("@handoffkit/web must define check and typecheck scripts");
 

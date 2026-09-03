@@ -54,7 +54,7 @@ function parseTar(gzipBuffer) {
 }
 
 for (const short of packageNames) {
-  const packageRoot = path.join(root, "packages", "js", short);
+  const packageRoot = path.join(root, "js", "packages", short);
   const manifest = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
   const destination = await mkdtemp(path.join(tmpdir(), `handoffkit-pack-${short}-`));
   try {

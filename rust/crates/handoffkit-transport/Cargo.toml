@@ -1,0 +1,42 @@
+[package]
+name = "handoffkit-transport"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "HK-CSP stdio and subprocess transports"
+readme = "README.md"
+keywords = ["csp", "stdio", "subprocess", "agents", "handoff"]
+categories = ["asynchronous", "development-tools"]
+
+[dependencies]
+async-trait.workspace = true
+base64.workspace = true
+chrono.workspace = true
+ed25519-dalek.workspace = true
+futures-util = { version = "0.3", optional = true }
+handoffkit-protocol = { path = "../handoffkit-protocol", version = "1.19.5" }
+handoffkit-runtime = { path = "../handoffkit-runtime", version = "1.19.5" }
+hex.workspace = true
+rustls.workspace = true
+rustls-native-certs.workspace = true
+rustls-pemfile.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+time.workspace = true
+tokio.workspace = true
+tokio-rustls.workspace = true
+tokio-tungstenite = { version = "0.26", optional = true }
+x509-parser.workspace = true
+
+[features]
+default = []
+websocket = ["dep:futures-util", "dep:tokio-tungstenite"]
+
+[dev-dependencies]
+rand_core = { version = "0.6", features = ["getrandom"] }
+tempfile = "3.23"

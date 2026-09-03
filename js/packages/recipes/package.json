@@ -1,0 +1,72 @@
+{
+  "name": "@handoffkit/recipes",
+  "version": "1.19.5",
+  "description": "Offline JavaScript workflow recipes for HandoffKit.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DaosPath/handoffkit.git",
+    "directory": "js/packages/recipes"
+  },
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "check": "node ../../../scripts/js/check-package.mjs",
+    "test": "node --test",
+    "prepack": "pnpm run check && pnpm run test"
+  },
+  "dependencies": {
+    "@handoffkit/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@handoffkit/providers": "workspace:*",
+    "@handoffkit/browser": "workspace:*"
+  },
+  "peerDependencies": {
+    "@handoffkit/providers": "workspace:*",
+    "@handoffkit/browser": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@handoffkit/providers": {
+      "optional": true
+    },
+    "@handoffkit/browser": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/DaosPath/handoffkit#readme",
+  "bugs": {
+    "url": "https://github.com/DaosPath/handoffkit/issues"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "handoff",
+    "orchestration",
+    "multi-agent",
+    "llm",
+    "workflows",
+    "recipes",
+    "fusion",
+    "media"
+  ],
+  "sideEffects": false
+}

@@ -3,7 +3,7 @@ name: HandoffKit security benchmarks
 on:
   push:
     branches:
-      - release/1.19.0-finalization
+      - browser/1.20-platform
   workflow_dispatch:
     inputs:
       iterations:
@@ -57,7 +57,7 @@ jobs:
       - name: Install runtime dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e "packages/python[dev]"
+          python -m pip install -e "python/packages/handoffkit[dev]"
           pnpm install --frozen-lockfile
 
       - name: Prepare benchmark output
@@ -65,12 +65,12 @@ jobs:
 
       - name: Measure Node TLS, reconnect, throughput, and Ed25519
         run: |
-          node benchmarks/security/node-security-benchmark.mjs \
+          node validation/benchmarks/security/node-security-benchmark.mjs \
             --iterations="$BENCHMARK_ITERATIONS" --warmup=3 --bytes=4194304 \
             > .local-tests/remote-benchmarks/node.json
 
       - name: Measure Go durable replay, reload, transcript, signatures, and Studio
-        working-directory: packages/go
+        working-directory: go/handoffkit
         run: |
           go run ./cmd/handoffkit-security-benchmark \
             --iterations="$BENCHMARK_ITERATIONS" --warmup=3 \
@@ -79,15 +79,15 @@ jobs:
       - name: Run Python and Rust security integration before timing C++
         run: |
           python -m pytest -q \
-            packages/python/tests/test_csp_tls_integration.py \
-            packages/python/tests/test_durable_replay.py \
-            packages/python/tests/test_security_transcript.py
-          cargo test --manifest-path packages/rust/Cargo.toml --locked \
+            python/packages/handoffkit/tests/test_csp_tls_integration.py \
+            python/packages/handoffkit/tests/test_durable_replay.py \
+            python/packages/handoffkit/tests/test_security_transcript.py
+          cargo test --manifest-path rust/Cargo.toml --locked \
             -p handoffkit-protocol -p handoffkit-transport
 
       - name: Configure C++ TLS and native worker benchmarks
         run: |
-          cmake -S packages/cpp -B packages/cpp/build-remote-benchmarks \
+          cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build-remote-benchmarks \
             -DCMAKE_BUILD_TYPE=Release \
             -DHANDOFFKIT_WITH_HTTP=OFF \
             -DHANDOFFKIT_WITH_CRYPTO=ON \
@@ -96,24 +96,24 @@ jobs:
             -DHANDOFFKIT_BUILD_EXAMPLES=OFF \
             -DHANDOFFKIT_BUILD_DEMOS=OFF \
             -DHANDOFFKIT_BUILD_CLI=OFF
-          cmake --build packages/cpp/build-remote-benchmarks --parallel 2 \
+          cmake --build cpp/packages/handoffkit/build-remote-benchmarks --parallel 2 \
             --target test_tls_transport test_durable_scheduler native_compute_benchmark
 
       - name: Measure C++ TLS and native worker paths
         run: |
-          packages/cpp/build-remote-benchmarks/test_tls_transport --benchmark \
+          cpp/packages/handoffkit/build-remote-benchmarks/test_tls_transport --benchmark \
             > .local-tests/remote-benchmarks/cpp-tls.json
-          packages/cpp/build-remote-benchmarks/native_compute_benchmark 500 \
+          cpp/packages/handoffkit/build-remote-benchmarks/native_compute_benchmark 500 \
             > .local-tests/remote-benchmarks/cpp-native-worker.json
-          ctest --test-dir packages/cpp/build-remote-benchmarks --output-on-failure \
+          ctest --test-dir cpp/packages/handoffkit/build-remote-benchmarks --output-on-failure \
             -R '^(test_tls_transport|test_durable_scheduler)$'
 
       - name: Build and exercise real cpp-ml gateway path
         env:
           HANDOFFKIT_RUN_CPP_ML_INTEGRATION: "1"
-          HANDOFFKIT_CPP_ML_WORKER: ${{ github.workspace }}/packages/cpp-ml/build-remote-benchmarks/handoffkit-cpp-ml-worker
+          HANDOFFKIT_CPP_ML_WORKER: ${{ github.workspace }}/cpp/packages/handoffkit-ml/build-remote-benchmarks/handoffkit-cpp-ml-worker
         run: |
-          cmake -S packages/cpp-ml -B packages/cpp-ml/build-remote-benchmarks \
+          cmake -S cpp/packages/handoffkit-ml -B cpp/packages/handoffkit-ml/build-remote-benchmarks \
             -DCMAKE_BUILD_TYPE=Release \
             -DHANDOFFKIT_ML_LINK_CORE=ON \
             -DHANDOFFKIT_ML_TLS=ON \
@@ -123,10 +123,10 @@ jobs:
             -DHANDOFFKIT_BUILD_EXAMPLES=OFF \
             -DHANDOFFKIT_BUILD_CLI=OFF \
             -DHANDOFFKIT_BUILD_DEMOS=OFF
-          cmake --build packages/cpp-ml/build-remote-benchmarks --parallel 2
-          ctest --test-dir packages/cpp-ml/build-remote-benchmarks --output-on-failure
-          (cd packages/go && go test -tags=cppmlintegration -race ./mlgateway)
-          python packages/cpp-ml/tests/interop/test_tcp_interoperability.py \
+          cmake --build cpp/packages/handoffkit-ml/build-remote-benchmarks --parallel 2
+          ctest --test-dir cpp/packages/handoffkit-ml/build-remote-benchmarks --output-on-failure
+          (cd go/handoffkit && go test -tags=cppmlintegration -race ./mlgateway)
+          python cpp/packages/handoffkit-ml/tests/interop/test_tcp_interoperability.py \
             "$HANDOFFKIT_CPP_ML_WORKER" \
             > .local-tests/remote-benchmarks/cpp-tcp-interoperability.json
           touch .local-tests/remote-benchmarks/cpp-ml-tested.marker
