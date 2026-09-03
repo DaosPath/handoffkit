@@ -93,17 +93,41 @@ export function keywordCompress(query, maxWords = 10) {
   return out;
 }
 
+const TRACKING_PARAMS = Object.freeze([
+  "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+  "utm_id", "fbclid", "gclid", "gbraid", "wbraid", "msclkid", "yclid",
+  "mc_cid", "mc_eid", "igshid", "_hsenc", "_hsmi", "ref", "ref_src",
+]);
+
+export function canonicalSearchUrl(raw) {
+  try {
+    const parsed = new URL(String(raw ?? ""));
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return String(raw ?? "");
+    for (const key of [...parsed.searchParams.keys()]) {
+      if (TRACKING_PARAMS.includes(key.toLowerCase())) parsed.searchParams.delete(key);
+    }
+    parsed.hash = "";
+    const canonicalized = parsed.toString();
+    return parsed.pathname === "/" && canonicalized.endsWith("/") && !parsed.search
+      ? canonicalized.slice(0, -1)
+      : canonicalized;
+  } catch {
+    return String(raw ?? "");
+  }
+}
+
 function pushHit(hits, title, url, maxResults) {
   if (hits.length >= maxResults) return;
   if (!url || !url.startsWith("http")) return;
   if (url.includes("duckduckgo.com")) return;
   if (url.includes("wikipedia.org/w/api.php")) return;
-  const existing = hits.find((h) => h.url === url);
+  const canonical = canonicalSearchUrl(url);
+  const existing = hits.find((h) => h.url === canonical);
   if (existing) {
     if (!existing.title && title) existing.title = title;
     return;
   }
-  hits.push({ title: title || "", url });
+  hits.push({ title: title || "", url: canonical });
 }
 
 function stripTags(s) {
@@ -111,6 +135,50 @@ function stripTags(s) {
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+const RETRYABLE_STATUS = Object.freeze([408, 425, 429, 500, 502, 503, 504]);
+
+function sleepMs(ms) {
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
+/**
+ * GET JSON with bounded retries on 429/5xx (exponential backoff, 250ms base).
+ * Returns {data} or {error, errorCode}.
+ */
+async function getJsonWithRetry(transport, url, headers, timeoutMs, provider, attempts = 3) {
+  let lastError = `${provider} returned no JSON results`;
+  let lastCode = `${provider}_empty_response`;
+  for (let attempt = 1; attempt <= Math.max(attempts, 1); attempt += 1) {
+    let resp;
+    try {
+      resp = await transport.get(
+        new TransportRequest({ url, timeoutMs: timeoutMs > 0 ? timeoutMs : 20000, headers }),
+      );
+    } catch (error) {
+      lastError = String(error?.message ?? error);
+      lastCode = `${provider}_transport_error`;
+      break;
+    }
+    if (resp.error) {
+      lastError = resp.error;
+      lastCode = `${provider}_transport_error`;
+      break;
+    }
+    if (resp.status >= 200 && resp.status < 300 && resp.body) {
+      try {
+        return { data: JSON.parse(resp.body) };
+      } catch {
+        return { error: `${provider} returned invalid JSON`, errorCode: `${provider}_invalid_response` };
+      }
+    }
+    lastError = `${provider} returned no JSON results`;
+    lastCode = `${provider}_empty_response`;
+    if (!RETRYABLE_STATUS.includes(resp.status) || attempt >= Math.max(attempts, 1)) break;
+    await sleepMs(250 * 2 ** (attempt - 1));
+  }
+  return { error: lastError, errorCode: lastCode };
 }
 
 export const DEFAULT_SEARCH_PROVIDERS = Object.freeze([...PLATFORM_SEARCH_PROVIDERS]);
@@ -369,51 +437,50 @@ async function searxngJsonSearch(transport, query, maxResults, timeoutMs, option
   if (opts.page != null && !(Number.isInteger(page) && page >= 1)) {
     return { hits, error_code: "searxng_invalid_options", error: "searxng page must be an integer >= 1" };
   }
+  const safesearch = opts.safesearch ?? opts.safeSearch ?? null;
+  if (safesearch != null && ![0, 1, 2, "0", "1", "2"].includes(safesearch)) {
+    return { hits, error_code: "searxng_invalid_options", error: "searxng safesearch must be 0, 1, or 2" };
+  }
+  const language = String(opts.language ?? "").trim().toLowerCase().replace(/[^a-z-]/g, "").slice(0, 12);
+  if (opts.language != null && !language) {
+    return { hits, error_code: "searxng_invalid_options", error: "searxng language must be a locale token" };
+  }
   const extra = [
     engines.length ? `&engines=${engines.map(urlEncodeComponent).join(",")}` : "",
     categories.length ? `&categories=${categories.map(urlEncodeComponent).join(",")}` : "",
     page > 1 ? `&pageno=${page}` : "",
+    safesearch != null ? `&safesearch=${safesearch}` : "",
+    language ? `&language=${urlEncodeComponent(language)}` : "",
   ].join("");
+  const headers = {
+    "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
+    Accept: "application/json",
+  };
+  if (language) headers["Accept-Language"] = language;
   let lastError = null;
   for (const base of bases) {
     const url = `${base}/search?q=${urlEncodeComponent(String(query))}&format=json${extra}`;
-    let resp;
-    try {
-      resp = await transport.get(
-        new TransportRequest({
-          url,
-          timeoutMs: timeoutMs > 0 ? timeoutMs : 20000,
-          headers: {
-            "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
-            Accept: "application/json",
-          },
-        }),
-      );
-    } catch (error) {
-      lastError = { hits, error_code: "searxng_transport_error", error: String(error?.message ?? error) };
+    const fetched = await getJsonWithRetry(transport, url, headers, timeoutMs, "searxng");
+    if (fetched.error) {
+      lastError = { hits, error_code: fetched.errorCode, error: fetched.error };
       continue;
     }
-    if (resp.error) {
-      lastError = { hits, error_code: "searxng_transport_error", error: resp.error };
-      continue;
-    }
-    if (resp.status < 200 || resp.status >= 300 || !resp.body) {
-      lastError = { hits, error_code: "searxng_empty_response", error: "SearXNG returned no JSON results" };
-      continue;
-    }
-    let data;
-    try {
-      data = JSON.parse(resp.body);
-    } catch {
-      lastError = { hits, error_code: "searxng_invalid_response", error: "SearXNG returned invalid JSON" };
-      continue;
-    }
+    const data = fetched.data;
     const results = Array.isArray(data?.results) ? data.results : [];
     const attempt = [];
     for (const item of results) {
       const itemUrl = String(item?.url ?? "");
       const title = stripTags(String(item?.title ?? ""));
       if (itemUrl.startsWith("http")) pushHit(attempt, title || itemUrl, itemUrl, maxResults);
+      if (attempt.length >= maxResults) break;
+    }
+    for (const box of Array.isArray(data?.infoboxes) ? data.infoboxes : []) {
+      for (const link of Array.isArray(box?.urls) ? box.urls : []) {
+        const itemUrl = String(link?.url ?? "");
+        const title = stripTags(String(link?.title ?? box?.content ?? ""));
+        if (itemUrl.startsWith("http")) pushHit(attempt, title || itemUrl, itemUrl, maxResults);
+        if (attempt.length >= maxResults) break;
+      }
       if (attempt.length >= maxResults) break;
     }
     if (attempt.length) return { hits: attempt };
@@ -438,28 +505,13 @@ async function braveJsonSearch(transport, query, maxResults, timeoutMs) {
     };
   }
   const url = `https://api.search.brave.com/res/v1/web/search?q=${urlEncodeComponent(String(query))}&count=${Math.min(Math.max(maxResults, 1), 20)}`;
-  const resp = await transport.get(
-    new TransportRequest({
-      url,
-      timeoutMs: timeoutMs > 0 ? timeoutMs : 20000,
-      headers: {
-        "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
-        Accept: "application/json",
-        "X-Subscription-Token": key,
-      },
-    }),
-  );
-  if (resp.error) return { hits, error_code: "brave_transport_error", error: resp.error };
-  if (resp.status < 200 || resp.status >= 300 || !resp.body) {
-    return { hits, error_code: "brave_empty_response", error: "Brave returned no JSON results" };
-  }
-  let data;
-  try {
-    data = JSON.parse(resp.body);
-  } catch {
-    return { hits, error_code: "brave_invalid_response", error: "Brave returned invalid JSON" };
-  }
-  const results = Array.isArray(data?.web?.results) ? data.web.results : [];
+  const fetched = await getJsonWithRetry(transport, url, {
+    "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
+    Accept: "application/json",
+    "X-Subscription-Token": key,
+  }, timeoutMs, "brave");
+  if (fetched.error) return { hits, error_code: fetched.errorCode, error: fetched.error };
+  const results = Array.isArray(fetched.data?.web?.results) ? fetched.data.web.results : [];
   for (const item of results) {
     const itemUrl = String(item?.url ?? "");
     const title = stripTags(String(item?.title ?? ""));
@@ -485,28 +537,13 @@ async function bingJsonSearch(transport, query, maxResults, timeoutMs) {
     };
   }
   const url = `https://api.bing.microsoft.com/v7.0/search?q=${urlEncodeComponent(String(query))}&count=${Math.min(Math.max(maxResults, 1), 20)}&responseFilter=Webpages`;
-  const resp = await transport.get(
-    new TransportRequest({
-      url,
-      timeoutMs: timeoutMs > 0 ? timeoutMs : 20000,
-      headers: {
-        "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
-        Accept: "application/json",
-        "Ocp-Apim-Subscription-Key": key,
-      },
-    }),
-  );
-  if (resp.error) return { hits, error_code: "bing_transport_error", error: resp.error };
-  if (resp.status < 200 || resp.status >= 300 || !resp.body) {
-    return { hits, error_code: "bing_empty_response", error: "Bing returned no JSON results" };
-  }
-  let data;
-  try {
-    data = JSON.parse(resp.body);
-  } catch {
-    return { hits, error_code: "bing_invalid_response", error: "Bing returned invalid JSON" };
-  }
-  const results = Array.isArray(data?.webPages?.value) ? data.webPages.value : [];
+  const fetched = await getJsonWithRetry(transport, url, {
+    "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
+    Accept: "application/json",
+    "Ocp-Apim-Subscription-Key": key,
+  }, timeoutMs, "bing");
+  if (fetched.error) return { hits, error_code: fetched.errorCode, error: fetched.error };
+  const results = Array.isArray(fetched.data?.webPages?.value) ? fetched.data.webPages.value : [];
   for (const item of results) {
     const itemUrl = String(item?.url ?? "");
     const title = stripTags(String(item?.name ?? ""));
@@ -532,28 +569,13 @@ async function kagiJsonSearch(transport, query, maxResults, timeoutMs) {
     };
   }
   const url = `https://kagi.com/api/v0/search?q=${urlEncodeComponent(String(query))}`;
-  const resp = await transport.get(
-    new TransportRequest({
-      url,
-      timeoutMs: timeoutMs > 0 ? timeoutMs : 20000,
-      headers: {
-        "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
-        Accept: "application/json",
-        Authorization: `Bot ${key}`,
-      },
-    }),
-  );
-  if (resp.error) return { hits, error_code: "kagi_transport_error", error: resp.error };
-  if (resp.status < 200 || resp.status >= 300 || !resp.body) {
-    return { hits, error_code: "kagi_empty_response", error: "Kagi returned no JSON results" };
-  }
-  let data;
-  try {
-    data = JSON.parse(resp.body);
-  } catch {
-    return { hits, error_code: "kagi_invalid_response", error: "Kagi returned invalid JSON" };
-  }
-  const results = Array.isArray(data?.data) ? data.data : [];
+  const fetched = await getJsonWithRetry(transport, url, {
+    "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
+    Accept: "application/json",
+    Authorization: `Bot ${key}`,
+  }, timeoutMs, "kagi");
+  if (fetched.error) return { hits, error_code: fetched.errorCode, error: fetched.error };
+  const results = Array.isArray(fetched.data?.data) ? fetched.data.data : [];
   for (const item of results) {
     const itemUrl = String(item?.url ?? "");
     const title = stripTags(String(item?.title ?? ""));

@@ -114,3 +114,46 @@ test("webSearch key-gated providers fail closed without keys", async () => {
     assert.equal(trace.error_code, "provider_unavailable");
   }
 });
+
+test("webSearch dedups tracking variants canonically", async () => {
+  process.env.HANDOFFKIT_BRAVE_API_KEY = "test-key";
+  process.env.HANDOFFKIT_BING_API_KEY = "test-key";
+  const transport = makeFixtureMapTransport();
+  transport.setPage(
+    "https://api.search.brave.com/res/v1/web/search?q=OpenAI&count=8",
+    JSON.stringify({ web: { results: [{ title: "A", url: "https://openai.com/api?utm_source=x" }] } }),
+  );
+  transport.setPage(
+    "https://api.bing.microsoft.com/v7.0/search?q=OpenAI&count=8&responseFilter=Webpages",
+    JSON.stringify({ webPages: { value: [{ name: "A", url: "https://openai.com/api?fbclid=y" }] } }),
+  );
+  try {
+    const result = await webSearch("OpenAI", { transport, providers: ["brave", "bing"] });
+    assert.equal(result.success, true);
+    assert.deepEqual(
+      result.results.map((r) => r.url),
+      ["https://openai.com/api"],
+    );
+  } finally {
+    clearKeys();
+  }
+});
+
+test("json fetch retries once after 429", async () => {
+  process.env.HANDOFFKIT_BRAVE_API_KEY = "test-key";
+  let calls = 0;
+  const transport = {
+    async get() {
+      calls += 1;
+      if (calls === 1) return { status: 429, body: "", headers: {} };
+      return { status: 200, body: BRAVE_BODY, headers: {} };
+    },
+  };
+  try {
+    const result = await webSearch("OpenAI", { transport, providers: ["brave"], maxResults: 4 });
+    assert.equal(result.success, true);
+    assert.equal(calls, 2);
+  } finally {
+    clearKeys();
+  }
+});

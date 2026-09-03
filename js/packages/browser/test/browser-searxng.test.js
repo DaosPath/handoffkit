@@ -97,3 +97,26 @@ test("webSearch searxng falls over to the next instance", async () => {
     ["https://openai.com/api", "https://openai.com/blog"],
   );
 });
+
+test("webSearch searxng safesearch/language/infoboxes", async () => {
+  const transport = makeFixtureMapTransport();
+  transport.setPage(
+    "http://127.0.0.1:8888/search?q=OpenAI&format=json&safesearch=1&language=en",
+    JSON.stringify({
+      query: "x",
+      results: [],
+      infoboxes: [{ content: "OpenAI", urls: [{ title: "OpenAI", url: "https://openai.com?utm_source=x" }] }],
+    }),
+  );
+  const result = await webSearch("OpenAI", {
+    transport,
+    providers: ["searxng"],
+    maxResults: 4,
+    searxng: { baseUrl: "http://127.0.0.1:8888", safesearch: 1, language: "en" },
+  });
+  assert.equal(result.success, true);
+  assert.deepEqual(
+    result.results.map((r) => r.url),
+    ["https://openai.com"],
+  );
+});

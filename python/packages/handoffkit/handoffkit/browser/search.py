@@ -5,8 +5,18 @@ from __future__ import annotations
 import html as html_lib
 import json
 import re
+import time
 from typing import Any
-from urllib.parse import parse_qs, quote, quote_plus, unquote, urljoin, urlparse
+from urllib.parse import (
+    parse_qs,
+    parse_qsl,
+    quote,
+    quote_plus,
+    unquote,
+    urlencode,
+    urljoin,
+    urlparse,
+)
 
 from handoffkit.browser.default_browser import (
     DEFAULT_BROWSER_PROVIDER,
@@ -166,6 +176,80 @@ def _strip(s: str) -> str:
     return re.sub(r"\s+", " ", html_lib.unescape(_TAG_RE.sub("", s or ""))).strip()
 
 
+_TRACKING_PARAMS = frozenset(
+    {
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_term",
+        "utm_content",
+        "utm_id",
+        "fbclid",
+        "gclid",
+        "gbraid",
+        "wbraid",
+        "msclkid",
+        "yclid",
+        "mc_cid",
+        "mc_eid",
+        "igshid",
+        "_hsenc",
+        "_hsmi",
+        "ref",
+        "ref_src",
+    }
+)
+
+_RETRYABLE_STATUS = frozenset({408, 425, 429, 500, 502, 503, 504})
+
+
+def canonical_search_url(raw: Any) -> str:
+    """Strip tracking params and fragments so cross-provider dedup works."""
+    value = str(raw or "")
+    try:
+        parsed = urlparse(value)
+    except Exception:  # noqa: BLE001
+        return value
+    if parsed.scheme not in ("http", "https"):
+        return value
+    query = [(k, v) for k, v in parse_qsl(parsed.query) if k.lower() not in _TRACKING_PARAMS]
+    rebuilt = parsed._replace(query=urlencode(query), fragment="")
+    return rebuilt.geturl()
+
+
+def _get_json_with_retry(
+    transport: WebTransport,
+    url: str,
+    headers: dict[str, str],
+    timeout_ms: int,
+    provider: str,
+    attempts: int = 3,
+) -> tuple[Any | None, str | None, str | None]:
+    """GET JSON with bounded retries on 429/5xx. Returns (data, error_code, error)."""
+    last_code = f"{provider}_empty_response"
+    last_error: str | None = f"{provider} returned no JSON results"
+    rounds = max(int(attempts or 3), 1)
+    for attempt in range(1, rounds + 1):
+        try:
+            resp = transport.get(url, timeout_ms=timeout_ms, headers=headers)
+        except Exception as exc:  # noqa: BLE001 - transport failure is terminal
+            return None, f"{provider}_transport_error", str(exc)
+        if getattr(resp, "error", None):
+            return None, f"{provider}_transport_error", str(resp.error)
+        status = int(getattr(resp, "status", 0) or 0)
+        body = getattr(resp, "body", "")
+        if 200 <= status < 300 and body:
+            try:
+                return json.loads(body), None, None
+            except Exception:  # noqa: BLE001
+                return None, f"{provider}_invalid_response", f"{provider} returned invalid JSON"
+        last_code, last_error = f"{provider}_empty_response", f"{provider} returned no JSON results"
+        if status not in _RETRYABLE_STATUS or attempt >= rounds:
+            break
+        time.sleep(0.25 * (2 ** (attempt - 1)))
+    return None, last_code, last_error
+
+
 def _is_search_ad_url(url: str) -> bool:
     value = str(url or "").lower()
     return (
@@ -311,12 +395,14 @@ def search_searxng(
     engines: list[str] | str | None = None,
     categories: list[str] | str | None = None,
     page: int = 1,
+    safesearch: int | None = None,
+    language: str | None = None,
 ) -> list[dict[str, str]]:
     """Search SearXNG instances' JSON API (self-hosted metasearch).
 
     Tries base_urls (then base_url, HANDOFFKIT_SEARXNG_URLS, HANDOFFKIT_SEARXNG_URL)
-    in order until one returns hits. engines/categories/page map to SearXNG
-    query params; unknown values raise ValueError (fail closed).
+    in order until one returns hits. engines/categories/safesearch/language/page map
+    to SearXNG query params; unknown values raise ValueError (fail closed).
     """
     import os
 
@@ -344,6 +430,11 @@ def search_searxng(
             raise ValueError(f"searxng: unknown category: {category}")
     if not isinstance(page, int) or isinstance(page, bool) or page < 1:
         raise ValueError("searxng: page must be an integer >= 1")
+    if safesearch is not None and safesearch not in (0, 1, 2, "0", "1", "2"):
+        raise ValueError("searxng: safesearch must be 0, 1, or 2")
+    lang = re.sub(r"[^a-z-]", "", str(language or "").strip().lower())[:12]
+    if language is not None and not lang:
+        raise ValueError("searxng: language must be a locale token")
     extra = ""
     if engine_list:
         extra += "&engines=" + ",".join(quote_plus(e) for e in engine_list)
@@ -351,25 +442,19 @@ def search_searxng(
         extra += "&categories=" + ",".join(quote_plus(c) for c in category_list)
     if page > 1:
         extra += f"&pageno={page}"
+    if safesearch is not None:
+        extra += f"&safesearch={safesearch}"
+    if lang:
+        extra += f"&language={quote_plus(lang)}"
+    headers = {"User-Agent": DEFAULT_UA, "Accept": "application/json"}
+    if lang:
+        headers["Accept-Language"] = lang
     tr = transport or default_transport(True)
     last_error: Exception | None = None
     for base in bases:
         api = f"{base}/search?q={quote_plus(q)}&format=json{extra}"
-        try:
-            resp = tr.get(
-                api,
-                timeout_ms=timeout_ms,
-                headers={"User-Agent": DEFAULT_UA, "Accept": "application/json"},
-            )
-        except Exception as exc:  # noqa: BLE001 - try next instance
-            last_error = exc
-            continue
-        if not resp.body:
-            continue
-        try:
-            data = json.loads(resp.body)
-        except Exception as exc:  # noqa: BLE001 - try next instance
-            last_error = exc
+        data, _code, error = _get_json_with_retry(tr, api, headers, timeout_ms, "searxng")
+        if data is None:
             continue
         results = data.get("results") if isinstance(data, dict) else None
         if not isinstance(results, list):
@@ -380,6 +465,20 @@ def search_searxng(
             title = _strip(item.get("title") or "")
             if url.startswith("http"):
                 hits.append({"title": title or url, "url": url})
+            if len(hits) >= max_results * 2:
+                break
+        for box in data.get("infoboxes") or []:
+            if not isinstance(box, dict):
+                continue
+            for link in box.get("urls") or []:
+                if not isinstance(link, dict):
+                    continue
+                url = str(link.get("url") or "")
+                title = _strip(link.get("title") or box.get("content") or "")
+                if url.startswith("http"):
+                    hits.append({"title": title or url, "url": url})
+                if len(hits) >= max_results * 2:
+                    break
             if len(hits) >= max_results * 2:
                 break
         if hits:
@@ -414,20 +513,18 @@ def search_brave(
     tr = transport or default_transport(True)
     count = min(max(int(max_results or 8), 1), 20)
     api = f"https://api.search.brave.com/res/v1/web/search?q={quote_plus(q)}&count={count}"
-    resp = tr.get(
+    data, _code, _error = _get_json_with_retry(
+        tr,
         api,
-        timeout_ms=timeout_ms,
-        headers={
+        {
             "User-Agent": DEFAULT_UA,
             "Accept": "application/json",
             "X-Subscription-Token": key,
         },
+        timeout_ms,
+        "brave",
     )
-    if not resp.body:
-        return []
-    try:
-        data = json.loads(resp.body)
-    except Exception:  # noqa: BLE001
+    if data is None:
         return []
     results = data.get("web", {}).get("results") if isinstance(data, dict) else None
     if not isinstance(results, list):
@@ -468,20 +565,18 @@ def search_bing(
         "https://api.bing.microsoft.com/v7.0/search"
         f"?q={quote_plus(q)}&count={count}&responseFilter=Webpages"
     )
-    resp = tr.get(
+    data, _code, _error = _get_json_with_retry(
+        tr,
         api,
-        timeout_ms=timeout_ms,
-        headers={
+        {
             "User-Agent": DEFAULT_UA,
             "Accept": "application/json",
             "Ocp-Apim-Subscription-Key": key,
         },
+        timeout_ms,
+        "bing",
     )
-    if not resp.body:
-        return []
-    try:
-        data = json.loads(resp.body)
-    except Exception:  # noqa: BLE001
+    if data is None:
         return []
     results = data.get("webPages", {}).get("value") if isinstance(data, dict) else None
     if not isinstance(results, list):
@@ -518,20 +613,18 @@ def search_kagi(
         raise ValueError("kagi: no API key configured (set HANDOFFKIT_KAGI_API_KEY)")
     tr = transport or default_transport(True)
     api = f"https://kagi.com/api/v0/search?q={quote_plus(q)}"
-    resp = tr.get(
+    data, _code, _error = _get_json_with_retry(
+        tr,
         api,
-        timeout_ms=timeout_ms,
-        headers={
+        {
             "User-Agent": DEFAULT_UA,
             "Accept": "application/json",
             "Authorization": f"Bot {key}",
         },
+        timeout_ms,
+        "kagi",
     )
-    if not resp.body:
-        return []
-    try:
-        data = json.loads(resp.body)
-    except Exception:  # noqa: BLE001
+    if data is None:
         return []
     results = data.get("data") if isinstance(data, dict) else None
     if not isinstance(results, list):
@@ -738,6 +831,8 @@ def web_search(
                         engines=searxng_opts.get("engines"),
                         categories=searxng_opts.get("categories"),
                         page=int(searxng_opts.get("page", 1)),
+                        safesearch=searxng_opts.get("safesearch"),
+                        language=searxng_opts.get("language"),
                     )
                 except ValueError as exc:
                     if "no base URL" in str(exc):
@@ -830,7 +925,15 @@ def web_search(
             "strict_provider": True,
         }
 
-    ranked = rank_search_hits(raw, allow_hosts=allow_hosts, deny_hosts=deny_hosts)
+    seen_urls: set[str] = set()
+    unique_raw: list[dict[str, Any]] = []
+    for hit in raw:
+        canonical = canonical_search_url(hit.get("url"))
+        if canonical in seen_urls:
+            continue
+        seen_urls.add(canonical)
+        unique_raw.append({**hit, "url": canonical})
+    ranked = rank_search_hits(unique_raw, allow_hosts=allow_hosts, deny_hosts=deny_hosts)
     results = [
         {"title": str(h["title"]), "url": str(h["url"]), "score": int(h["score"])}
         for h in ranked[:max_results]

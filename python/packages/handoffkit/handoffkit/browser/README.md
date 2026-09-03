@@ -101,11 +101,14 @@ other providers and flow through host ranking, allow/deny lists, and cache
 observability like any built-in engine.
 
 Per-call options (`searxng={"base_url": ..., "base_urls": [...], "engines":
-[...], "categories": [...], "page": N}`) select engines, a
-`general/images/videos/news` category, and result pages (`&pageno=N`); unknown
-values fail closed with `searxng_invalid_options`. `HANDOFFKIT_SEARXNG_URLS`
+[...], "categories": [...], "page": N, "safesearch": 0|1|2, "language": "en"}`
+select engines, a `general/images/videos/news` category, result pages
+(`&pageno=N`), safe-search, and a response language (also sent as
+`Accept-Language`); unknown values fail closed with
+`searxng_invalid_options`. `HANDOFFKIT_SEARXNG_URLS`
 (comma-separated) configures instance fallback: instances are tried in order
-until one returns hits.
+until one returns hits. Infobox links are searched as results alongside
+`results`.
 
 ### Key-gated providers (`brave`, `bing`, `kagi`)
 
