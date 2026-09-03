@@ -121,6 +121,7 @@ export const SUPPORTED_SEARCH_PROVIDERS = Object.freeze([
   "project_index",
   "duckduckgo",
   "wikipedia",
+  "searxng",
   USER_BROWSER_PROVIDER,
   DEFAULT_BROWSER_PROVIDER,
 ]);
@@ -136,6 +137,8 @@ function providerEngine(providers) {
       ? "duckduckgo"
       : value === "wiki"
         ? "wikipedia"
+        : value === "sx" || value === "dodo"
+          ? "searxng"
         : value === "user-browser"
           ? USER_BROWSER_PROVIDER
           : value === "default-browser" || value === "system-browser"
@@ -149,6 +152,8 @@ function providerEngine(providers) {
           ? "project_index"
       : provider === "duckduckgo"
       ? "duckduckgo_html"
+      : provider === "searxng"
+        ? "searxng_json"
       : provider === "wikipedia"
         ? "wikipedia_opensearch"
         : provider === USER_BROWSER_PROVIDER
@@ -304,6 +309,53 @@ async function wikipediaOpensearch(transport, query, maxResults, timeoutMs) {
   return hits;
 }
 
+/**
+ * Search a self-hosted SearXNG instance's JSON API (e.g. Dodo Explorer).
+ * Base URL comes from HANDOFFKIT_SEARXNG_URL; without it the provider
+ * reports provider_unavailable instead of guessing a public instance.
+ */
+async function searxngJsonSearch(transport, query, maxResults, timeoutMs) {
+  const hits = [];
+  if (!transport || !query || maxResults < 1) return { hits };
+  const base = String(process.env.HANDOFFKIT_SEARXNG_URL ?? "").trim().replace(/\/+$/, "");
+  if (!base) {
+    return {
+      hits,
+      error_code: "provider_unavailable",
+      error: "searxng requires HANDOFFKIT_SEARXNG_URL (self-hosted instance base URL)",
+    };
+  }
+  const url = `${base}/search?q=${urlEncodeComponent(String(query))}&format=json`;
+  const resp = await transport.get(
+    new TransportRequest({
+      url,
+      timeoutMs: timeoutMs > 0 ? timeoutMs : 20000,
+      headers: {
+        "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
+        Accept: "application/json",
+      },
+    }),
+  );
+  if (resp.error) return { hits, error_code: "searxng_transport_error", error: resp.error };
+  if (resp.status < 200 || resp.status >= 300 || !resp.body) {
+    return { hits, error_code: "searxng_empty_response", error: "SearXNG returned no JSON results" };
+  }
+  let data;
+  try {
+    data = JSON.parse(resp.body);
+  } catch {
+    return { hits, error_code: "searxng_invalid_response", error: "SearXNG returned invalid JSON" };
+  }
+  const results = Array.isArray(data?.results) ? data.results : [];
+  for (const item of results) {
+    const url = String(item?.url ?? "");
+    const title = stripTags(String(item?.title ?? ""));
+    if (url.startsWith("http")) pushHit(hits, title || url, url, maxResults);
+    if (hits.length >= maxResults) break;
+  }
+  return { hits };
+}
+
 async function duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs) {
   const hits = [];
   if (!transport || !query || maxResults < 1) return { hits };
@@ -421,6 +473,9 @@ async function searchWithProviders(transport, query, maxResults, timeoutMs, prov
         providerHits = await searchGoogle(transport, query, maxResults, timeoutMs);
       } else if (provider === "duckduckgo") {
         providerResult = await duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs);
+        providerHits = providerResult.hits;
+      } else if (provider === "searxng") {
+        providerResult = await searxngJsonSearch(transport, query, maxResults, timeoutMs);
         providerHits = providerResult.hits;
       } else if (provider === "wikipedia") {
         providerHits = await wikipediaOpensearch(transport, query, maxResults, timeoutMs);

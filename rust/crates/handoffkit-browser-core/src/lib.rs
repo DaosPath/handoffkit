@@ -364,7 +364,8 @@ pub fn parse_core_model(name: &str, input: &Value) -> Result<Value, BrowserCoreE
                     "project_index",
                     "google_http",
                     "duckduckgo",
-                    "wikipedia"
+                    "wikipedia",
+                    "searxng"
                 ])
             });
             Ok(json!({

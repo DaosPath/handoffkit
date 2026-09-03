@@ -125,6 +125,8 @@ export const PROVIDER_ALIASES = Object.freeze({
   google_html: "google_http",
   ddg: "duckduckgo",
   wiki: "wikipedia",
+  sx: "searxng",
+  dodo: "searxng",
   "user-browser": "user_browser",
   "default-browser": "default_browser",
   "system-browser": "default_browser",

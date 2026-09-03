@@ -84,6 +84,7 @@ SUPPORTED_SEARCH_PROVIDERS = (
     "project_index",
     "duckduckgo",
     "wikipedia",
+    "searxng",
     USER_BROWSER_PROVIDER,
     DEFAULT_BROWSER_PROVIDER,
 )
@@ -95,10 +96,17 @@ _PROVIDER_ALIASES = {
     "google_html": "google",
     "ddg": "duckduckgo",
     "wiki": "wikipedia",
+    "sx": "searxng",
+    "dodo": "searxng",
     "user-browser": USER_BROWSER_PROVIDER,
     "default-browser": DEFAULT_BROWSER_PROVIDER,
     "system-browser": DEFAULT_BROWSER_PROVIDER,
 }
+
+# SearXNG JSON endpoint; override with HANDOFFKIT_SEARXNG_URL for self-hosted
+# instances (e.g. http://127.0.0.1:8888). Never sent to third parties.
+SEARXNG_ENV_URL = "HANDOFFKIT_SEARXNG_URL"
+_DEFAULT_SEARXNG_URL = ""
 
 
 def _canonical_search_provider(raw: str) -> str:
@@ -119,6 +127,7 @@ def provider_engine(providers: list[str] | tuple[str, ...] | None) -> str:
             "google_browser": "google_browser",
             "project_index": "project_index",
             "duckduckgo": "duckduckgo_html",
+            "searxng": "searxng_json",
             "wikipedia": "wikipedia_opensearch",
             USER_BROWSER_PROVIDER: "user_browser_bridge",
             DEFAULT_BROWSER_PROVIDER: "default_browser_bridge",
@@ -272,6 +281,52 @@ def search_duckduckgo(
         if link.startswith("http") and "duckduckgo.com" not in link and link not in seen:
             seen.add(link)
             hits.append({"title": "", "url": link})
+        if len(hits) >= max_results * 2:
+            break
+    return hits
+
+
+def search_searxng(
+    query: str,
+    *,
+    max_results: int = 8,
+    transport: WebTransport | None = None,
+    timeout_ms: int = 15000,
+    base_url: str | None = None,
+) -> list[dict[str, str]]:
+    """Search a SearXNG instance's JSON API (self-hosted metasearch)."""
+    import os
+
+    q = (query or "").strip()
+    if not q:
+        return []
+    resolved_base = str(
+        base_url or os.environ.get(SEARXNG_ENV_URL, "") or _DEFAULT_SEARXNG_URL
+    ).strip().rstrip("/")
+    if not resolved_base:
+        raise ValueError("searxng: no base URL configured (set HANDOFFKIT_SEARXNG_URL)")
+    tr = transport or default_transport(True)
+    api = f"{resolved_base}/search?q={quote_plus(q)}&format=json"
+    resp = tr.get(
+        api,
+        timeout_ms=timeout_ms,
+        headers={"User-Agent": DEFAULT_UA, "Accept": "application/json"},
+    )
+    if not resp.body:
+        return []
+    try:
+        data = json.loads(resp.body)
+    except Exception:  # noqa: BLE001
+        return []
+    results = data.get("results") if isinstance(data, dict) else None
+    if not isinstance(results, list):
+        return []
+    hits: list[dict[str, str]] = []
+    for item in results:
+        url = str(item.get("url") or "")
+        title = _strip(item.get("title") or "")
+        if url.startswith("http"):
+            hits.append({"title": title or url, "url": url})
         if len(hits) >= max_results * 2:
             break
     return hits
@@ -452,6 +507,23 @@ def web_search(
                     transport=tr,
                     timeout_ms=timeout_ms,
                 )
+            elif provider == "searxng":
+                try:
+                    hits = search_searxng(
+                        q,
+                        max_results=max_results,
+                        transport=tr,
+                        timeout_ms=timeout_ms,
+                    )
+                except ValueError as exc:
+                    trace["error_code"] = "provider_unavailable"
+                    trace["fallback_reason"] = "searxng_unconfigured"
+                    errors.append(f"searxng: {exc}")
+                    provider_codes.append("provider_unavailable")
+                    provider_trace.append(trace)
+                    if strict_provider:
+                        break
+                    continue
             elif provider == DEFAULT_BROWSER_PROVIDER:
                 provider_result = search_default_browser(
                     user_browser,

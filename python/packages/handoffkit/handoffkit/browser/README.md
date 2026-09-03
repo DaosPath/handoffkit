@@ -89,6 +89,17 @@ provider settings propagate to direct helpers and registered tools. Use
 to opt in. Use `providers=["default_browser"]` with `DefaultBrowserBridge`
 for the host's system-default browser bridge.
 
+### SearXNG provider (`searxng`)
+
+`providers=["searxng"]` (aliases: `"sx"`, `"dodo"`) queries a self-hosted
+SearXNG instance's JSON API instead of third-party engines. Configure the base
+URL via the `HANDOFFKIT_SEARXNG_URL` environment variable (for example
+`http://127.0.0.1:8888`); without it the provider reports
+`provider_unavailable` with `searxng_unconfigured` and never guesses a public
+instance. Results are normalized to the same `{title, url}` hit shape as the
+other providers and flow through host ranking, allow/deny lists, and cache
+observability like any built-in engine.
+
 Grounded multi-query recipes run sequentially with a bounded delay by default,
 reducing burst rate limits against public HTML endpoints. Provider challenge
 pages fail closed with a structured error.

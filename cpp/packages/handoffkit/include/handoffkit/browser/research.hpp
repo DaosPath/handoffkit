@@ -31,7 +31,7 @@ struct WebResearchConfig {
     int concurrency = 2;  // sequential in C++ v1; reserved
     int max_sub_queries = 3;
     int max_results_per_query = 8;
-    std::vector<std::string> providers{"duckduckgo", "wikipedia"};
+    std::vector<std::string> providers{"duckduckgo", "wikipedia", "searxng"};
     BrowserCache* cache = nullptr;
 };
 

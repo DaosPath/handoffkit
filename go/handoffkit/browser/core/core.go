@@ -359,7 +359,7 @@ func ParseCoreModel(name string, input any) (map[string]any, error) {
 	case "SearchRequest":
 		providers := asArray(data, "providers")
 		if _, ok := data["providers"]; !ok {
-			providers = []any{"google_browser", "project_index", "google_http", "duckduckgo", "wikipedia"}
+			providers = []any{"google_browser", "project_index", "google_http", "duckduckgo", "wikipedia", "searxng"}
 		}
 		return map[string]any{
 			"contract_version": text(data, "contract_version", ContractVersion),

@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <cctype>
 #include <regex>
 #include <sstream>
@@ -154,6 +155,46 @@ std::vector<std::pair<std::string, std::string>> wikipedia_opensearch(TransportP
         for (std::size_t i = 0; i < n; ++i) {
             if (!titles[i].is_string() || !urls[i].is_string()) continue;
             push_hit(hits, titles[i].get<std::string>(), urls[i].get<std::string>(), max_results);
+        }
+    } catch (...) {
+        return hits;
+    }
+    return hits;
+}
+
+std::vector<std::pair<std::string, std::string>> searxng_json_search(TransportPtr transport,
+                                                                       std::string_view query,
+                                                                       int max_results, int timeout_ms) {
+    std::vector<std::pair<std::string, std::string>> hits;
+    if (!transport || query.empty() || max_results < 1) return hits;
+    const char* base_env = std::getenv("HANDOFFKIT_SEARXNG_URL");
+    std::string base = base_env ? std::string(base_env) : std::string{};
+    while (!base.empty() && base.back() == '/') base.pop_back();
+    if (base.empty()) return hits;  // unconfigured => empty in C++ (provider layer reports error)
+    const std::string url = base + "/search?q=" + url_encode_component(std::string(query)) + "&format=json";
+    TransportRequest req;
+    req.url = url;
+    req.timeout_ms = timeout_ms > 0 ? timeout_ms : 20000;
+    req.headers["User-Agent"] = "HandoffKit-Browser/1.0";
+    req.headers["Accept"] = "application/json";
+    const auto resp = transport->get(req);
+    if (!resp.error.empty() || resp.status < 200 || resp.status >= 300 || resp.body.empty()) return hits;
+    try {
+        const auto j = nlohmann::json::parse(resp.body);
+        const auto it = j.find("results");
+        if (it == j.end() || !it->is_array()) return hits;
+        for (const auto& item : *it) {
+            if (static_cast<int>(hits.size()) >= max_results) break;
+            if (!item.is_object()) continue;
+            const auto u = item.find("url");
+            const auto t = item.find("title");
+            if (u == item.end() || !u->is_string()) continue;
+            std::string surl = u->get<std::string>();
+            if (surl.rfind("http://", 0) != 0 && surl.rfind("https://", 0) != 0) continue;
+            std::string title;
+            if (t != item.end() && t->is_string()) title = strip_tags(t->get<std::string>());
+            if (title.empty()) title = surl;
+            push_hit(hits, std::move(title), std::move(surl), max_results);
         }
     } catch (...) {
         return hits;
@@ -405,6 +446,7 @@ std::string canonical_provider(std::string value) {
     if (value == "g" || value == "google_http" || value == "google_html") return "google";
     if (value == "ddg") return "duckduckgo";
     if (value == "wiki") return "wikipedia";
+    if (value == "sx" || value == "dodo") return "searxng";
     if (value == "user-browser") return "user_browser";
     return value;
 }
@@ -504,6 +546,7 @@ std::string provider_engine(const std::vector<std::string>& providers) {
                                 ? "google_html"
                                 : provider == "duckduckgo"
                                 ? "duckduckgo_html"
+                                : provider == "searxng"   ? "searxng_json"
                                 : provider == "wikipedia"
                                     ? "wikipedia_opensearch"
                                     : provider == "user_browser" ? "user_browser_bridge" : "";
@@ -527,7 +570,7 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
     max_results = std::max(1, std::min(8, max_results));
     const std::vector<std::string> requested =
         providers.empty()
-            ? std::vector<std::string>{"google_browser", "project_index", "google_http", "duckduckgo", "wikipedia"}
+            ? std::vector<std::string>{"google_browser", "project_index", "google_http", "duckduckgo", "wikipedia", "searxng"}
             : providers;
     std::vector<std::string> normalized;
     std::vector<std::string> provider_errors;
@@ -535,7 +578,7 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
     for (const auto& raw : requested) {
         const auto provider = canonical_provider(raw);
         if (provider.empty()) continue;
-        if (provider != "google" && provider != "duckduckgo" && provider != "wikipedia" &&
+        if (provider != "google" && provider != "duckduckgo" && provider != "wikipedia" && provider != "searxng" &&
             provider != "user_browser" && provider != "google_browser" && provider != "project_index") {
             provider_errors.push_back("unsupported provider: " + provider);
             continue;
@@ -607,6 +650,17 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
             hits = google_html_search(transport, q, max_results, timeout_ms);
         } else if (provider == "duckduckgo") {
             hits = duckduckgo_html_search(transport, q, max_results, timeout_ms);
+        } else if (provider == "searxng") {
+            const char* base_env = std::getenv("HANDOFFKIT_SEARXNG_URL");
+            if (!base_env || std::string(base_env).empty()) {
+                provider_codes.push_back("provider_unavailable");
+                provider_errors.push_back("searxng: searxng requires HANDOFFKIT_SEARXNG_URL");
+                trace["error_code"] = "provider_unavailable";
+                trace["fallback_reason"] = "searxng_unconfigured";
+                provider_trace.push_back(trace);
+                continue;
+            }
+            hits = searxng_json_search(transport, q, max_results, timeout_ms);
         } else {
             hits = wikipedia_opensearch(transport, q, max_results, timeout_ms);
         }
