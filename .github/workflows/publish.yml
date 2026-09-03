@@ -246,6 +246,18 @@ jobs:
           - package: "@handoffkit/browser"
             directory: js/packages/browser
             archive: handoffkit-browser
+          - package: "@handoffkit/browser-core"
+            directory: js/packages/browser-core
+            archive: handoffkit-browser-core
+          - package: "@handoffkit/browser-lite"
+            directory: js/packages/browser-lite
+            archive: handoffkit-browser-lite
+          - package: "@handoffkit/browser-real"
+            directory: js/packages/browser-real
+            archive: handoffkit-browser-real
+          - package: "@handoffkit/clinical"
+            directory: js/packages/clinical
+            archive: handoffkit-clinical
           - package: "@handoffkit/recipes"
             directory: js/packages/recipes
             archive: handoffkit-recipes

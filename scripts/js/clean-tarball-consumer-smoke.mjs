@@ -6,7 +6,7 @@ import { dirname, join, resolve } from "node:path";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const smokeRoot = join(root, ".local-tests", "js-tarball-consumer");
 const archiveRoot = join(smokeRoot, "archives");
-const packageNames = ["core", "csp", "providers", "node", "browser", "recipes", "templates", "cli"];
+const packageNames = ["core", "csp", "providers", "node", "browser-core", "browser", "browser-lite", "browser-real", "clinical", "recipes", "templates", "cli"];
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 function windowsQuote(value) {
