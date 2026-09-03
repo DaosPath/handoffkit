@@ -100,6 +100,13 @@ instance. Results are normalized to the same `{title, url}` hit shape as the
 other providers and flow through host ranking, allow/deny lists, and cache
 observability like any built-in engine.
 
+Per-call options (`searxng={"base_url": ..., "base_urls": [...], "engines":
+[...], "categories": [...], "page": N}`) select engines, a
+`general/images/videos/news` category, and result pages (`&pageno=N`); unknown
+values fail closed with `searxng_invalid_options`. `HANDOFFKIT_SEARXNG_URLS`
+(comma-separated) configures instance fallback: instances are tried in order
+until one returns hits.
+
 ### Key-gated providers (`brave`, `bing`, `kagi`)
 
 `providers=["brave"]`, `["bing"]`, or `["kagi"]` query the vendor JSON APIs

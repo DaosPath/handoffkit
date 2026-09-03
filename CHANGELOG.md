@@ -70,6 +70,9 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
   JavaScript and Python. Keys come from `HANDOFFKIT_BRAVE_API_KEY`,
   `HANDOFFKIT_BING_API_KEY`, and `HANDOFFKIT_KAGI_API_KEY`; without its key
   the provider reports `provider_unavailable` and never calls the network.
+- Matured the SearXNG provider: per-call `engines`/`categories`/`page`
+  options, `HANDOFFKIT_SEARXNG_URLS` multi-instance fallback in order until
+  hits, and fail-closed `searxng_invalid_options` for unknown values.
 
 - Screen-dubbing media pipeline and agent recipe (`screen_dubbing` /
   `screen-dubbing`): OCR + ASR consensus, a long-context producer prompt for

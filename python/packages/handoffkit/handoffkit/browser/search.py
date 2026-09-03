@@ -109,7 +109,15 @@ _PROVIDER_ALIASES = {
 # SearXNG JSON endpoint; override with HANDOFFKIT_SEARXNG_URL for self-hosted
 # instances (e.g. http://127.0.0.1:8888). Never sent to third parties.
 SEARXNG_ENV_URL = "HANDOFFKIT_SEARXNG_URL"
+SEARXNG_ENV_URLS = "HANDOFFKIT_SEARXNG_URLS"
 _DEFAULT_SEARXNG_URL = ""
+SEARXNG_CATEGORIES = ("general", "images", "videos", "news")
+_ENGINE_TOKEN_RE = re.compile(r"^[a-z0-9_+-]+$")
+
+
+def _searxng_option_list(value: Any) -> list[str]:
+    items = value if isinstance(value, list) else str(value or "").split(",")
+    return [str(item or "").strip().lower() for item in items if str(item or "").strip()]
 
 
 def _canonical_search_provider(raw: str) -> str:
@@ -299,43 +307,86 @@ def search_searxng(
     transport: WebTransport | None = None,
     timeout_ms: int = 15000,
     base_url: str | None = None,
+    base_urls: list[str] | None = None,
+    engines: list[str] | str | None = None,
+    categories: list[str] | str | None = None,
+    page: int = 1,
 ) -> list[dict[str, str]]:
-    """Search a SearXNG instance's JSON API (self-hosted metasearch)."""
+    """Search SearXNG instances' JSON API (self-hosted metasearch).
+
+    Tries base_urls (then base_url, HANDOFFKIT_SEARXNG_URLS, HANDOFFKIT_SEARXNG_URL)
+    in order until one returns hits. engines/categories/page map to SearXNG
+    query params; unknown values raise ValueError (fail closed).
+    """
     import os
 
     q = (query or "").strip()
     if not q:
         return []
-    resolved_base = str(
-        base_url or os.environ.get(SEARXNG_ENV_URL, "") or _DEFAULT_SEARXNG_URL
-    ).strip().rstrip("/")
-    if not resolved_base:
+    bases = [b for b in _searxng_option_list(base_urls or []) if b]
+    if base_url:
+        bases.append(str(base_url).strip().rstrip("/"))
+    bases.extend(_searxng_option_list(os.environ.get(SEARXNG_ENV_URLS, "")))
+    env_single = str(os.environ.get(SEARXNG_ENV_URL, "") or _DEFAULT_SEARXNG_URL)
+    env_single = env_single.strip().rstrip("/")
+    if env_single:
+        bases.append(env_single)
+    bases = [b for b in bases if b]
+    if not bases:
         raise ValueError("searxng: no base URL configured (set HANDOFFKIT_SEARXNG_URL)")
+    engine_list = sorted(set(_searxng_option_list(engines or [])))
+    for token in engine_list:
+        if not _ENGINE_TOKEN_RE.match(token):
+            raise ValueError(f"searxng: unknown engine: {token}")
+    category_list = sorted(set(_searxng_option_list(categories or [])))
+    for category in category_list:
+        if category not in SEARXNG_CATEGORIES:
+            raise ValueError(f"searxng: unknown category: {category}")
+    if not isinstance(page, int) or isinstance(page, bool) or page < 1:
+        raise ValueError("searxng: page must be an integer >= 1")
+    extra = ""
+    if engine_list:
+        extra += "&engines=" + ",".join(quote_plus(e) for e in engine_list)
+    if category_list:
+        extra += "&categories=" + ",".join(quote_plus(c) for c in category_list)
+    if page > 1:
+        extra += f"&pageno={page}"
     tr = transport or default_transport(True)
-    api = f"{resolved_base}/search?q={quote_plus(q)}&format=json"
-    resp = tr.get(
-        api,
-        timeout_ms=timeout_ms,
-        headers={"User-Agent": DEFAULT_UA, "Accept": "application/json"},
-    )
-    if not resp.body:
-        return []
-    try:
-        data = json.loads(resp.body)
-    except Exception:  # noqa: BLE001
-        return []
-    results = data.get("results") if isinstance(data, dict) else None
-    if not isinstance(results, list):
-        return []
-    hits: list[dict[str, str]] = []
-    for item in results:
-        url = str(item.get("url") or "")
-        title = _strip(item.get("title") or "")
-        if url.startswith("http"):
-            hits.append({"title": title or url, "url": url})
-        if len(hits) >= max_results * 2:
-            break
-    return hits
+    last_error: Exception | None = None
+    for base in bases:
+        api = f"{base}/search?q={quote_plus(q)}&format=json{extra}"
+        try:
+            resp = tr.get(
+                api,
+                timeout_ms=timeout_ms,
+                headers={"User-Agent": DEFAULT_UA, "Accept": "application/json"},
+            )
+        except Exception as exc:  # noqa: BLE001 - try next instance
+            last_error = exc
+            continue
+        if not resp.body:
+            continue
+        try:
+            data = json.loads(resp.body)
+        except Exception as exc:  # noqa: BLE001 - try next instance
+            last_error = exc
+            continue
+        results = data.get("results") if isinstance(data, dict) else None
+        if not isinstance(results, list):
+            continue
+        hits: list[dict[str, str]] = []
+        for item in results:
+            url = str(item.get("url") or "")
+            title = _strip(item.get("title") or "")
+            if url.startswith("http"):
+                hits.append({"title": title or url, "url": url})
+            if len(hits) >= max_results * 2:
+                break
+        if hits:
+            return hits
+    if last_error is not None:
+        raise last_error
+    return []
 
 
 BRAVE_ENV_API_KEY = "HANDOFFKIT_BRAVE_API_KEY"
@@ -552,6 +603,7 @@ def web_search(
     strict_provider: bool = False,
     google_browser_search: Any | None = None,
     project_index: Any | None = None,
+    searxng: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     q = (query or "").strip()
     if providers is None and str(search_plan or "").strip().lower() == "platform":
@@ -675,17 +727,28 @@ def web_search(
                 )
             elif provider == "searxng":
                 try:
+                    searxng_opts = searxng or {}
                     hits = search_searxng(
                         q,
                         max_results=max_results,
                         transport=tr,
                         timeout_ms=timeout_ms,
+                        base_url=searxng_opts.get("base_url"),
+                        base_urls=searxng_opts.get("base_urls"),
+                        engines=searxng_opts.get("engines"),
+                        categories=searxng_opts.get("categories"),
+                        page=int(searxng_opts.get("page", 1)),
                     )
                 except ValueError as exc:
-                    trace["error_code"] = "provider_unavailable"
-                    trace["fallback_reason"] = "searxng_unconfigured"
+                    if "no base URL" in str(exc):
+                        trace["error_code"] = "provider_unavailable"
+                        trace["fallback_reason"] = "searxng_unconfigured"
+                        provider_codes.append("provider_unavailable")
+                    else:
+                        trace["error_code"] = "searxng_invalid_options"
+                        trace["fallback_reason"] = "searxng_invalid_options"
+                        provider_codes.append("searxng_invalid_options")
                     errors.append(f"searxng: {exc}")
-                    provider_codes.append("provider_unavailable")
                     provider_trace.append(trace)
                     if strict_provider:
                         break

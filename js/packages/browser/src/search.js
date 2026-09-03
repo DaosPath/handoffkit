@@ -320,49 +320,106 @@ async function wikipediaOpensearch(transport, query, maxResults, timeoutMs) {
 
 /**
  * Search a self-hosted SearXNG instance's JSON API (e.g. Dodo Explorer).
- * Base URL comes from HANDOFFKIT_SEARXNG_URL; without it the provider
+ * Base URLs come from options ({baseUrl, baseUrls}), HANDOFFKIT_SEARXNG_URLS
+ * (comma-separated), or HANDOFFKIT_SEARXNG_URL; without any the provider
  * reports provider_unavailable instead of guessing a public instance.
+ * Options {engines, categories, page} map to SearXNG query params; unknown
+ * categories or engines fail closed. Instances are tried in order until one
+ * returns hits.
  */
-async function searxngJsonSearch(transport, query, maxResults, timeoutMs) {
+const SEARXNG_CATEGORIES = Object.freeze(["general", "images", "videos", "news"]);
+
+function searxngOptionList(value) {
+  const items = Array.isArray(value) ? value : String(value ?? "").split(",");
+  return items.map((item) => String(item ?? "").trim().toLowerCase()).filter(Boolean);
+}
+
+async function searxngJsonSearch(transport, query, maxResults, timeoutMs, options = {}) {
   const hits = [];
   if (!transport || !query || maxResults < 1) return { hits };
-  const base = String(process.env.HANDOFFKIT_SEARXNG_URL ?? "").trim().replace(/\/+$/, "");
-  if (!base) {
+  const opts = options && typeof options === "object" ? options : {};
+  const bases = [
+    ...searxngOptionList(opts.baseUrls),
+    ...(opts.baseUrl ? [String(opts.baseUrl).trim().replace(/\/+$/, "")] : []),
+    ...searxngOptionList(process.env.HANDOFFKIT_SEARXNG_URLS),
+    ...(process.env.HANDOFFKIT_SEARXNG_URL
+      ? [String(process.env.HANDOFFKIT_SEARXNG_URL).trim().replace(/\/+$/, "")]
+      : []),
+  ].filter(Boolean);
+  if (!bases.length) {
     return {
       hits,
       error_code: "provider_unavailable",
       error: "searxng requires HANDOFFKIT_SEARXNG_URL (self-hosted instance base URL)",
     };
   }
-  const url = `${base}/search?q=${urlEncodeComponent(String(query))}&format=json`;
-  const resp = await transport.get(
-    new TransportRequest({
-      url,
-      timeoutMs: timeoutMs > 0 ? timeoutMs : 20000,
-      headers: {
-        "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
-        Accept: "application/json",
-      },
-    }),
-  );
-  if (resp.error) return { hits, error_code: "searxng_transport_error", error: resp.error };
-  if (resp.status < 200 || resp.status >= 300 || !resp.body) {
-    return { hits, error_code: "searxng_empty_response", error: "SearXNG returned no JSON results" };
+  const engines = [...new Set(searxngOptionList(opts.engines))];
+  for (const token of engines) {
+    if (!/^[a-z0-9_+-]+$/.test(token)) {
+      return { hits, error_code: "searxng_invalid_options", error: `searxng unknown engine: ${token}` };
+    }
   }
-  let data;
-  try {
-    data = JSON.parse(resp.body);
-  } catch {
-    return { hits, error_code: "searxng_invalid_response", error: "SearXNG returned invalid JSON" };
+  const categories = [...new Set(searxngOptionList(opts.categories))];
+  for (const category of categories) {
+    if (!SEARXNG_CATEGORIES.includes(category)) {
+      return { hits, error_code: "searxng_invalid_options", error: `searxng unknown category: ${category}` };
+    }
   }
-  const results = Array.isArray(data?.results) ? data.results : [];
-  for (const item of results) {
-    const url = String(item?.url ?? "");
-    const title = stripTags(String(item?.title ?? ""));
-    if (url.startsWith("http")) pushHit(hits, title || url, url, maxResults);
-    if (hits.length >= maxResults) break;
+  const page = Number(opts.page ?? 1);
+  if (opts.page != null && !(Number.isInteger(page) && page >= 1)) {
+    return { hits, error_code: "searxng_invalid_options", error: "searxng page must be an integer >= 1" };
   }
-  return { hits };
+  const extra = [
+    engines.length ? `&engines=${engines.map(urlEncodeComponent).join(",")}` : "",
+    categories.length ? `&categories=${categories.map(urlEncodeComponent).join(",")}` : "",
+    page > 1 ? `&pageno=${page}` : "",
+  ].join("");
+  let lastError = null;
+  for (const base of bases) {
+    const url = `${base}/search?q=${urlEncodeComponent(String(query))}&format=json${extra}`;
+    let resp;
+    try {
+      resp = await transport.get(
+        new TransportRequest({
+          url,
+          timeoutMs: timeoutMs > 0 ? timeoutMs : 20000,
+          headers: {
+            "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
+            Accept: "application/json",
+          },
+        }),
+      );
+    } catch (error) {
+      lastError = { hits, error_code: "searxng_transport_error", error: String(error?.message ?? error) };
+      continue;
+    }
+    if (resp.error) {
+      lastError = { hits, error_code: "searxng_transport_error", error: resp.error };
+      continue;
+    }
+    if (resp.status < 200 || resp.status >= 300 || !resp.body) {
+      lastError = { hits, error_code: "searxng_empty_response", error: "SearXNG returned no JSON results" };
+      continue;
+    }
+    let data;
+    try {
+      data = JSON.parse(resp.body);
+    } catch {
+      lastError = { hits, error_code: "searxng_invalid_response", error: "SearXNG returned invalid JSON" };
+      continue;
+    }
+    const results = Array.isArray(data?.results) ? data.results : [];
+    const attempt = [];
+    for (const item of results) {
+      const itemUrl = String(item?.url ?? "");
+      const title = stripTags(String(item?.title ?? ""));
+      if (itemUrl.startsWith("http")) pushHit(attempt, title || itemUrl, itemUrl, maxResults);
+      if (attempt.length >= maxResults) break;
+    }
+    if (attempt.length) return { hits: attempt };
+    lastError = { hits, error_code: "", error: "" };
+  }
+  return lastError ?? { hits };
 }
 
 /**
@@ -625,7 +682,7 @@ async function searchWithProviders(transport, query, maxResults, timeoutMs, prov
         providerResult = await duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs);
         providerHits = providerResult.hits;
       } else if (provider === "searxng") {
-        providerResult = await searxngJsonSearch(transport, query, maxResults, timeoutMs);
+        providerResult = await searxngJsonSearch(transport, query, maxResults, timeoutMs, extras.searxng ?? {});
         providerHits = providerResult.hits;
       } else if (provider === "brave") {
         providerResult = await braveJsonSearch(transport, query, maxResults, timeoutMs);
@@ -753,6 +810,7 @@ export async function webSearch(query, opts = {}) {
     strictProvider: opts.strictProvider ?? opts.strict_provider ?? false,
     googleBrowserSearch: opts.googleBrowserSearch ?? opts.google_browser_search ?? null,
     projectIndex: opts.projectIndex ?? opts.project_index ?? null,
+    searxng: opts.searxng ?? null,
   };
 
   if (!q) {

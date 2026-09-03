@@ -86,6 +86,7 @@ def test_web_search_searxng_alias_dodo(monkeypatch):
 
 def test_web_search_searxng_unconfigured_reports_gracefully(monkeypatch):
     monkeypatch.delenv("HANDOFFKIT_SEARXNG_URL", raising=False)
+    monkeypatch.delenv("HANDOFFKIT_SEARXNG_URLS", raising=False)
     transport = make_fixture_map_transport()
     result = web_search(
         "OpenAI",
@@ -97,3 +98,69 @@ def test_web_search_searxng_unconfigured_reports_gracefully(monkeypatch):
     assert any("no base URL" in e for e in result["errors"])
     codes = {t["error_code"] for t in result["provider_trace"]}
     assert "provider_unavailable" in codes
+
+
+def _searx_url_with(base, extra=""):
+    return f"{base}/search?q=OpenAI&format=json{extra}"
+
+
+def test_search_searxng_engines_categories_page(monkeypatch):
+    monkeypatch.delenv("HANDOFFKIT_SEARXNG_URL", raising=False)
+    monkeypatch.delenv("HANDOFFKIT_SEARXNG_URLS", raising=False)
+    transport = make_fixture_map_transport()
+    transport.set_page(
+        _searx_url_with(
+            "http://127.0.0.1:8888", "&engines=brave,mojeek&categories=general&pageno=2"
+        ),
+        SEARXNG_BODY,
+    )
+    result = web_search(
+        "OpenAI",
+        transport=transport,
+        providers=["searxng"],
+        max_results=4,
+        searxng={
+            "base_url": "http://127.0.0.1:8888",
+            "engines": ["brave", "mojeek"],
+            "categories": "general",
+            "page": 2,
+        },
+    )
+    assert result["success"] is True
+    assert result["providers_used"] == ["searxng"]
+
+
+def test_search_searxng_rejects_unknown_category():
+    transport = make_fixture_map_transport()
+    result = web_search(
+        "OpenAI",
+        transport=transport,
+        providers=["searxng"],
+        max_results=4,
+        searxng={"base_url": "http://127.0.0.1:8888", "categories": ["telepathy"]},
+    )
+    assert result["success"] is False
+    codes = {t["error_code"] for t in result["provider_trace"]}
+    assert "searxng_invalid_options" in codes
+
+
+def test_search_searxng_falls_over_to_next_instance(monkeypatch):
+    monkeypatch.delenv("HANDOFFKIT_SEARXNG_URL", raising=False)
+    monkeypatch.delenv("HANDOFFKIT_SEARXNG_URLS", raising=False)
+    transport = make_fixture_map_transport()
+    transport.set_page(
+        _searx_url_with("http://127.0.0.1:8888"), '{"query": "x", "results": []}'
+    )
+    transport.set_page(_searx_url_with("http://127.0.0.1:8889"), SEARXNG_BODY)
+    result = web_search(
+        "OpenAI",
+        transport=transport,
+        providers=["searxng"],
+        max_results=4,
+        searxng={"base_urls": ["http://127.0.0.1:8888", "http://127.0.0.1:8889"]},
+    )
+    assert result["success"] is True
+    assert [r["url"] for r in result["results"]] == [
+        "https://openai.com/api",
+        "https://openai.com/blog",
+    ]
