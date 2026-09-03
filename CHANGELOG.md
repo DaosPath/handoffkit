@@ -73,9 +73,9 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
 - Matured the SearXNG provider: per-call `engines`/`categories`/`page`
   options, `HANDOFFKIT_SEARXNG_URLS` multi-instance fallback in order until
   hits, and fail-closed `searxng_invalid_options` for unknown values.
-- Added supervised Browser Real actuation (`hover`, `focus`, `check`/`uncheck`,
-  `dblclick`, `scroll`, `upload`) with selector requirements, a 5 MiB upload
-  cap, and fail-closed `engine_unsupported` on non-Chromium engines.
+- Added touch input to Browser Real (`tap`, `swipe`, `longpress`, `pinch`)
+  as supervised CDP touch-event sequences with the same selector and
+  fail-closed rules as the pointer commands.
 
 - Screen-dubbing media pipeline and agent recipe (`screen_dubbing` /
   `screen-dubbing`): OCR + ASR consensus, a long-context producer prompt for

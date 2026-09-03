@@ -452,3 +452,72 @@ test("upload requires selector, existing file, and size cap", async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+function touchFakeEngine(calls) {
+  const locator = (selector) => ({
+    async tap(options) { calls.push(["tap", selector, options]); },
+    async boundingBox() { return { x: 10, y: 20, width: 100, height: 40 }; },
+  });
+  return {
+    async launch() {
+      return {
+        page: {
+          locator,
+          viewportSize: () => ({ width: 800, height: 600 }),
+          context: () => ({
+            async newCDPSession() {
+              return {
+                async send(method, params) { calls.push(["cdp", method, params]); },
+                async detach() {},
+              };
+            },
+          }),
+        },
+        async close() {},
+      };
+    },
+  };
+}
+
+test("tap actuates through locators", async () => {
+  const calls = [];
+  const service = await startActuationSession(touchFakeEngine(calls));
+  const payload = await act(service, "tap", { selector: "button" }, "act-tap");
+  assert.equal(payload.action, "tap");
+  assert.deepEqual(calls[0].slice(0, 2), ["tap", "button"]);
+  await assert.rejects(
+    () => service.dispatch({ command_id: "act-tap-bad", session_id: "s-act", name: "tap", payload: {} }),
+    (error) => error instanceof BrowserCoreError && error.code === "invalid_request",
+  );
+});
+
+test("swipe sends CDP touch sequences", async () => {
+  const calls = [];
+  const service = await startActuationSession(touchFakeEngine(calls));
+  const payload = await act(service, "swipe", { selector: "main", direction: "up", distance: 200 }, "act-swipe");
+  assert.equal(payload.direction, "up");
+  assert.equal(payload.distance, 200);
+  const types = calls.filter(([kind]) => kind === "cdp").map(([, method, params]) => [method, params.type]);
+  assert.deepEqual(types.map(([, type]) => type), ["touchStart", "touchMove", "touchMove", "touchMove", "touchMove", "touchEnd"]);
+  await assert.rejects(
+    () => service.dispatch({ command_id: "act-swipe-bad", session_id: "s-act", name: "swipe", payload: { direction: "diagonal" } }),
+    (error) => error instanceof BrowserCoreError && error.code === "invalid_request",
+  );
+});
+
+test("longpress holds and pinches scale with two touch points", async () => {
+  const calls = [];
+  const service = await startActuationSession(touchFakeEngine(calls));
+  const held = await act(service, "longpress", { duration_ms: 300 }, "act-hold");
+  assert.equal(held.duration_ms, 300);
+  const pinched = await act(service, "pinch", { scale: 2 }, "act-pinch");
+  assert.equal(pinched.scale, 2);
+  const moves = calls.filter(([kind, method]) => kind === "cdp" && method === "Input.dispatchTouchEvent");
+  assert.ok(moves.length >= 4);
+  const pinchStart = moves.find((entry) => entry[2].type === "touchStart" && entry[2].touchPoints.length === 2);
+  assert.ok(pinchStart);
+  await assert.rejects(
+    () => service.dispatch({ command_id: "act-pinch-bad", session_id: "s-act", name: "pinch", payload: { scale: 1 } }),
+    (error) => error instanceof BrowserCoreError && error.code === "invalid_request",
+  );
+});

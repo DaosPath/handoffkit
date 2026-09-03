@@ -575,6 +575,81 @@ export class BrowserRealService {
     return handle?.page;
   }
 
+  async touchGesture(page, payload, name, timeout) {
+    const selector = String(payload.selector ?? "");
+    const target = page;
+    let center = null;
+    if (selector) {
+      const box = target?.locator ? await target.locator(selector).boundingBox() : null;
+      if (!box) throw new BrowserCoreError(`${name} target not found`, { code: "not_found" });
+      center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    } else {
+      const viewport = page?.viewportSize ? page.viewportSize() : null;
+      if (!viewport) throw new BrowserCoreError(`${name} requires selector`, { code: "invalid_request" });
+      center = { x: viewport.width / 2, y: viewport.height / 2 };
+    }
+    let client = null;
+    try {
+      client = page?.context ? await page.context().newCDPSession(page) : null;
+    } catch {
+      client = null;
+    }
+    if (!client || typeof client.send !== "function") {
+      throw new BrowserCoreError(`${name} is not supported by this engine`, { code: "engine_unsupported" });
+    }
+    const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+    try {
+      if (name === "swipe") {
+        const direction = String(payload.direction ?? "");
+        if (!["up", "down", "left", "right"].includes(direction)) {
+          throw new BrowserCoreError("swipe requires direction up|down|left|right", { code: "invalid_request" });
+        }
+        const distance = Number(payload.distance ?? 300);
+        if (!Number.isFinite(distance) || distance < 10 || distance > 2000) {
+          throw new BrowserCoreError("swipe distance must be 10..2000 px", { code: "invalid_request" });
+        }
+        const delta = { up: [0, -distance], down: [0, distance], left: [-distance, 0], right: [distance, 0] }[direction];
+        const from = { x: center.x - delta[0] / 2, y: center.y - delta[1] / 2 };
+        const to = { x: center.x + delta[0] / 2, y: center.y + delta[1] / 2 };
+        await client.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...from }] });
+        for (let step = 1; step <= 4; step += 1) {
+          await client.send("Input.dispatchTouchEvent", {
+            type: "touchMove",
+            touchPoints: [{ x: from.x + ((to.x - from.x) * step) / 4, y: from.y + ((to.y - from.y) * step) / 4 }],
+          });
+        }
+        await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        return { direction, distance };
+      }
+      if (name === "longpress") {
+        const duration = Number(payload.duration_ms ?? 600);
+        if (!Number.isFinite(duration) || duration < 100 || duration > 5000) {
+          throw new BrowserCoreError("longpress duration_ms must be 100..5000", { code: "invalid_request" });
+        }
+        await client.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...center }] });
+        await sleep(Math.min(duration, Math.max(timeout - 1000, 0) || duration));
+        await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        return { duration_ms: duration };
+      }
+      const scale = Number(payload.scale ?? 0);
+      if (!Number.isFinite(scale) || scale < 0.25 || scale > 4 || scale === 1) {
+        throw new BrowserCoreError("pinch scale must be 0.25..4 excluding 1", { code: "invalid_request" });
+      }
+      const spread = scale > 1 ? 1 : -1;
+      const radius = 60;
+      const first = { x: center.x - radius, y: center.y };
+      const second = { x: center.x + radius, y: center.y };
+      const movedFirst = { x: center.x - radius - spread * 40, y: center.y };
+      const movedSecond = { x: center.x + radius + spread * 40, y: center.y };
+      await client.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...first, id: 1 }, { ...second, id: 2 }] });
+      await client.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ ...movedFirst, id: 1 }, { ...movedSecond, id: 2 }] });
+      await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      return { scale };
+    } finally {
+      try { await client.detach?.(); } catch { /* already closed */ }
+    }
+  }
+
   async resolveFrame(page, payload) {
     const name = String(payload.frame_name ?? "");
     const url = String(payload.frame_url ?? "");
@@ -909,6 +984,19 @@ export class BrowserRealService {
       else if (page?.setInputFiles) await page.setInputFiles(selector, filePath, { timeout });
       else throw new BrowserCoreError("upload is not supported by this engine", { code: "engine_unsupported" });
       return event(command, "action.done", { action: "upload", bytes: size });
+    }
+    if (name === "tap") {
+      const selector = String(payload.selector ?? "");
+      if (!selector) throw new BrowserCoreError("tap requires selector", { code: "invalid_request" });
+      const target = await this.resolveFrame(page, payload);
+      if (target?.locator) await target.locator(selector).tap({ timeout });
+      else if (page?.tap) await page.tap(selector, { timeout });
+      else throw new BrowserCoreError("tap is not supported by this engine", { code: "engine_unsupported" });
+      return event(command, "action.done", { action: "tap" });
+    }
+    if (name === "swipe" || name === "longpress" || name === "pinch") {
+      const gesture = await this.touchGesture(page, payload, name, timeout);
+      return event(command, "action.done", { action: name, ...gesture });
     }
     if (name === "markdown") {
       const html = page?.content ? await page.content() : "";

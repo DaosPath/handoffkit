@@ -44,6 +44,12 @@ Supervised actuation commands beyond navigate/screenshot are `hover`, `focus`,
 `upload_missing_file` fail-closed). Every command needs a selector except
 scroll-by-distance; unknown engines report `engine_unsupported`.
 
+Touch input mirrors the same supervision: `tap` (selector), `swipe`
+(`direction` up/down/left/right, `distance` 10..2000 px), `longpress`
+(`duration_ms` 100..5000), and `pinch` (`scale` 0.25..4 excluding 1) run as
+CDP `Input.dispatchTouchEvent` sequences from the element center or the
+viewport center, and fail closed without a CDP-capable engine.
+
 The benchmark writes `reports/BROWSER_1.20_REAL_BENCH.json` with environmental
 p50/p95/p99 measurements. It does not replace the hosted 4-hour/1000-navigation
 soak gate.
