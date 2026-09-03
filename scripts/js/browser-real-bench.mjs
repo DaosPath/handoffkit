@@ -9,7 +9,7 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { BrowserRealService } from "../../packages/js/browser-real/src/index.js";
+import { BrowserRealService } from "../../js/packages/browser-real/src/index.js";
 
 const navigationCount = Number.parseInt(process.env.HANDOFFKIT_BROWSER_REAL_BENCH_NAVIGATIONS || "20", 10);
 const coldRuns = Number.parseInt(process.env.HANDOFFKIT_BROWSER_REAL_BENCH_COLD_RUNS || "3", 10);

@@ -15,7 +15,7 @@ import {
   BrowserRealClient,
   BrowserRealService,
   createGoogleBrowserSearch,
-} from "../../packages/js/browser-real/src/index.js";
+} from "../../js/packages/browser-real/src/index.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const query = String(process.env.HANDOFFKIT_GOOGLE_BROWSER_QUERY || "HandoffKit browser").trim();

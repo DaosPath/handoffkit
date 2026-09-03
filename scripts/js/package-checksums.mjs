@@ -70,7 +70,7 @@ const tempRoot = await mkdtemp(path.join(root, ".local-tests", "package-checksum
 const artifacts = [];
 try {
   for (const shortName of packageNames) {
-    const packageRoot = path.join(root, "packages", "js", shortName);
+    const packageRoot = path.join(root, "js", "packages", shortName);
     const manifest = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
     const destination = path.join(tempRoot, shortName);
     await mkdir(destination, { recursive: true });

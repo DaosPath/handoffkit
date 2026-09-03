@@ -13,7 +13,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { BrowserRealService } from "../../packages/js/browser-real/src/index.js";
+import { BrowserRealService } from "../../js/packages/browser-real/src/index.js";
 
 const soakEnabled = process.env.HANDOFFKIT_BROWSER_REAL_SOAK === "1";
 const navigationsTarget = Number(process.env.HANDOFFKIT_BROWSER_REAL_SOAK_NAVIGATIONS || 1000);

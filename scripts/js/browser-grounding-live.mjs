@@ -15,9 +15,9 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { gatherWebResearch } from "../../packages/js/browser/src/research.js";
-import { liveGroundingOracle, scoreLiveGroundingRun } from "../../packages/js/browser/src/grounding_scorer.js";
-import { mapWithConcurrency } from "../../packages/js/browser/src/util.js";
+import { gatherWebResearch } from "../../js/packages/browser/src/research.js";
+import { liveGroundingOracle, scoreLiveGroundingRun } from "../../js/packages/browser/src/grounding_scorer.js";
+import { mapWithConcurrency } from "../../js/packages/browser/src/util.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const corpusPath = join(root, "packages", "contracts", "conformance", "browser-grounding-live-v1.json");
@@ -195,7 +195,7 @@ const report = {
   started_at: startedAt.toISOString(),
   finished_at: new Date().toISOString(),
   corpus: {
-    file: "packages/contracts/conformance/browser-grounding-live-v1.json",
+    file: "shared/contracts/conformance/browser-grounding-live-v1.json",
     as_of: corpus.as_of,
     expires_at: corpus.expires_at,
     sha256: sha256(JSON.stringify(corpus)),

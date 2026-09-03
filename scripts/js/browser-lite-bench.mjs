@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { htmlToMarkdown, ProjectWebIndex } from "../../packages/js/browser/src/index.js";
+import { htmlToMarkdown, ProjectWebIndex } from "../../js/packages/browser/src/index.js";
 
 const html = `<html><head><title>Bench</title>
 <meta charset="utf-8">
