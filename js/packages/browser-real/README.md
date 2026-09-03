@@ -38,12 +38,6 @@ HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 pnpm --dir js/packages/browser-real test te
 node scripts/js/browser-real-bench.mjs
 ```
 
-Supervised actuation commands beyond navigate/screenshot are `hover`, `focus`,
-`check`/`uncheck`, `dblclick`, `scroll` (selector or `by` pixels), and `upload`
-(`setInputFiles`, existing files only, 5 MiB cap, `upload_too_large` /
-`upload_missing_file` fail-closed). Every command needs a selector except
-scroll-by-distance; unknown engines report `engine_unsupported`.
-
 The benchmark writes `reports/BROWSER_1.20_REAL_BENCH.json` with environmental
 p50/p95/p99 measurements. It does not replace the hosted 4-hour/1000-navigation
 soak gate.
