@@ -166,6 +166,8 @@ test("Node loads the shared durable scheduler fixture", (t) => {
     "..",
     "..",
     "..",
+    "..",
+    "shared",
     "contracts",
     "test-fixtures",
     "runtime",

@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
-const packageNames = ["core", "csp", "providers", "node", "browser", "recipes", "templates", "cli"];
+const packageNames = ["core", "csp", "providers", "node", "browser", "browser-core", "browser-lite", "browser-real", "clinical", "recipes", "templates", "cli"];
 const manifests = [];
 
 function fail(message) {
@@ -21,7 +21,7 @@ for (const { short, packageRoot, manifest } of manifests) {
   if (names.has(manifest.name)) fail(`duplicate package name ${manifest.name}`);
   names.add(manifest.name);
   if (manifest.name !== `@handoffkit/${short}`) fail(`${short}: unexpected name ${manifest.name}`);
-  if (!/^\d+\.\d+\.\d+$/.test(manifest.version)) fail(`${manifest.name}: invalid semantic version`);
+  if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(manifest.version)) fail(`${manifest.name}: invalid semantic version`);
   if (manifest.license !== "MIT") fail(`${manifest.name}: license must be MIT`);
   if (manifest.type !== "module") fail(`${manifest.name}: type must be module`);
   if (manifest.sideEffects !== false) fail(`${manifest.name}: sideEffects must be false`);
@@ -52,6 +52,12 @@ for (const { short, packageRoot, manifest } of manifests) {
       ? module.HANDOFFKIT_CSP_VERSION
     : short === "providers"
       ? module.HANDOFFKIT_PROVIDERS_VERSION
+    : short === "browser-core"
+      ? module.HANDOFFKIT_BROWSER_CORE_VERSION
+    : short === "browser-real"
+      ? module.HANDOFFKIT_BROWSER_REAL_VERSION
+    : short === "clinical"
+      ? module.HANDOFFKIT_CLINICAL_VERSION
       : short === "cli"
         ? module.VERSION
         : undefined;
