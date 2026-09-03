@@ -10,7 +10,8 @@ from handoffkit.browser.grounding_scorer import (
 )
 
 CORPUS = (
-    Path(__file__).resolve().parents[2]
+    Path(__file__).resolve().parents[4]
+    / "shared"
     / "contracts"
     / "conformance"
     / "browser-grounding-fixture-v1.json"

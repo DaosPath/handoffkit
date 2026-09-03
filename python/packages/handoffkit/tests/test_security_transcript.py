@@ -15,7 +15,8 @@ from handoffkit.csp import (
 )
 
 FIXTURE = (
-    Path(__file__).resolve().parents[2]
+    Path(__file__).resolve().parents[4]
+    / "shared"
     / "contracts"
     / "test-fixtures"
     / "security"

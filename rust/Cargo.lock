@@ -449,6 +449,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "handoffkit-browser-core"
+version = "1.20.0-alpha.1"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "handoffkit-cli"
 version = "1.19.5"
 dependencies = [

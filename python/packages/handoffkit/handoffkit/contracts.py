@@ -142,4 +142,4 @@ def build_contract_parity_report(
 
 
 def _default_contracts_root() -> Path:
-    return Path(__file__).resolve().parents[2] / "contracts"
+    return Path(__file__).resolve().parents[4] / "shared" / "contracts"

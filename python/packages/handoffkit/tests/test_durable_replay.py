@@ -12,7 +12,7 @@ import pytest
 from handoffkit.csp import DurableReplayProtection, ReplayContext
 from handoffkit.csp.security import ReplayDetectedError, SecurityError
 
-CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
+CONTRACTS = Path(__file__).resolve().parents[4] / "shared" / "contracts"
 
 
 def context(

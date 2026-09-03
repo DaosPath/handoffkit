@@ -22,7 +22,7 @@ from handoffkit.csp import (
     SecurityError,
 )
 
-CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
+CONTRACTS = Path(__file__).resolve().parents[4] / "shared" / "contracts"
 
 
 def entry(
