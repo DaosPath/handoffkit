@@ -106,6 +106,11 @@ def _batch_prompt(items: list[dict[str, str]], lang: str) -> str:
         "hi": "Hindi (Devanagari)",
         "fr": "French",
         "de": "German",
+        "ru": "Russian",
+        "it": "Italian",
+        "ja": "Japanese",
+        "eo": "Esperanto",
+        "en": "English",
     }
     return "\n".join(
         [

@@ -481,9 +481,12 @@ name = "handoffkit-protocol"
 version = "1.19.5"
 dependencies = [
  "chrono",
+ "hex",
  "proptest",
  "serde",
  "serde_json",
+ "sha2",
+ "tempfile",
 ]
 
 [[package]]
@@ -493,10 +496,12 @@ dependencies = [
  "chrono",
  "handoffkit-contracts",
  "handoffkit-protocol",
+ "hex",
  "loom",
  "proptest",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "tokio",
  "tokio-util",
