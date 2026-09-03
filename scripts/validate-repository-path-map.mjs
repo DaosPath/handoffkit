@@ -8,8 +8,8 @@ const map = JSON.parse(await readFile(mapPath, "utf8"));
 if (map.format !== "handoffkit.repository-path-map" || map.format_version !== 1) {
   throw new Error("repository path map format is unsupported");
 }
-if (map.phase !== "wave-0-inventory" || !Array.isArray(map.entries) || map.entries.length === 0) {
-  throw new Error("repository path map must describe the Wave 0 inventory");
+if (map.phase !== "wave-5-validation" || !Array.isArray(map.entries) || map.entries.length === 0) {
+  throw new Error("repository path map must describe the Wave 5 post-migration inventory");
 }
 
 const seen = new Set();
@@ -38,3 +38,14 @@ for (const entry of map.entries) {
 }
 
 process.stdout.write(`repository path inventory: ${map.entries.length} current paths validated\n`);
+
+for (const legacy of ["packages", "apps/web"]) {
+  let missing = false;
+  try {
+    await stat(path.join(root, ...legacy.split("/")));
+  } catch {
+    missing = true;
+  }
+  if (!missing) throw new Error(`legacy repository path still present: ${legacy}`);
+}
+process.stdout.write("legacy paths absent: packages, apps/web\n");
