@@ -37,6 +37,7 @@ const LOCAL_TIMEOUT_MS = 15_000;
 const MAX_INFLIGHT = 16;
 const MAX_REDIRECTS = 5;
 const MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const MARKDOWN_PREVIEW = 4_096;
 const PROBE_HTML = `<!doctype html><html><head><title>probe</title></head>
 <body>
@@ -818,6 +819,96 @@ export class BrowserRealService {
       else if (page?.press) await page.press(selector, key, { timeout });
       else if (page?.keyboard?.press) await page.keyboard.press(key);
       return event(command, "action.done", { action: "press" });
+    }
+    if (name === "hover") {
+      const selector = String(payload.selector ?? "");
+      if (!selector) throw new BrowserCoreError("hover requires selector", { code: "invalid_request" });
+      const target = await this.resolveFrame(page, payload);
+      if (target?.locator) await target.locator(selector).hover({ timeout });
+      else if (page?.hover) await page.hover(selector, { timeout });
+      else throw new BrowserCoreError("hover is not supported by this engine", { code: "engine_unsupported" });
+      return event(command, "action.done", { action: "hover" });
+    }
+    if (name === "focus") {
+      const selector = String(payload.selector ?? "");
+      if (!selector) throw new BrowserCoreError("focus requires selector", { code: "invalid_request" });
+      const target = await this.resolveFrame(page, payload);
+      if (target?.locator) await target.locator(selector).focus({ timeout });
+      else if (page?.focus) await page.focus(selector, { timeout });
+      else throw new BrowserCoreError("focus is not supported by this engine", { code: "engine_unsupported" });
+      return event(command, "action.done", { action: "focus" });
+    }
+    if (name === "check" || name === "uncheck") {
+      const selector = String(payload.selector ?? "");
+      if (!selector) throw new BrowserCoreError(`${name} requires selector`, { code: "invalid_request" });
+      const target = await this.resolveFrame(page, payload);
+      if (target?.locator) {
+        if (name === "check") await target.locator(selector).check({ timeout });
+        else await target.locator(selector).uncheck({ timeout });
+      } else if (page?.check && page?.uncheck) {
+        if (name === "check") await page.check(selector, { timeout });
+        else await page.uncheck(selector, { timeout });
+      } else {
+        throw new BrowserCoreError(`${name} is not supported by this engine`, { code: "engine_unsupported" });
+      }
+      return event(command, "action.done", { action: name });
+    }
+    if (name === "dblclick") {
+      const selector = String(payload.selector ?? "");
+      if (!selector) throw new BrowserCoreError("dblclick requires selector", { code: "invalid_request" });
+      const target = await this.resolveFrame(page, payload);
+      if (target?.locator) await target.locator(selector).dblclick({ timeout });
+      else if (page?.dblclick) await page.dblclick(selector, { timeout });
+      else throw new BrowserCoreError("dblclick is not supported by this engine", { code: "engine_unsupported" });
+      return event(command, "action.done", { action: "dblclick" });
+    }
+    if (name === "scroll") {
+      const selector = String(payload.selector ?? "");
+      const target = await this.resolveFrame(page, payload);
+      if (selector && target?.locator) {
+        await target.locator(selector).scrollIntoViewIfNeeded({ timeout });
+      } else if (selector && page?.locator) {
+        await page.locator(selector).scrollIntoViewIfNeeded({ timeout });
+      } else if (page?.evaluate) {
+        const by = Number(payload.by ?? 0);
+        if (selector) {
+          await page.evaluate(
+            ([sel]) => document.querySelector(sel)?.scrollIntoView?.(),
+            [selector],
+          );
+        } else if (by) {
+          await page.evaluate(([dy]) => window.scrollBy?.(0, dy), [by]);
+        } else {
+          throw new BrowserCoreError("scroll requires selector or by", { code: "invalid_request" });
+        }
+      } else {
+        throw new BrowserCoreError("scroll is not supported by this engine", { code: "engine_unsupported" });
+      }
+      return event(command, "action.done", { action: "scroll" });
+    }
+    if (name === "upload") {
+      const selector = String(payload.selector ?? "");
+      const filePath = String(payload.path ?? payload.file ?? "");
+      if (!selector) throw new BrowserCoreError("upload requires selector", { code: "invalid_request" });
+      if (!filePath) throw new BrowserCoreError("upload requires path", { code: "invalid_request" });
+      const { statSync } = await import("node:fs");
+      let size = 0;
+      try {
+        size = Number(statSync(filePath).size ?? 0);
+      } catch {
+        throw new BrowserCoreError("upload file is missing", { code: "upload_missing_file" });
+      }
+      if (!Number.isFinite(size) || size <= 0) {
+        throw new BrowserCoreError("upload file is missing", { code: "upload_missing_file" });
+      }
+      if (size > MAX_UPLOAD_BYTES) {
+        throw new BrowserCoreError("upload exceeds 5 MiB", { code: "upload_too_large" });
+      }
+      const target = await this.resolveFrame(page, payload);
+      if (target?.locator) await target.locator(selector).setInputFiles(filePath, { timeout });
+      else if (page?.setInputFiles) await page.setInputFiles(selector, filePath, { timeout });
+      else throw new BrowserCoreError("upload is not supported by this engine", { code: "engine_unsupported" });
+      return event(command, "action.done", { action: "upload", bytes: size });
     }
     if (name === "markdown") {
       const html = page?.content ? await page.content() : "";
