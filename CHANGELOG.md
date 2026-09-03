@@ -7,20 +7,9 @@ HandoffKit uses semantic versioning for published releases. Subsystem changelogs
 contain deeper engineering history; this root file remains the concise public
 release summary.
 
-## [1.19.0-beta.1] - 2026-08-10
-
-First HandoffKit 1.19 beta publication. This is a scoped experimental
-baseline, not the final 1.19 release. PyPI publishes `handoffkit==1.19.0b1`;
-npm publishes the dependency-complete `@handoffkit/core`, `@handoffkit/csp`,
-and `@handoffkit/node` packages as `1.19.0-beta.1`.
-
-Exactly-once effects, global zeroization, OCSP responder fetch, ML-DSA,
-SLH-DSA, common five-runtime ECDSA, and hybrid-PQ outside Node/Go remain
-unavailable and fail closed.
-
 ## [Unreleased]
 
-The current 1.20 development line continues from the 1.19 beta baseline.
+The current 1.20 development line continues from the 1.19.5 stable release.
 Browser Platform work is a **single 1.20 train** (the former 1.20–1.29 split is
 absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
 `reports/BROWSER_1.20_SCORECARD.md`. No tag or publication is implied.
@@ -261,6 +250,11 @@ is `Production/Stable`, and the JS/Rust/C++ products below ship at 1.19.5.
   pass on the reorg tree. Python Ruff, Rust `cargo fmt --check` / `clippy -D warnings`,
   and Go `gofmt -l` gates pass; `shared/contracts` parity restored.
 - Python `pytest` passes (stable metadata asserts `Production/Stable`).
+
+## [1.19.0-beta.1] - 2026-08-10
+
+First HandoffKit 1.19 beta publication. This was a scoped experimental
+baseline, superseded by the final 1.19.5 stable release above.
 
 ## [1.18.0] - 2026-07-28
 
