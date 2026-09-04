@@ -1154,6 +1154,7 @@ def run_web_grounded_answer(
     dossier_compose_mode: str = "model",
     dossier_fallback: bool = False,
     answer_validator: Any | None = None,
+    max_total_ms: int = 0,
 ) -> dict[str, Any]:
     """Run live-search → provider-selection → fetch/Markdown → grounded answer."""
     try:
@@ -1174,6 +1175,11 @@ def run_web_grounded_answer(
 
     limit = max(1, min(int(max_pages or 3), 8))
     results_limit = max(limit, min(int(max_results or 8), 32))
+    run_started = time.monotonic()
+    budget_ms = max(0, int(max_total_ms or 0))
+
+    def _over_budget() -> bool:
+        return budget_ms > 0 and (time.monotonic() - run_started) * 1000 >= budget_ms
     raw_search_queries = search_queries if isinstance(search_queries, list) else [q]
     query_limit = max(1, min(int(max_sub_queries or 3), 8))
     search_query_list: list[str] = []
@@ -1532,6 +1538,8 @@ def run_web_grounded_answer(
     validator_error = ""
     attempts = 0
     normalized_evidence_sections = _normalize_evidence_sections(evidence_sections)
+    if _over_budget():
+        provider = None
     evidence_dossier = (
         _build_evidence_dossier(
             normalized_evidence_sections,
@@ -1744,6 +1752,12 @@ def run_web_grounded_answer(
         and not answer_error
         and validator_passed
     )
+    budget_exceeded = _over_budget()
+    budget = {
+        "max_total_ms": budget_ms,
+        "elapsed_ms": int((time.monotonic() - run_started) * 1000),
+        "exceeded": budget_exceeded,
+    }
     return {
         "success": bool(
             selection["valid"]
@@ -1795,4 +1809,5 @@ def run_web_grounded_answer(
             "evidence_dossier_warnings": evidence_dossier["warnings"],
         },
         "evidence_dossier": evidence_dossier,
+        "budget": budget,
     }

@@ -621,3 +621,32 @@ test("runWebGroundedAnswer completes through a real default-browser bridge", asy
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test("runWebGroundedAnswer honors maxTotalMs and reports budget", async () => {
+  const transport = makeFixtureMapTransport();
+  transport.setPage(
+    "https://html.duckduckgo.com/html/?q=Budget",
+    '<a class="result__a" href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Ffixture.local%2Fabout.html">About Fixture</a>',
+  );
+  const calls = [];
+  const provider = {
+    model: "fixture",
+    async agenerate(prompt) {
+      calls.push(prompt);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      return JSON.stringify({ selected_urls: ["https://fixture.local/about.html"] });
+    },
+  };
+  const result = await runWebGroundedAnswer({
+    query: "Budget",
+    providers: ["duckduckgo"],
+    transport,
+    provider,
+    maxPages: 1,
+    maxTotalMs: 5,
+  });
+  assert.equal(result.budget.max_total_ms, 5);
+  assert.equal(result.budget.exceeded, true);
+  assert.equal(calls.length, 1);
+  assert.equal(result.answer, "");
+});

@@ -234,5 +234,78 @@
   ],
   "format": "handoffkit.browser.model_answer_conformance",
   "format_version": 1,
+  "fuzzy_cases": [
+    {
+      "expected": {
+        "score": 1.0,
+        "verdict": "pass"
+      },
+      "name": "paraphrase_passes_fuzzy",
+      "transcript": {
+        "answer": "Bounded FIFO queues provide backpressure for channels (see https://example.test/docs/channels).",
+        "citations": [
+          {
+            "quote": "bounded FIFO queues provide backpressure for channels",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "claims": [
+          {
+            "citation_urls": [
+              "https://example.test/docs/channels"
+            ],
+            "claim_id": "q1-1",
+            "statement": "Bounded FIFO queues provide backpressure"
+          }
+        ],
+        "model": "fixture/model-a",
+        "pages": [
+          {
+            "markdown": "# Channels\n\nHandoffKit channels are bounded FIFO queues with backpressure.",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "question": "How are HandoffKit channels bounded?",
+        "question_id": "q1"
+      }
+    },
+    {
+      "expected": {
+        "failing_gates": [
+          "quotes_literal"
+        ],
+        "score": 0.8,
+        "verdict": "fail"
+      },
+      "name": "low_overlap_fails_fuzzy",
+      "transcript": {
+        "answer": "Something entirely different (see https://example.test/docs/channels).",
+        "citations": [
+          {
+            "quote": "completely unrelated statement about nothing",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "claims": [
+          {
+            "citation_urls": [
+              "https://example.test/docs/channels"
+            ],
+            "claim_id": "q1-1",
+            "statement": "Something"
+          }
+        ],
+        "model": "fixture/model-a",
+        "pages": [
+          {
+            "markdown": "# Channels\n\nHandoffKit channels are bounded FIFO queues with backpressure.",
+            "url": "https://example.test/docs/channels"
+          }
+        ],
+        "question": "How are HandoffKit channels bounded?",
+        "question_id": "q1"
+      }
+    }
+  ],
   "notice": "Deterministic fixture only. Live provider answers are judged per transcript; no model correctness beyond the fetched pages is claimed."
 }

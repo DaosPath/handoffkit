@@ -65,6 +65,11 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
   citations resolve, literal quotes, claim coverage, no invented URLs) and
   fails closed on anything unverifiable. This judges grounding fidelity, not
   general model correctness.
+- Added a `fuzzy` judge mode (`minOverlap`, default 0.6) that passes quotes
+  by token overlap instead of literal match.
+- Added a `maxTotalMs`/`max_total_ms` time budget to `runWebGroundedAnswer` /
+  `run_web_grounded_answer`: provider phases are skipped once exceeded and the
+  report carries `budget{max_total_ms, elapsed_ms, exceeded}`.
 
 - Added key-gated JSON search providers (`brave`, `bing`, `kagi`) in
   JavaScript and Python. Keys come from `HANDOFFKIT_BRAVE_API_KEY`,

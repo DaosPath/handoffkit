@@ -36,3 +36,20 @@ test("judge rejects non-object input fail-closed", () => {
   const report = judgeModelAnswer(null);
   assert.equal(report.verdict, "fail");
 });
+
+for (const { name, transcript, expected } of fixture.fuzzy_cases ?? []) {
+  test(`model-answer fuzzy fixture: ${name}`, () => {
+    const literal = judgeModelAnswer(transcript);
+    const fuzzy = judgeModelAnswer(transcript, { mode: "fuzzy" });
+    assert.equal(fuzzy.mode, "fuzzy");
+    assert.equal(fuzzy.verdict, expected.verdict);
+    assert.equal(fuzzy.score, expected.score);
+    if (expected.failing_gates) {
+      const failed = fuzzy.gates.filter((gate) => gate.result === "fail").map((gate) => gate.id);
+      assert.deepEqual(failed, expected.failing_gates);
+    }
+    if (name === "paraphrase_passes_fuzzy") {
+      assert.equal(literal.verdict, "fail");
+    }
+  });
+}

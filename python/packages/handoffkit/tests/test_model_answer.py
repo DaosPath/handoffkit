@@ -38,3 +38,16 @@ def test_fixture_cases() -> None:
 
 def test_judge_rejects_non_object_input_fail_closed() -> None:
     assert judge_model_answer(None)["verdict"] == "fail"
+
+
+def test_fuzzy_cases() -> None:
+    for case in FIXTURE.get("fuzzy_cases", []):
+        fuzzy = judge_model_answer(case["transcript"], {"mode": "fuzzy"})
+        assert fuzzy["mode"] == "fuzzy"
+        assert fuzzy["verdict"] == case["expected"]["verdict"], case["name"]
+        assert fuzzy["score"] == case["expected"]["score"], case["name"]
+        if "failing_gates" in case["expected"]:
+            failed = [gate["id"] for gate in fuzzy["gates"] if gate["result"] == "fail"]
+            assert failed == case["expected"]["failing_gates"], case["name"]
+        if case["name"] == "paraphrase_passes_fuzzy":
+            assert judge_model_answer(case["transcript"])["verdict"] == "fail"

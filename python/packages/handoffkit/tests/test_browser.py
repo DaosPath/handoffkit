@@ -642,6 +642,37 @@ def test_run_web_grounded_answer_offline():
     assert out["answer_audit"]["coverage"] is True
 
 
+def test_run_web_grounded_answer_honors_max_total_ms():
+    import time as _time
+
+    transport = make_fixture_map_transport()
+
+    class _SlowProv:
+        model = "slow"
+        calls = 0
+
+        def generate(self, prompt: str) -> str:
+            type(self).calls += 1
+            _time.sleep(0.03)
+            return '{"selected_urls":["https://fixture.local/about.html"]}'
+
+    transport.set_page(
+        "https://html.duckduckgo.com/html/?q=Budget",
+        '<a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Ffixture.local%2Fabout.html">x</a>',
+    )
+    out = run_web_grounded_answer(
+        "Budget",
+        transport=transport,
+        max_pages=1,
+        provider=_SlowProv(),
+        max_total_ms=5,
+    )
+    assert out["budget"]["max_total_ms"] == 5
+    assert out["budget"]["exceeded"] is True
+    assert _SlowProv.calls == 1
+    assert out["answer"] == ""
+
+
 def test_run_web_grounded_answer_builds_dossier_and_falls_back_deterministically():
     transport = make_fixture_map_transport()
 

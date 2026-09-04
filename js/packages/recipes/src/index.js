@@ -2807,7 +2807,11 @@ export async function runWebGroundedAnswer({
   dossierComposeMode = "model",
   dossierFallback = false,
   answerValidator = null,
+  maxTotalMs = 0,
 } = {}) {
+  const runStartedAt = Date.now();
+  const budgetMs = Math.max(0, Number(maxTotalMs) || 0);
+  const overBudget = () => budgetMs > 0 && Date.now() - runStartedAt >= budgetMs;
   let browser;
   try {
     browser = await import("@handoffkit/browser");
@@ -3111,6 +3115,7 @@ export async function runWebGroundedAnswer({
 
   const section = browser.researchPromptSection(pack);
   const normalizedEvidenceSections = normalizeEvidenceSections(evidenceSections);
+  if (overBudget()) provider = null;
   const evidenceDossier = selection.fetch_complete && provider && normalizedEvidenceSections.length
     ? await buildEvidenceDossier({
         sections: normalizedEvidenceSections,
@@ -3148,7 +3153,7 @@ export async function runWebGroundedAnswer({
   let coverage = false;
   let validatorPassed = true;
   let validatorError = "";
-  const answerProvider = provider;
+  const answerProvider = overBudget() ? null : provider;
   const deterministicDossier = evidenceDossier.enabled && String(dossierComposeMode).toLowerCase() === "deterministic";
   if (deterministicDossier && evidenceDossier.valid) {
     answer = renderEvidenceDossierAnswer(evidenceDossier);
@@ -3284,6 +3289,7 @@ export async function runWebGroundedAnswer({
     }
   }
   const answerValid = Boolean(answer && pack.pages_ok > 0 && (!strictGrounding || coverage) && !answerError && validatorPassed);
+  const budgetExceeded = overBudget();
   const result = {
     success: Boolean(selection.valid && selection.fetch_complete && pack.pages_ok > 0 && (!answerProvider || answerValid)),
     query: q,
@@ -3328,6 +3334,11 @@ export async function runWebGroundedAnswer({
       evidence_dossier_warnings: evidenceDossier.warnings,
     },
     evidence_dossier: evidenceDossier,
+    budget: {
+      max_total_ms: budgetMs,
+      elapsed_ms: Date.now() - runStartedAt,
+      exceeded: budgetExceeded,
+    },
   };
   return result;
 }
