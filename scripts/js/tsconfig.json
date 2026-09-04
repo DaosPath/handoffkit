@@ -16,6 +16,10 @@
       "@handoffkit/providers": ["js/packages/providers/src/index.d.ts"],
       "@handoffkit/node": ["js/packages/node/src/index.d.ts"],
       "@handoffkit/browser": ["js/packages/browser/src/index.d.ts"],
+      "@handoffkit/browser-core": ["js/packages/browser-core/src/index.d.ts"],
+      "@handoffkit/browser-lite": ["js/packages/browser-lite/src/index.d.ts"],
+      "@handoffkit/browser-real": ["js/packages/browser-real/src/index.d.ts"],
+      "@handoffkit/clinical": ["js/packages/clinical/src/index.d.ts"],
       "@handoffkit/recipes": ["js/packages/recipes/src/index.d.ts"],
       "@handoffkit/templates": ["js/packages/templates/src/index.d.ts"],
       "@handoffkit/cli": ["js/packages/cli/src/index.d.ts"]
