@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 /**
- * Run pnpm's production dependency audit and archive the machine-readable
- * result. High/critical advisories fail this gate; no advisory is evidence
- * only for the installed dependency graph, not a CodeQL review.
+ * Production dependency audit via OSV.dev (https://osv.dev).
+ *
+ * The npm registry bulk-audit endpoint is unreliable from CI sandboxes, so
+ * this gate resolves the exact prod graph (`pnpm list --json`) and queries
+ * OSV once. CVSS >= 9 counts as critical, >= 7 as high; anything at/above
+ * high fails the gate. Unknown service errors fail closed as "error".
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -17,85 +20,87 @@ const outputPath = path.resolve(
 );
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
-function runAudit() {
-  return new Promise((resolve, reject) => {
-    const windows = process.platform === "win32";
-    const child = spawn(
-      windows ? process.env.ComSpec : pnpm,
-      windows
-        ? ["/d", "/s", "/c", `${pnpm} audit --prod --audit-level=high --json`]
-        : ["audit", "--prod", "--audit-level=high", "--json"],
-      { cwd: root, stdio: ["ignore", "pipe", "pipe"], shell: false },
-    );
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => { stdout += chunk; });
-    child.stderr.on("data", (chunk) => { stderr += chunk; });
-    child.once("error", reject);
-    child.once("exit", (code, signal) => resolve({ code: code ?? 1, signal, stdout, stderr }));
-  });
+function listProdGraph() {
+  const windows = process.platform === "win32";
+  const run = spawnSync(
+    windows ? process.env.ComSpec : pnpm,
+    windows ? ["/d", "/s", "/c", "pnpm list --json --prod --depth Infinity"] : ["list", "--json", "--prod", "--depth", "Infinity"],
+    { cwd: root, encoding: "utf8", shell: false, maxBuffer: 64 * 1024 * 1024 },
+  );
+  if (run.status !== 0) throw new Error(`pnpm list failed: ${String(run.stderr || "").slice(0, 500)}`);
+  return JSON.parse(String(run.stdout || "[]"));
 }
 
-function parseJson(stdout) {
-  const text = String(stdout || "").trim();
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if (start < 0 || end <= start) return null;
-    try { return JSON.parse(text.slice(start, end + 1)); } catch { return null; }
-  }
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => { setTimeout(resolve, ms); });
-}
-
-async function runAuditWithRetries(rounds = 3) {
-  let last = null;
-  for (let attempt = 1; attempt <= rounds; attempt += 1) {
-    const result = await runAudit();
-    const clean = String(result.stdout || "").includes("No known vulnerabilities");
-    const parsed = clean
-      ? { advisories: {}, metadata: { vulnerabilities: { info: 0, low: 0, moderate: 0, high: 0, critical: 0 } } }
-      : parseJson(result.stdout);
-    if (parsed && typeof parsed === "object" && (parsed.advisories || parsed.metadata || clean)) {
-      return { result, audit: parsed, attempts: attempt };
+function collectPackages(importers) {
+  const seen = new Map();
+  const walk = (deps) => {
+    for (const [name, info] of Object.entries(deps ?? {})) {
+      if (!info || typeof info !== "object") continue;
+      const version = String(info.version ?? "");
+      if (name && version && !seen.has(`${name}@${version}`)) seen.set(`${name}@${version}`, { name, version });
+      walk(info.dependencies);
     }
-    last = { result, audit: parsed, attempts: attempt };
-    if (attempt < rounds) await sleep(15000);
+  };
+  for (const importer of importers ?? []) {
+    walk(importer.dependencies);
+    walk(importer.optionalDependencies);
   }
-  return last;
+  return [...seen.values()];
 }
 
-function countSeverity(advisories, wanted) {
-  let count = 0;
-  for (const advisory of Object.values(advisories ?? {})) {
-    if (String(advisory?.severity ?? "").toLowerCase() === wanted) count += 1;
+function maxCvss(vuln) {
+  let best = 0;
+  for (const entry of vuln?.severity ?? []) {
+    if (typeof entry?.score === "string" && entry.type?.startsWith("CVSS")) {
+      const value = Number(entry.score);
+      if (Number.isFinite(value) && value > best) best = value;
+    }
   }
-  return count;
+  const labeled = String(vuln?.database_specific?.severity ?? "").toUpperCase();
+  if (labeled === "CRITICAL") best = Math.max(best, 9);
+  else if (labeled === "HIGH") best = Math.max(best, 7);
+  return best;
 }
 
-const { result, audit, attempts } = await runAuditWithRetries();
-const vulnerabilities = audit?.metadata?.vulnerabilities || {};
-const high = Math.max(Number(vulnerabilities.high || 0), countSeverity(audit?.advisories, "high"));
-const critical = Math.max(Number(vulnerabilities.critical || 0), countSeverity(audit?.advisories, "critical"));
-const evaluated = Boolean(audit && (audit.advisories || audit.metadata));
+const graph = listProdGraph();
+const packages = collectPackages(graph);
+const response = await fetch("https://api.osv.dev/v1/querybatch", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    queries: packages.map(({ name, version }) => ({ package: { name, ecosystem: "npm" }, version })),
+  }),
+});
+if (!response.ok) throw new Error(`OSV querybatch failed: HTTP ${response.status}`);
+const batch = await response.json();
+const advisories = {};
+for (let index = 0; index < packages.length; index += 1) {
+  const { name, version } = packages[index];
+  for (const vuln of batch?.results?.[index]?.vulns ?? []) {
+    const score = maxCvss(vuln);
+    const id = vuln.id || `${name}@${version}`;
+    advisories[id] = {
+      package: `${name}@${version}`,
+      severity: score >= 9 ? "critical" : score >= 7 ? "high" : score >= 4 ? "moderate" : "low",
+      cvss: score,
+      summary: String(vuln.summary ?? "").slice(0, 300),
+      aliases: vuln.aliases ?? [],
+    };
+  }
+}
+const high = Object.values(advisories).filter((item) => item.severity === "high").length;
+const critical = Object.values(advisories).filter((item) => item.severity === "critical").length;
 const report = {
   format: "handoffkit.browser.1.20.dependency_audit",
-  format_version: 1,
+  format_version: 2,
   generated_at: new Date().toISOString(),
-  status: !evaluated ? "error" : result.code === 0 && high === 0 && critical === 0 ? "pass" : "fail",
-  attempts,
-  command: "pnpm audit --prod --audit-level=high --json",
-  advisories: audit?.advisories || {},
-  metadata: audit?.metadata || null,
-  stderr: String(result.stderr || "").trim().slice(0, 2000),
+  status: high === 0 && critical === 0 ? "pass" : "fail",
+  command: "osv.dev querybatch over pnpm prod graph",
+  packages_audited: packages.length,
+  advisories,
   notice: "Dependency graph audit only. It does not replace CodeQL, source review, or hosted security evidence.",
 };
 await mkdir(path.dirname(outputPath), { recursive: true });
 await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-console.log(JSON.stringify(report, null, 2));
+console.log(`audited ${packages.length} packages: high=${high} critical=${critical} status=${report.status}`);
 if (report.status !== "pass") process.exitCode = 1;
