@@ -18,6 +18,7 @@ export {
   htmlToMarkdown,
   pageHtmlToMarkdown,
   extractPage,
+  extractReaderArticle,
   preferMainContent,
   htmlTableToMarkdown,
   extractJsonLd,

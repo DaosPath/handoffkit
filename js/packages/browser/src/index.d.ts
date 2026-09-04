@@ -107,6 +107,14 @@ export declare function extractLinks(html: string, baseUrl?: string, maxLinks?: 
 export declare function preferMainContent(html: string): string;
 export declare function htmlTableToMarkdown(html: string): string;
 export declare function extractJsonLd(html: string): unknown[];
+export declare function extractReaderArticle(html: string, url?: string): {
+  title: string;
+  byline: string;
+  markdown: string;
+  confidence: number;
+  container: string;
+  signals: { signal: string; met: boolean }[];
+};
 export declare function extractPageMetadata(html: string, url?: string): {
   title: string;
   description: string;

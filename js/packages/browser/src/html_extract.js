@@ -568,3 +568,72 @@ export function extractPage(url, html, policy = {}) {
   if (p.emitMarkdown) page.markdown = pageHtmlToMarkdown(url, html, p);
   return page;
 }
+
+/**
+ * Reader mode: isolate the main article and score extraction confidence.
+ * Returns {title, byline, markdown, confidence, container, signals}.
+ * Confidence is a 0..1 heuristic (landmark, title, byline, JSON-LD Article,
+ * text length, link density) — not a correctness claim.
+ */
+export function extractReaderArticle(html, url = "") {
+  const source = String(html ?? "");
+  const low = lower(source);
+  let container = "body";
+  let inner = "";
+  for (const [tag, label] of [["article", "article"], ["main", "main"]]) {
+    const b = low.indexOf(`<${tag}`);
+    if (b === -1) continue;
+    const gt = low.indexOf(">", b);
+    const e = low.indexOf(`</${tag}>`, gt === -1 ? b : gt);
+    if (gt !== -1 && e !== -1 && e > gt) {
+      container = label;
+      inner = source.slice(gt + 1, e);
+      break;
+    }
+  }
+  if (!inner) {
+    const roleMatch = /<([a-z][a-z0-9]*)\b[^>]*\brole\s*=\s*["']main["'][^>]*>/i.exec(source);
+    if (roleMatch) {
+      const tag = roleMatch[1].toLowerCase();
+      const gt = source.indexOf(">", roleMatch.index);
+      const e = low.indexOf(`</${tag}>`, gt);
+      if (gt !== -1 && e !== -1 && e > gt) {
+        container = "role=main";
+        inner = source.slice(gt + 1, e);
+      }
+    }
+  }
+  const title = extractTitle(source);
+  const bylineMatch = /<meta\b[^>]*(?:name|property)\s*=\s*["'](?:author|article:author)["'][^>]*content\s*=\s*["']([^"']*)["']/i.exec(source);
+  const byline = bylineMatch ? decodeHtmlEntities(bylineMatch[1]).trim() : "";
+  const jsonLd = extractJsonLd(source);
+  const hasArticleSchema = jsonLd.some((node) => {
+    const types = Array.isArray(node?.["@type"]) ? node["@type"] : [node?.["@type"]];
+    return types.some((type) => ["Article", "NewsArticle", "BlogPosting", "ReportageNewsArticle"].includes(String(type ?? "")));
+  });
+  const markdown = htmlToMarkdown(inner || source, { baseUrl: url });
+  const text = collapseWs(markdown.replace(/[#*`>\[\]()!-]/g, " "));
+  const linkScope = inner || source;
+  const linkCount = (linkScope.match(/<a\b[^>]*href/gi) || []).length;
+  const linkDensity = text.length ? linkCount / Math.max(text.split(" ").length, 1) : 1;
+  const signals = [];
+  let score = 0;
+  const add = (points, label, met) => {
+    signals.push({ signal: label, met: Boolean(met) });
+    if (met) score += points;
+  };
+  add(0.25, "article_landmark", container !== "body");
+  add(0.2, "title_present", title.length > 0);
+  add(0.1, "byline_present", byline.length > 0);
+  add(0.15, "json_ld_article", hasArticleSchema);
+  add(0.15, "text_length", text.length >= 500);
+  add(0.15, "low_link_density", linkDensity < 0.2);
+  return {
+    title,
+    byline,
+    markdown,
+    confidence: Math.round(Math.min(score, 1) * 100) / 100,
+    container,
+    signals,
+  };
+}

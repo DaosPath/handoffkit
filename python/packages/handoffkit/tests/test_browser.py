@@ -9,6 +9,7 @@ from handoffkit.browser import (
     detect_soft_block,
     explore_url,
     explore_user_browser,
+    extract_reader_article,
     extract_title,
     gather_deep_web_research,
     gather_web_research,
@@ -855,6 +856,24 @@ def test_html_table_and_json_ld():
     assert extract_json_ld(html)[0]["@type"] == "Article"
 
 
+def test_extract_reader_article_isolates_articles():
+    long_text = "word " * 200
+    html = (
+        "<html><head><title>Story</title>"
+        '<meta name="author" content="Ada"></head>'
+        f"<body><nav>Menu</nav><article><h1>Story</h1><p>{long_text}</p></article></body></html>"
+    )
+    article = extract_reader_article(html, "https://example.com/story")
+    assert article["container"] == "article"
+    assert article["title"] == "Story"
+    assert article["byline"] == "Ada"
+    assert article["confidence"] >= 0.8
+    assert "Story" in article["markdown"]
+    thin = extract_reader_article("<html><body><p>hi</p></body></html>")
+    assert thin["container"] == "body"
+    assert thin["confidence"] < article["confidence"]
+
+
 def test_web_search_provider_trace_and_strict_provider():
     transport = make_fixture_map_transport()
     result = web_search("OpenAI", transport=transport, providers=["wikipedia"])
@@ -893,7 +912,11 @@ def test_project_index_ranks_with_fts5(tmp_path):
     index = ProjectWebIndex(root=tmp_path, enabled=True).open()
     index.ingest({"url": "https://example.org/a", "title": "Alpha", "markdown": "alpha widgets"})
     index.ingest(
-        {"url": "https://example.org/b", "title": "Beta", "markdown": "beta widgets widgets widgets"}
+        {
+            "url": "https://example.org/b",
+            "title": "Beta",
+            "markdown": "beta widgets widgets widgets",
+        }
     )
     found = index.search("widgets")
     assert found["backend"] == "fts5"

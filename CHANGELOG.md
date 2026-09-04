@@ -70,6 +70,9 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
 - Added a `maxTotalMs`/`max_total_ms` time budget to `runWebGroundedAnswer` /
   `run_web_grounded_answer`: provider phases are skipped once exceeded and the
   report carries `budget{max_total_ms, elapsed_ms, exceeded}`.
+- Added a reader mode (`extractReaderArticle` / `extract_reader_article`)
+  that isolates the main article and scores extraction confidence
+  (landmark, title, byline, JSON-LD, length, link density).
 
 - Added key-gated JSON search providers (`brave`, `bing`, `kagi`) in
   JavaScript and Python. Keys come from `HANDOFFKIT_BRAVE_API_KEY`,

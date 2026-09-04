@@ -285,3 +285,85 @@ def extract_page_metadata(html_src: str, url: str = "") -> dict[str, Any]:
         "charset": charset.group(1).lower() if charset else "",
         "json_ld": extract_json_ld(source),
     }
+
+
+def extract_reader_article(html_src: str, url: str = "") -> dict[str, Any]:
+    """Isolate the main article and score extraction confidence (0..1 heuristic)."""
+    source = html_src or ""
+    low = source.lower()
+    container = "body"
+    inner = ""
+    for tag, label in (("article", "article"), ("main", "main")):
+        start = low.find(f"<{tag}")
+        if start == -1:
+            continue
+        gt = low.find(">", start)
+        end = low.find(f"</{tag}>", gt if gt != -1 else start)
+        if gt != -1 and end != -1 and end > gt:
+            container = label
+            inner = source[gt + 1 : end]
+            break
+    if not inner:
+        match = re.search(
+            r"<([a-z][a-z0-9]*)\b[^>]*\brole\s*=\s*[\"']main[\"'][^>]*>",
+            source,
+            re.I,
+        )
+        if match:
+            tag = match.group(1).lower()
+            gt = source.find(">", match.start())
+            end = low.find(f"</{tag}>", gt)
+            if gt != -1 and end != -1 and end > gt:
+                container = "role=main"
+                inner = source[gt + 1 : end]
+    title = extract_title(source)
+    author = re.search(
+        r"<meta\b[^>]*(?:name|property)\s*=\s*[\"'](?:author|article:author)[\"']"
+        r"[^>]*content\s*=\s*[\"']([^\"']*)[\"']",
+        source,
+        re.I,
+    )
+    byline = _decode(author.group(1)).strip() if author else ""
+    json_ld = extract_json_ld(source)
+    article_types = {"Article", "NewsArticle", "BlogPosting", "ReportageNewsArticle"}
+
+    def _has_article_schema() -> bool:
+        for node in json_ld:
+            if not isinstance(node, dict):
+                continue
+            types = node.get("@type")
+            types = types if isinstance(types, list) else [types]
+            if any(str(t or "") in article_types for t in types):
+                return True
+        return False
+
+    markdown = html_to_markdown(inner or source, base_url=url)
+    text = re.sub(r"[#*`>\[\]()!\-]", " ", markdown)
+    text = _clean_text(text)
+    scope = inner or source
+    link_count = len(re.findall(r"<a\b[^>]*href", scope, re.I))
+    words = len(text.split())
+    link_density = (link_count / words) if words else 1.0
+    signals: list[dict[str, Any]] = []
+    score = 0.0
+
+    def _add(points: float, label: str, met: bool) -> None:
+        nonlocal score
+        signals.append({"signal": label, "met": bool(met)})
+        if met:
+            score += points
+
+    _add(0.25, "article_landmark", container != "body")
+    _add(0.2, "title_present", bool(title))
+    _add(0.1, "byline_present", bool(byline))
+    _add(0.15, "json_ld_article", _has_article_schema())
+    _add(0.15, "text_length", len(text) >= 500)
+    _add(0.15, "low_link_density", link_density < 0.2)
+    return {
+        "title": title,
+        "byline": byline,
+        "markdown": markdown,
+        "confidence": round(min(score, 1.0), 2),
+        "container": container,
+        "signals": signals,
+    }

@@ -9,6 +9,7 @@ import {
   ExplorePolicy,
   decodeHtmlEntities,
   extractTitle,
+  extractReaderArticle,
   extractText,
   extractLinks,
   htmlToMarkdown,
@@ -68,6 +69,22 @@ test("preferMainContent drops nav chrome", () => {
   assert.match(main, /Core/);
   assert.doesNotMatch(main, /Menu/);
   assert.doesNotMatch(main, /Foot/);
+});
+
+test("extractReaderArticle isolates articles with confidence", () => {
+  const long = "word ".repeat(200);
+  const html = `<html><head><title>Story</title><meta name="author" content="Ada"></head>
+<body><nav>Menu</nav><article><h1>Story</h1><p>${long}</p></article>
+<script type="application/ld+json">{"@type":"NewsArticle"}</script></body></html>`;
+  const article = extractReaderArticle(html, "https://example.com/story");
+  assert.equal(article.container, "article");
+  assert.equal(article.title, "Story");
+  assert.equal(article.byline, "Ada");
+  assert.ok(article.confidence >= 0.8);
+  assert.ok(article.markdown.includes("Story"));
+  const thin = extractReaderArticle("<html><body><p>hi</p></body></html>");
+  assert.equal(thin.container, "body");
+  assert.ok(thin.confidence < article.confidence);
 });
 
 test("htmlToMarkdown produces README-style markdown", () => {
