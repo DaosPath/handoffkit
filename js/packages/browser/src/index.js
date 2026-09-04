@@ -99,6 +99,12 @@ export {
   startProjectIndexWorker,
 } from "./project_index.js";
 export {
+  SourceCatalog,
+  createSourceCatalog,
+  SOURCE_CATALOG_FORMAT,
+  SOURCE_CATALOG_VERSION,
+} from "./source_catalog.js";
+export {
   finalizeResearchPackV2,
   writeResearchCheckpoint,
   readResearchCheckpoint,

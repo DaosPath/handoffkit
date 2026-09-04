@@ -3,6 +3,7 @@ import { TransportRequest, defaultTransport } from "./transport.js";
 import { rankSearchHits } from "./rank.js";
 import { decodeHtmlEntities } from "./html_extract.js";
 import { detectSoftBlock } from "./util.js";
+import { SourceCatalog } from "./source_catalog.js";
 import {
   USER_BROWSER_PROVIDER,
   searchUserBrowser,
@@ -116,7 +117,7 @@ export function canonicalSearchUrl(raw) {
   }
 }
 
-function pushHit(hits, title, url, maxResults) {
+function pushHit(hits, title, url, maxResults, extra = {}) {
   if (hits.length >= maxResults) return;
   if (!url || !url.startsWith("http")) return;
   if (url.includes("duckduckgo.com")) return;
@@ -127,7 +128,13 @@ function pushHit(hits, title, url, maxResults) {
     if (!existing.title && title) existing.title = title;
     return;
   }
-  hits.push({ title: title || "", url: canonical });
+  const weight = Number(extra?.weight ?? 1);
+  hits.push({
+    title: title || "",
+    url: canonical,
+    weight: Number.isFinite(weight) ? weight : 1,
+    ...(extra?.category ? { category: extra.category } : {}),
+  });
 }
 
 function stripTags(s) {
@@ -196,6 +203,7 @@ export const SUPPORTED_SEARCH_PROVIDERS = Object.freeze([
   "mojeek",
   "marginalia",
   "startpage",
+  "catalog",
   USER_BROWSER_PROVIDER,
   DEFAULT_BROWSER_PROVIDER,
 ]);
@@ -240,6 +248,8 @@ export function providerEngine(providers) {
         ? "marginalia_html"
       : provider === "startpage"
         ? "startpage_html"
+      : provider === "catalog"
+        ? "catalog_local"
       : provider === "wikipedia"
         ? "wikipedia_opensearch"
         : provider === USER_BROWSER_PROVIDER
@@ -802,6 +812,39 @@ async function duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs) {
   return { hits };
 }
 
+/**
+ * Curated catalog provider: weighted retrieval over the user's own sources.
+ * extras.catalog = {index, catalog?, category?, minWeight?}. Fail-closed
+ * (catalog_not_configured) without a usable index or with an empty catalog.
+ */
+async function catalogSearch(catalogOpts, query, maxResults, timeoutMs) {
+  const opts = catalogOpts && typeof catalogOpts === "object" ? catalogOpts : {};
+  const index = opts.index ?? null;
+  if (!index || typeof index.search !== "function") {
+    return { hits: [], error_code: "catalog_not_configured", error: "catalog requires an open index" };
+  }
+  let catalog = opts.catalog ?? null;
+  if (!catalog && index.root) {
+    catalog = await new SourceCatalog(index.root).load();
+  }
+  if (!catalog || typeof catalog.search !== "function") {
+    return { hits: [], error_code: "catalog_not_configured", error: "catalog requires a source catalog" };
+  }
+  try {
+    const found = await catalog.search(index, query, {
+      category: opts.category ?? opts.category_name ?? "",
+      minWeight: opts.minWeight ?? opts.min_weight ?? 0,
+      maxResults,
+    });
+    if (!found.hits?.length && !found.results?.length) {
+      return { hits: [], error_code: "catalog_empty", error: "catalog has no matching sources" };
+    }
+    return { hits: found.hits ?? found.results ?? [] };
+  } catch (error) {
+    return { hits: [], error_code: "catalog_error", error: String(error?.message ?? error) };
+  }
+}
+
 async function searchWithProviders(transport, query, maxResults, timeoutMs, providers, userBrowser, extras = {}) {
   const normalized = normalizeProviders(providers);
   const hits = [];
@@ -861,6 +904,9 @@ async function searchWithProviders(transport, query, maxResults, timeoutMs, prov
       } else if (provider === "startpage") {
         providerResult = await startpageHtmlSearch(transport, query, maxResults, timeoutMs);
         providerHits = providerResult.hits;
+      } else if (provider === "catalog") {
+        providerResult = await catalogSearch(extras.catalog, query, maxResults, timeoutMs);
+        providerHits = providerResult.hits;
       } else if (provider === "wikipedia") {
         providerHits = await wikipediaOpensearch(transport, query, maxResults, timeoutMs);
       } else if (provider === DEFAULT_BROWSER_PROVIDER) {
@@ -876,7 +922,7 @@ async function searchWithProviders(transport, query, maxResults, timeoutMs, prov
       }
       const used = Array.isArray(providerHits) && providerHits.length > 0;
       if (used) {
-        for (const h of providerHits) pushHit(hits, h.title, h.url, maxResults);
+        for (const h of providerHits) pushHit(hits, h.title, h.url, maxResults, h);
         providersUsed.push(provider === "google" ? "google" : provider);
       } else if (errorCode) {
         providerCodes.push(errorCode);
@@ -979,6 +1025,7 @@ export async function webSearch(query, opts = {}) {
     googleBrowserSearch: opts.googleBrowserSearch ?? opts.google_browser_search ?? null,
     projectIndex: opts.projectIndex ?? opts.project_index ?? null,
     searxng: opts.searxng ?? null,
+    catalog: opts.catalog ?? null,
   };
 
   if (!q) {

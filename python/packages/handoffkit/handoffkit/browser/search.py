@@ -101,6 +101,7 @@ SUPPORTED_SEARCH_PROVIDERS = (
     "mojeek",
     "marginalia",
     "startpage",
+    "catalog",
     USER_BROWSER_PROVIDER,
     DEFAULT_BROWSER_PROVIDER,
 )
@@ -159,6 +160,7 @@ def provider_engine(providers: list[str] | tuple[str, ...] | None) -> str:
             "mojeek": "mojeek_html",
             "marginalia": "marginalia_html",
             "startpage": "startpage_html",
+            "catalog": "catalog_local",
             "wikipedia": "wikipedia_opensearch",
             USER_BROWSER_PROVIDER: "user_browser_bridge",
             DEFAULT_BROWSER_PROVIDER: "default_browser_bridge",
@@ -854,6 +856,44 @@ def _parse_bing_suggestions(data: Any) -> list[str]:
     return out
 
 
+def _search_catalog(
+    catalog_opts: Any, query: str, *, max_results: int = 8
+) -> tuple[list[dict[str, Any]], str]:
+    """Curated catalog provider: weighted retrieval over the user's sources."""
+    from handoffkit.browser.source_catalog import SourceCatalog
+
+    opts = catalog_opts if isinstance(catalog_opts, dict) else {}
+    index = opts.get("index")
+    if index is None or not callable(getattr(index, "search", None)):
+        return [], "catalog_not_configured"
+    catalog_obj = opts.get("catalog")
+    if catalog_obj is None:
+        root = getattr(index, "root", None)
+        if root is None:
+            return [], "catalog_not_configured"
+        catalog_obj = SourceCatalog(root).load()
+    if not hasattr(catalog_obj, "search"):
+        return [], "catalog_not_configured"
+    try:
+        min_weight = float(opts.get("min_weight", 0))
+    except (TypeError, ValueError):
+        min_weight = 0
+    try:
+        found = catalog_obj.search(
+            index,
+            query,
+            category=str(opts.get("category") or ""),
+            min_weight=min_weight,
+            max_results=max_results,
+        )
+    except Exception:  # noqa: BLE001 - catalog errors fail closed
+        return [], "catalog_error"
+    hits = list(found.get("hits") or found.get("results") or [])
+    if not hits:
+        return [], found.get("error_code") or "catalog_empty"
+    return hits, ""
+
+
 def search_wikipedia(
     query: str,
     *,
@@ -909,6 +949,7 @@ def web_search(
     google_browser_search: Any | None = None,
     project_index: Any | None = None,
     searxng: dict[str, Any] | None = None,
+    catalog: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     q = (query or "").strip()
     if providers is None and str(search_plan or "").strip().lower() == "platform":
@@ -1011,6 +1052,17 @@ def web_search(
                     trace["fallback_reason"] = "project_index_disabled"
                     errors.append("project_index: project_index is opt-in and was not configured")
                     provider_codes.append("index_unavailable")
+                    provider_trace.append(trace)
+                    if strict_provider:
+                        break
+                    continue
+            elif provider == "catalog":
+                hits, catalog_code = _search_catalog(catalog, q, max_results=max_results)
+                if catalog_code:
+                    trace["error_code"] = catalog_code
+                    trace["fallback_reason"] = catalog_code
+                    errors.append(f"catalog: {catalog_code}")
+                    provider_codes.append(catalog_code)
                     provider_trace.append(trace)
                     if strict_provider:
                         break

@@ -83,6 +83,12 @@ from handoffkit.browser.search import (
     search_wikipedia,
     web_search,
 )
+from handoffkit.browser.source_catalog import (
+    SOURCE_CATALOG_FORMAT,
+    SOURCE_CATALOG_VERSION,
+    SourceCatalog,
+    create_source_catalog,
+)
 from handoffkit.browser.tools import (
     make_deep_web_research_tool,
     make_html_to_markdown_tool,
@@ -277,6 +283,10 @@ __all__ = [
     "search_duckduckgo",
     "search_wikipedia",
     "smart_truncate",
+    "SOURCE_CATALOG_FORMAT",
+    "SOURCE_CATALOG_VERSION",
+    "SourceCatalog",
+    "create_source_catalog",
     "to_readme_markdown",
     "url_allowed",
     "web_fetch_markdown",

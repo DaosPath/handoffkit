@@ -137,6 +137,15 @@ pages fail closed with a structured error.
 and fetching Markdown evidence. It does not open Chrome or read a user-browser
 session.
 
+### Curated catalog (`catalog`)
+
+`providers=["catalog"]` searches your own curated sources instead of the web.
+`SourceCatalog` (`sources.json` next to the index root) stores URLs with
+`category`/`weight`; retrieval ranks by weight first (higher wins), BM25
+second. Empty catalogs fail closed with `catalog_empty`; unconfigured use
+reports `catalog_not_configured`. Pass `catalog={"index": index}` (plus
+optional `catalog`, `category`, `min_weight`) through `web_search`.
+
 ### Visibilidad y atribución
 
 `user_browser` no oculta una pestaña. HandoffKit solo orquesta las llamadas

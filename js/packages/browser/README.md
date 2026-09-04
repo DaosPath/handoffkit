@@ -169,6 +169,15 @@ Keyless HTML providers (`mojeek`, `marginalia`, `startpage`) extract anchors
 leniently with own-domain links dropped; unknown markup yields no hits.
 `suggestQueries("brave"|"bing", query)` returns up to 8 completions.
 
+### Curated catalog (`catalog`)
+
+`providers: ["catalog"]` searches your own curated sources instead of the web.
+`SourceCatalog` (`sources.json` next to the index root) stores URLs with
+`category`/`weight`; retrieval ranks by weight first (higher wins), BM25
+second. Empty catalogs fail closed with `catalog_empty`; unconfigured use
+reports `catalog_not_configured`. Pass `catalog: { index }` (plus optional
+`catalog`, `category`, `minWeight`) through `webSearch`.
+
 The Google adapter is HandoffKit's native HTTP route. It does not open Chrome,
 read cookies, or use a user session. It unwraps Google result redirects and
 rejects sponsored/ad redirectors and Google navigation links before normal host

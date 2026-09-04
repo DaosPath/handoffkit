@@ -519,6 +519,20 @@ export declare class ProjectWebIndex {
   integrityCheck(): Promise<Record<string, unknown>>;
   close(): Promise<void>;
 }
+export declare const SOURCE_CATALOG_FORMAT: string;
+export declare const SOURCE_CATALOG_VERSION: number;
+export declare class SourceCatalog {
+  constructor(root?: string);
+  load(): Promise<SourceCatalog>;
+  save(): Promise<SourceCatalog>;
+  list(options?: Record<string, unknown>): Record<string, unknown>[];
+  add(source: Record<string, unknown>): Promise<Record<string, unknown>>;
+  remove(url: string): Promise<boolean>;
+  setWeight(url: string, weight: number): Promise<boolean>;
+  search(index: unknown, query: string, options?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  ingestAll(options?: Record<string, unknown>): Promise<Record<string, unknown>[]>;
+}
+export declare function createSourceCatalog(root?: string): SourceCatalog;
 export declare function finalizeResearchPackV2(pack: ResearchPack): ResearchPack;
 export declare function writeResearchCheckpoint(root: string, pack: ResearchPack | Record<string, unknown>, extras?: Record<string, unknown>): Promise<Record<string, unknown>>;
 export declare function runFixtureGrounding(corpus: Record<string, unknown>): Record<string, unknown>;

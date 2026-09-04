@@ -55,9 +55,10 @@ export function rankSearchHits(hits = [], { allowHosts = [], denyHosts = [] } = 
       title: hit.title || "",
       url: hit.url,
       score: hostScore(hit.url) + (hit.title ? 5 : 0),
+      weight: Number(hit.weight ?? 1) || 0,
     });
   }
-  filtered.sort((a, b) => b.score - a.score || a.url.localeCompare(b.url));
+  filtered.sort((a, b) => b.weight - a.weight || b.score - a.score || a.url.localeCompare(b.url));
   return filtered.map(({ title, url, score }) => ({ title, url, score }));
 }
 

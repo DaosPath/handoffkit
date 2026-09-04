@@ -94,6 +94,9 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
   `better-sqlite3` fallback) instead of substring scoring.
 - Added `drag` (selectors or points, 2000 px cap), multi-value `select`,
   element `screenshot`, and `sha256` on `upload` events.
+- Added a curated source catalog (`SourceCatalog` / `SourceCatalog`, `catalog`
+  provider): user-curated URLs with categories and weights, weight-first
+  retrieval over the project index, fail-closed empty/unconfigured states.
 
 - Screen-dubbing media pipeline and agent recipe (`screen_dubbing` /
   `screen-dubbing`): OCR + ASR consensus, a long-context producer prompt for

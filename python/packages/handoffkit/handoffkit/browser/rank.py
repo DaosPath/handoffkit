@@ -61,12 +61,19 @@ def rank_search_hits(
             continue
         if allow and not any(host_matches(host, a) for a in allow):
             continue
+        try:
+            weight = float(hit.get("weight", 1))
+        except (TypeError, ValueError):
+            weight = 1.0
+        if weight != weight:  # NaN
+            weight = 0.0
         out.append(
             {
                 "title": title,
                 "url": url,
                 "score": host_score(url) + (5 if title else 0),
+                "weight": weight,
             }
         )
-    out.sort(key=lambda h: (-int(h["score"]), str(h["url"])))  # type: ignore[arg-type]
-    return out
+    out.sort(key=lambda h: (-float(h["weight"]), -int(h["score"]), str(h["url"])))  # type: ignore[arg-type]
+    return [{"title": h["title"], "url": h["url"], "score": h["score"]} for h in out]
