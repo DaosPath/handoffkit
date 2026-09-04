@@ -18,6 +18,7 @@ COMMANDS = [
     ("swipe", {"direction": "up", "distance": 200}),
     ("longpress", {"duration_ms": 300}),
     ("pinch", {"scale": 2}),
+    ("drag", {"from_selector": "a", "to_selector": "b"}),
 ]
 
 BASE = {

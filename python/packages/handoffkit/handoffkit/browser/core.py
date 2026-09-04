@@ -88,6 +88,7 @@ COMMAND_NAMES = (
     "swipe",
     "longpress",
     "pinch",
+    "drag",
     "markdown",
     "screenshot",
     "pdf",

@@ -521,3 +521,64 @@ test("longpress holds and pinches scale with two touch points", async () => {
     (error) => error instanceof BrowserCoreError && error.code === "invalid_request",
   );
 });
+
+function dragFakeEngine(calls) {
+  const locator = (selector) => ({
+    async boundingBox() {
+      const x = selector === "b" ? 200 : 0;
+      return { x, y: 0, width: 100, height: 20 };
+    },
+    async screenshot() { calls.push(["screenshot", selector]); return Buffer.from("png"); },
+    async selectOption(value, options) { calls.push(["select", selector, value, options]); },
+    dragTo: undefined,
+  });
+  return {
+    async launch() {
+      return {
+        page: {
+          locator,
+          mouse: {
+            async move(x, y) { calls.push(["mouse", "move", Math.round(x), Math.round(y)]); },
+            async down() { calls.push(["mouse", "down"]); },
+            async up() { calls.push(["mouse", "up"]); },
+          },
+        },
+        async close() {},
+      };
+    },
+  };
+}
+
+test("drag moves through mouse when dragTo is unavailable", async () => {
+  const calls = [];
+  const service = await startActuationSession(dragFakeEngine(calls));
+  const payload = await act(
+    service, "drag",
+    { from_selector: "a", to_selector: "b" },
+    "act-drag",
+  );
+  assert.equal(payload.action, "drag");
+  assert.ok(payload.distance > 0);
+  assert.deepEqual(calls[0], ["mouse", "move", 50, 10]);
+  assert.ok(calls.some(([kind, what]) => kind === "mouse" && what === "down"));
+  assert.ok(calls.some(([kind, what]) => kind === "mouse" && what === "up"));
+  await assert.rejects(
+    () => service.dispatch({ command_id: "act-drag-bad", session_id: "s-act", name: "drag", payload: {} }),
+    (error) => error instanceof BrowserCoreError && error.code === "invalid_request",
+  );
+});
+
+test("select passes multiple values and screenshot captures elements", async () => {
+  const calls = [];
+  const service = await startActuationSession(dragFakeEngine(calls));
+  const selected = await act(service, "select", { selector: "select", value: ["a", "b"] }, "act-select-multi");
+  assert.equal(selected.action, "select");
+  const shot = await service.dispatch({
+    command_id: "act-shot-el",
+    session_id: "s-act",
+    name: "screenshot",
+    payload: { selector: "main" },
+  });
+  assert.equal(shot.name, "screenshot");
+  assert.equal(shot.payload.selector, "main");
+});

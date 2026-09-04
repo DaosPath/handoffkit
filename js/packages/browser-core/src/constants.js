@@ -89,6 +89,7 @@ export const COMMAND_NAMES = Object.freeze([
     "swipe",
     "longpress",
     "pinch",
+    "drag",
     "markdown",
   "screenshot",
   "pdf",

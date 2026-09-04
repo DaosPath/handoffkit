@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import http from "node:http";
 import https from "node:https";
@@ -575,6 +575,25 @@ export class BrowserRealService {
     return handle?.page;
   }
 
+  async elementCenter(target, selector, action) {
+    const box = target?.locator ? await target.locator(selector).boundingBox() : null;
+    if (!box) throw new BrowserCoreError(`${action} target not found`, { code: "not_found" });
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  }
+
+  async mouseDrag(page, from, to) {
+    const mouse = page?.mouse;
+    if (!mouse || typeof mouse.move !== "function") {
+      throw new BrowserCoreError("drag is not supported by this engine", { code: "engine_unsupported" });
+    }
+    await mouse.move(from.x, from.y);
+    await mouse.down();
+    for (let step = 1; step <= 4; step += 1) {
+      await mouse.move(from.x + ((to.x - from.x) * step) / 4, from.y + ((to.y - from.y) * step) / 4);
+    }
+    await mouse.up();
+  }
+
   async touchGesture(page, payload, name, timeout) {
     const selector = String(payload.selector ?? "");
     const target = page;
@@ -983,7 +1002,42 @@ export class BrowserRealService {
       if (target?.locator) await target.locator(selector).setInputFiles(filePath, { timeout });
       else if (page?.setInputFiles) await page.setInputFiles(selector, filePath, { timeout });
       else throw new BrowserCoreError("upload is not supported by this engine", { code: "engine_unsupported" });
-      return event(command, "action.done", { action: "upload", bytes: size });
+      const { readFileSync } = await import("node:fs");
+      const sha256 = createHash("sha256").update(readFileSync(filePath)).digest("hex");
+      return event(command, "action.done", { action: "upload", bytes: size, sha256, file: filePath });
+    }
+    if (name === "drag") {
+      const fromSelector = String(payload.from_selector ?? payload.fromSelector ?? "");
+      const toSelector = String(payload.to_selector ?? payload.toSelector ?? "");
+      const fromPoint = payload.from ?? null;
+      const toPoint = payload.to ?? null;
+      const target = await this.resolveFrame(page, payload);
+      const point = (value) => (
+        value && Number.isFinite(Number(value.x)) && Number.isFinite(Number(value.y))
+          ? { x: Number(value.x), y: Number(value.y) }
+          : null
+      );
+      const from = fromSelector
+        ? await this.elementCenter(target, fromSelector, "drag")
+        : point(fromPoint);
+      const to = toSelector
+        ? await this.elementCenter(target, toSelector, "drag")
+        : point(toPoint);
+      if (!from || !to) {
+        throw new BrowserCoreError("drag requires from/to selectors or {x,y} points", { code: "invalid_request" });
+      }
+      const distance = Math.hypot(to.x - from.x, to.y - from.y);
+      if (!(distance > 0) || distance > 2000) {
+        throw new BrowserCoreError("drag distance must be 1..2000 px", { code: "invalid_request" });
+      }
+      if (fromSelector && toSelector && target?.locator?.dragTo) {
+        await target.locator(fromSelector).dragTo(target.locator(toSelector), { timeout });
+      } else if (fromSelector && toSelector && target?.locator) {
+        await this.mouseDrag(page, from, to);
+      } else {
+        await this.mouseDrag(page, from, to);
+      }
+      return event(command, "action.done", { action: "drag", distance: Math.round(distance) });
     }
     if (name === "tap") {
       const selector = String(payload.selector ?? "");
@@ -1035,7 +1089,13 @@ export class BrowserRealService {
       });
     }
     if (name === "screenshot") {
-      const bytes = page?.screenshot ? await page.screenshot({ type: "png", timeout }) : Buffer.from("");
+      const selector = String(payload.selector ?? "");
+      const target = await this.resolveFrame(page, payload);
+      const bytes = selector && target?.locator
+        ? await target.locator(selector).screenshot({ type: "png", timeout })
+        : page?.screenshot
+          ? await page.screenshot({ type: "png", timeout })
+          : Buffer.from("");
       let artifactRef = null;
       if (this.artifactStore) {
         artifactRef = await this.artifactStore.write({
@@ -1048,6 +1108,7 @@ export class BrowserRealService {
       return event(command, "screenshot", {
         bytes: Buffer.byteLength(bytes),
         encoding: "png",
+        selector,
         preview: payload.authorize_preview ? this.artifactStore?.previewPng(bytes) || "" : "",
         artifact_ref: artifactRef ? {
           uri: artifactRef.uri,

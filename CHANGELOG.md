@@ -87,6 +87,8 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
 - Added touch input to Browser Real (`tap`, `swipe`, `longpress`, `pinch`)
   as supervised CDP touch-event sequences with the same selector and
   fail-closed rules as the pointer commands.
+- Added `drag` (selectors or points, 2000 px cap), multi-value `select`,
+  element `screenshot`, and `sha256` on `upload` events.
 
 - Screen-dubbing media pipeline and agent recipe (`screen_dubbing` /
   `screen-dubbing`): OCR + ASR consensus, a long-context producer prompt for

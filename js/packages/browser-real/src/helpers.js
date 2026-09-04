@@ -43,6 +43,7 @@ export const LOCAL_COMMANDS = Object.freeze([
   "swipe",
   "longpress",
   "pinch",
+  "drag",
   "markdown",
   "screenshot",
   "pdf",

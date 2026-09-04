@@ -50,6 +50,11 @@ Touch input mirrors the same supervision: `tap` (selector), `swipe`
 CDP `Input.dispatchTouchEvent` sequences from the element center or the
 viewport center, and fail closed without a CDP-capable engine.
 
+`drag` moves from `from_selector`/`from:{x,y}` to `to_selector`/`to:{x,y}`
+(preferring `dragTo`, else a 4-step mouse path, capped at 2000 px), `select`
+accepts multiple values, `screenshot` accepts a `selector` for element shots,
+and `upload` reports the file `sha256` alongside bytes.
+
 The benchmark writes `reports/BROWSER_1.20_REAL_BENCH.json` with environmental
 p50/p95/p99 measurements. It does not replace the hosted 4-hour/1000-navigation
 soak gate.
