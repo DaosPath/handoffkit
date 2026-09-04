@@ -5,7 +5,7 @@ A dimension scores 9 only with nine real binary gates and no hidden fallback,
 falsified telemetry, or critical/high vulnerability. There is **no average**.
 The displayed score is the count of `pass` gates. 1.20 stays beta until every row is ≥9.
 
-Dimensions currently ≥9/10: Search, Exploration, Extraction / Markdown, Grounding, Stability, Browser Real, Security, Interoperability, UX. Remaining below 9: Performance / packaging 7/10.
+Dimensions currently ≥9/10: Search, Exploration, Extraction / Markdown, Grounding, Stability, Browser Real, Security, Interoperability, UX. Remaining below 9: Performance / packaging 8/10.
 
 Grounding/release notes:
 - Grounding gates 7-9 measure real HTTPS retrieval, literal fact coverage, verified page hashes, and citation entailment.
@@ -75,7 +75,7 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 9 | Citation entailment ≥95% on live pages | pass (reports/BROWSER_1.20_GROUNDING_LIVE.json: citation_entailment=1.0, direct_claims_with_evidence=1.0, invented_citations=0) |
 | 10 | Draco is additional, not sole evidence | pass |
 
-## Stability (current: 9/10)
+## Stability (current: 10/10)
 
 | # | Gate | Result |
 |---|---|---|
@@ -87,7 +87,7 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 6 | Index integrity_check + quarantine | pass |
 | 7 | Chromium crash marks interrupted | pass (HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 launches Chromium via BrowserServer, kills the owned child process, and the next command returns session.interrupted) |
 | 8 | Service restart | pass (same real Chromium test runs session.retry after the killed process, launches a fresh process, and revalidates the last URL) |
-| 9 | 4h soak, 1000 navigations | fail (reduced local smoke passed (73 navigations/1.039s, orphans=[]); required 4h/1000 artifact is absent) |
+| 9 | 4h soak, 1000 navigations | pass (hosted 4h soak x5 OS (run 33809712076): ubuntu-24.04 1125991 navs, ubuntu-24.04-arm 1030025, windows-2025 785946, macos-14 1276367, macos-15 1271718; orphans=[] everywhere; reports/BROWSER_1.20_SOAK_<os>.json) |
 | 10 | No orphan processes | pass (Playwright real-process test closes the restarted BrowserServer and asserts child.exitCode is non-null; reduced soak reports orphans=[]) |
 
 ## Browser Real (current: 10/10)
@@ -150,7 +150,7 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 9 | Authorized screenshot only with MIME/size/hash | pass (verifyAuthorizedScreenshot) |
 | 10 | Pause/resume/retry drive Real TLS | pass (reports/BROWSER_1.20_STUDIO_REAL_INTEROP.json: Studio API POST route drives pause/resume/cancel/retry over TCP TLS 1.3 + mTLS; all correlated events HTTP 200) |
 
-## Performance / packaging (current: 7/10)
+## Performance / packaging (current: 8/10)
 
 | # | Gate | Result |
 |---|---|---|
@@ -163,7 +163,7 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 7 | Index query/ingest benchmarks | pass (Lite only) |
 | 8 | Clean Core/Lite/Real tarball smoke | pass (pnpm run js:pack:check: all 12 JS tarballs contain required files, no links, and stay within the packaging limits; clean-tarball-consumer-smoke imports all 12) |
 | 9 | Checksums per architecture | fail (scripts/js/package-checksums.mjs produced reports/BROWSER_1.20_PACKAGE_CHECKSUMS_win32_x64.json locally; hosted Linux/macOS architecture artifacts are not archived) |
-| 10 | Soak archived | fail (browser-real-soak.yml runs scripts/js/browser-real-soak.mjs for 4h/1000 navs and uploads JSON; reduced local smoke passed (73 navigations/1.039s, orphans=[]), but no 4h artifact exists) |
+| 10 | Soak archived | pass (browser-real-soak.yml artifacts browser-real-soak-<os> (run 33809712076), mirrored at reports/BROWSER_1.20_SOAK_<os>.json) |
 
 ## Release train
 

@@ -1,0 +1,13 @@
+{
+  "format": "handoffkit.browser.real.soak",
+  "format_version": 1,
+  "started_at": "2026-09-03T21:47:11.701Z",
+  "finished_at": "2026-09-04T01:47:12.248Z",
+  "elapsed_ms": 14400547,
+  "navigations_target": 1000,
+  "soak_ms_target": 14400000,
+  "notice": "Environmental soak — not a performance guarantee. Windows ARM64 is not claimed.",
+  "status": "pass",
+  "navigations": 1276367,
+  "orphans": []
+}

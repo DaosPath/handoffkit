@@ -80,7 +80,7 @@
         { "id": 6, "name": "Index integrity_check + quarantine", "result": "pass" },
         { "id": 7, "name": "Chromium crash marks interrupted", "result": "pass", "evidence": "HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 launches Chromium via BrowserServer, kills the owned child process, and the next command returns session.interrupted" },
         { "id": 8, "name": "Service restart", "result": "pass", "evidence": "same real Chromium test runs session.retry after the killed process, launches a fresh process, and revalidates the last URL" },
-        { "id": 9, "name": "4h soak, 1000 navigations", "result": "fail", "evidence": "reduced local smoke passed (73 navigations/1.039s, orphans=[]); required 4h/1000 artifact is absent" },
+        { "id": 9, "name": "4h soak, 1000 navigations", "result": "pass", "evidence": "hosted 4h soak x5 OS (run 33809712076): ubuntu-24.04 1125991 navs, ubuntu-24.04-arm 1030025, windows-2025 785946, macos-14 1276367, macos-15 1271718; orphans=[] everywhere; reports/BROWSER_1.20_SOAK_<os>.json" },
         { "id": 10, "name": "No orphan processes", "result": "pass", "evidence": "Playwright real-process test closes the restarted BrowserServer and asserts child.exitCode is non-null; reduced soak reports orphans=[]" }
       ]
     },
@@ -156,7 +156,7 @@
         { "id": 7, "name": "Index query/ingest benchmarks", "result": "pass", "evidence": "Lite only" },
         { "id": 8, "name": "Clean Core/Lite/Real tarball smoke", "result": "pass", "evidence": "pnpm run js:pack:check: all 12 JS tarballs contain required files, no links, and stay within the packaging limits; clean-tarball-consumer-smoke imports all 12" },
         { "id": 9, "name": "Checksums per architecture", "result": "fail", "evidence": "scripts/js/package-checksums.mjs produced reports/BROWSER_1.20_PACKAGE_CHECKSUMS_win32_x64.json locally; hosted Linux/macOS architecture artifacts are not archived" },
-        { "id": 10, "name": "Soak archived", "result": "fail", "evidence": "browser-real-soak.yml runs scripts/js/browser-real-soak.mjs for 4h/1000 navs and uploads JSON; reduced local smoke passed (73 navigations/1.039s, orphans=[]), but no 4h artifact exists" }
+        { "id": 10, "name": "Soak archived", "result": "pass", "evidence": "browser-real-soak.yml artifacts browser-real-soak-<os> (run 33809712076), mirrored at reports/BROWSER_1.20_SOAK_<os>.json" }
       ]
     }
   }
