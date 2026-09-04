@@ -42,10 +42,17 @@ function emptyState() {
 
 async function trySqlite(dbPath) {
   try {
+    const { DatabaseSync } = await import("node:sqlite");
+    const db = new DatabaseSync(dbPath);
+    return { kind: "node", db, close: () => db.close(), fts: false };
+  } catch {
+    // node:sqlite unavailable (Node < 22)
+  }
+  try {
     const mod = await import("better-sqlite3");
     const Database = mod.default;
     const db = new Database(dbPath);
-    return { kind: "fts5", db, close: () => db.close() };
+    return { kind: "better-sqlite3", db, close: () => db.close(), fts: false };
   } catch {
     return null;
   }
@@ -80,6 +87,12 @@ function ensureSqliteSchema(db) {
   if (!version) {
     db.prepare("INSERT INTO meta(key, value) VALUES ('schema_version', ?)").run(String(PROJECT_INDEX_SCHEMA_VERSION));
   }
+  try {
+    const found = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'documents_fts'").get();
+    return Boolean(found);
+  } catch {
+    return false;
+  }
 }
 
 export class ProjectWebIndex {
@@ -108,7 +121,7 @@ export class ProjectWebIndex {
     const dbPath = path.join(this.root, "project-index.sqlite");
     this.sqlite = await trySqlite(dbPath);
     if (this.sqlite) {
-      ensureSqliteSchema(this.sqlite.db);
+      this.sqlite.fts = ensureSqliteSchema(this.sqlite.db);
       this.state.backend = "fts5";
       return this;
     }
@@ -192,7 +205,31 @@ export class ProjectWebIndex {
     }
     const queryTokens = tokens(query);
     let docs = this.state.documents.filter((item) => !item.quarantined);
-    if (this.sqlite) {
+    let ftsRanked = null;
+    if (this.sqlite?.fts && queryTokens.length) {
+      try {
+        const matchQuery = queryTokens.map((token) => `"${token.replaceAll('"', '""')}"`).join(" OR ");
+        const rows = this.sqlite.db.prepare(
+          `SELECT d.document_id, d.title, d.url, d.final_url, d.markdown, d.sha256,
+                  bm25(documents_fts) AS rank
+           FROM documents_fts JOIN documents d ON d.rowid = documents_fts.rowid
+           WHERE documents_fts MATCH ? AND d.quarantined = 0
+           ORDER BY rank LIMIT ?`,
+        ).all(matchQuery, maxResults);
+        ftsRanked = rows.map((row) => ({
+          title: row.title || row.url,
+          url: row.final_url || row.url,
+          score: Number((-row.rank).toFixed(3)),
+          sha256: row.sha256,
+        }));
+      } catch {
+        ftsRanked = null;
+      }
+    }
+    if (ftsRanked) {
+      return { hits: ftsRanked, results: ftsRanked, backend: this.state.backend, disclaimer: PROJECT_INDEX_DISCLAIMER };
+    }
+    if (this.sqlite && !this.sqlite.fts) {
       try {
         const rows = this.sqlite.db.prepare(
           "SELECT document_id, title, url, final_url, markdown, sha256 FROM documents WHERE quarantined = 0",

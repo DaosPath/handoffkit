@@ -887,6 +887,20 @@ def test_project_index_opt_in(tmp_path):
     index.close()
 
 
+def test_project_index_ranks_with_fts5(tmp_path):
+    from handoffkit.browser import ProjectWebIndex
+
+    index = ProjectWebIndex(root=tmp_path, enabled=True).open()
+    index.ingest({"url": "https://example.org/a", "title": "Alpha", "markdown": "alpha widgets"})
+    index.ingest(
+        {"url": "https://example.org/b", "title": "Beta", "markdown": "beta widgets widgets widgets"}
+    )
+    found = index.search("widgets")
+    assert found["backend"] == "fts5"
+    assert found["hits"][0]["url"] == "https://example.org/b"
+    index.close()
+
+
 def test_browser_live_search():
     import os
 

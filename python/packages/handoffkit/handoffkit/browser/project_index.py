@@ -39,6 +39,7 @@ class ProjectWebIndex:
         self.max_bytes = int(max_bytes)
         self.allow_hosts = [str(item).lower() for item in (allow_hosts or [])]
         self.backend = "unavailable"
+        self._fts = False
         self._conn: sqlite3.Connection | None = None
 
     @staticmethod
@@ -80,9 +81,14 @@ class ProjectWebIndex:
             self._conn.execute(
                 "CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(title, markdown, url)"
             )
-            self.backend = "fts5"
+            found = self._conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'documents_fts'"
+            ).fetchone()
+            self.backend = "fts5" if found else "sqlite"
+            self._fts = bool(found)
         except sqlite3.OperationalError:
             self.backend = "sqlite"
+            self._fts = False
         self._conn.execute(
             "INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', ?)",
             (str(SCHEMA_VERSION),),
@@ -143,6 +149,33 @@ class ProjectWebIndex:
                 "error": DISCLAIMER,
             }
         query_tokens = _tokens(query)
+        if self._fts and query_tokens:
+            try:
+                match_query = " OR ".join(f'"{token}"' for token in query_tokens)
+                rows = self._conn.execute(
+                    """SELECT d.title, d.url, d.final_url, d.sha256, bm25(documents_fts) AS rank
+                       FROM documents_fts JOIN documents d ON d.rowid = documents_fts.rowid
+                       WHERE documents_fts MATCH ? AND d.quarantined = 0
+                       ORDER BY rank LIMIT ?""",
+                    (match_query, max(1, int(max_results))),
+                ).fetchall()
+                hits = [
+                    {
+                        "title": row["title"] or row["url"],
+                        "url": row["final_url"] or row["url"],
+                        "score": round(-float(row["rank"]), 3),
+                        "sha256": row["sha256"],
+                    }
+                    for row in rows
+                ]
+                return {
+                    "hits": hits,
+                    "results": hits,
+                    "backend": self.backend,
+                    "disclaimer": DISCLAIMER,
+                }
+            except sqlite3.OperationalError:
+                pass
         rows = self._conn.execute(
             "SELECT title, url, final_url, markdown, sha256 FROM documents WHERE quarantined = 0"
         ).fetchall()

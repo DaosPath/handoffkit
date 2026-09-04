@@ -87,6 +87,8 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
 - Added touch input to Browser Real (`tap`, `swipe`, `longpress`, `pinch`)
   as supervised CDP touch-event sequences with the same selector and
   fail-closed rules as the pointer commands.
+- Project index now ranks with SQLite FTS5 (`node:sqlite`, stdlib `sqlite3`;
+  `better-sqlite3` fallback) instead of substring scoring.
 - Added `drag` (selectors or points, 2000 px cap), multi-value `select`,
   element `screenshot`, and `sha256` on `upload` events.
 

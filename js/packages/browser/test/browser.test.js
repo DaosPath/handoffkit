@@ -748,6 +748,22 @@ test("project index is opt-in and not a web-wide index", async () => {
   }
 });
 
+test("project index ranks with SQLite FTS5 when available", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "hk-index-fts-"));
+  try {
+    const index = new ProjectWebIndex({ root, enabled: true });
+    await index.open();
+    await index.ingest({ url: "https://example.org/a", title: "Alpha", markdown: "alpha widgets and gadgets" });
+    await index.ingest({ url: "https://example.org/b", title: "Beta", markdown: "beta widgets widgets widgets" });
+    const found = await index.search("widgets");
+    assert.equal(found.backend, "fts5");
+    assert.equal(found.hits[0].url, "https://example.org/b");
+    await index.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("fixture grounding scorer meets thresholds without inventing URLs", () => {
   const corpus = JSON.parse(readFileSync(new URL(
     "../../../../shared/contracts/conformance/browser-grounding-fixture-v1.json",
