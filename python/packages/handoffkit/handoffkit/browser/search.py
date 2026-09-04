@@ -98,6 +98,9 @@ SUPPORTED_SEARCH_PROVIDERS = (
     "brave",
     "bing",
     "kagi",
+    "mojeek",
+    "marginalia",
+    "startpage",
     USER_BROWSER_PROVIDER,
     DEFAULT_BROWSER_PROVIDER,
 )
@@ -120,6 +123,7 @@ _PROVIDER_ALIASES = {
 # instances (e.g. http://127.0.0.1:8888). Never sent to third parties.
 SEARXNG_ENV_URL = "HANDOFFKIT_SEARXNG_URL"
 SEARXNG_ENV_URLS = "HANDOFFKIT_SEARXNG_URLS"
+SEARXNG_ENV_ENGINES = "HANDOFFKIT_SEARXNG_ENGINES"
 _DEFAULT_SEARXNG_URL = ""
 SEARXNG_CATEGORIES = ("general", "images", "videos", "news")
 _ENGINE_TOKEN_RE = re.compile(r"^[a-z0-9_+-]+$")
@@ -152,6 +156,9 @@ def provider_engine(providers: list[str] | tuple[str, ...] | None) -> str:
             "brave": "brave_json",
             "bing": "bing_json",
             "kagi": "kagi_json",
+            "mojeek": "mojeek_html",
+            "marginalia": "marginalia_html",
+            "startpage": "startpage_html",
             "wikipedia": "wikipedia_opensearch",
             USER_BROWSER_PROVIDER: "user_browser_bridge",
             DEFAULT_BROWSER_PROVIDER: "default_browser_bridge",
@@ -420,7 +427,11 @@ def search_searxng(
     bases = [b for b in bases if b]
     if not bases:
         raise ValueError("searxng: no base URL configured (set HANDOFFKIT_SEARXNG_URL)")
-    engine_list = sorted(set(_searxng_option_list(engines or [])))
+    explicit_engines = sorted(set(_searxng_option_list(engines or [])))
+    if explicit_engines:
+        engine_list = explicit_engines
+    else:
+        engine_list = sorted(set(_searxng_option_list(os.environ.get(SEARXNG_ENV_ENGINES, ""))))
     for token in engine_list:
         if not _ENGINE_TOKEN_RE.match(token):
             raise ValueError(f"searxng: unknown engine: {token}")
@@ -640,6 +651,207 @@ def search_kagi(
         if len(hits) >= max_results * 2:
             break
     return hits
+
+
+_ANCHOR_RE = re.compile(
+    r"<a\b[^>]*\bhref\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)</a\s*>",
+    re.I,
+)
+
+
+def _scrape_anchor_hits(
+    html: str, max_results: int, exclude_hosts: tuple[str, ...]
+) -> list[dict[str, str]]:
+    """Lenient anchor extraction for keyless engines. Unknown markup yields []."""
+    hits: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for match in _ANCHOR_RE.finditer(html or ""):
+        url = str(match.group(1) or match.group(2) or match.group(3) or "").strip()
+        title = _strip(match.group(4) or "")
+        if not url.startswith("http") or len(title) < 2:
+            continue
+        try:
+            host = (urlparse(url).hostname or "").lower()
+        except Exception:  # noqa: BLE001
+            continue
+        if any(host == domain or host.endswith(f".{domain}") for domain in exclude_hosts):
+            continue
+        if url in seen:
+            continue
+        seen.add(url)
+        hits.append({"title": title, "url": url})
+        if len(hits) >= max_results * 2:
+            break
+    return hits
+
+
+def _html_search(
+    transport: WebTransport | None,
+    query: str,
+    max_results: int,
+    timeout_ms: int,
+    provider: str,
+    url: str,
+    exclude_hosts: tuple[str, ...],
+) -> list[dict[str, str]]:
+    q = (query or "").strip()
+    if not q:
+        return []
+    tr = transport or default_transport(True)
+    try:
+        resp = tr.get(url, timeout_ms=timeout_ms, headers={"User-Agent": DEFAULT_UA})
+    except Exception:  # noqa: BLE001 - transport failure is terminal
+        return []
+    if getattr(resp, "error", None):
+        return []
+    if int(getattr(resp, "status", 0) or 0) < 200 or int(getattr(resp, "status", 0) or 0) >= 300:
+        return []
+    if not getattr(resp, "body", ""):
+        return []
+    return _scrape_anchor_hits(resp.body, max_results, exclude_hosts)
+
+
+def search_mojeek(
+    query: str,
+    *,
+    max_results: int = 8,
+    transport: WebTransport | None = None,
+    timeout_ms: int = 15000,
+) -> list[dict[str, str]]:
+    """Search Mojeek HTML (no key). Best-effort anchor extraction, fail-closed."""
+    q = (query or "").strip()
+    if not q:
+        return []
+    return _html_search(
+        transport,
+        q,
+        max_results,
+        timeout_ms,
+        "mojeek",
+        f"https://www.mojeek.com/search?q={quote_plus(q)}",
+        ("mojeek.com",),
+    )
+
+
+def search_marginalia(
+    query: str,
+    *,
+    max_results: int = 8,
+    transport: WebTransport | None = None,
+    timeout_ms: int = 15000,
+) -> list[dict[str, str]]:
+    """Search Marginalia HTML (no key). Best-effort anchor extraction, fail-closed."""
+    q = (query or "").strip()
+    if not q:
+        return []
+    return _html_search(
+        transport,
+        q,
+        max_results,
+        timeout_ms,
+        "marginalia",
+        f"https://search.marginalia.nu/search?query={quote_plus(q)}",
+        ("marginalia.nu", "marginalia-search.com"),
+    )
+
+
+def search_startpage(
+    query: str,
+    *,
+    max_results: int = 8,
+    transport: WebTransport | None = None,
+    timeout_ms: int = 15000,
+) -> list[dict[str, str]]:
+    """Search Startpage HTML (no key). Best-effort anchor extraction, fail-closed."""
+    q = (query or "").strip()
+    if not q:
+        return []
+    return _html_search(
+        transport,
+        q,
+        max_results,
+        timeout_ms,
+        "startpage",
+        f"https://www.startpage.com/sp/search?query={quote_plus(q)}",
+        ("startpage.com", "startmail.com"),
+    )
+
+
+def suggest_queries(
+    provider: str,
+    query: str,
+    *,
+    transport: WebTransport | None = None,
+    timeout_ms: int = 10000,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    """Query completions from key-gated suggest APIs (brave/bing). Fail-closed."""
+    import os
+
+    name = str(provider or "").strip().lower()
+    q = str(query or "").strip()
+    if not q:
+        return {"suggestions": [], "error_code": "query_required"}
+    if transport is None:
+        return {"suggestions": [], "error_code": "provider_unavailable"}
+    headers = {"User-Agent": DEFAULT_UA, "Accept": "application/json"}
+    if name == "brave":
+        key = str(api_key or os.environ.get(BRAVE_ENV_API_KEY, "")).strip()
+        if not key:
+            return {"suggestions": [], "error_code": "provider_unavailable"}
+        url = f"https://api.search.brave.com/res/v1/suggest?q={quote_plus(q)}"
+        headers["X-Subscription-Token"] = key
+        parse = _parse_brave_suggestions
+    elif name == "bing":
+        key = str(api_key or os.environ.get(BING_ENV_API_KEY, "")).strip()
+        if not key:
+            return {"suggestions": [], "error_code": "provider_unavailable"}
+        url = f"https://api.bing.microsoft.com/v7.0/Suggestions?q={quote_plus(q)}"
+        headers["Ocp-Apim-Subscription-Key"] = key
+        parse = _parse_bing_suggestions
+    else:
+        return {"suggestions": [], "error_code": "unsupported_provider"}
+    data, _code, error = _get_json_with_retry(
+        transport, url, headers, timeout_ms, f"{name}_suggest", 2
+    )
+    if data is None:
+        return {
+            "suggestions": [],
+            "error_code": _code or "provider_unavailable",
+            "error": error or "",
+        }
+    return {"suggestions": parse(data)[:8]}
+
+
+def _parse_brave_suggestions(data: Any) -> list[str]:
+    out: list[str] = []
+    items = data.get("suggestions") if isinstance(data, dict) else None
+    for item in items or []:
+        if isinstance(item, str):
+            raw: Any = item
+        elif isinstance(item, dict):
+            raw = item.get("query")
+        else:
+            raw = ""
+        text = _strip(raw)
+        if text and text not in out:
+            out.append(text)
+    return out
+
+
+def _parse_bing_suggestions(data: Any) -> list[str]:
+    out: list[str] = []
+    groups = data.get("suggestionGroups") if isinstance(data, dict) else None
+    for group in groups or []:
+        items = group.get("searchSuggestions") if isinstance(group, dict) else None
+        for item in items or []:
+            raw = item if isinstance(item, str) else ""
+            if isinstance(item, dict):
+                raw = item.get("displayText") or item.get("query")
+            text = _strip(raw)
+            if text and text not in out:
+                out.append(text)
+    return out
 
 
 def search_wikipedia(
@@ -868,6 +1080,18 @@ def web_search(
                     if strict_provider:
                         break
                     continue
+            elif provider in ("mojeek", "marginalia", "startpage"):
+                search_fn = {
+                    "mojeek": search_mojeek,
+                    "marginalia": search_marginalia,
+                    "startpage": search_startpage,
+                }[provider]
+                hits = search_fn(
+                    q,
+                    max_results=max_results,
+                    transport=tr,
+                    timeout_ms=timeout_ms,
+                )
             elif provider == DEFAULT_BROWSER_PROVIDER:
                 provider_result = search_default_browser(
                     user_browser,

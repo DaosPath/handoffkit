@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { makeFixtureMapTransport } from "../src/index.js";
-import { SUPPORTED_SEARCH_PROVIDERS, providerEngine, webSearch } from "../src/search.js";
+import { SUPPORTED_SEARCH_PROVIDERS, providerEngine, suggestQueries, webSearch } from "../src/search.js";
 
 const BRAVE_BODY = JSON.stringify({
   query: { original: "OpenAI" },
@@ -42,7 +42,7 @@ function clearKeys() {
 }
 
 test("brave/bing/kagi are supported providers with json engines", () => {
-  for (const provider of ["brave", "bing", "kagi"]) {
+  for (const provider of ["brave", "bing", "kagi", "mojeek", "marginalia", "startpage"]) {
     assert.ok(SUPPORTED_SEARCH_PROVIDERS.includes(provider));
   }
   assert.equal(providerEngine(["brave"]), "brave_json");
@@ -114,7 +114,6 @@ test("webSearch key-gated providers fail closed without keys", async () => {
     assert.equal(trace.error_code, "provider_unavailable");
   }
 });
-
 test("webSearch dedups tracking variants canonically", async () => {
   process.env.HANDOFFKIT_BRAVE_API_KEY = "test-key";
   process.env.HANDOFFKIT_BING_API_KEY = "test-key";
@@ -156,4 +155,58 @@ test("json fetch retries once after 429", async () => {
   } finally {
     clearKeys();
   }
+});
+
+test("webSearch keyless html engines parse anchors", async () => {
+  const transport = makeFixtureMapTransport();
+  transport.setPage(
+    "https://www.mojeek.com/search?q=OpenAI",
+    '<html><body><a class="title" href="https://openai.com/api">OpenAI API</a>' +
+      '<a href="https://www.mojeek.com/preferences">prefs</a></body></html>',
+  );
+  transport.setPage(
+    "https://search.marginalia.nu/search?query=OpenAI",
+    '<html><body><a href="https://openai.com/blog">OpenAI Blog</a></body></html>',
+  );
+  transport.setPage(
+    "https://www.startpage.com/sp/search?query=OpenAI",
+    '<html><body><a class="w-gl__result-title" href="https://openai.com/api">OpenAI API</a>' +
+      '<a href="https://www.startpage.com/r">internal</a></body></html>',
+  );
+  for (const [provider, expected] of [
+    ["mojeek", ["https://openai.com/api"]],
+    ["marginalia", ["https://openai.com/blog"]],
+    ["startpage", ["https://openai.com/api"]],
+  ]) {
+    const result = await webSearch("OpenAI", { transport, providers: [provider], maxResults: 4 });
+    assert.equal(result.success, true);
+    assert.deepEqual(result.providers_used, [provider]);
+    assert.deepEqual(result.results.map((r) => r.url), expected);
+  }
+});
+
+test("suggestQueries returns completions and fails closed", async () => {
+  process.env.HANDOFFKIT_BRAVE_API_KEY = "test-key";
+  process.env.HANDOFFKIT_BING_API_KEY = "test-key";
+  const transport = makeFixtureMapTransport();
+  transport.setPage(
+    "https://api.search.brave.com/res/v1/suggest?q=Open",
+    JSON.stringify({ suggestions: [{ query: "OpenAI" }, "OpenAI API"] }),
+  );
+  transport.setPage(
+    "https://api.bing.microsoft.com/v7.0/Suggestions?q=Open",
+    JSON.stringify({ suggestionGroups: [{ searchSuggestions: [{ displayText: "OpenAI" }] }] }),
+  );
+  try {
+    const brave = await suggestQueries("brave", "Open", { transport });
+    assert.deepEqual(brave.suggestions, ["OpenAI", "OpenAI API"]);
+    const bing = await suggestQueries("bing", "Open", { transport });
+    assert.deepEqual(bing.suggestions, ["OpenAI"]);
+    const unknown = await suggestQueries("nope", "Open", { transport });
+    assert.equal(unknown.error_code, "unsupported_provider");
+  } finally {
+    clearKeys();
+  }
+  const keyless = await suggestQueries("brave", "Open", { transport: makeFixtureMapTransport() });
+  assert.equal(keyless.error_code, "provider_unavailable");
 });

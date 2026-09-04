@@ -120,6 +120,13 @@ provider reports `provider_unavailable` with `<name>_unconfigured` and never
 calls the network. Keys travel only in the request `Authorization` header and
 are redacted from traces and errors like any secret.
 
+### Keyless HTML providers (`mojeek`, `marginalia`, `startpage`)
+
+Lenient anchor extraction over the public HTML endpoints, own-domain links
+dropped, unknown markup yields no hits (fail-closed, never an exception).
+`suggest_queries("brave"|"bing", query)` returns up to 8 query completions
+from the vendor suggest APIs (key-gated, fail-closed).
+
 Grounded multi-query recipes run sequentially with a bounded delay by default,
 reducing burst rate limits against public HTML endpoints. Provider challenge
 pages fail closed with a structured error.

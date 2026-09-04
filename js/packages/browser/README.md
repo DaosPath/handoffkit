@@ -165,6 +165,10 @@ need `HANDOFFKIT_BRAVE_API_KEY`, `HANDOFFKIT_BING_API_KEY`, or
 `HANDOFFKIT_KAGI_API_KEY`; without its key the provider reports
 `provider_unavailable` and never calls the network.
 
+Keyless HTML providers (`mojeek`, `marginalia`, `startpage`) extract anchors
+leniently with own-domain links dropped; unknown markup yields no hits.
+`suggestQueries("brave"|"bing", query)` returns up to 8 completions.
+
 The Google adapter is HandoffKit's native HTTP route. It does not open Chrome,
 read cookies, or use a user session. It unwraps Google result redirects and
 rejects sponsored/ad redirectors and Google navigation links before normal host

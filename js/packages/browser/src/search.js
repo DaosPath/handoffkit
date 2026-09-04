@@ -193,6 +193,9 @@ export const SUPPORTED_SEARCH_PROVIDERS = Object.freeze([
   "brave",
   "bing",
   "kagi",
+  "mojeek",
+  "marginalia",
+  "startpage",
   USER_BROWSER_PROVIDER,
   DEFAULT_BROWSER_PROVIDER,
 ]);
@@ -231,6 +234,12 @@ export function providerEngine(providers) {
         ? "bing_json"
       : provider === "kagi"
         ? "kagi_json"
+      : provider === "mojeek"
+        ? "mojeek_html"
+      : provider === "marginalia"
+        ? "marginalia_html"
+      : provider === "startpage"
+        ? "startpage_html"
       : provider === "wikipedia"
         ? "wikipedia_opensearch"
         : provider === USER_BROWSER_PROVIDER
@@ -421,7 +430,10 @@ async function searxngJsonSearch(transport, query, maxResults, timeoutMs, option
       error: "searxng requires HANDOFFKIT_SEARXNG_URL (self-hosted instance base URL)",
     };
   }
-  const engines = [...new Set(searxngOptionList(opts.engines))];
+  const explicitEngines = [...new Set(searxngOptionList(opts.engines))];
+  const engines = explicitEngines.length
+    ? explicitEngines
+    : [...new Set(searxngOptionList(process.env.HANDOFFKIT_SEARXNG_ENGINES))];
   for (const token of engines) {
     if (!/^[a-z0-9_+-]+$/.test(token)) {
       return { hits, error_code: "searxng_invalid_options", error: `searxng unknown engine: ${token}` };
@@ -585,6 +597,131 @@ async function kagiJsonSearch(transport, query, maxResults, timeoutMs) {
   return { hits };
 }
 
+/**
+ * Lenient HTML result scraper for keyless engines (Mojeek, Marginalia,
+ * Startpage). Extracts http(s) anchors with text, drops own-domain and
+ * well-known non-result links. Best-effort: unknown markup yields no hits,
+ * never an exception.
+ */
+function scrapeAnchorHits(html, maxResults, excludeHosts) {
+  const hits = [];
+  const seen = new Set();
+  const pattern = /<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/a\s*>/gi;
+  let match = null;
+  while ((match = pattern.exec(String(html ?? ""))) !== null) {
+    const url = String(match[1] ?? match[2] ?? match[3] ?? "").trim();
+    const title = stripTags(match[4] ?? "");
+    if (!url.startsWith("http") || title.length < 2) continue;
+    let host = "";
+    try {
+      host = new URL(url).hostname.toLowerCase();
+    } catch {
+      continue;
+    }
+    if (excludeHosts.some((domain) => host === domain || host.endsWith(`.${domain}`))) continue;
+    if (seen.has(url)) continue;
+    seen.add(url);
+    pushHit(hits, title, url, maxResults);
+    if (hits.length >= maxResults) break;
+  }
+  return hits;
+}
+
+async function htmlSearch(transport, query, maxResults, timeoutMs, provider, url, excludeHosts) {
+  if (!transport || !query || maxResults < 1) return { hits: [] };
+  let resp;
+  try {
+    resp = await transport.get(
+      new TransportRequest({
+        url,
+        timeoutMs: timeoutMs > 0 ? timeoutMs : 20000,
+        headers: { "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)" },
+      }),
+    );
+  } catch (error) {
+    return { hits: [], error_code: `${provider}_transport_error`, error: String(error?.message ?? error) };
+  }
+  if (resp.error || resp.status < 200 || resp.status >= 300 || !resp.body) {
+    return { hits: [], error_code: `${provider}_empty_response`, error: `${provider} returned no usable HTML` };
+  }
+  return { hits: scrapeAnchorHits(resp.body, maxResults, excludeHosts) };
+}
+
+async function mojeekHtmlSearch(transport, query, maxResults, timeoutMs) {
+  return htmlSearch(
+    transport, query, maxResults, timeoutMs, "mojeek",
+    `https://www.mojeek.com/search?q=${urlEncodeComponent(String(query))}`,
+    ["mojeek.com"],
+  );
+}
+
+async function marginaliaHtmlSearch(transport, query, maxResults, timeoutMs) {
+  return htmlSearch(
+    transport, query, maxResults, timeoutMs, "marginalia",
+    `https://search.marginalia.nu/search?query=${urlEncodeComponent(String(query))}`,
+    ["marginalia.nu", "marginalia-search.com"],
+  );
+}
+
+async function startpageHtmlSearch(transport, query, maxResults, timeoutMs) {
+  return htmlSearch(
+    transport, query, maxResults, timeoutMs, "startpage",
+    `https://www.startpage.com/sp/search?query=${urlEncodeComponent(String(query))}`,
+    ["startpage.com", "startmail.com"],
+  );
+}
+
+/**
+ * Query completions from key-gated suggest APIs (Brave/Bing). Fail-closed
+ * without a key; returns {suggestions} or {suggestions: [], error_code}.
+ */
+export async function suggestQueries(provider, query, opts = {}) {
+  const name = String(provider ?? "").trim().toLowerCase();
+  const q = String(query ?? "").trim();
+  if (!q) return { suggestions: [], error_code: "query_required" };
+  const transport = opts.transport ?? null;
+  const timeoutMs = Number(opts.timeoutMs ?? opts.timeout_ms ?? 10000) || 10000;
+  if (!transport) return { suggestions: [], error_code: "provider_unavailable" };
+  let url = "";
+  let headers = {
+    "User-Agent": "HandoffKit-Browser/1.0 (+https://github.com/DaosPath/handoffkit)",
+    Accept: "application/json",
+  };
+  if (name === "brave") {
+    const key = String(process.env.HANDOFFKIT_BRAVE_API_KEY ?? "").trim();
+    if (!key) return { suggestions: [], error_code: "provider_unavailable" };
+    url = `https://api.search.brave.com/res/v1/suggest?q=${urlEncodeComponent(q)}`;
+    headers = { ...headers, "X-Subscription-Token": key };
+  } else if (name === "bing") {
+    const key = String(process.env.HANDOFFKIT_BING_API_KEY ?? "").trim();
+    if (!key) return { suggestions: [], error_code: "provider_unavailable" };
+    url = `https://api.bing.microsoft.com/v7.0/Suggestions?q=${urlEncodeComponent(q)}`;
+    headers = { ...headers, "Ocp-Apim-Subscription-Key": key };
+  } else {
+    return { suggestions: [], error_code: "unsupported_provider" };
+  }
+  const fetched = await getJsonWithRetry(transport, url, headers, timeoutMs, `${name}_suggest`, 2);
+  if (fetched.error) return { suggestions: [], error_code: fetched.errorCode };
+  const data = fetched.data;
+  const out = [];
+  const push = (value) => {
+    const text = stripTags(String(value ?? ""));
+    if (text && !out.includes(text)) out.push(text);
+  };
+  if (name === "brave") {
+    for (const item of Array.isArray(data?.suggestions) ? data.suggestions : []) {
+      push(typeof item === "string" ? item : item?.query);
+    }
+  } else {
+    for (const group of Array.isArray(data?.suggestionGroups) ? data.suggestionGroups : []) {
+      for (const item of Array.isArray(group?.searchSuggestions) ? group.searchSuggestions : []) {
+        push(item?.displayText ?? item?.query);
+      }
+    }
+  }
+  return { suggestions: out.slice(0, 8) };
+}
+
 async function duckduckgoHtmlSearch(transport, query, maxResults, timeoutMs) {
   const hits = [];
   if (!transport || !query || maxResults < 1) return { hits };
@@ -714,6 +851,15 @@ async function searchWithProviders(transport, query, maxResults, timeoutMs, prov
         providerHits = providerResult.hits;
       } else if (provider === "kagi") {
         providerResult = await kagiJsonSearch(transport, query, maxResults, timeoutMs);
+        providerHits = providerResult.hits;
+      } else if (provider === "mojeek") {
+        providerResult = await mojeekHtmlSearch(transport, query, maxResults, timeoutMs);
+        providerHits = providerResult.hits;
+      } else if (provider === "marginalia") {
+        providerResult = await marginaliaHtmlSearch(transport, query, maxResults, timeoutMs);
+        providerHits = providerResult.hits;
+      } else if (provider === "startpage") {
+        providerResult = await startpageHtmlSearch(transport, query, maxResults, timeoutMs);
         providerHits = providerResult.hits;
       } else if (provider === "wikipedia") {
         providerHits = await wikipediaOpensearch(transport, query, maxResults, timeoutMs);

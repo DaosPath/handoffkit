@@ -74,8 +74,11 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
   `safesearch`/`language` options, `HANDOFFKIT_SEARXNG_URLS` multi-instance
   fallback in order until hits, infobox links as results, bounded 429/5xx
   retries, and fail-closed `searxng_invalid_options` for unknown values.
-- Added cross-provider canonical URL dedup (tracking params and fragments
-  stripped) so the same page from Brave/Bing/Kagi merges to one hit.
+- Added keyless HTML search providers (`mojeek`, `marginalia`, `startpage`)
+  with lenient anchor extraction and own-domain filtering, query completions
+  (`suggestQueries`/`suggest_queries` for Brave/Bing), a
+  `HANDOFFKIT_SEARXNG_ENGINES` default engine list, and cross-provider
+  canonical URL dedup.
 - Added touch input to Browser Real (`tap`, `swipe`, `longpress`, `pinch`)
   as supervised CDP touch-event sequences with the same selector and
   fail-closed rules as the pointer commands.
