@@ -66,6 +66,14 @@ struct DracoRunConfig {
     bool generate_answers = true;
     bool judge_answers = true;
     bool enable_web_tools = false;
+    /// Show the grading checklist to the generator (scaffolding, not answers).
+    /// Env HK_DRACO_RUBRIC_IN_PROMPT=0 forces off, =1 forces on.
+    bool inject_rubric = true;
+    /// Web research budget threaded into baseline and fusion generation paths.
+    int web_max_pages = 12;
+    int web_max_depth = 4;
+    int web_context_max_chars = 96000;
+    std::vector<std::string> web_providers;
     bool parallel_branches = true;
     int max_parallel_branches = 4;
     int answer_max_tokens = 8192;
@@ -96,6 +104,11 @@ struct DracoTaskResult {
     nlohmann::json generation = nlohmann::json::object();
     nlohmann::json judge = nlohmann::json::object();
     DracoScore score;
+    /// Self-contained handoff payload: problem + criteria + full answer so a
+    /// follow-up model can work from this JSON alone (answer.txt mirrors it).
+    std::string problem;
+    nlohmann::json criteria = nlohmann::json::array();
+    std::string answer;
 
     [[nodiscard]] nlohmann::json to_json() const;
 };

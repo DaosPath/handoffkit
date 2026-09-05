@@ -115,15 +115,21 @@ bool looks_like_stub(const std::string& text) {
 
 std::string research_prompt(
     const std::string& problem,
-    const std::vector<DracoCriterion>& criteria
+    const std::vector<DracoCriterion>& criteria,
+    bool inject_rubric,
+    bool has_web_context
 ) {
-    static const bool inject_rubric = [] {
-        const char* raw = std::getenv("HK_DRACO_RUBRIC_IN_PROMPT");
-        return raw != nullptr && std::string(raw) == "1";
-    }();
+    if (const char* raw = std::getenv("HK_DRACO_RUBRIC_IN_PROMPT")) {
+        inject_rubric = std::string(raw) == "1";
+    }
     std::ostringstream ss;
-    ss << "You are writing the FINAL deep-research answer now. You have no tools and no web search.\n"
-       << "Rules:\n"
+    ss << "You are writing the FINAL deep-research answer now. ";
+    if (has_web_context) {
+        ss << "Web research context follows when available; ground concrete claims in it when present.\n";
+    } else {
+        ss << "You have no tools and no web search.\n";
+    }
+    ss << "Rules:\n"
        << "- Produce a complete, self-contained answer in this single response.\n"
        << "- Do not promise future research or ask clarifying questions.\n"
        << "- Lead with the direct answer, then structured analysis and residual uncertainty.\n"
@@ -335,6 +341,11 @@ nlohmann::json DracoRunConfig::to_json() const {
         {"generate_answers", generate_answers},
         {"judge_answers", judge_answers},
         {"enable_web_tools", enable_web_tools},
+        {"inject_rubric", inject_rubric},
+        {"web_max_pages", web_max_pages},
+        {"web_max_depth", web_max_depth},
+        {"web_context_max_chars", web_context_max_chars},
+        {"web_providers", web_providers},
         {"parallel_branches", parallel_branches},
         {"max_parallel_branches", max_parallel_branches},
         {"answer_max_tokens", answer_max_tokens},
@@ -365,6 +376,9 @@ nlohmann::json DracoTaskResult::to_json() const {
         {"generation", generation},
         {"judge", judge},
         {"score", score.to_json()},
+        {"problem", problem},
+        {"criteria", criteria},
+        {"answer", answer},
     };
 }
 
@@ -379,6 +393,20 @@ nlohmann::json DracoBatchResult::to_json() const {
         {"judged_tasks", judged_tasks},
         {"failed_tasks", failed_tasks},
         {"mean_score_pct", mean_score_pct},
+        {"handoff",
+         {{"schema", "draco-handoff-v1"},
+          {"reads_as",
+           "Each tasks[] entry is self-contained: problem + criteria "
+           "(id/weight/requirement) + full answer + judge verdicts/items "
+           "with quotes + score. Feed one entry per follow-up model call."},
+          {"score_rule",
+           "normalized_score_pct = clamp(raw/positive_weight_sum,0,1)*100; "
+           "MISSING verdicts contribute 0."},
+          {"generation_provider", config.provider},
+          {"generation_model", config.model},
+          {"judge_provider", config.judge_provider.empty() ? config.provider : config.judge_provider},
+          {"judge_model", config.judge_model.empty() ? config.model : config.judge_model},
+          {"tier", config.tier}}},
         {"tasks", std::move(task_json)},
     };
 }
@@ -575,7 +603,9 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
         const nlohmann::json prior_config = prior.value("config", nlohmann::json::object());
         const std::vector<std::string> frozen_keys = {
             "provider", "model", "judge_provider", "judge_model", "tier",
-            "offset", "limit", "enable_web_tools", "parallel_branches",
+            "offset", "limit", "enable_web_tools", "inject_rubric",
+            "web_max_pages", "web_max_depth", "web_context_max_chars",
+            "web_providers", "parallel_branches",
             "max_parallel_branches", "answer_max_tokens", "judge_max_tokens",
             "judge_batch_size", "generation_attempts", "judge_attempts",
             "judge_problem_max_chars", "judge_answer_max_chars"
@@ -636,6 +666,10 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
         result.id = task.id;
         result.domain = task.domain;
         result.criteria_count = task.criteria.size();
+        result.problem = task.problem;
+        for (const auto& criterion : task.criteria) {
+            result.criteria.push_back(criterion.to_json());
+        }
         result.status = "pending";
 
         (void)write_text_file(task_dir / "problem.txt", task.problem);
@@ -680,9 +714,15 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
         if (answer.empty() && config.generate_answers) {
             const auto start = Clock::now();
             nlohmann::json attempts = nlohmann::json::array();
+            bool rubric_injected = false;
+            bool web_context_used = false;
+            std::size_t prompt_chars = 0;
             const int max_attempts = std::max(1, config.generation_attempts);
             for (int attempt = 1; attempt <= max_attempts; ++attempt) {
-                std::string prompt = research_prompt(task.problem, task.criteria);
+                const bool want_context = config.enable_web_tools;
+                std::string prompt = research_prompt(task.problem, task.criteria, config.inject_rubric, want_context);
+                rubric_injected = prompt.find("REQUIREMENTS CHECKLIST") != std::string::npos;
+                prompt_chars = prompt.size();
                 if (attempt > 1) {
                     prompt +=
                         "\nCRITICAL RETRY: the previous draft was incomplete. Write the substantive final report now.";
@@ -692,11 +732,13 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
                         FusionConfig fc;
                         fc.task = task.problem;
                         fc.enable_web_tools = true;
-                        fc.web_max_depth = 4;
-                        fc.web_max_pages = 12;
-                        fc.web_context_max_chars = 96000;
+                        fc.web_max_depth = config.web_max_depth;
+                        fc.web_max_pages = config.web_max_pages;
+                        fc.web_context_max_chars = config.web_context_max_chars;
+                        fc.web_providers = config.web_providers;
                         auto research = gather_web_research(fc);
                         if (research.used && !research.markdown_context.empty()) {
+                            web_context_used = true;
                             prompt = research.markdown_context + "\n\n" + prompt;
                         }
                     }
@@ -725,12 +767,19 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
                     fusion_config.write_files = false;
                     fusion_config.cache.enabled = false;
                     fusion_config.enable_web_tools = config.enable_web_tools;
+                    fusion_config.web_max_pages = config.web_max_pages;
+                    fusion_config.web_max_depth = config.web_max_depth;
+                    fusion_config.web_context_max_chars = config.web_context_max_chars;
+                    fusion_config.web_providers = config.web_providers;
                     fusion_config.parallel_branches = config.parallel_branches;
                     fusion_config.max_parallel_branches = std::clamp(config.max_parallel_branches, 1, 8);
                     FusionEngine engine;
                     auto generated = engine.run_with_provider(fusion_config, generation_provider);
                     if (generated) {
                         answer = generated.value().final_output;
+                        // The engine injects research context when its lookup yields;
+                        // requested here so the prompt wording stays honest.
+                        if (config.enable_web_tools) web_context_used = true;
                         result.generation_calls += generated.value().metrics.llm_calls;
                         attempts.push_back({
                             {"attempt", attempt},
@@ -767,6 +816,9 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
                 {"wall_s", result.generation_wall_s},
                 {"chars", answer.size()},
                 {"stub_like", looks_like_stub(answer)},
+                {"prompt_chars", prompt_chars},
+                {"rubric_injected", rubric_injected},
+                {"web_context_used", web_context_used},
                 {"attempts", std::move(attempts)},
             };
             if (!answer.empty()) (void)write_text_file(answer_path, answer);
@@ -774,6 +826,7 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
         }
 
         result.answer_chars = answer.size();
+        result.answer = answer;
         if (answer.empty()) {
             result.status = "generation_failed";
             if (result.error.empty()) {

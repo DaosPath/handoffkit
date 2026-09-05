@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -128,6 +129,66 @@ void test_cli_validate(const std::filesystem::path& dataset) {
     std::cout << "test_cli_validate ok\n";
 }
 
+nlohmann::json read_json(const std::filesystem::path& path) {
+    std::ifstream in(path, std::ios::binary);
+    assert(in);
+    nlohmann::json j;
+    in >> j;
+    return j;
+}
+
+void test_rubric_flag_reaches_generation(const std::filesystem::path& dataset, const std::filesystem::path& root) {
+    for (const auto& [name, inject, expected] : std::vector<std::tuple<std::string, bool, bool>>{
+             {"rubric-on", true, true}, {"rubric-off", false, false}}) {
+        DracoRunConfig config;
+        config.dataset_path = dataset;
+        config.output_dir = root / name;
+        config.provider = "echo";
+        config.model = "draco-echo";
+        config.tier = "baseline";
+        config.limit = 1;
+        config.resume = false;
+        config.judge_answers = false;
+        config.generation_attempts = 1;
+        config.inject_rubric = inject;
+        auto run = run_draco_batch(config);
+        assert(run);
+        const auto gen = read_json(config.output_dir / "tasks" / "task-000_Testing" / "generation.json");
+        assert(gen.value("rubric_injected", !expected) == expected);
+        assert(gen.value("prompt_chars", 0) > 0);
+    }
+    std::cout << "test_rubric_flag_reaches_generation ok\n";
+}
+
+void test_cli_run_handoff_json(const std::filesystem::path& dataset, const std::filesystem::path& root) {
+    const auto out = root / "cli-run";
+    const auto result = cli::run_cli({
+        "benchmark", "draco", "run",
+        "--dataset", dataset.string(),
+        "--provider", "echo",
+        "--judge-provider", "echo",
+        "--limit", "1",
+        "--out", out.string(),
+        "--no-resume",
+        "--web-providers", "searxng,brave",
+    });
+    assert(result.exit_code == 0);
+    const auto summary = read_json(out / "summary.json");
+    assert(summary.value("handoff", nlohmann::json::object()).value("schema", "") == "draco-handoff-v1");
+    assert(summary["tasks"].is_array() && summary["tasks"].size() == 1);
+    const auto& task = summary["tasks"][0];
+    assert(task.value("status", "") == "judge_partial");
+    assert(task.value("answer", "") == "echo");
+    assert(task.contains("problem") && task.contains("criteria"));
+    assert(task["criteria"].is_array() && task["criteria"].size() == 3);
+    const auto config = read_json(out / "config.json");
+    assert(config.value("web_providers", nlohmann::json::array()) ==
+           nlohmann::json::array({"searxng", "brave"}));
+    assert(config.value("inject_rubric", false) == true);
+    assert(config.value("web_max_pages", 0) == 12);
+    std::cout << "test_cli_run_handoff_json ok\n";
+}
+
 }  // namespace
 
 int main() {
@@ -138,6 +199,8 @@ int main() {
     test_loader_and_scoring(dataset);
     test_native_baseline_and_resume(dataset, root / "run");
     test_cli_validate(dataset);
+    test_rubric_flag_reaches_generation(dataset, root);
+    test_cli_run_handoff_json(dataset, root);
     std::filesystem::remove_all(root, ec);
     std::cout << "All native DRACO benchmark tests passed\n";
     return 0;

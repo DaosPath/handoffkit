@@ -1253,6 +1253,8 @@ CliResult cmd_benchmark(const std::vector<std::string>& args) {
             "  [--generate-only|--judge-only|--no-judge] [--web] [--no-parallel]\n"
             "  [--answer-tokens N] [--judge-tokens N] [--judge-batch N]\n"
             "  [--generation-attempts N] [--judge-attempts N] [--json]\n"
+            "  [--no-rubric] [--web-pages N] [--web-depth N] [--web-chars N]\n"
+            "  [--web-providers a,b,c]\n"
         );
     };
     if (args.size() < 2 || args[1] == "help" || args[1] == "-h" || args[1] == "--help") {
@@ -1305,8 +1307,24 @@ CliResult cmd_benchmark(const std::vector<std::string>& args) {
     config.generate_answers = !has_flag(args, "--judge-only");
     config.judge_answers = !has_flag(args, "--no-judge") && !has_flag(args, "--generate-only");
     config.enable_web_tools = has_flag(args, "--web");
+    config.inject_rubric = !has_flag(args, "--no-rubric");
     config.parallel_branches = !has_flag(args, "--no-parallel");
     config.write_markdown = !has_flag(args, "--no-markdown");
+    const std::string web_providers = optional_flag_value(args, "--web-providers");
+    if (!web_providers.empty()) {
+        std::string cur;
+        for (char c : web_providers) {
+            if (c == ',' || c == ' ') {
+                if (!cur.empty()) {
+                    config.web_providers.push_back(cur);
+                    cur.clear();
+                }
+            } else {
+                cur.push_back(c);
+            }
+        }
+        if (!cur.empty()) config.web_providers.push_back(cur);
+    }
 
     std::string parse_error;
     auto parse_size = [&](const char* flag, std::size_t& target) {
@@ -1346,7 +1364,10 @@ CliResult cmd_benchmark(const std::vector<std::string>& args) {
         !parse_int("--judge-batch", config.judge_batch_size) ||
         !parse_int("--generation-attempts", config.generation_attempts) ||
         !parse_int("--judge-attempts", config.judge_attempts) ||
-        !parse_int("--max-parallel", config.max_parallel_branches)) {
+        !parse_int("--max-parallel", config.max_parallel_branches) ||
+        !parse_int("--web-pages", config.web_max_pages) ||
+        !parse_int("--web-depth", config.web_max_depth) ||
+        !parse_int("--web-chars", config.web_context_max_chars)) {
         return fail(2, parse_error + "\n");
     }
 
