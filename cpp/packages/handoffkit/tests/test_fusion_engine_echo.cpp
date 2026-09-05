@@ -465,6 +465,60 @@ void test_run_budget_exceeded() {
     std::cout << "test_run_budget_exceeded ok calls=" << provider_calls << "\n";
 }
 
+void test_run_budget_dag_parallel() {
+    FusionConfig cfg;
+    cfg.task = "Compare three deployment strategies with constraints.";
+    cfg.mode = FusionMode::Dag;
+    cfg.profile = FusionProfileId::Neutral;
+    cfg.provider = "echo";
+    cfg.write_files = false;
+    cfg.cache.enabled = false;
+    cfg.parallel_branches = true;
+    cfg.max_parallel_branches = 2;
+    cfg.max_total_ms = 1;
+    int provider_calls = 0;
+    handoffkit::AnyProvider slow("echo", [&](std::string_view prompt, const handoffkit::GenerateOptions& options) {
+        (void)prompt;
+        (void)options;
+        ++provider_calls;
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        return handoffkit::Result<std::string>(std::string("echo"));
+    });
+    FusionEngine engine;
+    auto run = engine.run_with_provider(cfg, std::move(slow));
+    assert(run);
+    assert(!run.value().success);
+    assert(run.value().error.find("budget_exceeded") != std::string::npos);
+    assert(run.value().report.contains("budget"));
+    assert(run.value().report["budget"].value("max_total_ms", 0) == 1);
+    std::cout << "test_run_budget_dag_parallel ok calls=" << provider_calls << "\n";
+}
+
+void test_run_with_provider_report_budget() {
+    FusionConfig cfg;
+    cfg.task = "List three benefits of dual-branch agent fusion.";
+    cfg.mode = FusionMode::Lean;
+    cfg.profile = FusionProfileId::Neutral;
+    cfg.provider = "echo";
+    cfg.write_files = false;
+    cfg.cache.enabled = false;
+    cfg.max_total_ms = 60000;
+    handoffkit::AnyProvider fast("echo", [](std::string_view prompt, const handoffkit::GenerateOptions& options) {
+        (void)prompt;
+        (void)options;
+        return handoffkit::Result<std::string>(std::string("echo"));
+    });
+    FusionEngine engine;
+    auto run = engine.run_with_provider(cfg, std::move(fast));
+    assert(run);
+    assert(run.value().success);
+    assert(run.value().report.contains("budget"));
+    assert(run.value().report["budget"].value("max_total_ms", 0) == 60000);
+    assert(run.value().report["budget"].value("exceeded", true) == false);
+    assert(run.value().report.contains("call_steps"));
+    std::cout << "test_run_with_provider_report_budget ok\n";
+}
+
 void test_run_budget_report() {
     FusionConfig cfg;
     cfg.task = "List three benefits of dual-branch agent fusion.";
@@ -497,6 +551,8 @@ int main() {
     test_dag_parallel_execution_report();
     test_disk_report_has_call_steps_and_cache_stats();
     test_run_budget_exceeded();
+    test_run_budget_dag_parallel();
+    test_run_with_provider_report_budget();
     test_run_budget_report();
     std::cout << "All fusion engine tests passed\n";
     return 0;

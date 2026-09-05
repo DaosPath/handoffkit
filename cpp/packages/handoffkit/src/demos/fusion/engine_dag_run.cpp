@@ -95,6 +95,7 @@ Result<FusionRunResult> FusionEngine::run_dag(const FusionConfig& config, AnyPro
                         return result;
                     }
                     FusionEngine worker;
+                    worker.adopt_run_deadline(*this);
                     FusionRunResult local;
                     local.config = config;
                     auto out = worker.call_llm(

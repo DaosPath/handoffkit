@@ -27,6 +27,10 @@ public:
     /// Run with an already-built provider (tests / custom wraps).
     Result<FusionRunResult> run_with_provider(const FusionConfig& config, AnyProvider provider);
 
+    /// Inherit the wall-clock deadline from a parent engine (parallel DAG
+    /// branch workers). Must be called before the worker's first call_llm.
+    void adopt_run_deadline(const FusionEngine& parent);
+
 private:
     std::shared_ptr<FusionCache> cache_;
     /// Wall-clock run deadline (unix ms, 0 = none). Set per run(); read by
@@ -34,6 +38,11 @@ private:
     std::atomic<std::int64_t> run_deadline_ms_{0};
 
     [[nodiscard]] bool over_budget() const;
+
+    /// Attach call_steps/cache_stats/budget observability to run.report.
+    /// Idempotent: safe to call on both run() and run_with_provider() paths.
+    void enrich_report_observability(FusionRunResult& run, const FusionConfig& config,
+                                     std::int64_t run_start_ms);
 
     Result<std::string> call_llm(
         FusionRunResult& run,

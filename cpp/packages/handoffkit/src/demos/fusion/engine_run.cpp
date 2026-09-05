@@ -25,6 +25,10 @@ bool FusionEngine::over_budget() const {
     return deadline > 0 && fusion_now_unix_ms() >= deadline;
 }
 
+void FusionEngine::adopt_run_deadline(const FusionEngine& parent) {
+    run_deadline_ms_.store(parent.run_deadline_ms_.load());
+}
+
 Result<std::string> FusionEngine::call_llm(
     FusionRunResult& run,
     AnyProvider& provider,
@@ -81,6 +85,18 @@ Result<std::string> FusionEngine::call_llm(
     auto out = provider.generate(full_prompt, opt);
     const auto t1 = fusion_now_unix_ms();
 
+    if (over_budget()) {
+        FusionCallRecord rec;
+        rec.step_id = step_id;
+        rec.role_id = role_id;
+        rec.agent_name = agent_name;
+        rec.error = "budget_exceeded";
+        rec.latency_ms = static_cast<int>(t1 - t0);
+        run.metrics.calls.push_back(rec);
+        ++run.metrics.llm_calls;
+        return Error::invalid_argument("budget_exceeded", "max_total_ms");
+    }
+
     FusionCallRecord rec;
     rec.step_id = std::move(step_id);
     rec.role_id = std::move(role_id);
@@ -118,17 +134,51 @@ Result<FusionRunResult> FusionEngine::run_with_provider(const FusionConfig& conf
         }
     } deadline_guard{this};
 
+    Result<FusionRunResult> result = Error::invalid_argument("unknown mode");
     switch (config.mode) {
         case FusionMode::Lean:
-            return run_lean_ultra(config, std::move(provider), false);
+            result = run_lean_ultra(config, std::move(provider), false);
+            break;
         case FusionMode::Ultra:
-            return run_lean_ultra(config, std::move(provider), true);
+            result = run_lean_ultra(config, std::move(provider), true);
+            break;
         case FusionMode::Dag:
-            return run_dag(config, std::move(provider));
+            result = run_dag(config, std::move(provider));
+            break;
         case FusionMode::Panel:
-            return run_panel(config);
+            result = run_panel(config);
+            break;
     }
-    return Error::invalid_argument("unknown mode");
+    if (!result) return result;
+    // Direct callers (draco, tests, external consumers) get the same
+    // budget/call_steps observability as the run() path.
+    enrich_report_observability(result.value(), config, run_start_ms);
+    return result;
+}
+
+void FusionEngine::enrich_report_observability(FusionRunResult& run, const FusionConfig& config,
+                                               std::int64_t run_start_ms) {
+    if (cache_) {
+        run.metrics.cache = cache_->stats();
+        run.report["cache_stats"] = cache_->stats().to_json();
+        run.report["cache_hit_rate"] = cache_->stats().hit_rate();
+    }
+    run.report["budget"] = {
+        {"max_total_ms", config.max_total_ms},
+        {"elapsed_ms", static_cast<int>(fusion_now_unix_ms() - run_start_ms)},
+        {"exceeded", over_budget()},
+    };
+    nlohmann::json steps = nlohmann::json::array();
+    for (const auto& c : run.metrics.calls) {
+        steps.push_back({
+            {"step_id", c.step_id},
+            {"role_id", c.role_id},
+            {"agent_name", c.agent_name},
+            {"cache_hit", c.cache_hit},
+            {"latency_ms", c.latency_ms},
+        });
+    }
+    run.report["call_steps"] = std::move(steps);
 }
 
 Result<FusionRunResult> FusionEngine::run(const FusionConfig& config) {
@@ -144,27 +194,7 @@ Result<FusionRunResult> FusionEngine::run(const FusionConfig& config) {
         }
     } deadline_guard{this};
     auto enrich_report_observability = [&](FusionRunResult& run) {
-        if (cache_) {
-            run.metrics.cache = cache_->stats();
-            run.report["cache_stats"] = cache_->stats().to_json();
-            run.report["cache_hit_rate"] = cache_->stats().hit_rate();
-        }
-        run.report["budget"] = {
-            {"max_total_ms", config.max_total_ms},
-            {"elapsed_ms", static_cast<int>(fusion_now_unix_ms() - run_start_ms)},
-            {"exceeded", over_budget()},
-        };
-        nlohmann::json steps = nlohmann::json::array();
-        for (const auto& c : run.metrics.calls) {
-            steps.push_back({
-                {"step_id", c.step_id},
-                {"role_id", c.role_id},
-                {"agent_name", c.agent_name},
-                {"cache_hit", c.cache_hit},
-                {"latency_ms", c.latency_ms},
-            });
-        }
-        run.report["call_steps"] = std::move(steps);
+        this->enrich_report_observability(run, config, run_start_ms);
     };
 
     if (config.mode == FusionMode::Panel) {
@@ -183,8 +213,9 @@ Result<FusionRunResult> FusionEngine::run(const FusionConfig& config) {
     auto result = run_with_provider(config, std::move(provider.value()));
     if (!result) return result;
 
-    // Enrich before write so persisted report includes call_steps/cache_stats.
-    enrich_report_observability(result.value());
+    // Already enriched inside run_with_provider (while the deadline guard is
+    // still alive, so budget.exceeded is accurate). Enrich here only to cover
+    // fields a future mode might skip; budget keys are preserved as-is.
     if (config.write_files) {
         auto arts = write_fusion_run(result.value());
         if (arts) {
