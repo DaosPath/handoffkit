@@ -76,7 +76,9 @@ the draft final answer.
 Opt-in native explorer tools fetch/search pages, convert HTML to Markdown, and
 inject bounded research context. Search providers are selectable via
 `web_providers` (searxng, brave, bing, kagi, mojeek, marginalia, startpage,
-duckduckgo, wikipedia; empty = canonical defaults) and `web_prefer_explore`
+duckduckgo, wikipedia; empty = canonical defaults), SearXNG instances and
+options via `web_searxng_urls/engines/categories/language/safesearch/page`,
+and `web_prefer_explore`
 toggles multi-page explore vs single fetch. Offline map/fixture transports
 remain available for deterministic tests.
 

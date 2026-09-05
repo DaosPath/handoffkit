@@ -136,6 +136,28 @@ ToolRegistry make_fusion_web_tool_registry(browser::TransportPtr transport) {
     return reg;
 }
 
+browser::SearxngOptions fusion_searxng_options(const FusionConfig& config) {
+    browser::SearxngOptions options;
+    options.base_urls = config.web_searxng_urls;
+    options.engines = config.web_searxng_engines;
+    options.categories = config.web_searxng_categories;
+    options.language = config.web_searxng_language;
+    options.safesearch = config.web_searxng_safesearch;
+    options.page = std::max(1, config.web_searxng_page);
+    return options;
+}
+
+nlohmann::json fusion_searxng_tool_arg(const FusionConfig& config) {
+    nlohmann::json arg = nlohmann::json::object();
+    if (!config.web_searxng_urls.empty()) arg["base_urls"] = config.web_searxng_urls;
+    if (!config.web_searxng_engines.empty()) arg["engines"] = config.web_searxng_engines;
+    if (!config.web_searxng_categories.empty()) arg["categories"] = config.web_searxng_categories;
+    if (!config.web_searxng_language.empty()) arg["language"] = config.web_searxng_language;
+    if (config.web_searxng_safesearch >= 0) arg["safesearch"] = config.web_searxng_safesearch;
+    if (config.web_searxng_page > 1) arg["page"] = config.web_searxng_page;
+    return arg;
+}
+
 WebResearchResult gather_web_research(const FusionConfig& config) {
     browser::TransportPtr t;
     if (config.web_transport == "map" || config.web_transport == "fixture" ||
@@ -172,6 +194,7 @@ WebResearchResult gather_web_research(const FusionConfig& config, browser::Trans
         bcfg.context_max_chars = std::max(1000, config.web_context_max_chars);
         bcfg.prefer_explore = config.web_prefer_explore;
         bcfg.providers = config.web_providers;
+        bcfg.searxng = fusion_searxng_options(config);
         bcfg.max_sub_queries = 3;
         bcfg.max_results_per_query = 8;
 
@@ -213,6 +236,8 @@ WebResearchResult gather_web_research(const FusionConfig& config, browser::Trans
                 {"timeout_ms", config.web_timeout_ms},
             };
             if (!config.web_providers.empty()) sc.arguments["providers"] = config.web_providers;
+            const auto searxng_arg = fusion_searxng_tool_arg(config);
+            if (!searxng_arg.empty()) sc.arguments["searxng"] = searxng_arg;
             auto sr = reg.execute(sc);
             ++r.tool_calls;
             nlohmann::json step = {{"tool", "web_search"}, {"query", q}};

@@ -265,17 +265,19 @@ bool valid_engine_token(const std::string& token) {
     return true;
 }
 
-}  // namespace
+/// JS-parity locale normalization: lowercase, keep [a-z-], cap at 12 chars.
+/// Empty result means the explicit value was garbage (fail closed upstream).
+std::string normalize_searxng_language(std::string value) {
+    std::string out;
+    for (char c : value) {
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+        if ((c >= 'a' && c <= 'z') || c == '-') out.push_back(c);
+        if (out.size() >= 12) break;
+    }
+    return out;
+}
 
-struct SearxngOptions {
-    std::vector<std::string> base_urls;
-    std::string base_url;
-    std::vector<std::string> engines;
-    std::vector<std::string> categories;
-    int page = 1;
-    int safesearch = -1;  // -1 = unset, else 0..2
-    std::string language;
-};
+}  // namespace
 
 std::vector<std::pair<std::string, std::string>> searxng_json_search(TransportPtr transport,
                                                                        std::string_view query,
@@ -288,6 +290,10 @@ std::vector<std::pair<std::string, std::string>> searxng_json_search(TransportPt
                                                                        SearxngOptions options) {
     std::vector<std::pair<std::string, std::string>> hits;
     if (!transport || query.empty() || max_results < 1) return hits;
+    if (!options.language.empty()) {
+        options.language = normalize_searxng_language(options.language);
+        if (options.language.empty()) return hits;  // fail closed on explicit garbage
+    }
     std::vector<std::string> bases;
     for (auto base : options.base_urls) {
         while (!base.empty() && base.back() == '/') base.pop_back();
@@ -409,6 +415,60 @@ std::vector<std::pair<std::string, std::string>> searxng_json_search(TransportPt
     options.base_urls = split_option_list(getenv_str("HANDOFFKIT_SEARXNG_URLS"));
     options.engines = split_option_list(getenv_str("HANDOFFKIT_SEARXNG_ENGINES"));
     return searxng_json_search(transport, query, max_results, timeout_ms, std::move(options));
+}
+
+Result<SearxngOptions> parse_searxng_options(const nlohmann::json& j) {
+    SearxngOptions options;
+    if (j.is_null() || (j.is_object() && j.empty())) return options;
+    if (!j.is_object()) return Error::invalid_argument("searxng options must be an object", "searxng");
+    auto take_list = [&](const char* key, std::vector<std::string>& target) {
+        const auto it = j.find(key);
+        if (it == j.end() || it->is_null()) return;
+        if (it->is_array()) {
+            for (const auto& item : *it) {
+                if (item.is_string()) {
+                    for (auto& token : split_option_list(item.get<std::string>())) {
+                        target.push_back(std::move(token));
+                    }
+                }
+            }
+            return;
+        }
+        if (it->is_string()) target = split_option_list(it->get<std::string>());
+    };
+    take_list("base_urls", options.base_urls);
+    take_list("baseUrls", options.base_urls);
+    if (j.contains("base_url") && j["base_url"].is_string()) options.base_url = j["base_url"].get<std::string>();
+    if (j.contains("baseUrl") && j["baseUrl"].is_string()) options.base_url = j["baseUrl"].get<std::string>();
+    take_list("engines", options.engines);
+    take_list("categories", options.categories);
+    if (j.contains("page") && !j["page"].is_null()) {
+        if (!j["page"].is_number_integer() || j["page"].get<int>() < 1) {
+            return Error::invalid_argument("searxng page must be an integer >= 1", "searxng.page");
+        }
+        options.page = j["page"].get<int>();
+    }
+    if (j.contains("safesearch") && !j["safesearch"].is_null()) {
+        if (!j["safesearch"].is_number_integer() || j["safesearch"].get<int>() < 0 ||
+            j["safesearch"].get<int>() > 2) {
+            return Error::invalid_argument("searxng safesearch must be 0, 1, or 2", "searxng.safesearch");
+        }
+        options.safesearch = j["safesearch"].get<int>();
+    }
+    if (j.contains("safeSearch") && !j["safeSearch"].is_null()) {
+        if (!j["safeSearch"].is_number_integer() || j["safeSearch"].get<int>() < 0 ||
+            j["safeSearch"].get<int>() > 2) {
+            return Error::invalid_argument("searxng safesearch must be 0, 1, or 2", "searxng.safeSearch");
+        }
+        options.safesearch = j["safeSearch"].get<int>();
+    }
+    if (j.contains("language") && !j["language"].is_null()) {
+        if (!j["language"].is_string() || normalize_searxng_language(j["language"].get<std::string>()).empty()) {
+            return Error::invalid_argument("searxng language must be a locale token", "searxng.language");
+        }
+        options.language = j["language"].get<std::string>();
+    }
+    return options;
 }
 
 /// Key-gated JSON provider helper: env key or fail-closed empty.
@@ -972,7 +1032,8 @@ std::string provider_engine(const std::vector<std::string>& providers) {
 nlohmann::json web_search(std::string_view query, TransportPtr transport, int max_results, int timeout_ms,
                           const std::vector<std::string>& allow_hosts,
                           const std::vector<std::string>& deny_hosts,
-                          const std::vector<std::string>& providers) {
+                          const std::vector<std::string>& providers,
+                          const SearxngOptions& searxng) {
     const std::string q(query);
     max_results = std::max(1, std::min(8, max_results));
     const std::vector<std::string> requested =
@@ -1062,7 +1123,8 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
         } else if (provider == "searxng") {
             const char* base_env = std::getenv("HANDOFFKIT_SEARXNG_URL");
             const char* bases_env = std::getenv("HANDOFFKIT_SEARXNG_URLS");
-            if ((!base_env || std::string(base_env).empty()) &&
+            const bool explicit_bases = !searxng.base_urls.empty() || !searxng.base_url.empty();
+            if (!explicit_bases && (!base_env || std::string(base_env).empty()) &&
                 (!bases_env || std::string(bases_env).empty())) {
                 provider_codes.push_back("provider_unavailable");
                 provider_errors.push_back("searxng: searxng requires HANDOFFKIT_SEARXNG_URL");
@@ -1071,7 +1133,7 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
                 provider_trace.push_back(trace);
                 continue;
             }
-            hits = searxng_json_search(transport, q, max_results, timeout_ms);
+            hits = searxng_json_search(transport, q, max_results, timeout_ms, searxng);
         } else if (provider == "brave" || provider == "bing" || provider == "kagi") {
             const char* env_name = provider == "brave" ? "HANDOFFKIT_BRAVE_API_KEY"
                 : provider == "bing" ? "HANDOFFKIT_BING_API_KEY" : "HANDOFFKIT_KAGI_API_KEY";
@@ -1264,7 +1326,7 @@ WebResearchResult gather_deep_web_research(const WebResearchConfig& config, Tran
             const auto t0 = Clock::now();
             const auto search = web_search(subquery, transport, base.max_results_per_query,
                                            base.timeout_ms, base.allow_hosts, base.deny_hosts,
-                                           base.providers);
+                                           base.providers, base.searxng);
             nlohmann::json step = {
                 {"tool", "web_search"},
                 {"query", subquery},
@@ -1401,7 +1463,7 @@ WebResearchResult gather_web_research(const WebResearchConfig& config, Transport
             const auto t0 = Clock::now();
             const auto search = web_search(q, transport, std::min(8, std::max(4, max_pages * 2)),
                                            config.timeout_ms, config.allow_hosts, config.deny_hosts,
-                                           config.providers);
+                                           config.providers, config.searxng);
             nlohmann::json step = {{"tool", "web_search"},
                                    {"query", q},
                                    {"success", search.value("success", false)},
@@ -1598,9 +1660,15 @@ Tool make_web_search_tool(TransportPtr default_transport, std::vector<std::strin
                     if (provider.is_string()) providers.push_back(provider.get<std::string>());
                 }
             }
+            SearxngOptions searxng;
+            if (args.contains("searxng") && !args["searxng"].is_null()) {
+                auto parsed = parse_searxng_options(args["searxng"]);
+                if (!parsed) return parsed.error();
+                searxng = std::move(parsed.value());
+            }
             const auto t = resolve_tool_transport(args, transport);
             return web_search(args["query"].get<std::string>(), t, max_results, timeout_ms,
-                              allow_hosts, deny_hosts, providers);
+                              allow_hosts, deny_hosts, providers, searxng);
         },
         nlohmann::json{
             {"type", "object"},
@@ -1609,9 +1677,10 @@ Tool make_web_search_tool(TransportPtr default_transport, std::vector<std::strin
               {"max_results", {{"type", "integer"}}},
               {"timeout_ms", {{"type", "integer"}}},
               {"transport", {{"type", "string"}}},
-              {"allow_hosts", {{"type", "array"}}},
-              {"deny_hosts", {{"type", "array"}}},
-              {"providers", {{"type", "array"}}}}},
+               {"allow_hosts", {{"type", "array"}}},
+               {"deny_hosts", {{"type", "array"}}},
+               {"providers", {{"type", "array"}}},
+               {"searxng", {{"type", "object"}}}}},
             {"required", nlohmann::json::array({"query"})},
         });
 }
@@ -1655,6 +1724,11 @@ Tool make_web_research_tool(TransportPtr default_transport, std::vector<std::str
             if (args.contains("seed_only") && args["seed_only"].is_boolean()) {
                 cfg.seed_only = args["seed_only"].get<bool>();
             }
+            if (args.contains("searxng") && !args["searxng"].is_null()) {
+                auto parsed = parse_searxng_options(args["searxng"]);
+                if (!parsed) return parsed.error();
+                cfg.searxng = std::move(parsed.value());
+            }
             if (args.contains("seed_urls") && args["seed_urls"].is_array()) {
                 for (const auto& u : args["seed_urls"]) {
                     if (u.is_string()) cfg.seed_urls.push_back(u.get<std::string>());
@@ -1679,9 +1753,10 @@ Tool make_web_research_tool(TransportPtr default_transport, std::vector<std::str
               {"allow_hosts", {{"type", "array"}}},
               {"deny_hosts", {{"type", "array"}}},
               {"providers", {{"type", "array"}}},
-              {"seed_only", {{"type", "boolean"}}},
-              {"seed_urls", {{"type", "array"}}},
-              {"format", {{"type", "string"}}}}},
+               {"seed_only", {{"type", "boolean"}}},
+               {"seed_urls", {{"type", "array"}}},
+               {"searxng", {{"type", "object"}}},
+               {"format", {{"type", "string"}}}}},
             {"required", nlohmann::json::array({"query"})},
         });
 }
@@ -1733,6 +1808,11 @@ Tool make_deep_web_research_tool(TransportPtr default_transport, std::vector<std
                 for (const auto& u : args["seed_urls"]) if (u.is_string()) cfg.seed_urls.push_back(u.get<std::string>());
             }
             if (args.contains("format") && args["format"].is_string()) cfg.format = args["format"].get<std::string>();
+            if (args.contains("searxng") && !args["searxng"].is_null()) {
+                auto parsed = parse_searxng_options(args["searxng"]);
+                if (!parsed) return parsed.error();
+                cfg.searxng = std::move(parsed.value());
+            }
             const auto t = resolve_tool_transport(args, transport);
             WebResearchResult pack = gather_deep_web_research(cfg, t);
             auto out = pack.to_json();
@@ -1756,6 +1836,7 @@ Tool make_deep_web_research_tool(TransportPtr default_transport, std::vector<std
                 {"deny_hosts", {{"type", "array"}}},
                 {"providers", {{"type", "array"}}},
                 {"seed_urls", {{"type", "array"}}},
+                {"searxng", {{"type", "object"}}},
                 {"format", {{"type", "string"}}},
                 {"transport", {{"type", "string"}}},
             }},

@@ -558,6 +558,12 @@ nlohmann::json FusionConfig::to_json() const {
         {"web_timeout_ms", web_timeout_ms},
         {"web_prefer_explore", web_prefer_explore},
         {"web_providers", web_providers},
+        {"web_searxng_urls", web_searxng_urls},
+        {"web_searxng_engines", web_searxng_engines},
+        {"web_searxng_categories", web_searxng_categories},
+        {"web_searxng_language", web_searxng_language},
+        {"web_searxng_safesearch", web_searxng_safesearch},
+        {"web_searxng_page", web_searxng_page},
         {"extra", extra.is_null() ? nlohmann::json::object() : extra},
     };
 }
@@ -655,6 +661,26 @@ Result<FusionConfig> FusionConfig::from_json(const nlohmann::json& j) {
         for (const auto& p : j.at("web_providers")) {
             if (p.is_string()) c.web_providers.push_back(p.get<std::string>());
         }
+    }
+    auto take_string_list = [&](const char* key, std::vector<std::string>& target) {
+        if (j.contains(key) && j.at(key).is_array()) {
+            target.clear();
+            for (const auto& p : j.at(key)) {
+                if (p.is_string()) target.push_back(p.get<std::string>());
+            }
+        }
+    };
+    take_string_list("web_searxng_urls", c.web_searxng_urls);
+    take_string_list("web_searxng_engines", c.web_searxng_engines);
+    take_string_list("web_searxng_categories", c.web_searxng_categories);
+    if (j.contains("web_searxng_language") && j.at("web_searxng_language").is_string()) {
+        c.web_searxng_language = j.at("web_searxng_language").get<std::string>();
+    }
+    if (j.contains("web_searxng_safesearch") && j.at("web_searxng_safesearch").is_number_integer()) {
+        c.web_searxng_safesearch = j.at("web_searxng_safesearch").get<int>();
+    }
+    if (j.contains("web_searxng_page") && j.at("web_searxng_page").is_number_integer()) {
+        c.web_searxng_page = std::max(1, j.at("web_searxng_page").get<int>());
     }
     if (j.contains("extra") && j.at("extra").is_object()) c.extra = j.at("extra");
     if (c.task.empty()) return Error::invalid_argument("task is required", "task");

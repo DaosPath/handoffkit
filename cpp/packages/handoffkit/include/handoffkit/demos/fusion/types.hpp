@@ -222,6 +222,14 @@ struct FusionConfig {
     /// kagi, mojeek, marginalia, startpage, duckduckgo, wikipedia). Empty =
     /// canonical defaults. Serialized snake_case like the other runtimes.
     std::vector<std::string> web_providers;
+    /// SearXNG instance/option selection for fusion web research. Empty lists
+    /// and page=1/safesearch=-1/language="" mean "use env/defaults".
+    std::vector<std::string> web_searxng_urls;
+    std::vector<std::string> web_searxng_engines;
+    std::vector<std::string> web_searxng_categories;
+    std::string web_searxng_language;
+    int web_searxng_safesearch = -1;  // -1 = unset, else 0..2
+    int web_searxng_page = 1;
 
     nlohmann::json to_json() const;
     static Result<FusionConfig> from_json(const nlohmann::json& j);

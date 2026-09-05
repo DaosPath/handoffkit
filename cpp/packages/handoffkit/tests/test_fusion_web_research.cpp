@@ -308,6 +308,62 @@ void test_keyless_html_engines() {
     std::cout << "test_keyless_html_engines ok\n";
 }
 
+void test_parse_searxng_options() {
+    using handoffkit::browser::parse_searxng_options;
+    auto full = parse_searxng_options(nlohmann::json{
+        {"base_urls", nlohmann::json::array({"https://sx.test"})},
+        {"engines", "wikipedia, wikidata"},
+        {"categories", nlohmann::json::array({"general"})},
+        {"page", 2},
+        {"safesearch", 1},
+        {"language", "ES"},
+    });
+    assert(full);
+    assert(full.value().base_urls.size() == 1);
+    assert(full.value().engines.size() == 2);
+    assert(full.value().categories == std::vector<std::string>{"general"});
+    assert(full.value().page == 2);
+    assert(full.value().safesearch == 1);
+    assert(full.value().language == "ES");
+
+    auto camel = parse_searxng_options(nlohmann::json{
+        {"baseUrl", "https://sx2.test/"},
+        {"safeSearch", 0},
+    });
+    assert(camel);
+    assert(camel.value().base_url == "https://sx2.test/");
+    assert(camel.value().safesearch == 0);
+
+    auto def = parse_searxng_options(nlohmann::json(nullptr));
+    assert(def);
+    assert(def.value().page == 1 && def.value().safesearch == -1);
+
+    assert(!parse_searxng_options(nlohmann::json{{"page", 0}}));
+    assert(!parse_searxng_options(nlohmann::json{{"safesearch", 3}}));
+    assert(!parse_searxng_options(nlohmann::json{{"language", "!!!"}}));
+    assert(!parse_searxng_options(nlohmann::json::array()));
+    std::cout << "test_parse_searxng_options ok\n";
+}
+
+void test_searxng_explicit_options_fixture() {
+    auto map = handoffkit::browser::make_fixture_map_transport();
+    map->set_page(
+        "https://sx.test/search?q=OpenAI&format=json&engines=wikipedia",
+        R"({"results":[{"title":"OpenAI API","url":"https://openai.com/api"}]})");
+    handoffkit::browser::SearxngOptions options;
+    options.base_urls = {"https://sx.test"};
+    options.engines = {"wikipedia"};
+    const auto result = handoffkit::browser::web_search(
+        "OpenAI", map, 4, 15000, {}, {}, {"searxng"}, options);
+    assert(result.value("success", false));
+    assert(result.value("engine", "") == "searxng_json");
+    assert(result.value("providers_used", nlohmann::json::array()).at(0) == "searxng");
+    const auto results = result.value("results", nlohmann::json::array());
+    assert(results.size() == 1);
+    assert(results.at(0).value("url", "") == "https://openai.com/api");
+    std::cout << "test_searxng_explicit_options_fixture ok\n";
+}
+
 int main() {
     test_extract_urls();
     test_search_query_from_draco_wrapper();
@@ -319,6 +375,8 @@ int main() {
     test_google_provider_and_ad_filter();
     test_key_gated_json_providers();
     test_keyless_html_engines();
+    test_parse_searxng_options();
+    test_searxng_explicit_options_fixture();
     std::cout << "ALL test_fusion_web_research PASSED\n";
     return 0;
 }
