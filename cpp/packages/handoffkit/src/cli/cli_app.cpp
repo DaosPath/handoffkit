@@ -47,13 +47,6 @@ namespace handoffkit {
 namespace cli {
 namespace {
 
-std::string require_arg(const std::vector<std::string>& args, std::size_t idx, const char* name) {
-    if (idx >= args.size()) {
-        return {};
-    }
-    return args[idx];
-}
-
 CliResult ok(std::string out) {
     return CliResult{0, std::move(out), {}};
 }

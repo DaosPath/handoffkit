@@ -557,6 +557,7 @@ nlohmann::json FusionConfig::to_json() const {
         {"web_context_max_chars", web_context_max_chars},
         {"web_timeout_ms", web_timeout_ms},
         {"web_prefer_explore", web_prefer_explore},
+        {"web_providers", web_providers},
         {"extra", extra.is_null() ? nlohmann::json::object() : extra},
     };
 }
@@ -649,6 +650,12 @@ Result<FusionConfig> FusionConfig::from_json(const nlohmann::json& j) {
     if (j.contains("web_context_max_chars")) c.web_context_max_chars = j.at("web_context_max_chars").get<int>();
     if (j.contains("web_timeout_ms")) c.web_timeout_ms = j.at("web_timeout_ms").get<int>();
     if (j.contains("web_prefer_explore")) c.web_prefer_explore = j.at("web_prefer_explore").get<bool>();
+    if (j.contains("web_providers") && j.at("web_providers").is_array()) {
+        c.web_providers.clear();
+        for (const auto& p : j.at("web_providers")) {
+            if (p.is_string()) c.web_providers.push_back(p.get<std::string>());
+        }
+    }
     if (j.contains("extra") && j.at("extra").is_object()) c.extra = j.at("extra");
     if (c.task.empty()) return Error::invalid_argument("task is required", "task");
     if (c.branch_count < 2) c.branch_count = 2;
@@ -780,6 +787,11 @@ std::string make_fusion_run_id() {
 std::int64_t fusion_now_unix_ms() {
     using namespace std::chrono;
     return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+}
+
+std::int64_t fusion_now_steady_ms() {
+    using namespace std::chrono;
+    return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
 }
 
 }  // namespace fusion

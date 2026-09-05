@@ -1213,7 +1213,6 @@ WebResearchResult gather_deep_web_research(const WebResearchConfig& config, Tran
     base.max_depth = std::max(0, std::min(4, config.max_depth));
     base.max_sub_queries = std::max(1, std::min(8, config.max_sub_queries));
     base.max_results_per_query = std::max(1, std::min(20, config.max_results_per_query));
-    base.prefer_explore = true;
     base.auto_search = false;
     base.seed_only = false;
     if (!transport) transport = make_transport("http");
@@ -1700,6 +1699,10 @@ Tool make_deep_web_research_tool(TransportPtr default_transport, std::vector<std
             WebResearchConfig cfg;
             if (!configured_providers.empty()) cfg.providers = configured_providers;
             cfg.query = args["query"].get<std::string>();
+            cfg.prefer_explore = true;  // historical default for the deep tool
+            if (args.contains("prefer_explore") && args["prefer_explore"].is_boolean()) {
+                cfg.prefer_explore = args["prefer_explore"].get<bool>();
+            }
             if (args.contains("task") && args["task"].is_string()) cfg.task = args["task"].get<std::string>();
             if (args.contains("max_pages") && args["max_pages"].is_number_integer()) {
                 cfg.max_pages = std::max(1, std::min(100, args["max_pages"].get<int>()));
@@ -1748,6 +1751,7 @@ Tool make_deep_web_research_tool(TransportPtr default_transport, std::vector<std
                 {"timeout_ms", {{"type", "integer"}}},
                 {"context_max_chars", {{"type", "integer"}}},
                 {"auto_search", {{"type", "boolean"}}},
+                {"prefer_explore", {{"type", "boolean"}}},
                 {"allow_hosts", {{"type", "array"}}},
                 {"deny_hosts", {{"type", "array"}}},
                 {"providers", {{"type", "array"}}},

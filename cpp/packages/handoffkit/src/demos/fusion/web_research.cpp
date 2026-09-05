@@ -1,5 +1,7 @@
 #include <handoffkit/demos/fusion/web_research.hpp>
 #include <handoffkit/demos/fusion/prompt.hpp>
+#include <handoffkit/demos/fusion/text_pipeline.hpp>
+#include <handoffkit/util/text.hpp>
 #include <handoffkit/browser/explorer.hpp>
 #include <handoffkit/browser/html_extract.hpp>
 #include <handoffkit/browser/tools.hpp>
@@ -111,21 +113,8 @@ std::string make_search_query_from_task(std::string_view task, std::size_t max_c
             break;
         }
     }
-    // Collapse whitespace
-    std::string out;
-    out.reserve(s.size());
-    bool space = false;
-    for (char c : s) {
-        if (std::isspace(static_cast<unsigned char>(c))) {
-            if (!out.empty()) space = true;
-            continue;
-        }
-        if (space) {
-            out.push_back(' ');
-            space = false;
-        }
-        out.push_back(c);
-    }
+    // Collapse whitespace (trimmed: the shared helper keeps one edge space)
+    std::string out = text::trim(collapse_whitespace(s));
     while (!out.empty() && (out.front() == ':' || std::isspace(static_cast<unsigned char>(out.front())))) {
         out.erase(out.begin());
     }
@@ -181,7 +170,8 @@ WebResearchResult gather_web_research(const FusionConfig& config, browser::Trans
         bcfg.max_depth = config.web_max_depth;
         bcfg.timeout_ms = config.web_timeout_ms > 0 ? config.web_timeout_ms : 20000;
         bcfg.context_max_chars = std::max(1000, config.web_context_max_chars);
-        bcfg.prefer_explore = true;
+        bcfg.prefer_explore = config.web_prefer_explore;
+        bcfg.providers = config.web_providers;
         bcfg.max_sub_queries = 3;
         bcfg.max_results_per_query = 8;
 
@@ -222,6 +212,7 @@ WebResearchResult gather_web_research(const FusionConfig& config, browser::Trans
                 {"max_results", std::min(4, max_pages)},
                 {"timeout_ms", config.web_timeout_ms},
             };
+            if (!config.web_providers.empty()) sc.arguments["providers"] = config.web_providers;
             auto sr = reg.execute(sc);
             ++r.tool_calls;
             nlohmann::json step = {{"tool", "web_search"}, {"query", q}};

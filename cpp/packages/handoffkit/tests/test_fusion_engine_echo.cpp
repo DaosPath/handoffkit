@@ -491,6 +491,7 @@ void test_run_budget_dag_parallel() {
     assert(run.value().error.find("budget_exceeded") != std::string::npos);
     assert(run.value().report.contains("budget"));
     assert(run.value().report["budget"].value("max_total_ms", 0) == 1);
+    assert(run.value().report["budget"].value("exceeded", false) == true);
     std::cout << "test_run_budget_dag_parallel ok calls=" << provider_calls << "\n";
 }
 
@@ -517,6 +518,24 @@ void test_run_with_provider_report_budget() {
     assert(run.value().report["budget"].value("exceeded", true) == false);
     assert(run.value().report.contains("call_steps"));
     std::cout << "test_run_with_provider_report_budget ok\n";
+}
+
+void test_config_web_providers_round_trip() {
+    FusionConfig cfg;
+    cfg.task = "round trip";
+    cfg.web_providers = {"searxng", "brave"};
+    cfg.web_prefer_explore = false;
+    cfg.max_total_ms = 1234;
+    const auto j = cfg.to_json();
+    assert(j.value("web_providers", nlohmann::json::array()).size() == 2);
+    assert(j.value("web_prefer_explore", true) == false);
+    assert(j.value("max_total_ms", 0) == 1234);
+    auto back = FusionConfig::from_json(j);
+    assert(back);
+    assert(back.value().web_providers == cfg.web_providers);
+    assert(back.value().web_prefer_explore == false);
+    assert(back.value().max_total_ms == 1234);
+    std::cout << "test_config_web_providers_round_trip ok\n";
 }
 
 void test_run_budget_report() {
@@ -553,6 +572,7 @@ int main() {
     test_run_budget_exceeded();
     test_run_budget_dag_parallel();
     test_run_with_provider_report_budget();
+    test_config_web_providers_round_trip();
     test_run_budget_report();
     std::cout << "All fusion engine tests passed\n";
     return 0;

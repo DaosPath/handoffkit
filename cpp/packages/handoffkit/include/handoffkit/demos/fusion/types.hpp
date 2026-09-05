@@ -218,6 +218,10 @@ struct FusionConfig {
     int web_timeout_ms = 20000;
     /// Prefer web_explore multi-page for first seed when depth>0.
     bool web_prefer_explore = true;
+    /// Search providers for fusion web research (e.g. searxng, brave, bing,
+    /// kagi, mojeek, marginalia, startpage, duckduckgo, wikipedia). Empty =
+    /// canonical defaults. Serialized snake_case like the other runtimes.
+    std::vector<std::string> web_providers;
 
     nlohmann::json to_json() const;
     static Result<FusionConfig> from_json(const nlohmann::json& j);
@@ -298,6 +302,8 @@ struct FusionRunResult {
 
 [[nodiscard]] std::string make_fusion_run_id();
 [[nodiscard]] std::int64_t fusion_now_unix_ms();
+/// Monotonic clock for budget enforcement (immune to wall-clock jumps).
+[[nodiscard]] std::int64_t fusion_now_steady_ms();
 
 }  // namespace fusion
 }  // namespace demos

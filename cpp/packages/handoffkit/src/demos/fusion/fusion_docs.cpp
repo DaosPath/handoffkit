@@ -74,14 +74,24 @@ the draft final answer.
 ## Web research
 
 Opt-in native explorer tools fetch/search pages, convert HTML to Markdown, and
-inject bounded research context. Offline map/fixture transports remain available
-for deterministic tests.
+inject bounded research context. Search providers are selectable via
+`web_providers` (searxng, brave, bing, kagi, mojeek, marginalia, startpage,
+duckduckgo, wikipedia; empty = canonical defaults) and `web_prefer_explore`
+toggles multi-page explore vs single fetch. Offline map/fixture transports
+remain available for deterministic tests.
 
 ## Observability
 
-FusionRunResult.report includes `call_steps`, `cache_stats`, per-call errors,
+FusionRunResult.report includes `call_steps`, `cache_stats`, `budget`
+(max_total_ms, elapsed_ms, exceeded), per-call errors,
 latencies, prompt hashes, panel analysis, branch overlap, parallel execution
 state, web metrics, handoffs, and artifact paths.
+
+## Wall-clock budget
+
+`max_total_ms` (0 = unlimited) sets a monotonic-clock deadline enforced before
+and after every model call, including parallel DAG branch workers. Overruns
+fail the run with `budget_exceeded`.
 
 ## Bench and quality
 
@@ -97,7 +107,9 @@ scenarios, war-room comparison, and LOC auditing are included.
 
 ## Safety and scope
 
-Fusion lives in the optional demo target, not `handoffkit_core`. Diagnostic
+Fusion lives in the optional demo target, not `handoffkit_core`. The eval
+corpus (bench/medcase/stats/scenarios) and the CLI app are separate static
+libs: demos <- fusion_eval <- cli. Diagnostic
 fixtures and outputs are research/benchmark only and are not clinical advice.
 Python and JavaScript currently provide smaller panel demos, not feature parity
 with the native C++ engine.

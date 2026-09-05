@@ -21,12 +21,12 @@ FusionEngine::FusionEngine(std::shared_ptr<FusionCache> cache) : cache_(std::mov
 void FusionEngine::set_cache(std::shared_ptr<FusionCache> cache) { cache_ = std::move(cache); }
 
 bool FusionEngine::over_budget() const {
-    const std::int64_t deadline = run_deadline_ms_.load();
-    return deadline > 0 && fusion_now_unix_ms() >= deadline;
+    const std::int64_t deadline = run_deadline_steady_ms_.load();
+    return deadline > 0 && fusion_now_steady_ms() >= deadline;
 }
 
 void FusionEngine::adopt_run_deadline(const FusionEngine& parent) {
-    run_deadline_ms_.store(parent.run_deadline_ms_.load());
+    run_deadline_steady_ms_.store(parent.run_deadline_steady_ms_.load());
 }
 
 Result<std::string> FusionEngine::call_llm(
@@ -126,11 +126,11 @@ Result<FusionRunResult> FusionEngine::run_with_provider(const FusionConfig& conf
     if (!v) return v.error();
 
     const auto run_start_ms = fusion_now_unix_ms();
-    run_deadline_ms_.store(config.max_total_ms > 0 ? run_start_ms + config.max_total_ms : 0);
+    run_deadline_steady_ms_.store(config.max_total_ms > 0 ? fusion_now_steady_ms() + config.max_total_ms : 0);
     struct DeadlineClear {
         FusionEngine* engine;
         ~DeadlineClear() {
-            if (engine) engine->run_deadline_ms_.store(0);
+            if (engine) engine->run_deadline_steady_ms_.store(0);
         }
     } deadline_guard{this};
 
@@ -186,11 +186,11 @@ Result<FusionRunResult> FusionEngine::run(const FusionConfig& config) {
         cache_ = std::make_shared<FusionCache>(config.cache);
     }
     const auto run_start_ms = fusion_now_unix_ms();
-    run_deadline_ms_.store(config.max_total_ms > 0 ? run_start_ms + config.max_total_ms : 0);
+    run_deadline_steady_ms_.store(config.max_total_ms > 0 ? fusion_now_steady_ms() + config.max_total_ms : 0);
     struct DeadlineClear {
         FusionEngine* engine;
         ~DeadlineClear() {
-            if (engine) engine->run_deadline_ms_.store(0);
+            if (engine) engine->run_deadline_steady_ms_.store(0);
         }
     } deadline_guard{this};
     auto enrich_report_observability = [&](FusionRunResult& run) {
