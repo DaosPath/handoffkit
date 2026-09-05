@@ -1,5 +1,5 @@
 export const HANDOFFKIT_BROWSER_CORE_VERSION: string;
-export const HANDOFFKIT_BROWSER_REAL_VERSION: "1.20.0-alpha.1";
+export const HANDOFFKIT_BROWSER_REAL_VERSION: "1.20.0-alpha.2";
 export const CONFIG_ENV: "HANDOFFKIT_BROWSER_REAL_CONFIG";
 export const BROWSER_CONTROL_CHANNEL: "browser.control";
 export const BROWSER_CONTROL_OPERATION: "browser:control";

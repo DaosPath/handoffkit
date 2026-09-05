@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/browser-real",
-  "version": "1.20.0-alpha.1",
+  "version": "1.20.0-alpha.2",
   "description": "Supervised Browser Real service for HandoffKit 1.20. Chromium is installed only by an explicit command.",
   "repository": {
     "type": "git",

@@ -25,7 +25,7 @@ import { looksPersonal } from "../src/privacy.js";
 import { GOLD_FIELDS } from "../src/constants.js";
 
 test("runtime version matches v1beta contract", () => {
-  assert.equal(HANDOFFKIT_CLINICAL_VERSION, "1.20.0-v1beta");
+  assert.equal(HANDOFFKIT_CLINICAL_VERSION, "1.20.0-alpha.2");
   assert.equal(CONTRACT_VERSION, HANDOFFKIT_CLINICAL_VERSION);
   assert.equal(OFFICIAL_CASE_COUNT, 897);
   assert.ok(ACTIONS.includes("ask_question"));

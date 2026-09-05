@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/cli",
-  "version": "1.19.5",
+  "version": "1.20.0-alpha.2",
   "description": "Autonomous Node.js CLI and offline demos for HandoffKit.",
   "repository": {
     "type": "git",

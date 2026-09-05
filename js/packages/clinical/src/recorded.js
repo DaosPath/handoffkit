@@ -1,7 +1,7 @@
 export const RECORDED_FIXTURE_ID = "clinical-recorded-run-v1";
 
 export const RECORDED_RUN = Object.freeze({
-  contract_version: "1.20.0-v1beta",
+  contract_version: "1.20.0-alpha.2",
   run_id: "run-recorded-fixture-v1",
   experience: "professional",
   track: "closed_sequential",

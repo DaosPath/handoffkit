@@ -703,33 +703,37 @@ jobs:
           -p handoffkit-protocol -p handoffkit-transport
 
       - name: Configure native ARM64 C++ edge and security tests
-        # 1.19.5 train: HANDOFFKIT_WITH_TLS is 1.20-only (C++ TLS unavailable).
         run: |
           cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build-arm64 \
             -DCMAKE_BUILD_TYPE=Release \
             -DHANDOFFKIT_WITH_HTTP=OFF \
             -DHANDOFFKIT_WITH_CRYPTO=ON \
+            -DHANDOFFKIT_WITH_TLS=ON \
             -DHANDOFFKIT_BUILD_EXAMPLES=OFF \
             -DHANDOFFKIT_BUILD_DEMOS=OFF \
             -DHANDOFFKIT_BUILD_CLI=OFF
 
-      - name: Build and test native ARM64 C++ security routes
-        # 1.19.5 train: test_edge_profiles/test_tls_transport/test_os_keystore/
-        # test_secure_memory/test_durable_scheduler/test_artifact_gate are 1.20-only
-        # targets and C++ TLS is unavailable in 1.19. Keep to existing tests only.
+      - name: Build and test native ARM64 C++ edge and security routes
         run: |
           cmake --build cpp/packages/handoffkit/build-arm64 --parallel 2 \
-            --target test_csp_security test_security_conformance \
-              test_artifact_signatures test_runtime test_native_compute
+            --target test_edge_profiles test_csp_security test_security_conformance test_tls_transport \
+              test_os_keystore test_secure_memory test_durable_scheduler test_artifact_signatures test_artifact_gate test_native_compute
           ctest --test-dir cpp/packages/handoffkit/build-arm64 --output-on-failure \
-            -R '^(test_csp_security|test_security_conformance|test_artifact_signatures|test_runtime|test_native_compute)$'
+            -R '^(test_edge_profiles|test_csp_security|test_security_conformance|test_tls_transport|test_os_keystore|test_secure_memory|test_durable_scheduler|test_artifact_signatures|test_artifact_gate|test_native_compute)$'
+
+      - name: Benchmark native ARM64 C++ TLS handshakes
+        run: |
+          mkdir -p .local-tests
+          cpp/packages/handoffkit/build-arm64/test_tls_transport --benchmark \
+            > .local-tests/cpp-tls-handshake-arm64.json
+          python -c "import json; value=json.load(open('.local-tests/cpp-tls-handshake-arm64.json')); assert value['iterations'] >= 20; assert value['p50_ms'] <= value['p95_ms'] <= value['p99_ms']; assert value['notice'] == 'Environmental measurement - not a performance guarantee.'"
 
       - name: Configure native ARM64 cpp-ml CPU worker
-        # 1.19.5 train: HANDOFFKIT_ML_TLS is 1.20-only and C++ TLS is unavailable.
         run: >
           cmake -S cpp/packages/handoffkit-ml -B cpp/packages/handoffkit-ml/build-arm64
           -DCMAKE_BUILD_TYPE=Release
           -DHANDOFFKIT_ML_LINK_CORE=ON
+          -DHANDOFFKIT_ML_TLS=ON
           -DHANDOFFKIT_ML_BUILD_TESTS=ON
           -DHANDOFFKIT_ML_BUILD_CLI=OFF
           -DHANDOFFKIT_BUILD_TESTS=OFF
@@ -737,12 +741,22 @@ jobs:
           -DHANDOFFKIT_BUILD_CLI=OFF
           -DHANDOFFKIT_BUILD_DEMOS=OFF
 
-      - name: Test native ARM64 cpp-ml CPU worker
+      - name: Test native ARM64 cpp-ml CPU worker and secure gateway
+        env:
+          HANDOFFKIT_CPP_ML_WORKER: ${{ github.workspace }}/cpp/packages/handoffkit-ml/build-arm64/handoffkit-cpp-ml-worker
         run: |
           cmake --build cpp/packages/handoffkit-ml/build-arm64 --parallel 2
           ctest --test-dir cpp/packages/handoffkit-ml/build-arm64 --output-on-failure
-        # 1.19.5 train: the bidirectional C++ TCP/TLS matrix
-        # (cpp/packages/handoffkit-ml/tests/interop) is 1.20-only.
+          (cd go/handoffkit && go test -tags=cppmlintegration -race ./mlgateway)
+
+      - name: Test bidirectional Node/Go/Rust and C++ TCP matrix on Linux ARM64
+        env:
+          HANDOFFKIT_CPP_ML_WORKER: ${{ github.workspace }}/cpp/packages/handoffkit-ml/build-arm64/handoffkit-cpp-ml-worker
+        run: |
+          python cpp/packages/handoffkit-ml/tests/interop/test_tcp_interoperability.py \
+            "$HANDOFFKIT_CPP_ML_WORKER" \
+            > .local-tests/cpp-tcp-interoperability-linux-arm64.json
+          python -c "import json; value=json.load(open('.local-tests/cpp-tcp-interoperability-linux-arm64.json')); assert set(value['clients']) == {'python','node','go','rust'}; assert set(value['reverse_servers']) == {'python','node','go','rust'}; assert all(item['protocol'] == 'TLSv1.3' for item in value['clients'].values()); assert all(item['protocol'] == 'TLSv1.3' for item in value['reverse_servers'].values())"
 
   arm64-macos:
     name: macOS ARM64 runtime qualification
@@ -799,12 +813,11 @@ jobs:
           (cd go/handoffkit && go test -race ./security ./contract ./transport)
           cargo test --manifest-path rust/Cargo.toml --locked -p handoffkit-protocol -p handoffkit-transport
 
-      # 1.19.5 train: native C++ is skipped on macOS ARM64. Apple libc++
-      # provides no std::jthread/std::stop_token (used by the bounded native
-      # worker), and C++ TLS plus the cpp-ml TLS worker/TCP matrix are
-      # 1.20-only. Python/JS/Go/Rust security routes above still qualify the
-      # release on macOS ARM64.
-      - name: Note macOS ARM64 C++ scope (1.19.5)
+      # Native C++ is skipped on macOS ARM64: Apple libc++ provides no
+      # std::jthread/std::stop_token (used by the bounded native worker).
+      # Python/JS/Go/Rust security routes above still qualify the release
+      # on macOS ARM64; Linux ARM64 covers the native C++ edge routes.
+      - name: Note macOS ARM64 C++ scope
         run: |
           echo "C++ skipped on macOS ARM64 for 1.19.5 (no Apple jthread/stop_token; C++ TLS is 1.20-only)"
 

@@ -438,7 +438,7 @@ dependencies = [
 
 [[package]]
 name = "handoffkit"
-version = "1.19.5"
+version = "1.20.0-alpha.2"
 dependencies = [
  "handoffkit-contracts",
  "handoffkit-protocol",
@@ -450,7 +450,7 @@ dependencies = [
 
 [[package]]
 name = "handoffkit-browser-core"
-version = "1.20.0-alpha.1"
+version = "1.20.0-alpha.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -458,7 +458,7 @@ dependencies = [
 
 [[package]]
 name = "handoffkit-cli"
-version = "1.19.5"
+version = "1.20.0-alpha.2"
 dependencies = [
  "chrono",
  "handoffkit-protocol",
@@ -470,7 +470,7 @@ dependencies = [
 
 [[package]]
 name = "handoffkit-contracts"
-version = "1.19.5"
+version = "1.20.0-alpha.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -478,7 +478,7 @@ dependencies = [
 
 [[package]]
 name = "handoffkit-protocol"
-version = "1.19.5"
+version = "1.20.0-alpha.2"
 dependencies = [
  "chrono",
  "hex",
@@ -491,7 +491,7 @@ dependencies = [
 
 [[package]]
 name = "handoffkit-runtime"
-version = "1.19.5"
+version = "1.20.0-alpha.2"
 dependencies = [
  "chrono",
  "handoffkit-contracts",
@@ -509,7 +509,7 @@ dependencies = [
 
 [[package]]
 name = "handoffkit-transport"
-version = "1.19.5"
+version = "1.20.0-alpha.2"
 dependencies = [
  "async-trait",
  "base64",

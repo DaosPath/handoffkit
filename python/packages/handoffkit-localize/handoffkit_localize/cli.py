@@ -190,25 +190,25 @@ def main(argv: list[str] | None = None) -> None:
         root = game_root(s)
         bad = 0
         if not root or not root.exists():
-            print("✗ game_root missing — set-game PATH or sample-init")
+            print("X game_root missing — set-game PATH or sample-init")
             bad += 1
         else:
-            print(f"✓ game_root {root}")
+            print(f"ok game_root {root}")
         for role, cfg in s["agents"].items():
             from handoffkit_localize.settings import env_status
 
             st = env_status(cfg["provider"])
             ok = "MISSING" not in st
-            print(f"{'✓' if ok else '✗'} {role}: {cfg['provider']}/{cfg['model']} ({st})")
+            print(f"{'ok' if ok else 'X'} {role}: {cfg['provider']}/{cfg['model']} ({st})")
             if not ok and cfg["provider"] != "ollama":
                 bad += 1
-        print("✓ heuristic quality module ready")
-        print("✓ play via: hk-localize play  (not file://)")
+        print("ok heuristic quality module ready")
+        print("ok play via: hk-localize play  (not file://)")
         if bad:
             raise SystemExit(1)
         print("doctor clean")
     elif cmd == "set-game":
-        print("game_root →", set_game_root(args.path))
+        print("game_root ->", set_game_root(args.path))
     elif cmd == "set-model":
         role = "all" if args.all else args.role
         set_agent(role, provider=args.provider, model=args.model)
@@ -224,7 +224,7 @@ def main(argv: list[str] | None = None) -> None:
         print(json.dumps(rep.to_dict(), ensure_ascii=False, indent=2)[:2000])
     elif cmd == "extract":
         rows = run_extract()
-        print(f"extracted {len(rows)} → {workspace() / 'catalog' / 'strings_en.jsonl'}")
+        print(f"extracted {len(rows)} -> {workspace() / 'catalog' / 'strings_en.jsonl'}")
     elif cmd == "translate":
         langs = (
             [x.strip() for x in args.langs.split(",") if x.strip()]
@@ -262,7 +262,7 @@ def main(argv: list[str] | None = None) -> None:
         dest = Path(args.path) if args.path else workspace() / "sample_quest"
         write_sample_game(dest)
         set_game_root(dest)
-        print(f"PG sample → {dest}")
+        print(f"PG sample -> {dest}")
         print("Play with:  hk-localize play")
     elif cmd == "play":
         _cmd_play(port=args.port)

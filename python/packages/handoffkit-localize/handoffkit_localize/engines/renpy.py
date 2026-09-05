@@ -55,7 +55,10 @@ class RenpyEngine:
     def extract(self, root: Path) -> list[StringRow]:
         seen: dict[str, StringRow] = {}
         for fp in root.rglob("*.rpy"):
-            if any(x in fp.parts for x in ("cache", "saves", "tmp")):
+            # Skip caches/saves AND existing translations under game/tl/**
+            # (those are not English source; scanning them pollutes the catalog
+            # with Spanish/Chinese/Hindi strings and breaks JSONL via U+2028).
+            if any(x in fp.parts for x in ("cache", "saves", "tmp", "tl")):
                 continue
             try:
                 text = fp.read_text(encoding="utf-8", errors="replace")
@@ -63,7 +66,10 @@ class RenpyEngine:
                 continue
             rel = str(fp.relative_to(root))
             for m in STR_RE.finditer(text):
-                s = m.group(1).encode("utf-8").decode("unicode_escape")
+                raw = m.group(1)
+                # unicode_escape mangles non-ASCII (UTF-8 bytes reinterpreted);
+                # only unescape pure-ASCII literals.
+                s = raw.encode("utf-8").decode("unicode_escape") if raw.isascii() else raw
                 if len(s.strip()) < 2:
                     continue
                 if s.startswith(SKIP_PREFIXES):

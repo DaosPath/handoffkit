@@ -1,6 +1,6 @@
 export { HANDOFFKIT_BROWSER_CORE_VERSION } from "@handoffkit/browser-core";
 
-export const HANDOFFKIT_BROWSER_REAL_VERSION = "1.20.0-alpha.1";
+export const HANDOFFKIT_BROWSER_REAL_VERSION = "1.20.0-alpha.2";
 
 export { detectChallenge, isDefaultUserProfile } from "./helpers.js";
 export { BrowserRealClient, connectBrowserRealTls } from "./client.js";

@@ -1,5 +1,5 @@
 export const HK_CSP_VERSION = "1.0";
-export const HANDOFFKIT_CSP_VERSION = "1.19.5";
+export const HANDOFFKIT_CSP_VERSION = "1.20.0-alpha.2";
 
 export const DEFAULT_CHANNEL_CAPACITY = 64;
 export const DEFAULT_MAX_MESSAGE_BYTES = 8 * 1024 * 1024;

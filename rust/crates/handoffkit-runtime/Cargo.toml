@@ -14,8 +14,8 @@ categories = ["asynchronous", "concurrency"]
 
 [dependencies]
 chrono.workspace = true
-handoffkit-contracts = { path = "../handoffkit-contracts", version = "1.19.5" }
-handoffkit-protocol = { path = "../handoffkit-protocol", version = "1.19.5" }
+handoffkit-contracts = { path = "../handoffkit-contracts", version = "1.20.0-alpha.2" }
+handoffkit-protocol = { path = "../handoffkit-protocol", version = "1.20.0-alpha.2" }
 hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true

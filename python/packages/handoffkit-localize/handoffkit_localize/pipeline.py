@@ -39,11 +39,15 @@ def load_catalog() -> list[dict[str, Any]]:
     path = workspace() / "catalog" / "strings_en.jsonl"
     if not path.exists():
         return []
-    return [
-        json.loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    # NOTE: iterate lines (universal newlines) instead of splitlines():
+    # splitlines() also splits on U+2028/U+2029, which json.dumps writes raw
+    # with ensure_ascii=False, fragmenting records.
+    rows: list[dict[str, Any]] = []
+    with path.open(encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                rows.append(json.loads(line))
+    return rows
 
 
 def load_memory(lang: str) -> dict[str, str]:

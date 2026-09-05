@@ -138,7 +138,7 @@ export class ContractParityReport {
 
 export async function buildContractParityReport({
   runtime = "javascript",
-  version = "1.19.5",
+  version = "1.20.0-alpha.2",
   contractsRoot = "",
   contractInventory = null,
   expectedFixtures = DEFAULT_CONTRACT_FIXTURES,
@@ -576,7 +576,7 @@ export class OpenAIProvider extends BaseProvider {
         headers: {
           "Authorization": `Bearer ${this.apiKey}`,
           "Content-Type": "application/json",
-          "User-Agent": "handoffkit/1.19.5",
+          "User-Agent": "handoffkit/1.20.0-alpha.2",
           ...this.headers,
         },
         body: JSON.stringify(payload),
@@ -1854,7 +1854,7 @@ export class ContextRunResult {
     });
   }
 }
-export const HANDOFFKIT_CORE_VERSION = "1.19.5";
+export const HANDOFFKIT_CORE_VERSION = "1.20.0-alpha.2";
 
 export function toJSONValue(value) {
   if (value == null) return value;

@@ -1,5 +1,5 @@
-export const HANDOFFKIT_BROWSER_CORE_VERSION: "1.20.0-alpha.1";
-export const CONTRACT_VERSION: "1.20.0-alpha.1";
+export const HANDOFFKIT_BROWSER_CORE_VERSION: "1.20.0-alpha.2";
+export const CONTRACT_VERSION: "1.20.0-alpha.2";
 export const CONTRACT_FORMAT: "handoffkit.browser.core";
 export const ERROR_CODES: readonly string[];
 export const PRODUCTS: readonly string[];

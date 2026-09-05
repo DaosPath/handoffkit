@@ -28,7 +28,7 @@ import {
 import { RecipeRunner, WorkflowTemplate } from "@handoffkit/recipes";
 import { TemplateScaffolder } from "@handoffkit/templates";
 
-export const VERSION = "1.19.5";
+export const VERSION = "1.20.0-alpha.2";
 
 export function cspDoctor() {
   return JSON.stringify({
@@ -412,8 +412,8 @@ export async function createExtension(name, { output = ".", force = false } = {}
       type: "module",
       engines: { node: ">=18.17.0" },
       dependencies: {
-        "@handoffkit/core": "^1.19.5",
-        "@handoffkit/recipes": "^1.19.5",
+        "@handoffkit/core": "^1.20.0-alpha.2",
+        "@handoffkit/recipes": "^1.20.0-alpha.2",
       },
       scripts: { check: "node --check index.js && node --check tools.js && node --check recipes.js" },
     }, null, 2)}\n`],

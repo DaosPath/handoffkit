@@ -73,7 +73,7 @@ export function cryptoRandomId() {
 }
 
 
-export const HANDOFFKIT_CORE_VERSION = "1.19.5";
+export const HANDOFFKIT_CORE_VERSION = "1.20.0-alpha.2";
 
 export function toJSONValue(value) {
   if (value == null) return value;

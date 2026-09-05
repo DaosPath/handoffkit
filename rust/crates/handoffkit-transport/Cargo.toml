@@ -18,8 +18,8 @@ base64.workspace = true
 chrono.workspace = true
 ed25519-dalek.workspace = true
 futures-util = { version = "0.3", optional = true }
-handoffkit-protocol = { path = "../handoffkit-protocol", version = "1.19.5" }
-handoffkit-runtime = { path = "../handoffkit-runtime", version = "1.19.5" }
+handoffkit-protocol = { path = "../handoffkit-protocol", version = "1.20.0-alpha.2" }
+handoffkit-runtime = { path = "../handoffkit-runtime", version = "1.20.0-alpha.2" }
 hex.workspace = true
 rustls.workspace = true
 rustls-native-certs.workspace = true

@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/browser-lite",
-  "version": "1.20.0-alpha.1",
+  "version": "1.20.0-alpha.2",
   "description": "HandoffKit Browser Lite: HTTP search, fetch, extraction, and local index adapters over Browser Core contracts.",
   "repository": {
     "type": "git",

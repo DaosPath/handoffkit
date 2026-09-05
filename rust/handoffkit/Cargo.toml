@@ -13,9 +13,9 @@ keywords = ["agents", "csp", "workflow", "handoff"]
 categories = ["development-tools"]
 
 [dependencies]
-handoffkit-contracts = { path = "../crates/handoffkit-contracts", version = "1.19.5" }
-handoffkit-protocol = { path = "../crates/handoffkit-protocol", version = "1.19.5" }
-handoffkit-runtime = { path = "../crates/handoffkit-runtime", version = "1.19.5" }
-handoffkit-transport = { path = "../crates/handoffkit-transport", version = "1.19.5" }
+handoffkit-contracts = { path = "../crates/handoffkit-contracts", version = "1.20.0-alpha.2" }
+handoffkit-protocol = { path = "../crates/handoffkit-protocol", version = "1.20.0-alpha.2" }
+handoffkit-runtime = { path = "../crates/handoffkit-runtime", version = "1.20.0-alpha.2" }
+handoffkit-transport = { path = "../crates/handoffkit-transport", version = "1.20.0-alpha.2" }
 serde_json.workspace = true
 tokio.workspace = true

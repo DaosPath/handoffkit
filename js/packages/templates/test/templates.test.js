@@ -40,7 +40,7 @@ test("builtin template pins the current compatible core and writes no temporary 
   const result = await new TemplateScaffolder().scaffold("demo-agent", { output: dir });
   const manifest = JSON.parse(await readFile(join(result.root, "package.json"), "utf8"));
   const files = await import("node:fs/promises").then((fs) => fs.readdir(result.root));
-  assert.equal(manifest.dependencies["@handoffkit/core"], "^1.19.5");
+  assert.equal(manifest.dependencies["@handoffkit/core"], "^1.20.0-alpha.2");
   assert.equal(manifest.scripts.check, "node --check main.js");
   assert.equal(files.some((name) => name.endsWith(".tmp")), false);
 });

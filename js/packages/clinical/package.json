@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/clinical",
-  "version": "1.20.0-v1beta",
+  "version": "1.20.0-alpha.2",
   "description": "Browser-safe Clinical Sequential Reasoning Lab contracts and HTTP client (experimental, not clinically validated).",
   "repository": {
     "type": "git",

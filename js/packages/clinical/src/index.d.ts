@@ -1,5 +1,5 @@
-export const HANDOFFKIT_CLINICAL_VERSION: "1.20.0-v1beta";
-export const CONTRACT_VERSION: "1.20.0-v1beta";
+export const HANDOFFKIT_CLINICAL_VERSION: "1.20.0-alpha.2";
+export const CONTRACT_VERSION: "1.20.0-alpha.2";
 export const CONTRACT_FORMAT: "handoffkit.clinical.v1beta";
 export const OFFICIAL_CASE_COUNT: 897;
 export const STATUS_PUBLIC: string;

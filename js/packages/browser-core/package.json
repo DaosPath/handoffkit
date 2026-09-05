@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/browser-core",
-  "version": "1.20.0-alpha.1",
+  "version": "1.20.0-alpha.2",
   "description": "I/O-free Browser Core contracts for HandoffKit 1.20: capabilities, policy, commands, events, search, snapshots, and ResearchPack v2.",
   "repository": {
     "type": "git",

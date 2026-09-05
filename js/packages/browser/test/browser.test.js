@@ -46,7 +46,7 @@ import {
 } from "../src/index.js";
 
 test("version matches package", () => {
-  assert.equal(HANDOFFKIT_BROWSER_VERSION, "1.20.0-alpha.1");
+  assert.equal(HANDOFFKIT_BROWSER_VERSION, "1.20.0-alpha.2");
 
 });
 

@@ -44,7 +44,7 @@ const MODEL_FILES = {
 test("package version matches runtime constant", async () => {
   const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   assert.equal(HANDOFFKIT_BROWSER_CORE_VERSION, manifest.version);
-  assert.equal(CONTRACT_VERSION, "1.20.0-alpha.1");
+  assert.equal(CONTRACT_VERSION, "1.20.0-alpha.2");
 });
 
 test("core sources do not import I/O", async () => {

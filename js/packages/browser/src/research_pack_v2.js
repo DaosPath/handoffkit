@@ -81,7 +81,7 @@ export async function writeResearchCheckpoint(root, pack, extras = {}) {
   const key = extras.idempotencyKey || extras.idempotency_key || pack.idempotency_key || "default";
   const file = path.join(dir, `${String(key).replace(/[^a-zA-Z0-9._-]+/g, "_")}.json`);
   const payload = {
-    contract_version: extras.contractVersion || "1.20.0-alpha.1",
+    contract_version: extras.contractVersion || "1.20.0-alpha.2",
     delivery: "at_least_once",
     idempotency_key: key,
     pack: typeof pack.toDict === "function" ? pack.toDict() : pack,

@@ -247,7 +247,7 @@ test("provider version and default user agent stay aligned with package version"
     model: "test",
     allowEnv: false,
   });
-  assert.equal(HANDOFFKIT_PROVIDERS_VERSION, "1.19.5");
+  assert.equal(HANDOFFKIT_PROVIDERS_VERSION, "1.20.0-alpha.2");
   assert.equal(provider.userAgent, `handoffkit-providers/${HANDOFFKIT_PROVIDERS_VERSION}`);
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/node",
-  "version": "1.19.5",
+  "version": "1.20.0-alpha.2",
 
   "description": "Node.js filesystem and HK-CSP stdio utilities for HandoffKit.",
   "repository": {

@@ -234,6 +234,19 @@ class OpenCodeProvider(BaseProvider):
         return str(content)
 
     def _generate_responses(self, prompt: str, model: str, kwargs: dict[str, Any]) -> str:
+        # OpenAI Responses API uses max_output_tokens (not max_tokens).
+        kwargs = dict(kwargs)
+        if "max_tokens" in kwargs and "max_output_tokens" not in kwargs:
+            kwargs["max_output_tokens"] = kwargs.pop("max_tokens")
+        # Muse Spark runs reasoning effort=high; reasoning tokens count against
+        # the output budget. Tiny budgets (e.g. health probes with 8-64 tokens)
+        # always return status=incomplete with empty output, so floor them.
+        if model.startswith("muse-"):
+            try:
+                if int(kwargs.get("max_output_tokens", 0)) < 1024:
+                    kwargs["max_output_tokens"] = 1024
+            except (TypeError, ValueError):
+                kwargs["max_output_tokens"] = 1024
         payload = {
             "model": model,
             "input": prompt,

@@ -14,7 +14,7 @@ using namespace handoffkit;
 namespace {
 
 void test_version_string() {
-    if (std::string(version()) != "1.19.5") {
+    if (std::string(version()) != "1.20.0") {
         throw std::runtime_error("C++ package version metadata mismatch");
     }
     std::cout << "test_version_string passed!" << std::endl;
