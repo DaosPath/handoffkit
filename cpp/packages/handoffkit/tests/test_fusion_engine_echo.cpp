@@ -439,24 +439,6 @@ void test_disk_report_has_call_steps_and_cache_stats() {
     std::cout << "test_disk_report_has_call_steps_and_cache_stats ok path=" << report_path << "\n";
 }
 
-int main() {
-    test_profiles_exist();
-    test_shipping_pack_flags();
-    test_capability_pack_differentiation();
-    test_structured_handoff_and_prompt_injection();
-    test_lean_echo();
-    test_ultra_echo();
-    test_fusion_tiers_echo();
-    test_handoff_in_engine_prompts_lean_and_pro();
-    test_prompt_config_templates();
-    test_dag_parallel_execution_report();
-    test_disk_report_has_call_steps_and_cache_stats();
-    test_run_budget_exceeded();
-    test_run_budget_report();
-    std::cout << "All fusion engine tests passed\n";
-    return 0;
-}
-
 void test_run_budget_exceeded() {
     FusionConfig cfg;
     cfg.task = "List three benefits of dual-branch agent fusion.";
@@ -467,12 +449,12 @@ void test_run_budget_exceeded() {
     cfg.cache.enabled = false;
     cfg.max_total_ms = 1;
     int provider_calls = 0;
-    AnyProvider slow("echo", [&](std::string_view prompt, const GenerateOptions& options) {
+    handoffkit::AnyProvider slow("echo", [&](std::string_view prompt, const handoffkit::GenerateOptions& options) {
         (void)prompt;
         (void)options;
         ++provider_calls;
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        return Result<std::string>(std::string("echo"));
+        return handoffkit::Result<std::string>(std::string("echo"));
     });
     FusionEngine engine;
     auto run = engine.run_with_provider(cfg, std::move(slow));
@@ -499,4 +481,22 @@ void test_run_budget_report() {
     assert(run.value().report["budget"].value("exceeded", true) == false);
     assert(run.value().report["budget"].value("elapsed_ms", -1) >= 0);
     std::cout << "test_run_budget_report ok\n";
+}
+
+int main() {
+    test_profiles_exist();
+    test_shipping_pack_flags();
+    test_capability_pack_differentiation();
+    test_structured_handoff_and_prompt_injection();
+    test_lean_echo();
+    test_ultra_echo();
+    test_fusion_tiers_echo();
+    test_handoff_in_engine_prompts_lean_and_pro();
+    test_prompt_config_templates();
+    test_dag_parallel_execution_report();
+    test_disk_report_has_call_steps_and_cache_stats();
+    test_run_budget_exceeded();
+    test_run_budget_report();
+    std::cout << "All fusion engine tests passed\n";
+    return 0;
 }
