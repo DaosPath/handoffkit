@@ -272,13 +272,15 @@ message(STATUS "handoffkit_core file count: ${_hk_core_n}")
 set(_hk_install_libs handoffkit_core handoffkit_browser)
 
 if(HANDOFFKIT_BUILD_DEMOS)
-  # Fusion eval corpus (bench/medcase/stats) lives in its own static lib so
-  # the domain-eval cluster is not compiled as part of the engine itself.
-  # Headers stay in place; only the TU boundary moves.
+  # Layering: engine (demos) <- eval corpus (bench/medcase/stats/scenarios) <-
+  # CLI app. The eval cluster is not compiled as part of the engine itself;
+  # headers stay in place, only TU boundaries move. Order matters: eval
+  # references the engine, never the reverse, so consumers link eval BEFORE
+  # demos on static builds.
   set(_fusion_engine_sources "")
   set(HANDOFFKIT_FUSION_EVAL_SOURCES "")
   foreach(_src ${HANDOFFKIT_FUSION_SOURCES})
-    if(_src MATCHES "/(algo_stats|bench_case|bench_corpus_eval|cases_medcase_loader|cases_validate)\\.cpp$")
+    if(_src MATCHES "/(algo_stats|bench_case|bench_corpus_eval|cases_medcase_loader|cases_validate|scenarios_catalog|scenarios_deep)\\.cpp$")
       list(APPEND HANDOFFKIT_FUSION_EVAL_SOURCES "${_src}")
       list(REMOVE_ITEM HANDOFFKIT_DEMOS_SOURCES "${_src}")
     else()
@@ -286,8 +288,22 @@ if(HANDOFFKIT_BUILD_DEMOS)
     endif()
   endforeach()
   set(HANDOFFKIT_FUSION_SOURCES "${_fusion_engine_sources}")
+  list(REMOVE_ITEM HANDOFFKIT_DEMOS_SOURCES "src/cli/cli_app.cpp")
+
+  add_library(handoffkit_demos ${HANDOFFKIT_DEMOS_SOURCES})
+  target_link_libraries(handoffkit_demos PUBLIC handoffkit_browser)
+  handoffkit_apply_common(handoffkit_demos)
+  set_target_properties(handoffkit_demos PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+    EXPORT_NAME demos
+    OUTPUT_NAME handoffkit_demos
+  )
+  add_library(handoffkit::demos ALIAS handoffkit_demos)
+  list(APPEND _hk_install_libs handoffkit_demos)
+
   add_library(handoffkit_fusion_eval STATIC ${HANDOFFKIT_FUSION_EVAL_SOURCES})
-  target_link_libraries(handoffkit_fusion_eval PUBLIC handoffkit_browser)
+  target_link_libraries(handoffkit_fusion_eval PUBLIC handoffkit_demos)
   handoffkit_apply_common(handoffkit_fusion_eval)
   set_target_properties(handoffkit_fusion_eval PROPERTIES
     POSITION_INDEPENDENT_CODE ON
@@ -298,27 +314,28 @@ if(HANDOFFKIT_BUILD_DEMOS)
   add_library(handoffkit::fusion_eval ALIAS handoffkit_fusion_eval)
   list(APPEND _hk_install_libs handoffkit_fusion_eval)
 
-  add_library(handoffkit_demos ${HANDOFFKIT_DEMOS_SOURCES})
-  target_link_libraries(handoffkit_demos PUBLIC handoffkit_browser handoffkit_fusion_eval)
-  handoffkit_apply_common(handoffkit_demos)
-  set_target_properties(handoffkit_demos PROPERTIES
+  add_library(handoffkit_cli STATIC src/cli/cli_app.cpp)
+  target_link_libraries(handoffkit_cli PRIVATE handoffkit_fusion_eval handoffkit_demos)
+  handoffkit_apply_common(handoffkit_cli)
+  set_target_properties(handoffkit_cli PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
     VERSION ${PROJECT_VERSION}
-    SOVERSION ${PROJECT_VERSION_MAJOR}
-    EXPORT_NAME demos
-    OUTPUT_NAME handoffkit_demos
+    EXPORT_NAME cli
+    OUTPUT_NAME handoffkit_cli
   )
-  add_library(handoffkit::demos ALIAS handoffkit_demos)
-  list(APPEND _hk_install_libs handoffkit_demos)
+  add_library(handoffkit::cli ALIAS handoffkit_cli)
+  list(APPEND _hk_install_libs handoffkit_cli)
+
   list(LENGTH HANDOFFKIT_DEMOS_SOURCES _hk_demo_n)
-  message(STATUS "handoffkit_demos file count: ${_hk_demo_n} (includes fusion)")
+  message(STATUS "handoffkit_demos file count: ${_hk_demo_n} (includes fusion engine)")
   list(LENGTH HANDOFFKIT_FUSION_EVAL_SOURCES _hk_eval_n)
-  message(STATUS "handoffkit_fusion_eval file count: ${_hk_eval_n} (bench/medcase/stats)")
+  message(STATUS "handoffkit_fusion_eval file count: ${_hk_eval_n} (bench/medcase/stats/scenarios)")
 endif()
 
 # Canonical consumer target: INTERFACE → demos (full) or core+browser
 add_library(handoffkit INTERFACE)
 if(HANDOFFKIT_BUILD_DEMOS)
-  target_link_libraries(handoffkit INTERFACE handoffkit_demos)
+  target_link_libraries(handoffkit INTERFACE handoffkit_fusion_eval handoffkit_demos)
 else()
   target_link_libraries(handoffkit INTERFACE handoffkit_core handoffkit_browser)
 endif()
@@ -398,7 +415,7 @@ if(HANDOFFKIT_BUILD_TESTS)
   handoffkit_add_test(test_train_core tests/test_train_core.cpp LINK handoffkit_core)
 
   if(HANDOFFKIT_BUILD_DEMOS)
-    handoffkit_add_test(test_cli_and_demos tests/test_cli_and_demos.cpp)
+    handoffkit_add_test(test_cli_and_demos tests/test_cli_and_demos.cpp LINK handoffkit_cli)
     handoffkit_add_test(test_templates_and_deep_demos tests/test_templates_and_deep_demos.cpp)
     handoffkit_add_test(test_policy_gallery_scenarios tests/test_policy_gallery_scenarios.cpp)
     handoffkit_add_test(test_markdown_and_loc_helpers tests/test_markdown_and_loc_helpers.cpp)
@@ -446,7 +463,7 @@ if(HANDOFFKIT_BUILD_CLI)
     message(WARNING "HANDOFFKIT_BUILD_CLI=ON requires HANDOFFKIT_BUILD_DEMOS=ON; disabling CLI")
   else()
     add_executable(handoffkit-cli src/cli/main.cpp)
-    target_link_libraries(handoffkit-cli PRIVATE handoffkit)
+    target_link_libraries(handoffkit-cli PRIVATE handoffkit_cli handoffkit)
     set_target_properties(handoffkit-cli PROPERTIES OUTPUT_NAME handoffkit-cli)
     if(HANDOFFKIT_INSTALL)
       install(TARGETS handoffkit-cli RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
