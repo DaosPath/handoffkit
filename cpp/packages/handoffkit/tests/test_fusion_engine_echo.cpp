@@ -458,8 +458,9 @@ void test_run_budget_exceeded() {
     });
     FusionEngine engine;
     auto run = engine.run_with_provider(cfg, std::move(slow));
-    assert(!run);
-    assert(run.error().message.find("budget_exceeded") != std::string::npos);
+    assert(run);
+    assert(!run.value().success);
+    assert(run.value().error.find("budget_exceeded") != std::string::npos);
     assert(provider_calls <= 2);
     std::cout << "test_run_budget_exceeded ok calls=" << provider_calls << "\n";
 }
