@@ -417,6 +417,8 @@ std::vector<std::pair<std::string, std::string>> searxng_json_search(TransportPt
     return searxng_json_search(transport, query, max_results, timeout_ms, std::move(options));
 }
 
+}  // namespace
+
 Result<SearxngOptions> parse_searxng_options(const nlohmann::json& j) {
     SearxngOptions options;
     if (j.is_null() || (j.is_object() && j.empty())) return options;
@@ -470,6 +472,8 @@ Result<SearxngOptions> parse_searxng_options(const nlohmann::json& j) {
     }
     return options;
 }
+
+namespace {
 
 /// Key-gated JSON provider helper: env key or fail-closed empty.
 std::vector<std::pair<std::string, std::string>> keyed_json_search(
