@@ -172,7 +172,8 @@ void test_cli_run_handoff_json(const std::filesystem::path& dataset, const std::
         "--no-resume",
         "--web-providers", "searxng,brave",
     });
-    assert(result.exit_code == 0);
+    assert(result.exit_code == 1);  // judge_partial tasks fail the CLI by design
+    assert(result.stdout_text.find("judge_partial") != std::string::npos);
     const auto summary = read_json(out / "summary.json");
     assert(summary.value("handoff", nlohmann::json::object()).value("schema", "") == "draco-handoff-v1");
     assert(summary["tasks"].is_array() && summary["tasks"].size() == 1);
