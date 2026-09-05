@@ -195,6 +195,9 @@ struct FusionConfig {
     bool write_files = true;
     bool ascii_sanitize = true;
     int branch_count = 2;  // for multi/dag
+    /// Wall-clock run budget in ms (0 = unlimited). LLM phases are skipped
+    /// once exceeded; the report records budget{max_total_ms, elapsed_ms, exceeded}.
+    std::int64_t max_total_ms = 0;
     /// Run independent DAG architect branches concurrently when cache is disabled.
     bool parallel_branches = true;
     /// Bounded concurrency for DAG branches. Values are clamped to 1..8.

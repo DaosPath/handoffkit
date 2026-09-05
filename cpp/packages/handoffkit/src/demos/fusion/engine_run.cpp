@@ -20,6 +20,11 @@ FusionEngine::FusionEngine(std::shared_ptr<FusionCache> cache) : cache_(std::mov
 
 void FusionEngine::set_cache(std::shared_ptr<FusionCache> cache) { cache_ = std::move(cache); }
 
+bool FusionEngine::over_budget() const {
+    const std::int64_t deadline = run_deadline_ms_.load();
+    return deadline > 0 && fusion_now_unix_ms() >= deadline;
+}
+
 Result<std::string> FusionEngine::call_llm(
     FusionRunResult& run,
     AnyProvider& provider,
@@ -32,6 +37,16 @@ Result<std::string> FusionEngine::call_llm(
 ) {
     FusionBudget budget(config.policy);
     for (int i = 0; i < run.metrics.llm_calls; ++i) budget.after_call();
+
+    if (over_budget()) {
+        FusionCallRecord rec;
+        rec.step_id = step_id;
+        rec.role_id = role_id;
+        rec.agent_name = agent_name;
+        rec.error = "budget_exceeded";
+        run.metrics.calls.push_back(rec);
+        return Error::invalid_argument("budget_exceeded", "max_total_ms");
+    }
 
     if (config.ascii_sanitize) {
         user_prompt = sanitize_prompt_text(user_prompt, true);
@@ -94,6 +109,15 @@ Result<FusionRunResult> FusionEngine::run_with_provider(const FusionConfig& conf
     auto v = validate_fusion_config(config);
     if (!v) return v.error();
 
+    const auto run_start_ms = fusion_now_unix_ms();
+    run_deadline_ms_.store(config.max_total_ms > 0 ? run_start_ms + config.max_total_ms : 0);
+    struct DeadlineClear {
+        FusionEngine* engine;
+        ~DeadlineClear() {
+            if (engine) engine->run_deadline_ms_.store(0);
+        }
+    } deadline_guard{this};
+
     switch (config.mode) {
         case FusionMode::Lean:
             return run_lean_ultra(config, std::move(provider), false);
@@ -111,12 +135,25 @@ Result<FusionRunResult> FusionEngine::run(const FusionConfig& config) {
     if (!cache_ && config.cache.enabled) {
         cache_ = std::make_shared<FusionCache>(config.cache);
     }
+    const auto run_start_ms = fusion_now_unix_ms();
+    run_deadline_ms_.store(config.max_total_ms > 0 ? run_start_ms + config.max_total_ms : 0);
+    struct DeadlineClear {
+        FusionEngine* engine;
+        ~DeadlineClear() {
+            if (engine) engine->run_deadline_ms_.store(0);
+        }
+    } deadline_guard{this};
     auto enrich_report_observability = [&](FusionRunResult& run) {
         if (cache_) {
             run.metrics.cache = cache_->stats();
             run.report["cache_stats"] = cache_->stats().to_json();
             run.report["cache_hit_rate"] = cache_->stats().hit_rate();
         }
+        run.report["budget"] = {
+            {"max_total_ms", config.max_total_ms},
+            {"elapsed_ms", static_cast<int>(fusion_now_unix_ms() - run_start_ms)},
+            {"exceeded", over_budget()},
+        };
         nlohmann::json steps = nlohmann::json::array();
         for (const auto& c : run.metrics.calls) {
             steps.push_back({

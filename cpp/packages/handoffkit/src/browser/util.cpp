@@ -61,18 +61,29 @@ std::string canonical_url(std::string_view url) {
     ss << (parts.scheme.empty() ? "https" : parts.scheme) << "://" << parts.host;
     if (parts.path.empty()) ss << "/";
     else ss << parts.path;
-    // drop query tracking in a light way: keep query as-is for now (JS strips utm_)
-    if (!parts.query.empty()) {
-        // filter utm_
-        std::string q = parts.query;
+    // Drop fragments and tracking params (utm_*, click ids, ref, …).
+    std::string q = parts.query;
+    const auto hash = q.find('#');
+    if (hash != std::string::npos) q.erase(hash);
+    static const char* kTracking[] = {
+        "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "utm_id",
+        "fbclid", "gclid", "gbraid", "wbraid", "msclkid", "yclid",
+        "mc_cid", "mc_eid", "igshid", "_hsenc", "_hsmi", "ref", "ref_src",
+    };
+    if (!q.empty()) {
         std::string filtered;
         std::size_t start = 0;
         while (start <= q.size()) {
-            auto amp = q.find('&', start);
-            std::string piece = q.substr(start, amp == std::string::npos ? std::string::npos : amp - start);
-            auto low = piece;
-            for (char& c : low) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-            if (low.rfind("utm_", 0) != 0 && low.rfind("fbclid=", 0) != 0 && low.rfind("gclid=", 0) != 0) {
+            const auto amp = q.find('&', start);
+            const std::string piece = q.substr(start, amp == std::string::npos ? std::string::npos : amp - start);
+            const auto eq = piece.find('=');
+            std::string key = eq == std::string::npos ? piece : piece.substr(0, eq);
+            for (char& c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            bool tracking = key.rfind("utm_", 0) == 0;
+            for (const char* known : kTracking) {
+                if (key == known) { tracking = true; break; }
+            }
+            if (!tracking) {
                 if (!filtered.empty()) filtered.push_back('&');
                 filtered += piece;
             }

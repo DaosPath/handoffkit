@@ -187,7 +187,7 @@ void test_registry_has_web_search() {
     unavailable_call.tool_name = "web_search";
     unavailable_call.arguments = {
         {"query", "OpenAI"},
-        {"providers", nlohmann::json::array({"bing"})},
+        {"providers", nlohmann::json::array({"not_a_provider"})},
         {"transport", "map"},
     };
     auto unavailable_result = wiki_reg.execute(unavailable_call);
@@ -267,6 +267,47 @@ void test_google_provider_and_ad_filter() {
     std::cout << "test_google_provider_and_ad_filter ok\n";
 }
 
+void test_key_gated_json_providers() {
+    auto map = handoffkit::browser::make_fixture_map_transport();
+    map->set_page(
+        "https://api.search.brave.com/res/v1/web/search?q=OpenAI&count=4",
+        R"({"web":{"results":[{"title":"OpenAI API","url":"https://openai.com/api"},{"title":"x","url":""}]}})");
+    map->set_page(
+        "https://api.bing.microsoft.com/v7.0/search?q=OpenAI&count=4&responseFilter=Webpages",
+        R"({"webPages":{"value":[{"name":"OpenAI API","url":"https://openai.com/api"}]}})");
+    map->set_page(
+        "https://kagi.com/api/v0/search?q=OpenAI",
+        R"({"data":[{"title":"OpenAI API","url":"https://openai.com/api"}]})");
+    // Keys are intentionally unset here: stub empty values via direct calls is not
+    // possible without env, so exercise the fail-closed path through web_search.
+    auto missing = handoffkit::browser::web_search("OpenAI", map, 4, 15000, {}, {}, {"brave"});
+    assert(!missing.value("success", true));
+    const auto codes = missing.value("provider_codes", nlohmann::json::array());
+    assert(!codes.empty() && codes.at(0) == "provider_unavailable");
+    std::cout << "test_key_gated_json_providers ok\n";
+}
+
+void test_keyless_html_engines() {
+    auto map = handoffkit::browser::make_fixture_map_transport();
+    map->set_page(
+        "https://www.mojeek.com/search?q=OpenAI",
+        R"(<html><body><a class="title" href="https://openai.com/api">OpenAI API</a><a href="https://www.mojeek.com/preferences">prefs</a></body></html>)");
+    map->set_page(
+        "https://search.marginalia.nu/search?query=OpenAI",
+        R"(<html><body><a href="https://openai.com/blog">OpenAI Blog</a></body></html>)");
+    map->set_page(
+        "https://www.startpage.com/sp/search?query=OpenAI",
+        R"(<html><body><a class="w-gl__result-title" href="https://openai.com/api">OpenAI API</a></body></html>)");
+    for (const char* provider : {"mojeek", "marginalia", "startpage"}) {
+        const auto result = handoffkit::browser::web_search(
+            "OpenAI", map, 4, 15000, {}, {}, {provider});
+        assert(result.value("success", false));
+        assert(result.value("providers_used", nlohmann::json::array()).at(0) == provider);
+        assert(!result.value("results", nlohmann::json::array()).empty());
+    }
+    std::cout << "test_keyless_html_engines ok\n";
+}
+
 int main() {
     test_extract_urls();
     test_search_query_from_draco_wrapper();
@@ -276,6 +317,8 @@ int main() {
     test_registry_has_web_search();
     test_browser_kit_provider_defaults();
     test_google_provider_and_ad_filter();
+    test_key_gated_json_providers();
+    test_keyless_html_engines();
     std::cout << "ALL test_fusion_web_research PASSED\n";
     return 0;
 }

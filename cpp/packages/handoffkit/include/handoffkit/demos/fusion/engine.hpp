@@ -5,6 +5,8 @@
 #include <handoffkit/demos/fusion/types.hpp>
 #include <handoffkit/runtime/provider.hpp>
 
+#include <atomic>
+#include <cstdint>
 #include <memory>
 
 namespace handoffkit {
@@ -27,6 +29,11 @@ public:
 
 private:
     std::shared_ptr<FusionCache> cache_;
+    /// Wall-clock run deadline (unix ms, 0 = none). Set per run(); read by
+    /// call_llm from any branch thread, so it stays atomic.
+    std::atomic<std::int64_t> run_deadline_ms_{0};
+
+    [[nodiscard]] bool over_budget() const;
 
     Result<std::string> call_llm(
         FusionRunResult& run,

@@ -9,8 +9,10 @@
 #include <chrono>
 #include <cstdlib>
 #include <cctype>
+#include <functional>
 #include <regex>
 #include <sstream>
+#include <thread>
 #include <utility>
 
 namespace handoffkit {
@@ -83,9 +85,11 @@ bool is_stopword(const std::string& w) {
 }
 
 std::string strip_tags(std::string_view html) {
+    static const std::regex kTags(R"(<[^>]+>)");
+    static const std::regex kSpaces(R"(\s+)");
     std::string out(html);
-    out = std::regex_replace(out, std::regex(R"(<[^>]+>)"), " ");
-    out = std::regex_replace(out, std::regex(R"(\s+)"), " ");
+    out = std::regex_replace(out, kTags, " ");
+    out = std::regex_replace(out, kSpaces, " ");
     while (!out.empty() && out.front() == ' ') out.erase(out.begin());
     while (!out.empty() && out.back() == ' ') out.pop_back();
     return out;
@@ -97,6 +101,7 @@ void push_hit(std::vector<std::pair<std::string, std::string>>& hits, std::strin
     if (url.rfind("http", 0) != 0) return;
     if (url.find("duckduckgo.com") != std::string::npos) return;
     if (url.find("wikipedia.org/w/api.php") != std::string::npos) return;
+    url = canonical_url(url);
     std::string low_url = url;
     std::transform(low_url.begin(), low_url.end(), low_url.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
@@ -117,6 +122,72 @@ void push_hit(std::vector<std::pair<std::string, std::string>>& hits, std::strin
         }
     }
     hits.emplace_back(std::move(title), std::move(url));
+}
+
+/// GET JSON with bounded retries on 429/5xx (250ms exponential backoff).
+/// Returns {parsed, error_code, error}; parsed is null on failure.
+struct JsonFetch {
+    nlohmann::json data = nullptr;
+    std::string error_code;
+    std::string error;
+};
+
+bool retryable_status(int status) {
+    return status == 408 || status == 425 || status == 429 ||
+           status == 500 || status == 502 || status == 503 || status == 504;
+}
+
+JsonFetch fetch_json(TransportPtr transport, const std::string& url,
+                     const std::unordered_map<std::string, std::string>& headers,
+                     int timeout_ms, const std::string& provider, int attempts = 3) {
+    JsonFetch out;
+    out.error_code = provider + "_empty_response";
+    out.error = provider + " returned no JSON results";
+    const int rounds = std::max(1, attempts);
+    for (int attempt = 1; attempt <= rounds; ++attempt) {
+        TransportRequest req;
+        req.url = url;
+        req.timeout_ms = timeout_ms > 0 ? timeout_ms : 20000;
+        req.headers["User-Agent"] = "HandoffKit-Browser/1.0";
+        req.headers["Accept"] = "application/json";
+        for (const auto& [key, value] : headers) req.headers[key] = value;
+        nlohmann::json data = nullptr;
+        bool fetched = false;
+        try {
+            const auto resp = transport->get(req);
+            if (!resp.error.empty()) {
+                out.error_code = provider + "_transport_error";
+                out.error = resp.error;
+                return out;
+            }
+            if (resp.status < 200 || resp.status >= 300 || resp.body.empty()) {
+                out.error_code = provider + "_empty_response";
+                out.error = provider + " returned no JSON results";
+                if (!retryable_status(resp.status) || attempt >= rounds) return out;
+            } else {
+                try {
+                    data = nlohmann::json::parse(resp.body);
+                    fetched = true;
+                } catch (...) {
+                    out.error_code = provider + "_invalid_response";
+                    out.error = provider + " returned invalid JSON";
+                    return out;
+                }
+            }
+        } catch (const std::exception& e) {
+            out.error_code = provider + "_transport_error";
+            out.error = e.what();
+            return out;
+        }
+        if (fetched) {
+            out.data = std::move(data);
+            out.error_code.clear();
+            out.error.clear();
+            return out;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(250 * (1 << (attempt - 1))));
+    }
+    return out;
 }
 
 std::vector<std::pair<std::string, std::string>> wikipedia_opensearch(TransportPtr transport,
@@ -162,44 +233,373 @@ std::vector<std::pair<std::string, std::string>> wikipedia_opensearch(TransportP
     return hits;
 }
 
+namespace {
+
+std::vector<std::string> split_option_list(const std::string& value) {
+    std::vector<std::string> out;
+    std::string current;
+    for (char c : value) {
+        if (c == ',') {
+            if (!current.empty()) { out.push_back(current); current.clear(); }
+        } else if (!std::isspace(static_cast<unsigned char>(c))) {
+            current.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+        }
+    }
+    if (!current.empty()) out.push_back(current);
+    return out;
+}
+
+std::string getenv_str(const char* name) {
+    const char* value = std::getenv(name);
+    return value ? std::string(value) : std::string{};
+}
+
+bool valid_engine_token(const std::string& token) {
+    if (token.empty()) return false;
+    for (char c : token) {
+        const bool ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+                        c == '_' || c == '+' || c == '-';
+        if (!ok) return false;
+    }
+    return true;
+}
+
+}  // namespace
+
+struct SearxngOptions {
+    std::vector<std::string> base_urls;
+    std::string base_url;
+    std::vector<std::string> engines;
+    std::vector<std::string> categories;
+    int page = 1;
+    int safesearch = -1;  // -1 = unset, else 0..2
+    std::string language;
+};
+
 std::vector<std::pair<std::string, std::string>> searxng_json_search(TransportPtr transport,
                                                                        std::string_view query,
                                                                        int max_results, int timeout_ms) {
+    SearxngOptions options;
+    options.base_urls = split_option_list(getenv_str("HANDOFFKIT_SEARXNG_URLS"));
+    options.engines = split_option_list(getenv_str("HANDOFFKIT_SEARXNG_ENGINES"));
+    return searxng_json_search(transport, query, max_results, timeout_ms, std::move(options));
+}
+
+std::vector<std::pair<std::string, std::string>> searxng_json_search(TransportPtr transport,
+                                                                       std::string_view query,
+                                                                       int max_results, int timeout_ms,
+                                                                       SearxngOptions options) {
     std::vector<std::pair<std::string, std::string>> hits;
     if (!transport || query.empty() || max_results < 1) return hits;
-    const char* base_env = std::getenv("HANDOFFKIT_SEARXNG_URL");
-    std::string base = base_env ? std::string(base_env) : std::string{};
-    while (!base.empty() && base.back() == '/') base.pop_back();
-    if (base.empty()) return hits;  // unconfigured => empty in C++ (provider layer reports error)
-    const std::string url = base + "/search?q=" + url_encode_component(std::string(query)) + "&format=json";
+    std::vector<std::string> bases;
+    for (auto base : options.base_urls) {
+        while (!base.empty() && base.back() == '/') base.pop_back();
+        if (!base.empty()) bases.push_back(std::move(base));
+    }
+    if (!options.base_url.empty()) {
+        auto base = options.base_url;
+        while (!base.empty() && base.back() == '/') base.pop_back();
+        if (!base.empty()) bases.push_back(std::move(base));
+    }
+    for (const auto& env_base : split_option_list(getenv_str("HANDOFFKIT_SEARXNG_URLS"))) {
+        auto base = env_base;
+        while (!base.empty() && base.back() == '/') base.pop_back();
+        if (!base.empty()) bases.push_back(std::move(base));
+    }
+    {
+        auto base = getenv_str("HANDOFFKIT_SEARXNG_URL");
+        while (!base.empty() && base.back() == '/') base.pop_back();
+        if (!base.empty()) bases.push_back(std::move(base));
+    }
+    if (bases.empty()) return hits;  // unconfigured => empty in C++ (provider layer reports error)
+    std::vector<std::string> engines = options.engines.empty()
+        ? split_option_list(getenv_str("HANDOFFKIT_SEARXNG_ENGINES"))
+        : options.engines;
+    for (const auto& token : engines) {
+        if (!valid_engine_token(token)) return hits;  // fail closed on bad engine
+    }
+    static const char* kCategories[] = {"general", "images", "videos", "news"};
+    for (const auto& category : options.categories) {
+        bool known = false;
+        for (const char* known_category : kCategories) {
+            if (category == known_category) { known = true; break; }
+        }
+        if (!known) return hits;  // fail closed on unknown category
+    }
+    if (options.page < 1) return hits;
+    if (options.safesearch < -1 || options.safesearch > 2) return hits;
+    std::string extra;
+    if (!engines.empty()) {
+        extra += "&engines=";
+        for (std::size_t i = 0; i < engines.size(); ++i) {
+            if (i) extra.push_back(',');
+            extra += url_encode_component(engines[i]);
+        }
+    }
+    if (!options.categories.empty()) {
+        extra += "&categories=";
+        for (std::size_t i = 0; i < options.categories.size(); ++i) {
+            if (i) extra.push_back(',');
+            extra += url_encode_component(options.categories[i]);
+        }
+    }
+    if (options.page > 1) extra += "&pageno=" + std::to_string(options.page);
+    if (options.safesearch >= 0) extra += "&safesearch=" + std::to_string(options.safesearch);
+    std::unordered_map<std::string, std::string> headers;
+    headers["User-Agent"] = "HandoffKit-Browser/1.0";
+    headers["Accept"] = "application/json";
+    if (!options.language.empty()) {
+        extra += "&language=" + url_encode_component(options.language);
+        headers["Accept-Language"] = options.language;
+    }
+    const std::string query_encoded = url_encode_component(std::string(query));
+    for (const auto& base : bases) {
+        const std::string url = base + "/search?q=" + query_encoded + "&format=json" + extra;
+        auto fetched = fetch_json(transport, url, headers, timeout_ms, "searxng");
+        if (!fetched.error_code.empty()) continue;
+        const auto& j = fetched.data;
+        const auto it = j.find("results");
+        std::vector<std::pair<std::string, std::string>> attempt;
+        if (it != j.end() && it->is_array()) {
+            for (const auto& item : *it) {
+                if (static_cast<int>(attempt.size()) >= max_results) break;
+                if (!item.is_object()) continue;
+                const auto u = item.find("url");
+                const auto t = item.find("title");
+                if (u == item.end() || !u->is_string()) continue;
+                std::string surl = u->get<std::string>();
+                if (surl.rfind("http://", 0) != 0 && surl.rfind("https://", 0) != 0) continue;
+                std::string title;
+                if (t != item.end() && t->is_string()) title = strip_tags(t->get<std::string>());
+                if (title.empty()) title = surl;
+                push_hit(attempt, std::move(title), std::move(surl), max_results);
+            }
+        }
+        const auto boxes = j.find("infoboxes");
+        if (boxes != j.end() && boxes->is_array()) {
+            for (const auto& box : *boxes) {
+                if (!box.is_object()) continue;
+                const auto links = box.find("urls");
+                if (links == box.end() || !links->is_array()) continue;
+                const auto content = box.find("content");
+                const std::string fallback = content != box.end() && content->is_string()
+                    ? strip_tags(content->get<std::string>()) : std::string{};
+                for (const auto& link : *links) {
+                    if (static_cast<int>(attempt.size()) >= max_results) break;
+                    if (!link.is_object()) continue;
+                    const auto u = link.find("url");
+                    if (u == link.end() || !u->is_string()) continue;
+                    std::string surl = u->get<std::string>();
+                    if (surl.rfind("http://", 0) != 0 && surl.rfind("https://", 0) != 0) continue;
+                    const auto t = link.find("title");
+                    std::string title = (t != link.end() && t->is_string())
+                        ? strip_tags(t->get<std::string>()) : fallback;
+                    if (title.empty()) title = surl;
+                    push_hit(attempt, std::move(title), std::move(surl), max_results);
+                }
+                if (static_cast<int>(attempt.size()) >= max_results) break;
+            }
+        }
+        if (!attempt.empty()) return attempt;
+    }
+    return hits;
+}
+
+/// Key-gated JSON provider helper: env key or fail-closed empty.
+std::vector<std::pair<std::string, std::string>> keyed_json_search(
+    TransportPtr transport, std::string_view query, int max_results, int timeout_ms,
+    const std::string& provider, const std::string& url,
+    const std::unordered_map<std::string, std::string>& extra_headers,
+    const std::function<void(const nlohmann::json&,
+                             std::vector<std::pair<std::string, std::string>>&, int)>& parse) {
+    std::vector<std::pair<std::string, std::string>> hits;
+    if (!transport || query.empty() || max_results < 1) return hits;
+    auto fetched = fetch_json(transport, url, extra_headers, timeout_ms, provider);
+    if (!fetched.error_code.empty()) return hits;
+    try {
+        parse(fetched.data, hits, max_results);
+    } catch (...) {
+        hits.clear();
+    }
+    return hits;
+}
+
+std::vector<std::pair<std::string, std::string>> brave_json_search(TransportPtr transport,
+                                                                     std::string_view query,
+                                                                     int max_results, int timeout_ms) {
+    const std::string key = getenv_str("HANDOFFKIT_BRAVE_API_KEY");
+    if (key.empty() || !transport || query.empty() || max_results < 1) return {};
+    const int count = std::max(1, std::min(max_results, 20));
+    const std::string url = "https://api.search.brave.com/res/v1/web/search?q=" +
+                            url_encode_component(std::string(query)) + "&count=" + std::to_string(count);
+    return keyed_json_search(transport, query, max_results, timeout_ms, "brave", url,
+                             {{"X-Subscription-Token", key}},
+                             [](const nlohmann::json& data,
+                                std::vector<std::pair<std::string, std::string>>& hits, int max_results) {
+                                 const auto web = data.find("web");
+                                 if (web == data.end()) return;
+                                 const auto results = web->find("results");
+                                 if (results == web->end() || !results->is_array()) return;
+                                 for (const auto& item : *results) {
+                                     if (static_cast<int>(hits.size()) >= max_results) break;
+                                     if (!item.is_object()) continue;
+                                     const auto u = item.find("url");
+                                     if (u == item.end() || !u->is_string()) continue;
+                                     std::string surl = u->get<std::string>();
+                                     if (surl.rfind("http", 0) != 0) continue;
+                                     const auto t = item.find("title");
+                                     std::string title = (t != item.end() && t->is_string())
+                                         ? strip_tags(t->get<std::string>()) : surl;
+                                     push_hit(hits, std::move(title), std::move(surl), max_results);
+                                 }
+                             });
+}
+
+std::vector<std::pair<std::string, std::string>> bing_json_search(TransportPtr transport,
+                                                                    std::string_view query,
+                                                                    int max_results, int timeout_ms) {
+    const std::string key = getenv_str("HANDOFFKIT_BING_API_KEY");
+    if (key.empty() || !transport || query.empty() || max_results < 1) return {};
+    const int count = std::max(1, std::min(max_results, 20));
+    const std::string url = "https://api.bing.microsoft.com/v7.0/search?q=" +
+                            url_encode_component(std::string(query)) + "&count=" + std::to_string(count) +
+                            "&responseFilter=Webpages";
+    return keyed_json_search(transport, query, max_results, timeout_ms, "bing", url,
+                             {{"Ocp-Apim-Subscription-Key", key}},
+                             [](const nlohmann::json& data,
+                                std::vector<std::pair<std::string, std::string>>& hits, int max_results) {
+                                 const auto pages = data.find("webPages");
+                                 if (pages == data.end()) return;
+                                 const auto values = pages->find("value");
+                                 if (values == pages->end() || !values->is_array()) return;
+                                 for (const auto& item : *values) {
+                                     if (static_cast<int>(hits.size()) >= max_results) break;
+                                     if (!item.is_object()) continue;
+                                     const auto u = item.find("url");
+                                     if (u == item.end() || !u->is_string()) continue;
+                                     std::string surl = u->get<std::string>();
+                                     if (surl.rfind("http", 0) != 0) continue;
+                                     const auto t = item.find("name");
+                                     std::string title = (t != item.end() && t->is_string())
+                                         ? strip_tags(t->get<std::string>()) : surl;
+                                     push_hit(hits, std::move(title), std::move(surl), max_results);
+                                 }
+                             });
+}
+
+std::vector<std::pair<std::string, std::string>> kagi_json_search(TransportPtr transport,
+                                                                    std::string_view query,
+                                                                    int max_results, int timeout_ms) {
+    const std::string key = getenv_str("HANDOFFKIT_KAGI_API_KEY");
+    if (key.empty() || !transport || query.empty() || max_results < 1) return {};
+    const std::string url = "https://kagi.com/api/v0/search?q=" + url_encode_component(std::string(query));
+    return keyed_json_search(transport, query, max_results, timeout_ms, "kagi", url,
+                             {{"Authorization", "Bot " + key}},
+                             [](const nlohmann::json& data,
+                                std::vector<std::pair<std::string, std::string>>& hits, int max_results) {
+                                 const auto results = data.find("data");
+                                 if (results == data.end() || !results->is_array()) return;
+                                 for (const auto& item : *results) {
+                                     if (static_cast<int>(hits.size()) >= max_results) break;
+                                     if (!item.is_object()) continue;
+                                     const auto u = item.find("url");
+                                     if (u == item.end() || !u->is_string()) continue;
+                                     std::string surl = u->get<std::string>();
+                                     if (surl.rfind("http", 0) != 0) continue;
+                                     const auto t = item.find("title");
+                                     std::string title = (t != item.end() && t->is_string())
+                                         ? strip_tags(t->get<std::string>()) : surl;
+                                     push_hit(hits, std::move(title), std::move(surl), max_results);
+                                 }
+                             });
+}
+
+std::vector<std::pair<std::string, std::string>> scrape_anchor_hits(
+    const std::string& html, int max_results, const std::vector<std::string>& exclude_hosts) {
+    std::vector<std::pair<std::string, std::string>> hits;
+    std::size_t pos = 0;
+    while (static_cast<int>(hits.size()) < max_results) {
+        const auto anchor = html.find("<a", pos);
+        if (anchor == std::string::npos) break;
+        const auto tag_end = html.find('>', anchor);
+        if (tag_end == std::string::npos) break;
+        const std::string tag = html.substr(anchor, tag_end - anchor);
+        std::string href;
+        for (const char* quote : {"\"", "'"}) {
+            const std::string key = std::string("href=") + quote;
+            const auto hpos = tag.find(key);
+            if (hpos != std::string::npos) {
+                const auto start = hpos + key.size();
+                const auto end = tag.find(quote[0], start);
+                if (end != std::string::npos) href = tag.substr(start, end - start);
+                break;
+            }
+        }
+        const auto close = html.find("</a>", tag_end);
+        std::string title = (close == std::string::npos) ? "" : strip_tags(html.substr(tag_end + 1, close - tag_end - 1));
+        pos = (close == std::string::npos) ? tag_end + 1 : close + 4;
+        if (href.rfind("http", 0) != 0 || title.size() < 2) continue;
+        const auto scheme = href.find("://");
+        const auto host_start = scheme == std::string::npos ? 0 : scheme + 3;
+        const auto host_end = href.find('/', host_start);
+        std::string host = href.substr(host_start, host_end == std::string::npos ? host_end : host_end - host_start);
+        for (char& c : host) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        bool excluded = false;
+        for (const auto& domain : exclude_hosts) {
+            if (host == domain || (host.size() > domain.size() + 1 &&
+                host.compare(host.size() - domain.size() - 1, domain.size() + 1, "." + domain) == 0)) {
+                excluded = true;
+                break;
+            }
+        }
+        if (excluded) continue;
+        push_hit(hits, std::move(title), std::move(href), max_results);
+    }
+    return hits;
+}
+
+std::vector<std::pair<std::string, std::string>> html_engine_search(
+    TransportPtr transport, std::string_view query, int max_results, int timeout_ms,
+    const std::string& provider, const std::string& url,
+    const std::vector<std::string>& exclude_hosts) {
+    std::vector<std::pair<std::string, std::string>> hits;
+    if (!transport || query.empty() || max_results < 1) return hits;
     TransportRequest req;
     req.url = url;
     req.timeout_ms = timeout_ms > 0 ? timeout_ms : 20000;
     req.headers["User-Agent"] = "HandoffKit-Browser/1.0";
-    req.headers["Accept"] = "application/json";
-    const auto resp = transport->get(req);
-    if (!resp.error.empty() || resp.status < 200 || resp.status >= 300 || resp.body.empty()) return hits;
+    req.headers["Accept"] = "text/html,application/xhtml+xml";
     try {
-        const auto j = nlohmann::json::parse(resp.body);
-        const auto it = j.find("results");
-        if (it == j.end() || !it->is_array()) return hits;
-        for (const auto& item : *it) {
-            if (static_cast<int>(hits.size()) >= max_results) break;
-            if (!item.is_object()) continue;
-            const auto u = item.find("url");
-            const auto t = item.find("title");
-            if (u == item.end() || !u->is_string()) continue;
-            std::string surl = u->get<std::string>();
-            if (surl.rfind("http://", 0) != 0 && surl.rfind("https://", 0) != 0) continue;
-            std::string title;
-            if (t != item.end() && t->is_string()) title = strip_tags(t->get<std::string>());
-            if (title.empty()) title = surl;
-            push_hit(hits, std::move(title), std::move(surl), max_results);
-        }
+        const auto resp = transport->get(req);
+        if (!resp.error.empty() || resp.status < 200 || resp.status >= 300 || resp.body.empty()) return hits;
+        return scrape_anchor_hits(resp.body, max_results, exclude_hosts);
     } catch (...) {
         return hits;
     }
-    return hits;
+}
+
+std::vector<std::pair<std::string, std::string>> mojeek_html_search(TransportPtr transport,
+                                                                      std::string_view query,
+                                                                      int max_results, int timeout_ms) {
+    return html_engine_search(transport, query, max_results, timeout_ms, "mojeek",
+                              "https://www.mojeek.com/search?q=" + url_encode_component(std::string(query)),
+                              {"mojeek.com"});
+}
+
+std::vector<std::pair<std::string, std::string>> marginalia_html_search(TransportPtr transport,
+                                                                          std::string_view query,
+                                                                          int max_results, int timeout_ms) {
+    return html_engine_search(transport, query, max_results, timeout_ms, "marginalia",
+                              "https://search.marginalia.nu/search?query=" + url_encode_component(std::string(query)),
+                              {"marginalia.nu", "marginalia-search.com"});
+}
+
+std::vector<std::pair<std::string, std::string>> startpage_html_search(TransportPtr transport,
+                                                                         std::string_view query,
+                                                                         int max_results, int timeout_ms) {
+    return html_engine_search(transport, query, max_results, timeout_ms, "startpage",
+                              "https://www.startpage.com/sp/search?query=" + url_encode_component(std::string(query)),
+                              {"startpage.com", "startmail.com"});
 }
 
 std::vector<std::pair<std::string, std::string>> duckduckgo_html_search(TransportPtr transport,
@@ -547,6 +947,12 @@ std::string provider_engine(const std::vector<std::string>& providers) {
                                 : provider == "duckduckgo"
                                 ? "duckduckgo_html"
                                 : provider == "searxng"   ? "searxng_json"
+                                : provider == "brave"     ? "brave_json"
+                                : provider == "bing"      ? "bing_json"
+                                : provider == "kagi"      ? "kagi_json"
+                                : provider == "mojeek"    ? "mojeek_html"
+                                : provider == "marginalia" ? "marginalia_html"
+                                : provider == "startpage" ? "startpage_html"
                                 : provider == "wikipedia"
                                     ? "wikipedia_opensearch"
                                     : provider == "user_browser" ? "user_browser_bridge" : "";
@@ -579,6 +985,8 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
         const auto provider = canonical_provider(raw);
         if (provider.empty()) continue;
         if (provider != "google" && provider != "duckduckgo" && provider != "wikipedia" && provider != "searxng" &&
+            provider != "brave" && provider != "bing" && provider != "kagi" &&
+            provider != "mojeek" && provider != "marginalia" && provider != "startpage" &&
             provider != "user_browser" && provider != "google_browser" && provider != "project_index") {
             provider_errors.push_back("unsupported provider: " + provider);
             continue;
@@ -652,7 +1060,9 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
             hits = duckduckgo_html_search(transport, q, max_results, timeout_ms);
         } else if (provider == "searxng") {
             const char* base_env = std::getenv("HANDOFFKIT_SEARXNG_URL");
-            if (!base_env || std::string(base_env).empty()) {
+            const char* bases_env = std::getenv("HANDOFFKIT_SEARXNG_URLS");
+            if ((!base_env || std::string(base_env).empty()) &&
+                (!bases_env || std::string(bases_env).empty())) {
                 provider_codes.push_back("provider_unavailable");
                 provider_errors.push_back("searxng: searxng requires HANDOFFKIT_SEARXNG_URL");
                 trace["error_code"] = "provider_unavailable";
@@ -661,6 +1071,27 @@ nlohmann::json web_search(std::string_view query, TransportPtr transport, int ma
                 continue;
             }
             hits = searxng_json_search(transport, q, max_results, timeout_ms);
+        } else if (provider == "brave" || provider == "bing" || provider == "kagi") {
+            const char* env_name = provider == "brave" ? "HANDOFFKIT_BRAVE_API_KEY"
+                : provider == "bing" ? "HANDOFFKIT_BING_API_KEY" : "HANDOFFKIT_KAGI_API_KEY";
+            const char* key_env = std::getenv(env_name);
+            if (!key_env || std::string(key_env).empty()) {
+                provider_codes.push_back("provider_unavailable");
+                provider_errors.push_back(provider + ": no API key configured");
+                trace["error_code"] = "provider_unavailable";
+                trace["fallback_reason"] = provider + "_unconfigured";
+                provider_trace.push_back(trace);
+                continue;
+            }
+            if (provider == "brave") hits = brave_json_search(transport, q, max_results, timeout_ms);
+            else if (provider == "bing") hits = bing_json_search(transport, q, max_results, timeout_ms);
+            else hits = kagi_json_search(transport, q, max_results, timeout_ms);
+        } else if (provider == "mojeek") {
+            hits = mojeek_html_search(transport, q, max_results, timeout_ms);
+        } else if (provider == "marginalia") {
+            hits = marginalia_html_search(transport, q, max_results, timeout_ms);
+        } else if (provider == "startpage") {
+            hits = startpage_html_search(transport, q, max_results, timeout_ms);
         } else {
             hits = wikipedia_opensearch(transport, q, max_results, timeout_ms);
         }

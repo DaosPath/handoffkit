@@ -5,11 +5,13 @@
 #include <nlohmann/json.hpp>
 
 #include <cassert>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <set>
 #include <string>
+#include <thread>
 
 using namespace handoffkit::demos::fusion;
 
@@ -449,6 +451,52 @@ int main() {
     test_prompt_config_templates();
     test_dag_parallel_execution_report();
     test_disk_report_has_call_steps_and_cache_stats();
+    test_run_budget_exceeded();
+    test_run_budget_report();
     std::cout << "All fusion engine tests passed\n";
     return 0;
+}
+
+void test_run_budget_exceeded() {
+    FusionConfig cfg;
+    cfg.task = "List three benefits of dual-branch agent fusion.";
+    cfg.mode = FusionMode::Lean;
+    cfg.profile = FusionProfileId::Neutral;
+    cfg.provider = "echo";
+    cfg.write_files = false;
+    cfg.cache.enabled = false;
+    cfg.max_total_ms = 1;
+    int provider_calls = 0;
+    AnyProvider slow("echo", [&](std::string_view prompt, const GenerateOptions& options) {
+        (void)prompt;
+        (void)options;
+        ++provider_calls;
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        return Result<std::string>(std::string("echo"));
+    });
+    FusionEngine engine;
+    auto run = engine.run_with_provider(cfg, std::move(slow));
+    assert(!run);
+    assert(run.error().message.find("budget_exceeded") != std::string::npos);
+    assert(provider_calls <= 2);
+    std::cout << "test_run_budget_exceeded ok calls=" << provider_calls << "\n";
+}
+
+void test_run_budget_report() {
+    FusionConfig cfg;
+    cfg.task = "List three benefits of dual-branch agent fusion.";
+    cfg.mode = FusionMode::Lean;
+    cfg.profile = FusionProfileId::Neutral;
+    cfg.provider = "echo";
+    cfg.write_files = false;
+    cfg.cache.enabled = false;
+    cfg.max_total_ms = 60000;
+    auto run = run_fusion(cfg);
+    assert(run);
+    assert(run.value().success);
+    assert(run.value().report.contains("budget"));
+    assert(run.value().report["budget"].value("max_total_ms", 0) == 60000);
+    assert(run.value().report["budget"].value("exceeded", true) == false);
+    assert(run.value().report["budget"].value("elapsed_ms", -1) >= 0);
+    std::cout << "test_run_budget_report ok\n";
 }

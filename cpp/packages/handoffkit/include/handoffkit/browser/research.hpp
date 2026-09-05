@@ -59,7 +59,9 @@ struct WebResearchResult {
 [[nodiscard]] std::string make_search_query_from_task(std::string_view task, std::size_t max_chars = 140);
 [[nodiscard]] std::string keyword_compress(std::string_view query, std::size_t max_words = 10);
 
-/// Live search: Google HTML, DuckDuckGo HTML + Wikipedia OpenSearch. The explicit
+/// Live search: Google/DuckDuckGo HTML, Wikipedia OpenSearch, SearXNG JSON
+/// (options via HANDOFFKIT_SEARXNG_URL(S)/ENGINES), key-gated Brave/Bing/Kagi
+/// JSON, and keyless Mojeek/Marginalia/Startpage HTML. The explicit
 /// user_browser provider is recognized for conformance but unavailable in C++
 /// because this runtime has no host browser bridge.
 [[nodiscard]] nlohmann::json web_search(std::string_view query, TransportPtr transport,

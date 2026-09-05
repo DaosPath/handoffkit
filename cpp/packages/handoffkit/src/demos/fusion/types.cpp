@@ -544,6 +544,7 @@ nlohmann::json FusionConfig::to_json() const {
         {"write_files", write_files},
         {"ascii_sanitize", ascii_sanitize},
         {"branch_count", branch_count},
+        {"max_total_ms", max_total_ms},
         {"parallel_branches", parallel_branches},
         {"max_parallel_branches", max_parallel_branches},
         {"enable_web_tools", enable_web_tools},
@@ -629,6 +630,7 @@ Result<FusionConfig> FusionConfig::from_json(const nlohmann::json& j) {
     if (j.contains("write_files")) c.write_files = j.at("write_files").get<bool>();
     if (j.contains("ascii_sanitize")) c.ascii_sanitize = j.at("ascii_sanitize").get<bool>();
     if (j.contains("branch_count")) c.branch_count = j.at("branch_count").get<int>();
+    if (j.contains("max_total_ms")) c.max_total_ms = j.at("max_total_ms").get<std::int64_t>();
     if (j.contains("parallel_branches")) c.parallel_branches = j.at("parallel_branches").get<bool>();
     if (j.contains("max_parallel_branches")) {
         c.max_parallel_branches = j.at("max_parallel_branches").get<int>();
