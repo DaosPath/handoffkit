@@ -278,12 +278,8 @@ struct SearxngOptions {
 
 std::vector<std::pair<std::string, std::string>> searxng_json_search(TransportPtr transport,
                                                                        std::string_view query,
-                                                                       int max_results, int timeout_ms) {
-    SearxngOptions options;
-    options.base_urls = split_option_list(getenv_str("HANDOFFKIT_SEARXNG_URLS"));
-    options.engines = split_option_list(getenv_str("HANDOFFKIT_SEARXNG_ENGINES"));
-    return searxng_json_search(transport, query, max_results, timeout_ms, std::move(options));
-}
+                                                                       int max_results, int timeout_ms,
+                                                                       SearxngOptions options);
 
 std::vector<std::pair<std::string, std::string>> searxng_json_search(TransportPtr transport,
                                                                        std::string_view query,
@@ -403,6 +399,15 @@ std::vector<std::pair<std::string, std::string>> searxng_json_search(TransportPt
         if (!attempt.empty()) return attempt;
     }
     return hits;
+}
+
+std::vector<std::pair<std::string, std::string>> searxng_json_search(TransportPtr transport,
+                                                                       std::string_view query,
+                                                                       int max_results, int timeout_ms) {
+    SearxngOptions options;
+    options.base_urls = split_option_list(getenv_str("HANDOFFKIT_SEARXNG_URLS"));
+    options.engines = split_option_list(getenv_str("HANDOFFKIT_SEARXNG_ENGINES"));
+    return searxng_json_search(transport, query, max_results, timeout_ms, std::move(options));
 }
 
 /// Key-gated JSON provider helper: env key or fail-closed empty.
@@ -562,6 +567,7 @@ std::vector<std::pair<std::string, std::string>> html_engine_search(
     TransportPtr transport, std::string_view query, int max_results, int timeout_ms,
     const std::string& provider, const std::string& url,
     const std::vector<std::string>& exclude_hosts) {
+    (void)provider;  // used by callers for error context; transport is provider-agnostic here
     std::vector<std::pair<std::string, std::string>> hits;
     if (!transport || query.empty() || max_results < 1) return hits;
     TransportRequest req;
