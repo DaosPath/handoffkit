@@ -179,7 +179,10 @@ void test_cli_run_handoff_json(const std::filesystem::path& dataset, const std::
     assert(summary["tasks"].is_array() && summary["tasks"].size() == 1);
     const auto& task = summary["tasks"][0];
     assert(task.value("status", "") == "judge_partial");
-    assert(task.value("answer", "") == "echo");
+    // The echo provider returns the prompt back: proves the rubric checklist
+    // reached the generator.
+    assert(task.value("answer", "").rfind("EchoProvider(", 0) == 0);
+    assert(task.value("answer", "").find("REQUIREMENTS CHECKLIST") != std::string::npos);
     assert(task.contains("problem") && task.contains("criteria"));
     assert(task["criteria"].is_array() && task["criteria"].size() == 3);
     const auto config = read_json(out / "config.json");
