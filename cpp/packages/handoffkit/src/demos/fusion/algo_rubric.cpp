@@ -1,9 +1,9 @@
 #include <handoffkit/demos/fusion/algo_rubric.hpp>
 #include <handoffkit/demos/fusion/text_pipeline.hpp>
-#include <cctype>
+#include <handoffkit/util/text.hpp>
 namespace handoffkit { namespace demos { namespace fusion {
 namespace {
-std::string lower(std::string s){ for(char& c:s) if(c>='A'&&c<='Z') c=char(c-'A'+'a'); return s; }
+using text::to_lower;
 }
 nlohmann::json RubricScore::to_json() const {
   return nlohmann::json{{"criterion_id",criterion_id},{"raw",raw},{"weighted",weighted},{"hits",hits},{"penalties",penalties}};
@@ -41,15 +41,15 @@ std::vector<RubricCriterion> task_faithful_rubric() {
 }
 RubricReport score_with_rubric(std::string_view text, const std::vector<RubricCriterion>& rubric) {
   RubricReport rep;
-  std::string low = lower(std::string(text));
+  std::string low = to_lower(std::string(text));
   for (const auto& c : rubric) {
     RubricScore s; s.criterion_id = c.id;
     double raw = 0.0;
     for (const auto& p : c.positive) {
-      if (low.find(lower(p)) != std::string::npos) { raw += 1.0; s.hits.push_back(p); }
+      if (low.find(to_lower(p)) != std::string::npos) { raw += 1.0; s.hits.push_back(p); }
     }
     for (const auto& n : c.negative) {
-      if (low.find(lower(n)) != std::string::npos) { raw -= 1.0; s.penalties.push_back(n); }
+      if (low.find(to_lower(n)) != std::string::npos) { raw -= 1.0; s.penalties.push_back(n); }
     }
     // normalize raw roughly by number of positive cues
     double denom = std::max(1.0, double(c.positive.size()));

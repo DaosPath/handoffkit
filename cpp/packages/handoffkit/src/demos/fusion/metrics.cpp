@@ -1,4 +1,5 @@
 #include <handoffkit/demos/fusion/metrics.hpp>
+#include <handoffkit/util/text.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -11,12 +12,8 @@ namespace demos {
 namespace fusion {
 namespace {
 
-std::string lower(std::string s) {
-    for (char& c : s) {
-        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-    }
-    return s;
-}
+using text::to_lower;
+using text::trim;
 
 }  // namespace
 
@@ -34,7 +31,7 @@ std::vector<std::string> tokenize_simple(std::string_view text) {
     std::string cur;
     auto flush = [&]() {
         if (!cur.empty()) {
-            out.push_back(lower(cur));
+            out.push_back(to_lower(cur));
             cur.clear();
         }
     };
@@ -50,7 +47,7 @@ std::vector<std::string> tokenize_simple(std::string_view text) {
 }
 
 std::string normalize_label(std::string_view text) {
-    std::string s = lower(std::string(text));
+    std::string s = to_lower(std::string(text));
     std::string out;
     out.reserve(s.size());
     for (char c : s) {
@@ -60,9 +57,7 @@ std::string normalize_label(std::string_view text) {
         }
     }
     // trim
-    while (!out.empty() && out.front() == ' ') out.erase(out.begin());
-    while (!out.empty() && out.back() == ' ') out.pop_back();
-    return out;
+    return trim(out);
 }
 
 TextScore score_text_against_gold(std::string_view prediction, std::string_view gold) {

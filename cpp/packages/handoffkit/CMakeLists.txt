@@ -272,8 +272,34 @@ message(STATUS "handoffkit_core file count: ${_hk_core_n}")
 set(_hk_install_libs handoffkit_core handoffkit_browser)
 
 if(HANDOFFKIT_BUILD_DEMOS)
+  # Fusion eval corpus (bench/medcase/stats) lives in its own static lib so
+  # the domain-eval cluster is not compiled as part of the engine itself.
+  # Headers stay in place; only the TU boundary moves.
+  set(_fusion_engine_sources "")
+  set(HANDOFFKIT_FUSION_EVAL_SOURCES "")
+  foreach(_src ${HANDOFFKIT_FUSION_SOURCES})
+    if(_src MATCHES "/(algo_stats|bench_case|bench_corpus_eval|cases_medcase_loader|cases_validate)\\.cpp$")
+      list(APPEND HANDOFFKIT_FUSION_EVAL_SOURCES "${_src}")
+      list(REMOVE_ITEM HANDOFFKIT_DEMOS_SOURCES "${_src}")
+    else()
+      list(APPEND _fusion_engine_sources "${_src}")
+    endif()
+  endforeach()
+  set(HANDOFFKIT_FUSION_SOURCES "${_fusion_engine_sources}")
+  add_library(handoffkit_fusion_eval STATIC ${HANDOFFKIT_FUSION_EVAL_SOURCES})
+  target_link_libraries(handoffkit_fusion_eval PUBLIC handoffkit_browser)
+  handoffkit_apply_common(handoffkit_fusion_eval)
+  set_target_properties(handoffkit_fusion_eval PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    VERSION ${PROJECT_VERSION}
+    EXPORT_NAME fusion_eval
+    OUTPUT_NAME handoffkit_fusion_eval
+  )
+  add_library(handoffkit::fusion_eval ALIAS handoffkit_fusion_eval)
+  list(APPEND _hk_install_libs handoffkit_fusion_eval)
+
   add_library(handoffkit_demos ${HANDOFFKIT_DEMOS_SOURCES})
-  target_link_libraries(handoffkit_demos PUBLIC handoffkit_browser)
+  target_link_libraries(handoffkit_demos PUBLIC handoffkit_browser handoffkit_fusion_eval)
   handoffkit_apply_common(handoffkit_demos)
   set_target_properties(handoffkit_demos PROPERTIES
     VERSION ${PROJECT_VERSION}
@@ -285,6 +311,8 @@ if(HANDOFFKIT_BUILD_DEMOS)
   list(APPEND _hk_install_libs handoffkit_demos)
   list(LENGTH HANDOFFKIT_DEMOS_SOURCES _hk_demo_n)
   message(STATUS "handoffkit_demos file count: ${_hk_demo_n} (includes fusion)")
+  list(LENGTH HANDOFFKIT_FUSION_EVAL_SOURCES _hk_eval_n)
+  message(STATUS "handoffkit_fusion_eval file count: ${_hk_eval_n} (bench/medcase/stats)")
 endif()
 
 # Canonical consumer target: INTERFACE → demos (full) or core+browser

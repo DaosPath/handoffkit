@@ -4,6 +4,7 @@
 #include <handoffkit/browser/rank.hpp>
 #include <handoffkit/browser/util.hpp>
 #include <handoffkit/browser/page.hpp>
+#include <handoffkit/util/text.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -547,8 +548,7 @@ std::vector<std::pair<std::string, std::string>> scrape_anchor_hits(
         const auto scheme = href.find("://");
         const auto host_start = scheme == std::string::npos ? 0 : scheme + 3;
         const auto host_end = href.find('/', host_start);
-        std::string host = href.substr(host_start, host_end == std::string::npos ? host_end : host_end - host_start);
-        for (char& c : host) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        std::string host = text::to_lower(href.substr(host_start, host_end == std::string::npos ? host_end : host_end - host_start));
         bool excluded = false;
         for (const auto& domain : exclude_hosts) {
             if (host == domain || (host.size() > domain.size() + 1 &&
@@ -738,10 +738,7 @@ std::string keyword_compress(std::string_view query, std::size_t max_words) {
     std::size_t count = 0;
     auto flush = [&]() {
         if (word.empty()) return;
-        std::string low = word;
-        for (char& c : low) {
-            if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-        }
+        const std::string low = text::to_lower(word);
         if (!is_stopword(low) && word.size() >= 2) {
             if (!out.empty()) out.push_back(' ');
             out += word;
@@ -846,9 +843,7 @@ std::string make_search_query_from_task(std::string_view task, std::size_t max_c
 }
 
 std::string canonical_provider(std::string value) {
-    for (char& c : value) {
-        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-    }
+    value = text::to_lower(std::move(value));
     if (value == "g" || value == "google_http" || value == "google_html") return "google";
     if (value == "ddg") return "duckduckgo";
     if (value == "wiki") return "wikipedia";

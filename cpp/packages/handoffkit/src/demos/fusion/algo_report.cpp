@@ -1,5 +1,6 @@
 #include <handoffkit/demos/fusion/algo_report.hpp>
 #include <handoffkit/demos/fusion/text_pipeline.hpp>
+#include <handoffkit/io/markdown_table.hpp>
 #include <sstream>
 namespace handoffkit { namespace demos { namespace fusion {
 
@@ -19,19 +20,9 @@ std::string html_escape(std::string_view s) {
 
 std::string markdown_table(const std::vector<std::vector<std::string>>& rows) {
   if (rows.empty()) return "";
-  std::ostringstream ss;
-  // header
-  ss << "|";
-  for (const auto& c: rows[0]) ss << " " << c << " |";
-  ss << "\n|";
-  for (size_t i=0;i<rows[0].size();++i) ss << "---|";
-  ss << "\n";
-  for (size_t r=1;r<rows.size();++r) {
-    ss << "|";
-    for (const auto& c: rows[r]) ss << " " << c << " |";
-    ss << "\n";
-  }
-  return ss.str();
+  // Single canonical implementation lives in handoffkit/io; first row is the header.
+  return handoffkit::markdown_table(
+      rows.front(), std::vector<std::vector<std::string>>(rows.begin() + 1, rows.end()));
 }
 
 FusionRichReport build_rich_fusion_report(const FusionRunResult& run, const BranchDiff& diff, const RubricReport& rubric) {

@@ -1,4 +1,5 @@
 #include <handoffkit/demos/fusion/audit_loc.hpp>
+#include <handoffkit/util/text.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -23,11 +24,7 @@ bool is_fusion_source_path(const std::filesystem::path& p) {
 }
 
 bool path_looks_pad(const std::string& path) {
-    const auto lower = [&]() {
-        std::string s = path;
-        for (char& c : s) if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-        return s;
-    }();
+    const std::string lower = text::to_lower(path);
     if (lower.find("ops_text_batch_") != std::string::npos) return true;
     if (lower.find("ops_score_batch_") != std::string::npos) return true;
     if (lower.find("ops_cache_batch_") != std::string::npos) return true;

@@ -5,6 +5,7 @@
 #include <handoffkit/demos/fusion/web_research.hpp>
 #include <handoffkit/runtime/providers.hpp>
 #include <handoffkit/runtime/structured.hpp>
+#include <handoffkit/util/text.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -22,36 +23,17 @@ namespace fusion {
 namespace {
 
 using Clock = std::chrono::steady_clock;
-
-std::string trim_copy(std::string value) {
-    const auto not_space = [](unsigned char c) { return !std::isspace(c); };
-    value.erase(value.begin(), std::find_if(value.begin(), value.end(), not_space));
-    value.erase(std::find_if(value.rbegin(), value.rend(), not_space).base(), value.end());
-    return value;
-}
-
-std::string upper_copy(std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
-        return static_cast<char>(std::toupper(c));
-    });
-    return value;
-}
-
-std::string lower_copy(std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-    return value;
-}
+using text::to_lower;
+using text::trim;
 
 std::string normalize_verdict(std::string value) {
-    value = upper_copy(trim_copy(std::move(value)));
-    if (value == "MET" || value == "YES" || value == "TRUE" || value == "PASS" ||
-        value == "SATISFIED") {
+    value = to_lower(trim(std::move(value)));
+    if (value == "met" || value == "yes" || value == "true" || value == "pass" ||
+        value == "satisfied") {
         return "MET";
     }
-    if (value == "UNMET" || value == "NO" || value == "FALSE" || value == "FAIL" ||
-        value == "UNSATISFIED") {
+    if (value == "unmet" || value == "no" || value == "false" || value == "fail" ||
+        value == "unsatisfied") {
         return "UNMET";
     }
     return {};
@@ -118,9 +100,9 @@ Result<nlohmann::json> read_json_file(const std::filesystem::path& path) {
 }
 
 bool looks_like_stub(const std::string& text) {
-    const std::string stripped = trim_copy(text);
+    const std::string stripped = trim(text);
     if (stripped.size() < 600) return true;
-    const std::string low = lower_copy(stripped);
+    const std::string low = to_lower(stripped);
     const std::vector<std::string> markers = {
         "i'll research", "i will research", "i'll pull", "i will pull", "let me search",
         "i need to look up", "as an ai i cannot browse", "i don't have access to the internet",
@@ -434,7 +416,7 @@ Result<std::vector<DracoTask>> load_draco_tasks(const std::filesystem::path& pat
     std::size_t line_number = 0;
     while (std::getline(in, line)) {
         ++line_number;
-        if (trim_copy(line).empty()) continue;
+        if (trim(line).empty()) continue;
         nlohmann::json row;
         try {
             row = nlohmann::json::parse(line);
@@ -550,7 +532,7 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
     if (config.judge_batch_size <= 0) {
         return Error::invalid_argument("judge_batch_size must be > 0", "judge_batch_size");
     }
-    const std::string tier = lower_copy(config.tier);
+    const std::string tier = to_lower(config.tier);
     const bool baseline = tier == "baseline" || tier == "solo";
     Result<FusionTier> fusion_tier = Error::invalid_argument("baseline has no fusion tier");
     if (!baseline) {
@@ -684,7 +666,7 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
 
         if (config.resume && std::filesystem::is_regular_file(answer_path)) {
             auto previous = read_text_file(answer_path);
-            if (previous && !trim_copy(previous.value()).empty()) {
+            if (previous && !trim(previous.value()).empty()) {
                 answer = std::move(previous.value());
                 result.resumed_generation = true;
                 if (auto generation_json = read_json_file(generation_path)) {
