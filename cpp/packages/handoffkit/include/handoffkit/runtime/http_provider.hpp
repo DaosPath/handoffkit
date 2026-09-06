@@ -71,6 +71,25 @@ private:
     const GenerateOptions& options = {}
 );
 
+/// True when a model needs the OpenAI Responses API (/responses) instead of
+/// chat completions. Mirrors the Python OpenCodeProvider rule: Muse Spark
+/// (muse-*) only serves /responses (/chat/completions returns HTTP 500).
+[[nodiscard]] bool uses_openai_responses_api(std::string_view model) noexcept;
+
+/// Build request body for the Responses API (offline helper / tests).
+/// Maps max_tokens onto max_output_tokens (floored to 1024 for muse-*
+/// reasoning budgets) and omits sampling knobs: reasoning models run server
+/// defaults and may reject explicit temperature.
+[[nodiscard]] nlohmann::json build_openai_responses_request(
+    std::string_view model,
+    std::string_view prompt,
+    const GenerateOptions& options = {}
+);
+
+/// Parse an OpenAI Responses API payload into output text (offline-safe).
+/// Prefers top-level output_text, else walks output[].content[] text parts.
+[[nodiscard]] Result<std::string> parse_openai_responses_output(const nlohmann::json& response);
+
 /// Parse OpenAI-compatible /models list payload into model ids.
 [[nodiscard]] Result<std::vector<std::string>> parse_openai_models_list(const nlohmann::json& response);
 

@@ -186,6 +186,72 @@ Result<std::vector<std::string>> parse_openai_models_list(const nlohmann::json& 
     return Result<std::vector<std::string>>::success(std::move(ids));
 }
 
+bool uses_openai_responses_api(std::string_view model) noexcept {
+    return model.rfind("muse-", 0) == 0;
+}
+
+nlohmann::json build_openai_responses_request(
+    std::string_view model,
+    std::string_view prompt,
+    const GenerateOptions& options
+) {
+    std::string content(prompt);
+    if (!options.context.empty()) content = options.context + "\n\n" + content;
+    nlohmann::json body = {
+        {"model", std::string(model)},
+        {"input", content},
+    };
+    int max_output = options.max_tokens > 0 ? options.max_tokens : 1024;
+    if (uses_openai_responses_api(model) && max_output < 1024) max_output = 1024;
+    body["max_output_tokens"] = max_output;
+    if (options.extra_body.is_object()) {
+        for (auto it = options.extra_body.begin(); it != options.extra_body.end(); ++it) {
+            body[it.key()] = it.value();
+        }
+    }
+    return body;
+}
+
+Result<std::string> parse_openai_responses_output(const nlohmann::json& response) {
+    if (!response.is_object()) {
+        return Error::parse_error("responses payload must be an object");
+    }
+    if (response.contains("output_text") && response["output_text"].is_string()) {
+        const auto text = response["output_text"].get<std::string>();
+        if (!text.empty()) return Result<std::string>::success(text);
+    }
+    const auto out_it = response.find("output");
+    if (out_it == response.end() || !out_it->is_array()) {
+        return Error::parse_error("responses payload has no output_text or output array", "output");
+    }
+    std::string joined;
+    bool first_item = true;
+    for (const auto& item : *out_it) {
+        if (!item.is_object()) continue;
+        const auto content_it = item.find("content");
+        if (content_it == item.end() || !content_it->is_array()) continue;
+        std::string part;
+        for (const auto& chunk : *content_it) {
+            if (chunk.is_string()) {
+                part += chunk.get<std::string>();
+            } else if (chunk.is_object()) {
+                const auto text_it = chunk.find("text");
+                if (text_it != chunk.end() && text_it->is_string()) {
+                    part += text_it->get<std::string>();
+                }
+            }
+        }
+        if (part.empty()) continue;
+        if (!first_item) joined.push_back('\n');
+        first_item = false;
+        joined += part;
+    }
+    if (joined.empty()) {
+        return Error::parse_error("responses payload contained no output text", "output");
+    }
+    return Result<std::string>::success(std::move(joined));
+}
+
 OpenAiCompatibleProvider::OpenAiCompatibleProvider(
     std::string base_url,
     std::string api_key,
@@ -215,12 +281,15 @@ Result<std::string> OpenAiCompatibleProvider::generate(
     if (model_.empty()) return Error::provider_failed("OpenAI-compatible model is empty");
     auto endpoint = split_endpoint(base_url_);
     if (!endpoint) return endpoint.error();
-    const std::string path = join_endpoint_path(endpoint.value(), api_path_);
+    const bool responses_api = api_path_ == "/responses" || uses_openai_responses_api(model_);
+    const std::string path =
+        join_endpoint_path(endpoint.value(), responses_api ? "/responses" : api_path_);
 
     httplib::Client client(endpoint.value().origin);
     configure_client(client, options_, options_.read_timeout_ms);
     const auto headers = make_headers(api_key_, extra_headers_);
-    const auto body = build_openai_chat_request(model_, prompt, options);
+    const auto body = responses_api ? build_openai_responses_request(model_, prompt, options)
+                                    : build_openai_chat_request(model_, prompt, options);
     auto response = client.Post(path, headers, body.dump(), "application/json");
     if (!response) return Error::provider_failed("HTTP request failed to " + endpoint.value().origin + path);
     if (response->status < 200 || response->status >= 300) {
@@ -231,7 +300,9 @@ Result<std::string> OpenAiCompatibleProvider::generate(
         ));
     }
     try {
-        return parse_openai_chat_completion(nlohmann::json::parse(response->body, nullptr, false, true));
+        const auto payload = nlohmann::json::parse(response->body, nullptr, false, true);
+        if (responses_api) return parse_openai_responses_output(payload);
+        return parse_openai_chat_completion(payload);
     } catch (const std::exception& ex) {
         return Error::parse_error(std::string("Invalid provider JSON: ") + ex.what());
     }

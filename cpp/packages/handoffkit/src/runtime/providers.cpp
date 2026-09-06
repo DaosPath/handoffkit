@@ -324,7 +324,9 @@ Result<AnyProvider> make_provider(
         "(or use provider 'echo' offline)."
     );
 #else
-    return make_openai_compatible_provider(settings.value());
+    auto resolved = settings.value();
+    if (uses_openai_responses_api(resolved.model)) resolved.api_path = "/responses";
+    return make_openai_compatible_provider(resolved);
 #endif
 }
 
