@@ -19,6 +19,7 @@ void test_catalog_contains_python_natives() {
              "echo", "openai", "nvidia", "openrouter", "groq", "grok", "together",
              "fireworks", "deepinfra", "perplexity", "mistral", "cerebras",
              "sambanova", "zai", "ollama", "opencode-go", "opencode-zen",
+             "explabs",
          }) {
         assert(set.count(required) == 1);
     }
@@ -26,6 +27,10 @@ void test_catalog_contains_python_natives() {
     assert(nvidia);
     assert(nvidia.value().api_key_env == "NVIDIA_API_KEY");
     assert(nvidia.value().default_base_url.find("nvidia.com") != std::string::npos);
+    auto explabs = get_provider_config("explabs");
+    assert(explabs);
+    assert(explabs.value().api_key_env == "EXPLABS_API_KEY");
+    assert(explabs.value().default_base_url.find("experientiallabs.ai") != std::string::npos);
     std::cout << "test_catalog_contains_python_natives passed count=" << names.size() << "\n";
 }
 

@@ -286,7 +286,7 @@ Result<std::string> OpenAiCompatibleProvider::generate(
     if (model_.empty()) return Error::provider_failed("OpenAI-compatible model is empty");
     auto endpoint = split_endpoint(base_url_);
     if (!endpoint) return endpoint.error();
-    const bool responses_api = api_path_ == "/responses" || uses_openai_responses_api(model_);
+    const bool responses_api = api_path_ == "/responses";
     const std::string path =
         join_endpoint_path(endpoint.value(), responses_api ? "/responses" : api_path_);
 

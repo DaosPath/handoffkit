@@ -72,8 +72,10 @@ private:
 );
 
 /// True when a model needs the OpenAI Responses API (/responses) instead of
-/// chat completions. Mirrors the Python OpenCodeProvider rule: Muse Spark
-/// (muse-*) only serves /responses (/chat/completions returns HTTP 500).
+/// chat completions. Mirrors the Python OpenCodeProvider rule: OpenCode serves
+/// Muse Spark (muse-*) only over /responses (/chat/completions returns
+/// HTTP 500 there). Applied to opencode.ai bases only; other vendors keep
+/// chat completions for the same model ids.
 [[nodiscard]] bool uses_openai_responses_api(std::string_view model) noexcept;
 
 /// Build request body for the Responses API (offline helper / tests).

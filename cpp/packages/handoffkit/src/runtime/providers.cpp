@@ -108,6 +108,11 @@ std::vector<NativeProviderConfig> build_catalog() {
         cfg("opencode-zen", "OpenCode Zen", "OPENCODE_API_KEY", "OPENCODE_ZEN_BASE_URL", "OPENCODE_ZEN_MODEL",
             "https://opencode.ai/zen/v1", "gpt-5.4",
             {"gpt-5.4"}, true, {}, {{"vendor", "opencode"}, {"flavor", "zen"}}),
+
+        cfg("explabs", "Experiential Labs", "EXPLABS_API_KEY", "EXPLABS_BASE_URL", "EXPLABS_MODEL",
+            "https://api.experientiallabs.ai", "aion-3.0-mini",
+            {"aion-3.0-mini", "muse-spark-1.3-contributor", "muse-spark-1.3"}, true, {},
+            {{"vendor", "experientiallabs"}}),
     };
 }
 
@@ -325,7 +330,12 @@ Result<AnyProvider> make_provider(
     );
 #else
     auto resolved = settings.value();
-    if (uses_openai_responses_api(resolved.model)) resolved.api_path = "/responses";
+    // OpenCode serves muse-* only over the Responses API (/chat/completions
+    // returns HTTP 500 there). Other OpenAI-compatible vendors are untouched.
+    if (uses_openai_responses_api(resolved.model) &&
+        resolved.base_url.find("opencode.ai") != std::string::npos) {
+        resolved.api_path = "/responses";
+    }
     return make_openai_compatible_provider(resolved);
 #endif
 }
