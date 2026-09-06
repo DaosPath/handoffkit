@@ -131,6 +131,7 @@ void test_build_openai_responses_request_shape() {
     opts.max_tokens = 100;  // below the muse- reasoning floor
     opts.temperature = 0.0;
     opts.top_p = 0.5;
+    opts.extra_body = {{"thinking", {{"type", "disabled"}}}, {"custom_flag", true}};
     auto body = build_openai_responses_request("muse-spark-1.3-contributor-free", "grade this", opts);
     assert(body.at("model") == "muse-spark-1.3-contributor-free");
     std::string input = body.at("input").get<std::string>();
@@ -140,6 +141,8 @@ void test_build_openai_responses_request_shape() {
     assert(!body.contains("temperature"));
     assert(!body.contains("top_p"));
     assert(!body.contains("max_tokens"));
+    assert(!body.contains("thinking"));  // chat-style switch, unknown to Responses servers
+    assert(body.at("custom_flag") == true);
 
     GenerateOptions big;
     big.max_tokens = 4096;

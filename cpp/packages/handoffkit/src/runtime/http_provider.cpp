@@ -206,6 +206,8 @@ nlohmann::json build_openai_responses_request(
     body["max_output_tokens"] = max_output;
     if (options.extra_body.is_object()) {
         for (auto it = options.extra_body.begin(); it != options.extra_body.end(); ++it) {
+            // Chat-style thinking switches are unknown to Responses servers.
+            if (it.key() == "thinking") continue;
             body[it.key()] = it.value();
         }
     }
