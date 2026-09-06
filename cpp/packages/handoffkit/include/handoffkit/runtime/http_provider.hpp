@@ -77,9 +77,10 @@ private:
 [[nodiscard]] bool uses_openai_responses_api(std::string_view model) noexcept;
 
 /// Build request body for the Responses API (offline helper / tests).
-/// Maps max_tokens onto max_output_tokens (floored to 1024 for muse-*
-/// reasoning budgets) and omits sampling knobs: reasoning models run server
-/// defaults and may reject explicit temperature.
+/// Maps max_tokens onto max_output_tokens (floored to 4096 for muse-*
+/// reasoning budgets: high-effort thinking consumes the budget and tiny caps
+/// return status=incomplete with empty output) and omits sampling knobs:
+/// reasoning models run server defaults and may reject explicit temperature.
 [[nodiscard]] nlohmann::json build_openai_responses_request(
     std::string_view model,
     std::string_view prompt,

@@ -201,8 +201,8 @@ nlohmann::json build_openai_responses_request(
         {"model", std::string(model)},
         {"input", content},
     };
-    int max_output = options.max_tokens > 0 ? options.max_tokens : 1024;
-    if (uses_openai_responses_api(model) && max_output < 1024) max_output = 1024;
+    int max_output = options.max_tokens > 0 ? options.max_tokens : 4096;
+    if (uses_openai_responses_api(model) && max_output < 4096) max_output = 4096;
     body["max_output_tokens"] = max_output;
     if (options.extra_body.is_object()) {
         for (auto it = options.extra_body.begin(); it != options.extra_body.end(); ++it) {
@@ -247,7 +247,12 @@ Result<std::string> parse_openai_responses_output(const nlohmann::json& response
         joined += part;
     }
     if (joined.empty()) {
-        return Error::parse_error("responses payload contained no output text", "output");
+        const std::string status = response.value("status", std::string{"unknown"});
+        return Error::parse_error(
+            "responses payload contained no output text (status=" + status +
+            "); reasoning budgets may need a larger max_output_tokens",
+            "output"
+        );
     }
     return Result<std::string>::success(std::move(joined));
 }

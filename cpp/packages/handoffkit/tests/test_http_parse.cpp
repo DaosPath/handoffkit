@@ -136,7 +136,7 @@ void test_build_openai_responses_request_shape() {
     std::string input = body.at("input").get<std::string>();
     assert(input.find("prior context") != std::string::npos);
     assert(input.find("grade this") != std::string::npos);
-    assert(body.at("max_output_tokens") == 1024);
+    assert(body.at("max_output_tokens") == 4096);
     assert(!body.contains("temperature"));
     assert(!body.contains("top_p"));
     assert(!body.contains("max_tokens"));

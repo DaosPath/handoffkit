@@ -239,14 +239,15 @@ class OpenCodeProvider(BaseProvider):
         if "max_tokens" in kwargs and "max_output_tokens" not in kwargs:
             kwargs["max_output_tokens"] = kwargs.pop("max_tokens")
         # Muse Spark runs reasoning effort=high; reasoning tokens count against
-        # the output budget. Tiny budgets (e.g. health probes with 8-64 tokens)
-        # always return status=incomplete with empty output, so floor them.
+        # the output budget. Small budgets (e.g. health probes or per-step
+        # fusion caps) return status=incomplete with empty output, so floor
+        # them to leave room for thinking on real prompts.
         if model.startswith("muse-"):
             try:
-                if int(kwargs.get("max_output_tokens", 0)) < 1024:
-                    kwargs["max_output_tokens"] = 1024
+                if int(kwargs.get("max_output_tokens", 0)) < 4096:
+                    kwargs["max_output_tokens"] = 4096
             except (TypeError, ValueError):
-                kwargs["max_output_tokens"] = 1024
+                kwargs["max_output_tokens"] = 4096
         payload = {
             "model": model,
             "input": prompt,
