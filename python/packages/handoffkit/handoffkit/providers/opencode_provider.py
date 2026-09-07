@@ -244,10 +244,10 @@ class OpenCodeProvider(BaseProvider):
         # them to leave room for thinking on real prompts.
         if model.startswith("muse-"):
             try:
-                if int(kwargs.get("max_output_tokens", 0)) < 4096:
-                    kwargs["max_output_tokens"] = 4096
+                if int(kwargs.get("max_output_tokens", 0)) < 16384:
+                    kwargs["max_output_tokens"] = 16384
             except (TypeError, ValueError):
-                kwargs["max_output_tokens"] = 4096
+                kwargs["max_output_tokens"] = 16384
         payload = {
             "model": model,
             "input": prompt,

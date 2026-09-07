@@ -201,8 +201,8 @@ nlohmann::json build_openai_responses_request(
         {"model", std::string(model)},
         {"input", content},
     };
-    int max_output = options.max_tokens > 0 ? options.max_tokens : 4096;
-    if (uses_openai_responses_api(model) && max_output < 4096) max_output = 4096;
+    int max_output = options.max_tokens > 0 ? options.max_tokens : 16384;
+    if (uses_openai_responses_api(model) && max_output < 16384) max_output = 16384;
     body["max_output_tokens"] = max_output;
     if (options.extra_body.is_object()) {
         for (auto it = options.extra_body.begin(); it != options.extra_body.end(); ++it) {
