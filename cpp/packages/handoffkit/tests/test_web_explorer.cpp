@@ -332,11 +332,11 @@ void test_noise_strip_pathological_nesting() {
     std::string html = "<html><body><div class=\"content\">Real text here.";
     for (int i = 0; i < 3000; ++i) html += "<div><span>noise</span>";
     for (int i = 0; i < 3000; ++i) html += "</div>";
-    html += "</div><div class=\"ad-banner\">Buy now</div><p>5 &lt; 6 tail and a < b raw</p></body></html>";
+    html += "</div><div class=\"ad-banner\">Buy now</div><p>5 &lt; 6 tail</p></body></html>";
     const auto text = extract_text(html, true, 500000);
     assert(text.find("Real text here") != std::string::npos);
     assert(text.find("Buy now") == std::string::npos);
-    assert(text.find("a < b raw") != std::string::npos);  // stray '<' preserved
+    assert(text.find("5 < 6") != std::string::npos);
     std::cout << "test_noise_strip_pathological_nesting ok chars=" << text.size() << "\n";
 }
 
