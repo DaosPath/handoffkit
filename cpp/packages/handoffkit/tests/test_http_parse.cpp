@@ -184,8 +184,22 @@ void test_parse_openai_responses_output_array() {
 
 void test_parse_openai_responses_rejects_empty() {
     assert(!parse_openai_responses_output(nlohmann::json::object()));
+    assert(!parse_openai_responses_output(nlohmann::json::array()));
     assert(!parse_openai_responses_output(nlohmann::json{{"output", nlohmann::json::array()}}));
     std::cout << "test_parse_openai_responses_rejects_empty passed!" << std::endl;
+}
+
+void test_opencode_session_token_is_stable_hex() {
+    const std::string first = opencode_session_token();
+    const std::string second = opencode_session_token();
+    assert(!first.empty());
+    assert(first == second);
+    assert(first.size() == 64);
+    for (char c : first) {
+        const bool hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+        assert(hex);
+    }
+    std::cout << "test_opencode_session_token_is_stable_hex passed!" << std::endl;
 }
 
 }  // namespace
@@ -203,6 +217,7 @@ int main() {
     test_parse_openai_responses_output_text();
     test_parse_openai_responses_output_array();
     test_parse_openai_responses_rejects_empty();
+    test_opencode_session_token_is_stable_hex();
     std::cout << "All HTTP parse (offline) tests passed!" << std::endl;
     return 0;
 }

@@ -2,6 +2,9 @@
 #include <handoffkit/version.hpp>
 
 #include <algorithm>
+#include <cstdlib>
+#include <iomanip>
+#include <random>
 #include <sstream>
 #include <vector>
 
@@ -114,6 +117,21 @@ std::string format_http_provider_error(
         message += "... [truncated " + std::to_string(body.size() - keep) + " chars]";
     }
     return message;
+}
+
+std::string opencode_session_token() {
+    static const std::string cached = [] {
+        if (const char* env = std::getenv("OPENCODE_SESSION_ID")) {
+            if (*env) return std::string(env);
+        }
+        std::random_device rd;
+        std::mt19937_64 rng(rd());
+        std::ostringstream ss;
+        ss << std::hex << std::setfill('0');
+        for (int i = 0; i < 4; ++i) ss << std::setw(16) << rng();
+        return ss.str();
+    }();
+    return cached;
 }
 
 Result<std::string> parse_openai_chat_completion(const nlohmann::json& response) {

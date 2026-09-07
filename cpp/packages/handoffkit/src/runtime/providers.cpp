@@ -336,6 +336,12 @@ Result<AnyProvider> make_provider(
         resolved.base_url.find("opencode.ai") != std::string::npos) {
         resolved.api_path = "/responses";
     }
+    // The opencode gateway requires x-opencode-session affinity on some
+    // routes (HTTP 400 MissingSessionID without it). Scoped to opencode.ai.
+    if (resolved.base_url.find("opencode.ai") != std::string::npos &&
+        resolved.headers.count("x-opencode-session") == 0) {
+        resolved.headers["x-opencode-session"] = opencode_session_token();
+    }
     return make_openai_compatible_provider(resolved);
 #endif
 }

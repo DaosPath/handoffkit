@@ -61,6 +61,13 @@ private:
     std::size_t max_body_chars = 4096
 );
 
+/// Opaque session-affinity token for the opencode.ai gateway
+/// (x-opencode-session). The gateway requires it on some routes and rejects
+/// requests without it (HTTP 400 MissingSessionID). Value is OPENCODE_SESSION_ID
+/// when set, else a random per-process token. No identity impersonation: the
+/// CLI never sends x-opencode-client / user ids.
+[[nodiscard]] std::string opencode_session_token();
+
 /// Parse OpenAI-compatible chat completion JSON into assistant text (offline-safe).
 [[nodiscard]] Result<std::string> parse_openai_chat_completion(const nlohmann::json& response);
 
