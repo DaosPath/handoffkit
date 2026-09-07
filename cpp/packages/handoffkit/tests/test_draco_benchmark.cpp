@@ -193,6 +193,23 @@ void test_cli_run_handoff_json(const std::filesystem::path& dataset, const std::
     std::cout << "test_cli_run_handoff_json ok\n";
 }
 
+void test_task_result_json_survives_bad_utf8() {
+    DracoTaskResult result;
+    result.id = "bad-utf8";
+    result.problem = std::string("plain\xff\xfe binary");
+    result.answer = std::string("valid \xe2\x82\xac tail\x80cut \xf0\x9f");
+    std::string dumped;
+    try {
+        dumped = result.to_json().dump();
+    } catch (const std::exception& ex) {
+        assert(false && "to_json dump must not throw on model bytes");
+    }
+    assert(dumped.find("plain") != std::string::npos);
+    assert(dumped.find("tail") != std::string::npos);
+    assert(dumped.find("\xff") == std::string::npos);
+    std::cout << "test_task_result_json_survives_bad_utf8 ok\n";
+}
+
 }  // namespace
 
 int main() {
@@ -205,6 +222,7 @@ int main() {
     test_cli_validate(dataset);
     test_rubric_flag_reaches_generation(dataset, root);
     test_cli_run_handoff_json(dataset, root);
+    test_task_result_json_survives_bad_utf8();
     std::filesystem::remove_all(root, ec);
     std::cout << "All native DRACO benchmark tests passed\n";
     return 0;

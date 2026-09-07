@@ -52,6 +52,60 @@ std::string safe_component(std::string value) {
     return value;
 }
 
+/// Replace invalid UTF-8 sequences with U+FFFD so model output can always be
+/// embedded in JSON (nlohmann::json throws on bad bytes at dump time).
+std::string sanitize_utf8(std::string_view value) {
+    std::string out;
+    out.reserve(value.size());
+    std::size_t i = 0;
+    const auto push_replacement = [&]() { out.append("\xEF\xBF\xBD"); };
+    while (i < value.size()) {
+        const unsigned char c = static_cast<unsigned char>(value[i]);
+        std::size_t need = 0;
+        char32_t min_cp = 0;
+        if (c < 0x80) {
+            out.push_back(static_cast<char>(c));
+            ++i;
+            continue;
+        } else if ((c & 0xE0) == 0xC0) {
+            need = 1;
+            min_cp = 0x80;
+        } else if ((c & 0xF0) == 0xE0) {
+            need = 2;
+            min_cp = 0x800;
+        } else if ((c & 0xF8) == 0xF0) {
+            need = 3;
+            min_cp = 0x10000;
+        } else {
+            push_replacement();
+            ++i;
+            continue;
+        }
+        if (i + need >= value.size()) {
+            push_replacement();
+            break;
+        }
+        char32_t cp = c & (0xFF >> (need + 2));
+        bool ok = true;
+        for (std::size_t k = 1; k <= need; ++k) {
+            const unsigned char cc = static_cast<unsigned char>(value[i + k]);
+            if ((cc & 0xC0) != 0x80) {
+                ok = false;
+                break;
+            }
+            cp = (cp << 6) | (cc & 0x3F);
+        }
+        if (!ok || cp < min_cp || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) {
+            push_replacement();
+            ++i;
+            continue;
+        }
+        out.append(value.substr(i, need + 1));
+        i += need + 1;
+    }
+    return out;
+}
+
 std::string task_dir_name(std::size_t index, const std::string& domain) {
     std::ostringstream ss;
     ss << "task-" << std::setw(3) << std::setfill('0') << index << "_" << safe_component(domain);
@@ -244,8 +298,8 @@ Result<ParsedJudgeBatch> parse_judge_batch(
         parsed.items.push_back({
             {"criterion_id", id},
             {"verdict", verdict},
-            {"quote", item.value("quote", std::string{})},
-            {"justification", item.value("justification", std::string{})},
+            {"quote", sanitize_utf8(item.value("quote", std::string{}))},
+            {"justification", sanitize_utf8(item.value("justification", std::string{}))},
         });
     }
     if (parsed.verdicts.empty()) {
@@ -289,10 +343,10 @@ Result<void> persist_batch(const DracoBatchResult& batch, bool partial) {
 
 nlohmann::json DracoCriterion::to_json() const {
     return {
-        {"id", id},
-        {"section_id", section_id},
-        {"section_title", section_title},
-        {"requirement", requirement},
+        {"id", sanitize_utf8(id)},
+        {"section_id", sanitize_utf8(section_id)},
+        {"section_title", sanitize_utf8(section_title)},
+        {"requirement", sanitize_utf8(requirement)},
         {"weight", weight},
     };
 }
@@ -365,7 +419,7 @@ nlohmann::json DracoTaskResult::to_json() const {
         {"id", id},
         {"domain", domain},
         {"status", status},
-        {"error", error},
+        {"error", sanitize_utf8(error)},
         {"criteria_count", criteria_count},
         {"answer_chars", answer_chars},
         {"generation_calls", generation_calls},
@@ -376,9 +430,9 @@ nlohmann::json DracoTaskResult::to_json() const {
         {"generation", generation},
         {"judge", judge},
         {"score", score.to_json()},
-        {"problem", problem},
+        {"problem", sanitize_utf8(problem)},
         {"criteria", criteria},
-        {"answer", answer},
+        {"answer", sanitize_utf8(answer)},
     };
 }
 
@@ -753,7 +807,7 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
                         {"attempt", attempt},
                         {"success", static_cast<bool>(generated)},
                         {"chars", answer.size()},
-                        {"error", generated ? std::string{} : generated.error().message},
+                        {"error", generated ? std::string{} : sanitize_utf8(generated.error().message)},
                         {"usage", generation_provider.last_usage().to_json()},
                     });
                     if (!generated && attempt == max_attempts) result.error = generated.error().message;
@@ -797,7 +851,7 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
                             {"attempt", attempt},
                             {"success", false},
                             {"chars", 0},
-                            {"error", generated.error().message},
+                            {"error", sanitize_utf8(generated.error().message)},
                         });
                         if (attempt == max_attempts) result.error = generated.error().message;
                     }
@@ -922,7 +976,7 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
                         judge_errors.push_back({
                             {"batch_begin", begin},
                             {"attempt", attempt},
-                            {"error", judged.error().message},
+                            {"error", sanitize_utf8(judged.error().message)},
                         });
                         continue;
                     }
@@ -932,7 +986,7 @@ Result<DracoBatchResult> run_draco_batch(const DracoRunConfig& config) {
                             {"batch_begin", begin},
                             {"attempt", attempt},
                             {"error", parsed.error().message},
-                            {"raw_preview", judged.value().substr(0, 500)},
+                            {"raw_preview", sanitize_utf8(judged.value().substr(0, 500))},
                         });
                         continue;
                     }
