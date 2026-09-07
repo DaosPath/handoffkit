@@ -47,34 +47,87 @@ std::string strip_tags_region(std::string html, const std::string& tag) {
     return html;
 }
 
+bool is_noise_container(std::string_view tag) {
+    return tag == "div" || tag == "section" || tag == "aside" || tag == "span" ||
+           tag == "form" || tag == "li" || tag == "table";
+}
+
+bool attrs_look_like_noise(const std::string& attrs) {
+    static const char* kNoiseWords[] = {
+        "ad",        "ads",        "advert",      "advertisement", "sponsored", "promoted",
+        "promo",     "commercial", "cookie",      "consent",       "newsletter", "subscribe",
+        "paywall",   "popup",      "modal",       "banner",
+    };
+    std::string token;
+    const auto flush = [&]() {
+        if (token.empty()) return false;
+        for (const char* word : kNoiseWords) {
+            if (token == word) return true;
+        }
+        token.clear();
+        return false;
+    };
+    for (char c : attrs) {
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+            token.push_back(c);
+        } else if (flush()) {
+            return true;
+        }
+    }
+    return flush();
+}
+
 std::string strip_marked_noise(std::string html) {
-    static const std::regex container_re(
-        R"re(<(div|section|aside|span|form|li|table)\b([^>]*)>[\s\S]*?</\1>)re",
-        std::regex::icase);
-    static const std::regex marker_re(
-        R"re((^|[\s_-])(ad|ads|advert|advertisement|sponsored|promoted|promo|commercial|cookie|consent|newsletter|subscribe|paywall|popup|modal|banner)($|[\s_-]))re",
-        std::regex::icase);
+    // Manual scanner: the old std::regex (<tag ...>[\s\S]*?</tag> with a
+    // backreference) blew libstdc++'s recursive matcher (86k frames, stack
+    // overflow) on large real-world pages. Same first-close semantics.
     for (int pass = 0; pass < 3; ++pass) {
+        const std::string low = lower_copy(html);
         std::string out;
-        std::size_t last = 0;
+        out.reserve(html.size());
+        std::size_t pos = 0;
         bool changed = false;
-        auto begin = std::sregex_iterator(html.begin(), html.end(), container_re);
-        auto end = std::sregex_iterator();
-        for (auto it = begin; it != end; ++it) {
-            const auto& match = *it;
-            out.append(html, last, static_cast<std::size_t>(match.position()) - last);
-            std::string attrs = match.size() > 2 ? match[2].str() : std::string{};
+        while (pos < html.size()) {
+            const auto open = low.find('<', pos);
+            if (open == std::string::npos) break;
+            std::size_t name_end = open + 1;
+            while (name_end < low.size() &&
+                   ((low[name_end] >= 'a' && low[name_end] <= 'z') ||
+                    (low[name_end] >= '0' && low[name_end] <= '9'))) {
+                ++name_end;
+            }
+            const std::string_view tag(low.data() + open + 1, name_end - open - 1);
+            const bool boundary = name_end >= low.size() || low[name_end] == '>' ||
+                                  low[name_end] == ' ' || low[name_end] == '\t' ||
+                                  low[name_end] == '\n' || low[name_end] == '\r' ||
+                                  low[name_end] == '/';
+            const auto tag_end = boundary ? low.find('>', name_end) : std::string::npos;
+            std::string close;
+            std::size_t close_at = std::string::npos;
+            if (tag_end != std::string::npos && !tag.empty() && is_noise_container(tag)) {
+                close = "</" + std::string(tag) + ">";
+                close_at = low.find(close, tag_end);
+            }
+            if (close_at == std::string::npos) {
+                // Not a removable container: keep '<' and move on.
+                out.append(html.data() + pos, open - pos + 1);
+                pos = open + 1;
+                continue;
+            }
+            std::string attrs(html.data() + name_end, tag_end - name_end);
             for (char& c : attrs) {
                 if (c == '"' || c == '\'') c = ' ';
             }
-            if (std::regex_search(attrs, marker_re)) {
-                changed = true;
+            out.append(html.data() + pos, open - pos);
+            if (!attrs_look_like_noise(attrs)) {
+                out.append(html.data() + open, close_at + close.size() - open);
             } else {
-                out.append(match.str());
+                changed = true;
             }
-            last = static_cast<std::size_t>(match.position() + match.length());
+            pos = close_at + close.size();
         }
-        out.append(html, last, std::string::npos);
+        out.append(html.data() + pos, html.size() - pos);
         if (!changed) break;
         html = std::move(out);
     }

@@ -326,6 +326,20 @@ void test_policy_json_roundtrip() {
     std::cout << "test_policy_json_roundtrip ok\n";
 }
 
+void test_noise_strip_pathological_nesting() {
+    // Regression: the old container regex blew libstdc++'s recursive matcher
+    // (86k stack frames, SIGSEGV) on deeply nested real-world pages.
+    std::string html = "<html><body><div class=\"content\">Real text here.";
+    for (int i = 0; i < 3000; ++i) html += "<div><span>noise</span>";
+    for (int i = 0; i < 3000; ++i) html += "</div>";
+    html += "</div><div class=\"ad-banner\">Buy now</div><p>5 &lt; 6 tail and a < b raw</p></body></html>";
+    const auto text = extract_text(html, true, 500000);
+    assert(text.find("Real text here") != std::string::npos);
+    assert(text.find("Buy now") == std::string::npos);
+    assert(text.find("a < b raw") != std::string::npos);  // stray '<' preserved
+    std::cout << "test_noise_strip_pathological_nesting ok chars=" << text.size() << "\n";
+}
+
 int main() {
     test_html_extract();
     test_html_to_markdown_tool();
@@ -334,6 +348,7 @@ int main() {
     test_fetch_and_explore_fixture();
     test_depth_zero_vs_depth_one();
     test_tools_registry();
+    test_noise_strip_pathological_nesting();
     std::cout << "All web explorer tests passed\n";
     return 0;
 }
