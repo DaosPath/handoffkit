@@ -3,7 +3,7 @@
 ## Envelope
 
 Every data and control message uses `MessageEnvelope`. Required fields are
-defined by `packages/contracts/schemas/message-envelope.schema.json`.
+defined by `shared/contracts/schemas/message-envelope.schema.json`.
 
 Core `kind` values:
 

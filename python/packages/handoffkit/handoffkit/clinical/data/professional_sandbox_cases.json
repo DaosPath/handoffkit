@@ -1,0 +1,48 @@
+{
+  "status_public": "experimental / research and education only / not clinically validated",
+  "deidentified": true,
+  "cases": [
+    {
+      "blind_id": "pro-sandbox-001",
+      "opening": "De-identified sandbox case. Adult, 41 years old, hybrid office work and weekly regional flights. Mid-winter. Day 0 sore throat and fatigue after a 3.5 hour flight; day 1 myalgias and fever 38.4 C; day 3 dry cough, consumer SpO2 97-98%; day 4 fever 37.6 C, no chest pain, no hemoptysis, no confusion. No PCR, antigen, CBC, or imaging yet.",
+      "quality_flags": [],
+      "sealed": {
+        "title": "sandbox-winter-respiratory",
+        "pmcid": "",
+        "article_link": "",
+        "final_diagnosis": "Influenza-like illness",
+        "diagnostic_reasoning": "Sandbox label only. Not a gold MedCaseReasoning diagnosis.",
+        "aliases": ["ILI", "influenza like illness", "viral respiratory illness"],
+        "sections": {
+          "history": "Post-flight winter onset over four days with fever then lingering dry cough. No known household test-positive contact.",
+          "physical_exam": "No clinician exam recorded. Patient reports no resting dyspnea now.",
+          "basic_labs": "",
+          "imaging": "",
+          "pathology": "",
+          "special_tests": ""
+        }
+      }
+    },
+    {
+      "blind_id": "pro-sandbox-002",
+      "opening": "De-identified sandbox case. Adult with subacute polyuria and polydipsia, unintended weight loss, and blurred vision. No personal identifiers. No glucose value is in the opening note.",
+      "quality_flags": ["insufficient_evidence"],
+      "sealed": {
+        "title": "sandbox-endocrine-metabolic",
+        "pmcid": "",
+        "article_link": "",
+        "final_diagnosis": "New hyperglycemia syndrome",
+        "diagnostic_reasoning": "Sandbox label only.",
+        "aliases": ["diabetes", "hyperglycemia", "new onset diabetes"],
+        "sections": {
+          "history": "Weeks of polyuria, polydipsia, and weight loss.",
+          "physical_exam": "",
+          "basic_labs": "Sandbox lab card: random glucose markedly elevated. Automatically sourced, not clinically validated.",
+          "imaging": "",
+          "pathology": "",
+          "special_tests": ""
+        }
+      }
+    }
+  ]
+}

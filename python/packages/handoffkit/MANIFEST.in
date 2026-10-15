@@ -1,0 +1,22 @@
+include README.md
+include LICENSE
+include LAYOUT.md
+# Long-form docs are centralized under ../../docs/python and are repository-only.
+graft examples
+graft scripts
+graft tests
+prune examples/output
+prune tests/_tmp_tool_execution
+prune tests/_tmp_memory_context
+# Local CLI output (not shipped); golden reports are under examples/fixtures/reports/
+prune reports
+prune runs
+# Research-only labs and the large doctor case sets are source-only (not on PyPI).
+prune handoffkit/clinical
+prune handoffkit/crypto_research
+exclude handoffkit/benchmarks/data/doctor_cases_100.json
+exclude handoffkit/benchmarks/data/doctor_cases_400.json
+global-exclude __pycache__
+global-exclude __pycache__/*
+global-exclude *.py[cod]
+global-exclude *.pyc.*

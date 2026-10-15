@@ -1,6 +1,6 @@
 # Rust runtime support matrix
 
-HandoffKit Rust 1.19 is a native Tokio implementation. It does not depend on
+HandoffKit Rust (stable `1.19.5`) is a native Tokio implementation. It does not depend on
 Python.
 
 | Capability | State | Stability |

@@ -1,0 +1,223 @@
+#include <handoffkit/runtime/http_provider.hpp>
+
+#include <cassert>
+#include <iostream>
+#include <string>
+
+using namespace handoffkit;
+
+namespace {
+
+void test_parse_openai_chat_completion_message() {
+    nlohmann::json response = {
+        {"id", "chatcmpl-test"},
+        {"choices", nlohmann::json::array({
+            nlohmann::json{
+                {"index", 0},
+                {"message", {{"role", "assistant"}, {"content", "Hello from fixture"}}},
+                {"finish_reason", "stop"},
+            },
+        })},
+    };
+    auto text = parse_openai_chat_completion(response);
+    assert(text);
+    assert(text.value() == "Hello from fixture");
+    std::cout << "test_parse_openai_chat_completion_message passed!" << std::endl;
+}
+
+void test_parse_openai_chat_completion_text_fallback() {
+    nlohmann::json response = {
+        {"choices", nlohmann::json::array({
+            nlohmann::json{{"text", "legacy text path"}},
+        })},
+    };
+    auto text = parse_openai_chat_completion(response);
+    assert(text);
+    assert(text.value() == "legacy text path");
+    std::cout << "test_parse_openai_chat_completion_text_fallback passed!" << std::endl;
+}
+
+void test_parse_openai_rejects_reasoning_without_final_content() {
+    nlohmann::json response = {
+        {"choices", nlohmann::json::array({
+            nlohmann::json{
+                {"message", {
+                    {"role", "assistant"},
+                    {"content", ""},
+                    {"reasoning_content", "still reasoning"},
+                }},
+                {"finish_reason", "length"},
+            },
+        })},
+    };
+    auto result = parse_openai_chat_completion(response);
+    assert(!result);
+    assert(result.error().code == ErrorCode::ParseError);
+    assert(result.error().message.find("increase max_tokens") != std::string::npos);
+    std::cout << "test_parse_openai_rejects_reasoning_without_final_content passed!" << std::endl;
+}
+
+void test_parse_openai_rejects_empty_choices() {
+    auto bad = parse_openai_chat_completion(nlohmann::json{{"choices", nlohmann::json::array()}});
+    assert(!bad);
+    assert(bad.error().code == ErrorCode::ParseError);
+    std::cout << "test_parse_openai_rejects_empty_choices passed!" << std::endl;
+}
+
+void test_http_error_is_bounded_and_single_line() {
+    const std::string body = "secret\nline\t" + std::string(20, 'x');
+    const std::string message = format_http_provider_error(429, body, 12);
+    assert(message.find("HTTP status 429") == 0);
+    assert(message.find('\n') == std::string::npos);
+    assert(message.find('\t') == std::string::npos);
+    assert(message.find("truncated") != std::string::npos);
+
+    assert(format_http_provider_error(500, "ignored", 0) == "HTTP status 500");
+    std::cout << "test_http_error_is_bounded_and_single_line passed!" << std::endl;
+}
+
+void test_http_provider_options_are_exposed() {
+    HttpProviderOptions options;
+    options.connection_timeout_ms = 1234;
+    options.read_timeout_ms = 5678;
+    options.max_error_body_chars = 99;
+    OpenAiCompatibleProvider provider(
+        "http://localhost:1/v1", "", "test", "/chat/completions", {}, options
+    );
+    assert(provider.options().connection_timeout_ms == 1234);
+    assert(provider.options().read_timeout_ms == 5678);
+    assert(provider.options().max_error_body_chars == 99);
+    std::cout << "test_http_provider_options_are_exposed passed!" << std::endl;
+}
+
+void test_build_openai_chat_request_shape() {
+    GenerateOptions opts;
+    opts.agent_name = "Coder";
+    opts.context = "prior context";
+    opts.max_tokens = 2048;
+    opts.temperature = 0.2;
+    opts.top_p = 0.9;
+    opts.extra_body = {{"thinking", {{"type", "disabled"}}}, {"custom_flag", true}};
+    auto body = build_openai_chat_request("gpt-test", "do work", opts);
+    assert(body.at("model") == "gpt-test");
+    assert(body.at("messages").is_array());
+    assert(body.at("messages").size() == 1);
+    assert(body.at("messages")[0].at("role") == "user");
+    std::string content = body.at("messages")[0].at("content").get<std::string>();
+    assert(content.find("prior context") != std::string::npos);
+    assert(content.find("do work") != std::string::npos);
+    assert(body.at("user") == "Coder");
+    assert(body.at("max_tokens") == 2048);
+    assert(body.at("temperature") == 0.2);
+    assert(body.at("top_p") == 0.9);
+    assert(body.at("thinking").at("type") == "disabled");
+    assert(body.at("custom_flag") == true);
+    std::cout << "test_build_openai_chat_request_shape passed!" << std::endl;
+}
+
+void test_uses_openai_responses_api() {
+    assert(uses_openai_responses_api("muse-spark-1.3-contributor-free"));
+    assert(uses_openai_responses_api("muse-spark-1.2"));
+    assert(!uses_openai_responses_api("gpt-5.4"));
+    assert(!uses_openai_responses_api("deepseek-v4-flash"));
+    assert(!uses_openai_responses_api(""));
+    std::cout << "test_uses_openai_responses_api passed!" << std::endl;
+}
+
+void test_build_openai_responses_request_shape() {
+    GenerateOptions opts;
+    opts.agent_name = "Judge";
+    opts.context = "prior context";
+    opts.max_tokens = 100;  // below the muse- reasoning floor
+    opts.temperature = 0.0;
+    opts.top_p = 0.5;
+    opts.extra_body = {{"thinking", {{"type", "disabled"}}}, {"custom_flag", true}};
+    auto body = build_openai_responses_request("muse-spark-1.3-contributor-free", "grade this", opts);
+    assert(body.at("model") == "muse-spark-1.3-contributor-free");
+    std::string input = body.at("input").get<std::string>();
+    assert(input.find("prior context") != std::string::npos);
+    assert(input.find("grade this") != std::string::npos);
+    assert(body.at("max_output_tokens") == 16384);
+    assert(!body.contains("temperature"));
+    assert(!body.contains("top_p"));
+    assert(!body.contains("max_tokens"));
+    assert(!body.contains("thinking"));  // chat-style switch, unknown to Responses servers
+    assert(body.at("custom_flag") == true);
+
+    GenerateOptions big;
+    big.max_tokens = 16384;
+    auto big_body = build_openai_responses_request("gpt-test", "do work", big);
+    assert(big_body.at("max_output_tokens") == 16384);
+    std::cout << "test_build_openai_responses_request_shape passed!" << std::endl;
+}
+
+void test_parse_openai_responses_output_text() {
+    nlohmann::json response = {
+        {"id", "resp-test"},
+        {"object", "response"},
+        {"output_text", "final verdict here"},
+        {"output", nlohmann::json::array()},
+    };
+    auto text = parse_openai_responses_output(response);
+    assert(text);
+    assert(text.value() == "final verdict here");
+    std::cout << "test_parse_openai_responses_output_text passed!" << std::endl;
+}
+
+void test_parse_openai_responses_output_array() {
+    nlohmann::json response = {
+        {"id", "resp-test"},
+        {"object", "response"},
+        {"output", nlohmann::json::array({
+            nlohmann::json{{"type", "reasoning"}, {"content", nlohmann::json::array()}},
+            nlohmann::json{{"type", "message"}, {"content", nlohmann::json::array({
+                nlohmann::json{{"type", "output_text"}, {"text", "part one "}},
+                "plain tail",
+            })}},
+        })},
+    };
+    auto text = parse_openai_responses_output(response);
+    assert(text);
+    assert(text.value() == "part one plain tail");
+    std::cout << "test_parse_openai_responses_output_array passed!" << std::endl;
+}
+
+void test_parse_openai_responses_rejects_empty() {
+    assert(!parse_openai_responses_output(nlohmann::json::object()));
+    assert(!parse_openai_responses_output(nlohmann::json::array()));
+    assert(!parse_openai_responses_output(nlohmann::json{{"output", nlohmann::json::array()}}));
+    std::cout << "test_parse_openai_responses_rejects_empty passed!" << std::endl;
+}
+
+void test_opencode_session_token_is_stable_hex() {
+    const std::string first = opencode_session_token();
+    const std::string second = opencode_session_token();
+    assert(!first.empty());
+    assert(first == second);
+    assert(first.size() == 64);
+    for (char c : first) {
+        const bool hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+        assert(hex);
+    }
+    std::cout << "test_opencode_session_token_is_stable_hex passed!" << std::endl;
+}
+
+}  // namespace
+
+int main() {
+    test_parse_openai_chat_completion_message();
+    test_parse_openai_chat_completion_text_fallback();
+    test_parse_openai_rejects_reasoning_without_final_content();
+    test_parse_openai_rejects_empty_choices();
+    test_http_error_is_bounded_and_single_line();
+    test_http_provider_options_are_exposed();
+    test_build_openai_chat_request_shape();
+    test_uses_openai_responses_api();
+    test_build_openai_responses_request_shape();
+    test_parse_openai_responses_output_text();
+    test_parse_openai_responses_output_array();
+    test_parse_openai_responses_rejects_empty();
+    test_opencode_session_token_is_stable_hex();
+    std::cout << "All HTTP parse (offline) tests passed!" << std::endl;
+    return 0;
+}

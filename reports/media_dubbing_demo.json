@@ -7,7 +7,8 @@
     "duration_seconds": 13.2,
     "metadata": {
       "mode": "offline-demo",
-      "real_video_required": false
+      "real_video_required": false,
+      "pipeline": "screen_dubbing"
     }
   },
   "target_language": "es",
@@ -16,35 +17,47 @@
       "index": 1,
       "start": 0.0,
       "end": 3.4,
-      "text": "我们今天要检查新的库存系统。",
-      "speaker": "SPEAKER_01",
+      "text": "我们今天要检查新的库存系统",
+      "speaker": "NARR",
       "language": "zh",
-      "metadata": {}
+      "metadata": {
+        "source": "ocr+asr",
+        "text_ocr": "我们今天要检查新的库存系统",
+        "text_asr": "我们今天要检查新的库存系统。"
+      }
     },
     {
       "index": 2,
       "start": 3.5,
       "end": 7.2,
-      "text": "订单同步失败，但付款记录还在。",
-      "speaker": "SPEAKER_02",
+      "text": "订单同步失败，但付款记录还在",
+      "speaker": "NARR",
       "language": "zh",
-      "metadata": {}
+      "metadata": {
+        "source": "ocr+asr",
+        "text_ocr": "订单同步失败，但付款记录还在",
+        "text_asr": "订单同步失败了。"
+      }
     },
     {
       "index": 3,
       "start": 7.4,
       "end": 13.2,
-      "text": "先保留日志，然后通知技术团队。",
-      "speaker": "SPEAKER_01",
+      "text": "先保留日志，然后通知技术团队",
+      "speaker": "NARR",
       "language": "zh",
-      "metadata": {}
+      "metadata": {
+        "source": "ocr+asr",
+        "text_ocr": "先保留日志，然后通知技术团队",
+        "text_asr": "先保留日志，然后通知技术团队。"
+      }
     }
   ],
   "speakers": [
     {
       "speaker_id": "SPEAKER_01",
       "label": "Operations lead",
-      "voice": "es-LATAM-calm-lead",
+      "voice": "es-MX-DaliaNeural",
       "language": "es",
       "notes": [],
       "metadata": {}
@@ -52,7 +65,15 @@
     {
       "speaker_id": "SPEAKER_02",
       "label": "Support analyst",
-      "voice": "es-LATAM-analyst",
+      "voice": "es-MX-DaliaNeural",
+      "language": "es",
+      "notes": [],
+      "metadata": {}
+    },
+    {
+      "speaker_id": "NARR",
+      "label": "On-screen narrator",
+      "voice": "es-MX-DaliaNeural",
       "language": "es",
       "notes": [],
       "metadata": {}
@@ -63,10 +84,10 @@
       "index": 1,
       "start": 0.0,
       "end": 3.4,
-      "speaker": "SPEAKER_01",
-      "source_text": "我们今天要检查新的库存系统。",
+      "speaker": "NARR",
+      "source_text": "我们今天要检查新的库存系统",
       "target_text": "Hoy vamos a revisar el nuevo sistema de inventario.",
-      "voice": "es-LATAM-calm-lead",
+      "voice": "es-MX-DaliaNeural",
       "audio_path": "",
       "notes": [
         "preserve timing",
@@ -78,10 +99,10 @@
       "index": 2,
       "start": 3.5,
       "end": 7.2,
-      "speaker": "SPEAKER_02",
-      "source_text": "订单同步失败，但付款记录还在。",
+      "speaker": "NARR",
+      "source_text": "订单同步失败，但付款记录还在",
       "target_text": "La sincronización de pedidos falló, pero los registros de pago siguen ahí.",
-      "voice": "es-LATAM-analyst",
+      "voice": "es-MX-DaliaNeural",
       "audio_path": "",
       "notes": [
         "preserve timing",
@@ -93,10 +114,10 @@
       "index": 3,
       "start": 7.4,
       "end": 13.2,
-      "speaker": "SPEAKER_01",
-      "source_text": "先保留日志，然后通知技术团队。",
+      "speaker": "NARR",
+      "source_text": "先保留日志，然后通知技术团队",
       "target_text": "Primero conserva los logs y luego avisa al equipo técnico.",
-      "voice": "es-LATAM-calm-lead",
+      "voice": "es-MX-DaliaNeural",
       "audio_path": "",
       "notes": [
         "preserve timing",
@@ -107,43 +128,205 @@
   ],
   "output_files": [
     "examples\\output\\media_dubbing_demo\\transcript_zh.json",
+    "examples\\output\\media_dubbing_demo\\ocr_zh.json",
     "examples\\output\\media_dubbing_demo\\subtitles_zh.srt",
     "examples\\output\\media_dubbing_demo\\subtitles_es.srt",
     "examples\\output\\media_dubbing_demo\\dubbed_audio_es.wav",
     "examples\\output\\media_dubbing_demo\\final_video_es.mp4"
   ],
   "warnings": [
-    "Offline demo only; no real transcription, TTS, diarization, or muxing was run.",
+    "Offline demo only; no real OCR, ASR, TTS, or muxing was run.",
+    "On-screen OCR is canonical; ASR fills spoken-only gaps.",
     "Review translated dubbing for timing, rights, and voice consent before publishing."
   ],
   "metadata": {
     "handoff": {
-      "task": "Translate and dub a Chinese operations video into Spanish.",
-      "from_agent": "Transcriber",
-      "to_agent": "DubbingAdapter",
-      "summary": "Timestamped Mandarin transcript converted into a Spanish dubbing plan.",
+      "task": "Localize and generate LATAM Spanish TTS from the consensus script.",
+      "from_agent": "Translator",
+      "to_agent": "Localizer",
+      "summary": "Media translation context → es: Screen-dub a Chinese clip: OCR titles plus spoken ASR, one long-context ES narration.",
       "decisions": [
-        "Keep timestamps stable for the first pass.",
-        "Assign one Spanish voice profile per detected speaker.",
-        "Write subtitles before generating or muxing audio."
+        "operation=translation",
+        "target_language=es"
       ],
       "important_files": [
-        "examples\\output\\media_dubbing_demo\\transcript_zh.json",
-        "examples\\output\\media_dubbing_demo\\subtitles_zh.srt",
-        "examples\\output\\media_dubbing_demo\\subtitles_es.srt"
+        "examples/input/market_scene_zh.mp4"
       ],
       "errors": [],
       "next_steps": [
-        "Run real transcription with Whisper or another provider.",
-        "Generate one TTS clip per DubbingSegment.",
-        "Mux final Spanish audio into the source video with ffmpeg."
+        "localization",
+        "generation",
+        "composition",
+        "validation",
+        "publication"
       ],
-      "context_refs": [],
+      "context_refs": [
+        "media_operation:translation",
+        "inspection",
+        "transcription",
+        "edition"
+      ],
       "metadata": {
-        "source_language": "zh",
-        "target_language": "es"
+        "media_context": {
+          "operation": "translation",
+          "brief": "Screen-dub a Chinese clip: OCR titles plus spoken ASR, one long-context ES narration.",
+          "target_language": "es",
+          "source": {
+            "path": "examples/input/market_scene_zh.mp4",
+            "media_type": "video",
+            "language": "zh",
+            "duration_seconds": 13.2,
+            "metadata": {
+              "mode": "offline-demo",
+              "real_video_required": false,
+              "pipeline": "screen_dubbing"
+            }
+          },
+          "assets": [],
+          "transcript_segments": [
+            {
+              "index": 1,
+              "start": 0.0,
+              "end": 3.4,
+              "text": "我们今天要检查新的库存系统",
+              "speaker": "NARR",
+              "language": "zh",
+              "metadata": {
+                "source": "ocr+asr",
+                "text_ocr": "我们今天要检查新的库存系统",
+                "text_asr": "我们今天要检查新的库存系统。"
+              }
+            },
+            {
+              "index": 2,
+              "start": 3.5,
+              "end": 7.2,
+              "text": "订单同步失败，但付款记录还在",
+              "speaker": "NARR",
+              "language": "zh",
+              "metadata": {
+                "source": "ocr+asr",
+                "text_ocr": "订单同步失败，但付款记录还在",
+                "text_asr": "订单同步失败了。"
+              }
+            },
+            {
+              "index": 3,
+              "start": 7.4,
+              "end": 13.2,
+              "text": "先保留日志，然后通知技术团队",
+              "speaker": "NARR",
+              "language": "zh",
+              "metadata": {
+                "source": "ocr+asr",
+                "text_ocr": "先保留日志，然后通知技术团队",
+                "text_asr": "先保留日志，然后通知技术团队。"
+              }
+            }
+          ],
+          "speakers": [],
+          "dubbing_segments": [
+            {
+              "index": 1,
+              "start": 0.0,
+              "end": 3.4,
+              "speaker": "NARR",
+              "source_text": "我们今天要检查新的库存系统",
+              "target_text": "Hoy vamos a revisar el nuevo sistema de inventario.",
+              "voice": "es-MX-DaliaNeural",
+              "audio_path": "",
+              "notes": [
+                "preserve timing",
+                "review lip-sync manually"
+              ],
+              "metadata": {}
+            },
+            {
+              "index": 2,
+              "start": 3.5,
+              "end": 7.2,
+              "speaker": "NARR",
+              "source_text": "订单同步失败，但付款记录还在",
+              "target_text": "La sincronización de pedidos falló, pero los registros de pago siguen ahí.",
+              "voice": "es-MX-DaliaNeural",
+              "audio_path": "",
+              "notes": [
+                "preserve timing",
+                "review lip-sync manually"
+              ],
+              "metadata": {}
+            },
+            {
+              "index": 3,
+              "start": 7.4,
+              "end": 13.2,
+              "speaker": "NARR",
+              "source_text": "先保留日志，然后通知技术团队",
+              "target_text": "Primero conserva los logs y luego avisa al equipo técnico.",
+              "voice": "es-MX-DaliaNeural",
+              "audio_path": "",
+              "notes": [
+                "preserve timing",
+                "review lip-sync manually"
+              ],
+              "metadata": {}
+            }
+          ],
+          "generation_prompts": [
+            "Title: market_scene_zh (offline demo)\nTarget spoken language: es\n\nOCR (on-screen, canonical, full episode):\n1. [0.00-3.40] 我们今天要检查新的库存系统\n2. [3.50-7.20] 订单同步失败，但付款记录还在\n3. [7.40-13.20] 先保留日志，然后通知技术团队\n\nASR (spoken, full episode):\n1. [0.00-3.40] 我们今天要检查新的库存系统。\n2. [3.50-7.20] 订单同步失败了。\n3. [7.40-13.20] 先保留日志，然后通知技术团队。\n\nCONSENSUS (emit one JSON object per row, same index/start/end):\n1. [0.00-3.40] 我们今天要检查"
+          ],
+          "edition_ops": [],
+          "constraints": [],
+          "history": [
+            "inspection",
+            "transcription",
+            "edition"
+          ],
+          "next_operations": [
+            "localization",
+            "generation",
+            "composition",
+            "validation",
+            "publication"
+          ],
+          "warnings": [],
+          "output_files": [],
+          "metadata": {
+            "pipeline": "screen_dubbing",
+            "last_handoff": {
+              "from_agent": "Editor",
+              "to_agent": "Translator",
+              "from_operation": "edition",
+              "to_operation": "translation"
+            }
+          }
+        },
+        "kind": "media_context"
       }
     },
-    "ffmpeg_available": true
+    "ffmpeg_available": true,
+    "pipeline": "screen_dubbing",
+    "pipeline_stages": "inspection -> transcription -> edition -> translation -> localization -> generation -> composition -> validation -> publication",
+    "agent_recipe": "screen-dubbing",
+    "agent_steps": [
+      "inspect",
+      "transcribe",
+      "consensus",
+      "translate",
+      "localize",
+      "generate",
+      "compose",
+      "validate",
+      "publish"
+    ],
+    "long_context_prompt": {
+      "system": "You are the producer agent for a screen dub.\nYou receive the FULL episode in one prompt (use the entire context):\n1) OCR: burned-in on-screen source text (canonical plot; explains jump cuts).\n2) ASR: spoken audio (may miss silent titles, merge speakers, or mishear names).\n3) CONSENSUS: the timed cue list you must fill. Same count, index, start, and end.\n\nReturn ONE JSON array covering the whole video. Each item:\n{\"index\": n, \"start\": seconds, \"end\": seconds, \"text_zh\": \"...\", \"text_es\": \"...\"}\n\nRules:\n- Prefer OCR when it explains a cut the audio skips.\n- Keep spoken-only ASR lines that have no on-screen text.\n- You may correct OCR typos using ASR and episode context.\n- text_es is spoken LATAM Spanish narration: natural, no prefixes, no stage directions.\n- Emit every CONSENSUS row in order. Do not drop, merge, or truncate rows.\n- Use the full episode so names and plot stay consistent.\n- JSON array only. No markdown.\n",
+      "user": "Title: market_scene_zh (offline demo)\nTarget spoken language: es\n\nOCR (on-screen, canonical, full episode):\n1. [0.00-3.40] 我们今天要检查新的库存系统\n2. [3.50-7.20] 订单同步失败，但付款记录还在\n3. [7.40-13.20] 先保留日志，然后通知技术团队\n\nASR (spoken, full episode):\n1. [0.00-3.40] 我们今天要检查新的库存系统。\n2. [3.50-7.20] 订单同步失败了。\n3. [7.40-13.20] 先保留日志，然后通知技术团队。\n\nCONSENSUS (emit one JSON object per row, same index/start/end):\n1. [0.00-3.40] 我们今天要检查新的库存系统\n2. [3.50-7.20] 订单同步失败，但付款记录还在\n3. [7.40-13.20] 先保留日志，然后通知技术团队\n\nEmit the full JSON array for the whole video now. Do not truncate."
+    },
+    "consensus_sources": [
+      "ocr+asr",
+      "ocr+asr",
+      "ocr+asr"
+    ]
   }
 }

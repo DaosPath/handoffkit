@@ -1,0 +1,64 @@
+# HandoffKit Shared Contracts
+
+This folder is the language-neutral contract layer for HandoffKit.
+
+All runtimes must treat these JSON shapes as canonical:
+
+- Python package: `python/packages/handoffkit`
+- JavaScript package: `js/packages/core`
+- Rust package: `rust`
+- C++ package: `cpp/packages/handoffkit`
+
+Rules:
+
+- wire JSON uses `snake_case`,
+- runtimes may expose ergonomic local naming, but must read and write the
+  canonical fixtures,
+- normal tests stay offline and deterministic,
+- provider payloads and secrets do not belong here.
+- contract parity reports should stay deterministic and offline.
+
+HK-CSP means **Communicating Sequential Processes**. It is HandoffKit's
+execution coordination layer, not a browser Content Security Policy. Existing
+handoff contracts describe what moves between agents; HK-CSP envelopes describe
+how it moves while a workflow is running.
+
+## Files
+
+- `schemas/handoff-state.schema.json`
+- `schemas/run-trace.schema.json`
+- `schemas/validation-report.schema.json`
+- `schemas/quality-report.schema.json`
+- `schemas/tool-call.schema.json`
+- `schemas/tool-result.schema.json`
+- `schemas/provider-tool-schema.schema.json`
+- `schemas/message-envelope.schema.json`
+- `schemas/session-config.schema.json`
+- `schemas/channel-config.schema.json`
+- `schemas/delivery-ack.schema.json`
+- `schemas/delivery-nack.schema.json`
+- `schemas/process-error.schema.json`
+- `schemas/worker-capabilities.schema.json`
+- `schemas/artifact-ref.schema.json`
+- `schemas/training-job.schema.json`
+- `schemas/evaluation-job.schema.json`
+- `schemas/job-progress.schema.json`
+- `schemas/worker-heartbeat.schema.json`
+- `schemas/distributed-job.schema.json`
+- `schemas/job-assignment.schema.json`
+- `schemas/durable-scheduler-state.schema.json`
+- `fixtures/handoff_state.json`
+- `fixtures/run_trace.json`
+- `fixtures/validation_report.json`
+- `fixtures/quality_report.json`
+- `fixtures/tool_call.json`
+- `fixtures/tool_result.json`
+- `fixtures/provider_tool_schema.json`
+- corresponding CSP and worker fixtures under `fixtures/`
+- `corpus/csp-validation.json`: shared accept/reject and canonicalization corpus
+- `test-fixtures/runtime/durable-scheduler-v1.json`: checksummed scheduler restart state shared by Python, Node, Go, and Rust
+- `test-fixtures/security/finalization-unavailable-v1.json`: executable
+  fail-closed declarations for unavailable OCSP fetch, exactly-once, global
+  zeroization, unsupported signature algorithms, and hybrid-PQ outside Node/Go
+- `clinical/`: v1beta OpenAPI, JSON Schema, and Python/JS parity fixtures for the
+  experimental Clinical Sequential Reasoning Lab. Not clinically validated.

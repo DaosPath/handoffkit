@@ -1,0 +1,86 @@
+{
+  "format": "handoffkit.browser.1.20.package_checksums",
+  "format_version": 1,
+  "generated_at": "2026-10-15T08:19:37.377Z",
+  "status": "pass",
+  "environment": {
+    "platform": "linux",
+    "architecture": "x64",
+    "node": "v24.21.0",
+    "pnpm": "pnpm/11.1.1 npm/? node/v24.21.0 linux x64",
+    "os": "Linux 6.17.0-1022-azure"
+  },
+  "package_count": 9,
+  "artifacts": [
+    {
+      "name": "@handoffkit/core",
+      "version": "1.20.0",
+      "filename": "handoffkit-core-1.20.0.tgz",
+      "bytes": 25910,
+      "sha256": "a35c800ee8172495353624bce28818b5b4cd803decc10019d0b8231fbcb2021e"
+    },
+    {
+      "name": "@handoffkit/csp",
+      "version": "1.20.0",
+      "filename": "handoffkit-csp-1.20.0.tgz",
+      "bytes": 25114,
+      "sha256": "0f8a6480de76b1b26ee4a122b1d3a591d2001f46decb79b7e91478789600bd38"
+    },
+    {
+      "name": "@handoffkit/providers",
+      "version": "1.20.0",
+      "filename": "handoffkit-providers-1.20.0.tgz",
+      "bytes": 8745,
+      "sha256": "ecea6970e0a0f5133173673c1af25812f5a6dec1e467cf75b14432c0339c4255"
+    },
+    {
+      "name": "@handoffkit/node",
+      "version": "1.20.0",
+      "filename": "handoffkit-node-1.20.0.tgz",
+      "bytes": 24962,
+      "sha256": "765fe3d76336dde9e84b566d991d1be95dfa0f879c37b4a22e34e1dfcd1b6bf2"
+    },
+    {
+      "name": "@handoffkit/browser",
+      "version": "1.20.0",
+      "filename": "handoffkit-browser-1.20.0.tgz",
+      "bytes": 78959,
+      "sha256": "d0c87d64b04450e6446bd8c9d640d95a83a17e0821400b0b7dcfb934988b2d41"
+    },
+    {
+      "name": "@handoffkit/browser-real",
+      "version": "1.20.0",
+      "filename": "handoffkit-browser-real-1.20.0.tgz",
+      "bytes": 27862,
+      "sha256": "ee9ce032c82f1f2caf7e026dcb39e5f83782ff2ecd24f75dc9332b6254644160"
+    },
+    {
+      "name": "@handoffkit/recipes",
+      "version": "1.20.0",
+      "filename": "handoffkit-recipes-1.20.0.tgz",
+      "bytes": 38156,
+      "sha256": "d4ae49173d55610392432c88140f25199e7b7da87698604f412c6cf3fc80005d"
+    },
+    {
+      "name": "@handoffkit/templates",
+      "version": "1.20.0",
+      "filename": "handoffkit-templates-1.20.0.tgz",
+      "bytes": 4579,
+      "sha256": "d2f94c785334ee11f14d46afa07d2f4639cf4bc9ae98d19b9c4882c849a764af"
+    },
+    {
+      "name": "@handoffkit/cli",
+      "version": "1.20.0",
+      "filename": "handoffkit-cli-1.20.0.tgz",
+      "bytes": 54050,
+      "sha256": "be94d761150eeb2b30e575887ad388c2befd6ce72257354db80c245e87c950f0"
+    }
+  ],
+  "notice": "Checksums cover only tarballs produced on this runner. Cross-architecture release evidence requires one archived report per hosted architecture.",
+  "ci": {
+    "workflow": "ci.yml",
+    "run_id": 38704779240,
+    "runner": "ubuntu-latest",
+    "commit": "17fc897"
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "format": "handoffkit.browser.1.20.dependency_audit",
+  "format_version": 2,
+  "generated_at": "2026-10-15T06:40:06.062Z",
+  "status": "pass",
+  "command": "osv.dev querybatch over pnpm prod graph",
+  "packages_audited": 116,
+  "advisories": {
+    "GHSA-2xp9-vwfh-vxw4": {
+      "package": "next@16.3.0",
+      "severity": "low",
+      "cvss": 0,
+      "summary": "",
+      "aliases": []
+    },
+    "GHSA-39w2-rjm5-chcv": {
+      "package": "next@16.3.0",
+      "severity": "low",
+      "cvss": 0,
+      "summary": "",
+      "aliases": []
+    },
+    "GHSA-3w37-wq28-93x7": {
+      "package": "next@16.3.0",
+      "severity": "low",
+      "cvss": 0,
+      "summary": "",
+      "aliases": []
+    },
+    "GHSA-4jqv-mc3x-m676": {
+      "package": "next@16.3.0",
+      "severity": "low",
+      "cvss": 0,
+      "summary": "",
+      "aliases": []
+    },
+    "GHSA-cjq9-62q9-8jv4": {
+      "package": "next@16.3.0",
+      "severity": "low",
+      "cvss": 0,
+      "summary": "",
+      "aliases": []
+    },
+    "GHSA-f87g-xv8r-7p7x": {
+      "package": "next@16.3.0",
+      "severity": "low",
+      "cvss": 0,
+      "summary": "",
+      "aliases": []
+    },
+    "GHSA-mcj8-r9mp-w47p": {
+      "package": "next@16.3.0",
+      "severity": "low",
+      "cvss": 0,
+      "summary": "",
+      "aliases": []
+    },
+    "GHSA-p293-qw3h-jr36": {
+      "package": "next@16.3.0",
+      "severity": "low",
+      "cvss": 0,
+      "summary": "",
+      "aliases": []
+    },
+    "GHSA-vcvr-r3jv-pc5j": {
+      "package": "next@16.3.0",
+      "severity": "low",
+      "cvss": 0,
+      "summary": "",
+      "aliases": []
+    },
+    "GHSA-w5vr-8v7q-w6rv": {
+      "package": "baseline-browser-mapping@2.10.42",
+      "severity": "low",
+      "cvss": 0,
+      "summary": "",
+      "aliases": []
+    },
+    "GHSA-68fv-2mgg-jv7q": {
+      "package": "source-map-js@1.2.1",
+      "severity": "low",
+      "cvss": 0,
+      "summary": "",
+      "aliases": []
+    },
+    "GHSA-wq5f-xc86-pv6w": {
+      "package": "sharp@0.35.4",
+      "severity": "low",
+      "cvss": 0,
+      "summary": "",
+      "aliases": []
+    }
+  },
+  "notice": "Dependency graph audit only. It does not replace CodeQL, source review, or hosted security evidence."
+}

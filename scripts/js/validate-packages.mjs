@@ -5,7 +5,17 @@ import { spawnSync } from "node:child_process";
 import { gunzipSync } from "node:zlib";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
-const packageNames = ["core", "csp", "providers", "node", "browser", "recipes", "templates", "cli"];
+const packageNames = [
+  "core",
+  "csp",
+  "providers",
+  "node",
+  "browser",
+  "browser-real",
+  "recipes",
+  "templates",
+  "cli",
+];
 const pnpmCli = process.env.npm_execpath;
 
 if (!pnpmCli) {
@@ -41,7 +51,7 @@ function parseTar(gzipBuffer) {
 }
 
 for (const short of packageNames) {
-  const packageRoot = path.join(root, "packages", "js", short);
+  const packageRoot = path.join(root, "js", "packages", short);
   const manifest = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
   const destination = await mkdtemp(path.join(tmpdir(), `handoffkit-pack-${short}-`));
   try {
@@ -74,7 +84,10 @@ for (const short of packageNames) {
         throw new Error(`${manifest.name}: tarball contains link ${entry.name} -> ${entry.linkname}`);
       }
     }
-    for (const required of ["package.json", "README.md", "src/index.js", "src/index.d.ts"]) {
+    const exportTargets = Object.values(manifest.exports ?? {}).flatMap((entry) =>
+      ["types", "import", "default"].map((key) => entry?.[key]).filter(Boolean).map((target) => target.replace(/^\.\//, "")),
+    );
+    for (const required of new Set(["package.json", "README.md", "src/index.js", "src/index.d.ts", ...exportTargets])) {
       const entry = files.get(required);
       if (!entry) throw new Error(`${manifest.name}: tarball missing ${required}`);
       if (entry.size === 0) throw new Error(`${manifest.name}: tarball contains empty ${required}`);

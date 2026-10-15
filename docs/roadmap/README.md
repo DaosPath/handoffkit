@@ -5,16 +5,21 @@ or package name is not evidence that a capability exists.
 
 ## Current release state
 
-HandoffKit 1.19 is not complete as a public release. The current branch is a
-green development baseline with experimental and release-candidate security
-paths. The remaining release decision is **Result B** until the 1.19.5 gates
-are closed or explicitly removed from public scope.
+**1.19.5** is the completed stable release, published on PyPI (`handoffkit`),
+npm (`@handoffkit/*`), and crates.io (`handoffkit` workspace crates); C++ ships
+via CMake/Conan/vcpkg overlay and Go as a source-only module. See the root
+[`CHANGELOG.md`](../../CHANGELOG.md) and the
+[1.19.5 migration guide](../MIGRATION-1.19.5.md).
+
+**1.20** (Browser Platform, currently `1.20.0-alpha.2`) is in development and
+is not published to any registry. Completing or editing a roadmap file is not
+evidence that a 1.20 capability exists.
 
 The authoritative current capability ledger remains
 [`HK_CSP_SECURITY.md`](../spec/HK_CSP_SECURITY.md). Future documents in this
 directory must never override runtime evidence in that ledger.
 
-The current evidence matrix is
+The 1.19 evidence matrix is
 [`1.19.0-FINAL-CLOSURE-REPORT.md`](./1.19.0-FINAL-CLOSURE-REPORT.md). The
 earlier [`1.19.0-FINAL-AUDIT.md`](./1.19.0-FINAL-AUDIT.md) is retained as
 history; the closure report supersedes stale capability wording and reports
@@ -25,8 +30,10 @@ production-ready state without turning the baseline into a release claim.
 
 | Version range | Theme | Planned outcome |
 |---|---|---|
-| [1.19.5](./1.19.5-MASS-RELEASE.md) | Monorepo convergence | Massive, aligned package train after repository reorganization and release closure |
-| [1.20-1.29](./1.20-1.29-BROWSER-PLATFORM.md) | Browser platform | Browser Core, Browser Lite, and Browser Real with maintained native-engine control |
+| [1.19.5](./1.19.5-MASS-RELEASE.md) | Monorepo convergence | **Released** (stable): aligned package train after repository reorganization and release closure |
+| [1.20](./1.20-BROWSER-PLATFORM.md) | Browser platform | Single 1.20 train: Core, Lite, Real, index, grounding, Studio, Hermes. Absorbs the former 1.20–1.29 split. `1.20.0` release candidate: every scorecard dimension ≥9/10; publication pending. |
+| [1.20 Clinical Lab](./1.20-CLINICAL-LAB.md) | Sequential diagnosis lab | Experimental predefined-case sandbox. Clinical validity, official 897 run, live providers, and live retrieval remain unavailable. Not clinically validated. Source-only: not published to npm or PyPI. |
+| [1.21](./1.21-GENERALIST-AGENTS.md) | Generalist always-on agents | Dots-style agents: `AgentSpec`, always-on host, allow/approve/deny rules, memory, routines, per-agent workspace/browser, Studio panel, generalist templates; demo CLI consolidation and `handoffkit[labs]` |
 | [1.30-1.39](./1.30-1.39-APP-RUNTIME.md) | App runtime | Permissioned app manifests, isolated hosts, SDKs, Studio shell, lifecycle, and conformance |
 | [1.40-1.49](./1.40-1.49-EXTENSION-ECOSYSTEM.md) | Extensions and complements | Provider, connector, tool, worker, UI-panel, recipe, template, and demo bundles |
 | [1.50-1.59](./1.50-1.59-NATIVE-EDGE-ML.md) | Native, edge, and ML | Durable native workers, accelerator providers, media jobs, edge resilience, and multi-arch builds |
@@ -37,13 +44,15 @@ Supporting plans:
 
 - [Repository reorganization](./REPOSITORY-REORGANIZATION.md)
 - [Release and capability governance](./RELEASE-GOVERNANCE.md)
+- [Browser Real threat model](./1.20-BROWSER-REAL-THREAT-MODEL.md)
 
 ## Dependency order
 
 ```text
 1.19 development baseline
   -> 1.19.5 release closure + repository convergence
-  -> 1.20-1.29 browser platform
+  -> 1.20 browser platform (absorbs former 1.20-1.29)
+  -> 1.21 generalist always-on agents
   -> 1.30-1.39 app runtime
   -> 1.40-1.49 extension ecosystem
   -> 1.50-1.59 native/edge/ML
@@ -74,3 +83,11 @@ architecture. Version numbers express dependency order, not calendar dates.
 - Every release range has explicit non-goals. Unfinished items move forward;
   tests and security policy are never weakened to preserve a version date.
 - No tag or publication follows automatically from completing a roadmap file.
+
+## Cancelled permanently
+
+- **Own web-scale index (2026-10-15).** HandoffKit will not build its own
+  crawler/frontier or public-web search index to replace public search providers
+  (former 1.20–1.29 plan items 1.25–1.26). Web search stays on explicit providers
+  with provider traces and no silent fallback. The per-project FTS5 index, the
+  curated source catalog, and `BrowserCache` are unaffected.

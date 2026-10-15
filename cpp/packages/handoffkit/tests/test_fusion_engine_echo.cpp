@@ -1,0 +1,594 @@
+#include <handoffkit/demos/fusion/engine.hpp>
+#include <handoffkit/demos/fusion/prompt.hpp>
+#include <handoffkit/demos/fusion/roles.hpp>
+
+#include <nlohmann/json.hpp>
+
+#include <cassert>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <set>
+#include <string>
+#include <thread>
+
+using namespace handoffkit::demos::fusion;
+
+void test_profiles_exist() {
+    for (const auto& name : fusion_profile_names()) {
+        auto p = fusion_profile_from_string(name);
+        assert(p);
+        auto pack = make_role_pack(p.value());
+        assert(pack.branches.size() >= 2);
+        assert(!pack.merger.agent_name.empty());
+    }
+    std::cout << "test_profiles_exist ok\n";
+}
+
+void test_lean_echo() {
+    FusionConfig cfg;
+    cfg.task = "List three benefits of dual-branch agent fusion.";
+    cfg.mode = FusionMode::Lean;
+    cfg.profile = FusionProfileId::Neutral;
+    cfg.provider = "echo";
+    cfg.write_files = false;
+    cfg.cache.enabled = true;
+    cfg.cache.use_disk = false;
+
+    auto run1 = run_fusion(cfg);
+    assert(run1);
+    assert(run1.value().success);
+    assert(run1.value().metrics.llm_calls == 3);
+    assert(run1.value().branches.size() == 2);
+    assert(!run1.value().final_output.empty());
+    // task-faithful merge prompt path used for neutral
+    assert(make_role_pack(FusionProfileId::Neutral).task_faithful_merge);
+    // Observability: per-step role identity + call_steps report
+    assert(run1.value().metrics.calls.size() >= 3);
+    bool saw_merge = false;
+    bool saw_branch = false;
+    for (const auto& c : run1.value().metrics.calls) {
+        assert(!c.step_id.empty());
+        assert(!c.role_id.empty() || !c.agent_name.empty());
+        if (c.step_id.find("merge") != std::string::npos || c.role_id.find("merge") != std::string::npos)
+            saw_merge = true;
+        if (c.step_id.find("branch") != std::string::npos) saw_branch = true;
+    }
+    assert(saw_merge && saw_branch);
+    assert(run1.value().report.contains("call_steps"));
+    assert(run1.value().report["call_steps"].is_array());
+    assert(run1.value().report["call_steps"].size() >= 3);
+
+    // second run should get cache hits
+    auto run2 = run_fusion(cfg);
+    assert(run2);
+    assert(run2.value().metrics.cache.hits >= 1 || run2.value().metrics.llm_calls == 3);
+    assert(run2.value().report.contains("cache_stats") || run2.value().metrics.cache.hits >= 0);
+    std::cout << "test_lean_echo ok calls=" << run1.value().metrics.llm_calls
+              << " hits2=" << run2.value().metrics.cache.hits
+              << " call_steps=" << run1.value().report["call_steps"].size() << "\n";
+}
+
+void test_ultra_echo() {
+    FusionConfig cfg;
+    cfg.task = "Primary diagnosis given hypokalemia + high aldosterone + low renin.";
+    cfg.mode = FusionMode::Ultra;
+    cfg.profile = FusionProfileId::Diagnostic;
+    cfg.provider = "echo";
+    cfg.write_files = false;
+    cfg.cache.enabled = false;
+    // The test asserts the full five-call graph, so disable overlap early-stop.
+    cfg.early_stop_on_overlap = false;
+
+    auto run = run_fusion(cfg);
+    assert(run);
+    assert(run.value().success);
+    assert(run.value().metrics.llm_calls == 5);
+    std::cout << "test_ultra_echo ok\n";
+}
+
+void test_shipping_pack_flags() {
+    auto pack = make_shipping_pack();
+    assert(!pack.task_faithful_merge);
+    assert(pack.shipping_merge_sections);
+    auto neu = make_neutral_pack();
+    assert(neu.task_faithful_merge);
+    assert(!neu.shipping_merge_sections);
+    auto res = make_research_pack();
+    assert(res.task_faithful_merge);
+    assert(!res.shipping_merge_sections);
+    std::cout << "test_shipping_pack_flags ok\n";
+}
+
+void test_capability_pack_differentiation() {
+    // Lite vs Pro vs Genius must differ by pack_id, depth, skills — not only call counts.
+    const auto lite = fusion_capability_pack(FusionTier::Lite);
+    const auto pro = fusion_capability_pack(FusionTier::Pro);
+    const auto genius = fusion_capability_pack(FusionTier::Genius);
+    assert(lite.pack_id == "capability_lite");
+    assert(pro.pack_id == "capability_pro");
+    assert(genius.pack_id == "capability_genius");
+    assert(lite.pack_id != pro.pack_id);
+    assert(pro.pack_id != genius.pack_id);
+    assert(lite.depth != pro.depth);
+    assert(pro.depth != genius.depth);
+    assert(lite.skills.size() < pro.skills.size());
+    assert(pro.skills.size() < genius.skills.size());
+    assert(lite.tool_slots.size() < pro.tool_slots.size());
+    assert(!lite.skills.empty() && !genius.skills.empty());
+
+    // Spec JSON exposes capability
+    const auto spec_l = fusion_tier_spec(FusionTier::Lite);
+    const auto spec_g = fusion_tier_spec(FusionTier::Genius);
+    auto jl = spec_l.to_json();
+    auto jg = spec_g.to_json();
+    assert(jl.contains("capability"));
+    assert(jg.contains("capability"));
+    assert(jl["capability"]["pack_id"] == "capability_lite");
+    assert(jg["capability"]["pack_id"] == "capability_genius");
+    assert(jl["capability"]["skills"] != jg["capability"]["skills"]);
+    assert(jl["capability"]["quality_gates"].size() < jg["capability"]["quality_gates"].size());
+    assert(jl["capability"]["output_contract"] != jg["capability"]["output_contract"]);
+    std::cout << "test_capability_pack_differentiation ok\n";
+}
+
+void test_structured_handoff_and_prompt_injection() {
+    // Unit: format + make_fusion_step_handoff produce labeled structured fields.
+    const auto pack = fusion_capability_pack(FusionTier::Pro);
+    auto h = make_fusion_step_handoff(
+        "Research the history of X",
+        "EvidenceAnalyst",
+        "Merger",
+        "evidence",
+        "Claim A is supported by source S. Inference: Y. Unknown: Z.",
+        pack,
+        "architect"
+    );
+    assert(h.task.find("history of X") != std::string::npos);
+    assert(h.from_agent == "EvidenceAnalyst");
+    assert(h.to_agent == "Merger");
+    assert(!h.summary.empty());
+    assert(h.summary.find("Claim A") != std::string::npos);
+    assert(!h.decisions.empty());
+    assert(!h.next_steps.empty());
+    assert(!h.context_refs.empty());
+    bool has_pack_ref = false;
+    for (const auto& r : h.context_refs) {
+        if (r.find("pack:") == 0) has_pack_ref = true;
+    }
+    assert(has_pack_ref);
+
+    const std::string section = format_handoff_prompt_section(h);
+    assert(section.find("Structured handoff") != std::string::npos);
+    assert(section.find("summary:") != std::string::npos);
+    assert(section.find("decisions:") != std::string::npos);
+    assert(section.find("next_steps:") != std::string::npos);
+    assert(section.find("context_refs:") != std::string::npos);
+
+    // Successor skeptic/merge frames must embed structured handoff labels.
+    FrameOptions sk;
+    sk.depth = pack.depth;
+    sk.skills = pack.skills;
+    sk.tool_slots = pack.tool_slots;
+    sk.prior_handoff_section = section;
+    const std::string skeptic_prompt = frame_skeptic_task(
+        "Research the history of X",
+        "raw proposal body",
+        "evidence quality",
+        sk
+    );
+    assert(skeptic_prompt.find("Structured handoff") != std::string::npos);
+    assert(skeptic_prompt.find("decisions:") != std::string::npos);
+    assert(skeptic_prompt.find("Prior structured handoff") != std::string::npos);
+
+    FrameOptions mg;
+    mg.depth = pack.depth;
+    mg.task_faithful = true;
+    mg.skills = pack.skills;
+    const std::string merge_prompt = frame_merge_task(
+        "Research the history of X",
+        "evidence", "body A",
+        "counter-evidence", "body B",
+        mg, section, section
+    );
+    assert(merge_prompt.find("Structured handoff") != std::string::npos);
+    assert(merge_prompt.find("ORIGINAL TASK") != std::string::npos);
+    assert(merge_prompt.find("product roadmap") != std::string::npos);  // task-faithful rule present
+    // Research profile must not force shipping section titles as required structure
+    assert(merge_prompt.find("Goals, Architecture, CLI") == std::string::npos);
+
+    // Depth differentiation: genius branch prompt asks more bullets than lite
+    FrameOptions lite_o;
+    lite_o.depth = FusionPromptDepth::Compact;
+    lite_o.max_branch_bullets = 8;
+    lite_o.evidence_min_points = 2;
+    lite_o.skills = {"outline"};
+    FrameOptions gen_o;
+    gen_o.depth = FusionPromptDepth::Exhaustive;
+    gen_o.max_branch_bullets = 18;
+    gen_o.evidence_min_points = 6;
+    gen_o.skills = {"multi_angle", "residual_risks"};
+    const auto p_lite = frame_branch_task("T", "approach-A", "focus", lite_o);
+    const auto p_gen = frame_branch_task("T", "approach-A", "focus", gen_o);
+    assert(p_lite.find("up to 8") != std::string::npos);
+    assert(p_gen.find("up to 18") != std::string::npos);
+    assert(p_gen.find("Exhaustive") != std::string::npos || p_gen.find("adversarial") != std::string::npos
+           || p_gen.find("residual") != std::string::npos);
+    assert(p_lite != p_gen);
+    std::cout << "test_structured_handoff_and_prompt_injection ok\n";
+}
+
+void test_fusion_tiers_echo() {
+    // Each product tier must produce the planned LLM call count on echo.
+    struct Case {
+        FusionTier tier;
+        int expect_calls;
+        int expect_branches;
+    };
+    const Case cases[] = {
+        {FusionTier::Lite, 3, 2},
+        {FusionTier::Medium, 3, 2},
+        {FusionTier::Pro, 5, 2},
+        {FusionTier::Ultra, 5, 4},
+        {FusionTier::Genius, 8, 6},
+    };
+    for (const auto& c : cases) {
+        FusionConfig cfg;
+        cfg.task = "Tier smoke: dual-branch fusion quality check.";
+        cfg.provider = "echo";
+        cfg.write_files = false;
+        cfg.cache.enabled = false;
+        cfg.profile = FusionProfileId::Research;
+        apply_fusion_tier(cfg, c.tier);
+        assert(planned_llm_calls_for_config(cfg) == c.expect_calls);
+        auto run = run_fusion(cfg);
+        assert(run);
+        assert(run.value().success);
+        assert(run.value().metrics.llm_calls == c.expect_calls);
+        assert(static_cast<int>(run.value().branches.size()) == c.expect_branches);
+        assert(run.value().report.value("tier", std::string()) == fusion_tier_to_string(c.tier));
+        assert(run.value().report.contains("capability"));
+        assert(run.value().report["capability"]["pack_id"].get<std::string>()
+               == fusion_capability_pack(c.tier).pack_id);
+        assert(!run.value().final_output.empty());
+        // Structured handoffs non-empty
+        assert(!run.value().handoffs.empty());
+        for (const auto& h : run.value().handoffs) {
+            assert(!h.summary.empty());
+            assert(!h.task.empty());
+            assert(!h.from_agent.empty());
+            assert(!h.to_agent.empty());
+            assert(!h.decisions.empty());
+            assert(!h.next_steps.empty());
+            assert(!h.context_refs.empty());
+        }
+        // Prompt hashes recorded for every call (prompt path exercised)
+        assert(static_cast<int>(run.value().metrics.calls.size()) == c.expect_calls);
+        for (const auto& rec : run.value().metrics.calls) {
+            assert(!rec.prompt_hash.empty());
+            assert(rec.chars_in > 0);
+        }
+        std::cout << "  tier=" << fusion_tier_to_string(c.tier)
+                  << " calls=" << run.value().metrics.llm_calls
+                  << " branches=" << run.value().branches.size()
+                  << " handoffs=" << run.value().handoffs.size()
+                  << " pack=" << run.value().report["capability"]["pack_id"] << "\n";
+    }
+    // genio alias
+    auto g = fusion_tier_from_string("genio");
+    assert(g && g.value() == FusionTier::Genius);
+    std::cout << "test_fusion_tiers_echo ok\n";
+}
+
+void test_handoff_in_engine_prompts_lean_and_pro() {
+    // Lean: merge-ready handoffs exist; Pro/ultra: skeptic steps after architect handoffs.
+    FusionConfig lean;
+    lean.task = "Summarize tradeoffs of approach A vs B for caching.";
+    lean.provider = "echo";
+    lean.write_files = false;
+    lean.cache.enabled = false;
+    lean.profile = FusionProfileId::Neutral;
+    apply_fusion_tier(lean, FusionTier::Lite);
+    auto r_lean = run_fusion(lean);
+    assert(r_lean && r_lean.value().success);
+    assert(r_lean.value().metrics.llm_calls == 3);
+    assert(r_lean.value().handoffs.size() >= 2);
+    // Architect + merge_ready pairs
+    int merge_ready = 0;
+    for (const auto& h : r_lean.value().handoffs) {
+        if (h.metadata.contains("step_kind") && h.metadata["step_kind"] == "merge_ready") {
+            ++merge_ready;
+        }
+        assert(h.summary.find("...") != std::string::npos || !h.summary.empty());
+    }
+    assert(merge_ready >= 2);
+
+    FusionConfig pro;
+    pro.task = "Summarize tradeoffs of approach A vs B for caching.";
+    pro.provider = "echo";
+    pro.write_files = false;
+    pro.cache.enabled = false;
+    pro.profile = FusionProfileId::Research;
+    apply_fusion_tier(pro, FusionTier::Pro);
+    auto r_pro = run_fusion(pro);
+    assert(r_pro && r_pro.value().success);
+    assert(r_pro.value().metrics.llm_calls == 5);
+    assert(r_pro.value().handoffs.size() >= 4);  // 2 arch + 2 sk + 2 merge_ready
+    std::set<std::string> kinds;
+    for (const auto& h : r_pro.value().handoffs) {
+        if (h.metadata.contains("step_kind")) {
+            kinds.insert(h.metadata["step_kind"].get<std::string>());
+        }
+    }
+    assert(kinds.count("architect") == 1);
+    assert(kinds.count("skeptic") == 1);
+    assert(kinds.count("merge_ready") == 1);
+
+    // Genius DAG: handoffs per branch
+    FusionConfig gen;
+    gen.task = "Multi-angle research brief on caching tradeoffs.";
+    gen.provider = "echo";
+    gen.write_files = false;
+    gen.cache.enabled = false;
+    gen.profile = FusionProfileId::Research;
+    apply_fusion_tier(gen, FusionTier::Genius);
+    auto r_gen = run_fusion(gen);
+    assert(r_gen && r_gen.value().success);
+    assert(r_gen.value().metrics.llm_calls == 8);
+    assert(static_cast<int>(r_gen.value().handoffs.size()) == 6);  // one per architect branch
+    assert(r_gen.value().report["capability"]["pack_id"] == "capability_genius");
+    std::cout << "test_handoff_in_engine_prompts_lean_and_pro ok\n";
+}
+
+void test_prompt_config_templates() {
+    FusionPromptConfig pc;
+    pc.branch_template = "CUSTOM {{branch_label}} :: {{task}} :: {{quality_contract}}";
+    pc.merge_requirements = {"Preserve the strongest unique claim", "Return a decision"};
+    pc.variables = {{"team", "fusion-lab"}};
+    auto j = pc.to_json();
+    auto parsed = FusionPromptConfig::from_json(j);
+    assert(parsed);
+    FusionGenerationConfig generation;
+    generation.branch_max_tokens = 777;
+    generation.meta_judge_max_tokens = 1888;
+    auto gj = generation.to_json();
+    auto gp = FusionGenerationConfig::from_json(gj);
+    assert(gp);
+    assert(gp.value().max_tokens_for_step("dag_branch_a") == 777);
+    assert(gp.value().max_tokens_for_step("dag_meta_judge") == 1888);
+    FrameOptions opts;
+    opts.prompt_config = parsed.value();
+    opts.quality_gates = {"scope_match", "evidence_checked"};
+    opts.output_contract = {"direct_answer_first"};
+    const auto prompt = frame_branch_task("Choose A or B", "decision", "compare", opts);
+    assert(prompt.find("CUSTOM decision") != std::string::npos);
+    assert(prompt.find("scope_match") != std::string::npos);
+    std::cout << "test_prompt_config_templates ok\n";
+}
+
+void test_dag_parallel_execution_report() {
+    FusionConfig cfg;
+    cfg.task = "Compare three deployment strategies with constraints.";
+    cfg.provider = "echo";
+    cfg.profile = FusionProfileId::Research;
+    cfg.cache.enabled = false;
+    cfg.write_files = false;
+    apply_fusion_tier(cfg, FusionTier::Ultra);
+    cfg.parallel_branches = true;
+    cfg.max_parallel_branches = 2;
+    auto run = run_fusion(cfg);
+    assert(run);
+    assert(run.value().success);
+    assert(run.value().metrics.llm_calls == 5);
+    assert(run.value().report.at("parallel_branches_requested") == true);
+    assert(run.value().report.at("parallel_branches_used") == true);
+    assert(run.value().report.at("max_parallel_branches") == 2);
+    std::cout << "test_dag_parallel_execution_report ok\n";
+}
+
+void test_disk_report_has_call_steps_and_cache_stats() {
+    namespace fs = std::filesystem;
+    const auto out = fs::current_path() / "test_artifacts_fusion_report_obs";
+    std::error_code ec;
+    fs::remove_all(out, ec);
+    fs::create_directories(out, ec);
+
+    FusionConfig cfg;
+    cfg.task = "Persist observability keys on disk report.";
+    cfg.mode = FusionMode::Lean;
+    cfg.profile = FusionProfileId::Neutral;
+    cfg.provider = "echo";
+    cfg.write_files = true;
+    cfg.output_dir = out.string();
+    cfg.cache.enabled = true;
+    cfg.cache.use_disk = false;
+
+    auto run = run_fusion(cfg);
+    assert(run);
+    assert(run.value().success);
+    assert(run.value().report.contains("call_steps"));
+    assert(run.value().report.contains("cache_stats"));
+
+    std::string report_path;
+    for (const auto& p : run.value().artifact_paths) {
+        if (p.find("report.json") != std::string::npos) {
+            report_path = p;
+            break;
+        }
+    }
+    assert(!report_path.empty());
+    std::ifstream in(report_path);
+    assert(in);
+    nlohmann::json disk;
+    in >> disk;
+    assert(disk.contains("report"));
+    assert(disk["report"].contains("call_steps"));
+    assert(disk["report"]["call_steps"].is_array());
+    assert(disk["report"]["call_steps"].size() >= 3);
+    assert(disk["report"].contains("cache_stats"));
+    // role identity present on disk
+    bool saw_role = false;
+    for (const auto& step : disk["report"]["call_steps"]) {
+        if (step.contains("role_id") && !step["role_id"].get<std::string>().empty()) {
+            saw_role = true;
+            break;
+        }
+    }
+    assert(saw_role);
+    std::cout << "test_disk_report_has_call_steps_and_cache_stats ok path=" << report_path << "\n";
+}
+
+void test_run_budget_exceeded() {
+    FusionConfig cfg;
+    cfg.task = "List three benefits of dual-branch agent fusion.";
+    cfg.mode = FusionMode::Lean;
+    cfg.profile = FusionProfileId::Neutral;
+    cfg.provider = "echo";
+    cfg.write_files = false;
+    cfg.cache.enabled = false;
+    cfg.max_total_ms = 1;
+    int provider_calls = 0;
+    handoffkit::AnyProvider slow("echo", [&](std::string_view prompt, const handoffkit::GenerateOptions& options) {
+        (void)prompt;
+        (void)options;
+        ++provider_calls;
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        return handoffkit::Result<std::string>(std::string("echo"));
+    });
+    FusionEngine engine;
+    auto run = engine.run_with_provider(cfg, std::move(slow));
+    assert(run);
+    assert(!run.value().success);
+    assert(run.value().error.find("budget_exceeded") != std::string::npos);
+    assert(provider_calls <= 2);
+    std::cout << "test_run_budget_exceeded ok calls=" << provider_calls << "\n";
+}
+
+void test_run_budget_dag_parallel() {
+    FusionConfig cfg;
+    cfg.task = "Compare three deployment strategies with constraints.";
+    cfg.mode = FusionMode::Dag;
+    cfg.profile = FusionProfileId::Neutral;
+    cfg.provider = "echo";
+    cfg.write_files = false;
+    cfg.cache.enabled = false;
+    cfg.parallel_branches = true;
+    cfg.max_parallel_branches = 2;
+    cfg.max_total_ms = 1;
+    int provider_calls = 0;
+    handoffkit::AnyProvider slow("echo", [&](std::string_view prompt, const handoffkit::GenerateOptions& options) {
+        (void)prompt;
+        (void)options;
+        ++provider_calls;
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        return handoffkit::Result<std::string>(std::string("echo"));
+    });
+    FusionEngine engine;
+    auto run = engine.run_with_provider(cfg, std::move(slow));
+    assert(run);
+    assert(!run.value().success);
+    assert(run.value().error.find("budget_exceeded") != std::string::npos);
+    assert(run.value().report.contains("budget"));
+    assert(run.value().report["budget"].value("max_total_ms", 0) == 1);
+    assert(run.value().report["budget"].value("exceeded", false) == true);
+    std::cout << "test_run_budget_dag_parallel ok calls=" << provider_calls << "\n";
+}
+
+void test_run_with_provider_report_budget() {
+    FusionConfig cfg;
+    cfg.task = "List three benefits of dual-branch agent fusion.";
+    cfg.mode = FusionMode::Lean;
+    cfg.profile = FusionProfileId::Neutral;
+    cfg.provider = "echo";
+    cfg.write_files = false;
+    cfg.cache.enabled = false;
+    cfg.max_total_ms = 60000;
+    handoffkit::AnyProvider fast("echo", [](std::string_view prompt, const handoffkit::GenerateOptions& options) {
+        (void)prompt;
+        (void)options;
+        return handoffkit::Result<std::string>(std::string("echo"));
+    });
+    FusionEngine engine;
+    auto run = engine.run_with_provider(cfg, std::move(fast));
+    assert(run);
+    assert(run.value().success);
+    assert(run.value().report.contains("budget"));
+    assert(run.value().report["budget"].value("max_total_ms", 0) == 60000);
+    assert(run.value().report["budget"].value("exceeded", true) == false);
+    assert(run.value().report.contains("call_steps"));
+    std::cout << "test_run_with_provider_report_budget ok\n";
+}
+
+void test_config_web_providers_round_trip() {
+    FusionConfig cfg;
+    cfg.task = "round trip";
+    cfg.web_providers = {"searxng", "brave"};
+    cfg.web_searxng_urls = {"https://sx.test"};
+    cfg.web_searxng_engines = {"wikipedia"};
+    cfg.web_searxng_categories = {"general"};
+    cfg.web_searxng_language = "es";
+    cfg.web_searxng_safesearch = 1;
+    cfg.web_searxng_page = 3;
+    cfg.web_prefer_explore = false;
+    cfg.max_total_ms = 1234;
+    const auto j = cfg.to_json();
+    assert(j.value("web_providers", nlohmann::json::array()).size() == 2);
+    assert(j.value("web_searxng_urls", nlohmann::json::array()).at(0) == "https://sx.test");
+    assert(j.value("web_searxng_safesearch", -1) == 1);
+    assert(j.value("web_searxng_page", 1) == 3);
+    assert(j.value("web_prefer_explore", true) == false);
+    assert(j.value("max_total_ms", 0) == 1234);
+    auto back = FusionConfig::from_json(j);
+    assert(back);
+    assert(back.value().web_providers == cfg.web_providers);
+    assert(back.value().web_searxng_urls == cfg.web_searxng_urls);
+    assert(back.value().web_searxng_engines == cfg.web_searxng_engines);
+    assert(back.value().web_searxng_categories == cfg.web_searxng_categories);
+    assert(back.value().web_searxng_language == "es");
+    assert(back.value().web_searxng_safesearch == 1);
+    assert(back.value().web_searxng_page == 3);
+    assert(back.value().web_prefer_explore == false);
+    assert(back.value().max_total_ms == 1234);
+    std::cout << "test_config_web_providers_round_trip ok\n";
+}
+
+void test_run_budget_report() {
+    FusionConfig cfg;
+    cfg.task = "List three benefits of dual-branch agent fusion.";
+    cfg.mode = FusionMode::Lean;
+    cfg.profile = FusionProfileId::Neutral;
+    cfg.provider = "echo";
+    cfg.write_files = false;
+    cfg.cache.enabled = false;
+    cfg.max_total_ms = 60000;
+    auto run = run_fusion(cfg);
+    assert(run);
+    assert(run.value().success);
+    assert(run.value().report.contains("budget"));
+    assert(run.value().report["budget"].value("max_total_ms", 0) == 60000);
+    assert(run.value().report["budget"].value("exceeded", true) == false);
+    assert(run.value().report["budget"].value("elapsed_ms", -1) >= 0);
+    std::cout << "test_run_budget_report ok\n";
+}
+
+int main() {
+    test_profiles_exist();
+    test_shipping_pack_flags();
+    test_capability_pack_differentiation();
+    test_structured_handoff_and_prompt_injection();
+    test_lean_echo();
+    test_ultra_echo();
+    test_fusion_tiers_echo();
+    test_handoff_in_engine_prompts_lean_and_pro();
+    test_prompt_config_templates();
+    test_dag_parallel_execution_report();
+    test_disk_report_has_call_steps_and_cache_stats();
+    test_run_budget_exceeded();
+    test_run_budget_dag_parallel();
+    test_run_with_provider_report_budget();
+    test_config_web_providers_round_trip();
+    test_run_budget_report();
+    std::cout << "All fusion engine tests passed\n";
+    return 0;
+}

@@ -1,0 +1,462 @@
+#include <handoffkit/demos/fusion/engine.hpp>
+#include <handoffkit/demos/fusion/web_research.hpp>
+#include <handoffkit/browser/kit.hpp>
+#include <handoffkit/browser/html_extract.hpp>
+#include <handoffkit/browser/research.hpp>
+#include <handoffkit/explore/transport.hpp>
+
+#include <cassert>
+#include <chrono>
+#include <iostream>
+#include <string>
+#include <string_view>
+#include <vector>
+
+using namespace handoffkit::demos::fusion;
+using namespace handoffkit::explore;
+
+void test_extract_urls() {
+    auto u = handoffkit::demos::fusion::extract_urls_from_text(
+        "See https://example.com/a and also http://foo.org/x). End."
+    );
+    assert(u.size() >= 2);
+    assert(u[0].find("example.com") != std::string::npos);
+    std::cout << "test_extract_urls ok\n";
+}
+
+void test_search_query_from_draco_wrapper() {
+    const std::string wrapped =
+        "Deep research style answer (research only). Be concrete, structured, and cite "
+        "verifiable claims where possible.\n\n"
+        "TASK:\nWhat was the name of the 5K race hosted at the old Great America theme park "
+        "in California that had \"bubble gum\" in its title?";
+    auto q = handoffkit::demos::fusion::make_search_query_from_task(wrapped);
+    assert(q.find("Great America") != std::string::npos);
+    assert(q.find("bubble") != std::string::npos);
+    assert(q.find("Deep research") == std::string::npos);
+    std::cout << "test_search_query_from_draco_wrapper ok q=" << q.substr(0, 80) << "\n";
+}
+
+void test_gather_seed_fixture() {
+    FusionConfig cfg;
+    cfg.task = "Summarize the fixture home page.";
+    cfg.enable_web_tools = true;
+    cfg.web_transport = "map";
+    cfg.web_auto_search = false;
+    cfg.seed_urls = {"https://fixture.local/"};
+    cfg.web_max_pages = 2;
+    cfg.web_max_depth = 1;
+    cfg.web_prefer_explore = true;
+    cfg.web_context_max_chars = 8000;
+
+    auto map = make_fixture_map_transport();
+    auto wr = gather_web_research(cfg, map);
+    assert(wr.enabled);
+    assert(wr.used);
+    assert(wr.pages_ok >= 1);
+    assert(wr.tool_calls >= 1);
+    assert(wr.markdown_context.find("Fixture") != std::string::npos ||
+           wr.markdown_context.find("fixture") != std::string::npos ||
+           wr.markdown_context.find("Welcome") != std::string::npos);
+    auto section = wr.prompt_section();
+    assert(section.find("web research") != std::string::npos ||
+           section.find("Markdown") != std::string::npos);
+    std::cout << "test_gather_seed_fixture ok pages=" << wr.pages_ok
+              << " md_chars=" << wr.markdown_context.size() << "\n";
+}
+
+void test_fusion_deep_uses_browser_lite_route() {
+    FusionConfig cfg;
+    cfg.task = "Deeply summarize the fixture site.";
+    cfg.enable_web_tools = true;
+    cfg.web_transport = "map";
+    cfg.web_auto_search = false;
+    cfg.seed_urls = {"https://fixture.local/"};
+    cfg.web_max_pages = 6;
+    cfg.web_max_depth = 2;
+    cfg.web_context_max_chars = 12000;
+
+    auto wr = gather_web_research(cfg, make_fixture_map_transport());
+    assert(wr.enabled);
+    assert(wr.used);
+    assert(wr.pages_ok >= 1);
+    assert(wr.markdown_context.find("Fixture") != std::string::npos);
+    bool saw_done = false;
+    for (const auto& step : wr.steps) {
+        if (step.value("tool", "") == "deep_research_done") saw_done = true;
+    }
+    assert(saw_done);
+    std::cout << "test_fusion_deep_uses_browser_lite_route ok pages=" << wr.pages_ok << "\n";
+}
+
+void test_fusion_echo_with_web_md() {
+    FusionConfig cfg;
+    cfg.task = "Using only the provided web research, name the fixture site title.";
+    cfg.mode = FusionMode::Lean;
+    cfg.profile = FusionProfileId::Research;
+    cfg.provider = "echo";
+    cfg.write_files = false;
+    cfg.cache.enabled = false;
+    cfg.enable_web_tools = true;
+    cfg.web_transport = "map";
+    cfg.web_auto_search = false;
+    cfg.seed_urls = {"https://fixture.local/"};
+    cfg.web_max_pages = 2;
+    cfg.web_prefer_explore = true;
+
+    auto run = run_fusion(cfg);
+    assert(run);
+    assert(run.value().success);
+    assert(run.value().report.contains("web_research"));
+    const auto& wr = run.value().report["web_research"];
+    assert(wr.value("enabled", false));
+    assert(wr.value("used", false));
+    assert(wr.value("pages_ok", 0) >= 1);
+    assert(run.value().report.value("web_tools_live", false));
+    // Echo provider reflects prompt; research section should influence branch chars.
+    assert(run.value().metrics.llm_calls == 3);
+    std::cout << "test_fusion_echo_with_web_md ok tool_calls="
+              << wr.value("tool_calls", 0) << "\n";
+}
+
+void test_registry_has_web_search() {
+    auto map = make_fixture_map_transport();
+    auto reg = make_fusion_web_tool_registry(map);
+    assert(reg.contains("web_fetch"));
+    assert(reg.contains("web_fetch_markdown"));
+    assert(reg.contains("web_explore"));
+    assert(reg.contains("html_to_markdown"));
+    assert(reg.contains("web_search"));
+    assert(reg.contains("web_deep_research"));
+    handoffkit::ToolCall deep;
+    deep.tool_name = "web_deep_research";
+    deep.arguments = {
+        {"query", "fixture"},
+        {"auto_search", false},
+        {"seed_urls", nlohmann::json::array({"https://fixture.local/"})},
+        {"max_pages", 2},
+        {"max_depth", 1},
+        {"transport", "map"},
+    };
+    auto dr = reg.execute(deep);
+    assert(dr && dr.value().success);
+    assert(dr.value().result.value("success", false));
+    assert(dr.value().result.value("mode", "") == "deep_search_then_explore");
+    assert(dr.value().result.value("metadata", nlohmann::json::object()).value("user_browser_required", true) == false);
+
+    auto search_map = make_fixture_map_transport();
+    search_map->set_page(
+        "https://html.duckduckgo.com/html/?q=OpenAI+product+docs",
+        R"(<a class="result__a" href="https://fixture.local/">Fixture</a>)");
+    search_map->set_page(
+        "https://html.duckduckgo.com/html/?q=OpenAI+security",
+        R"(<a class="result__a" href="https://fixture.local/about.html">About</a>)");
+    auto search_reg = make_fusion_web_tool_registry(search_map);
+    handoffkit::ToolCall expanded;
+    expanded.tool_name = "web_deep_research";
+    expanded.arguments = {
+        {"query", "OpenAI product docs"},
+        {"task", "OpenAI security."},
+        {"max_pages", 3},
+        {"max_depth", 1},
+        {"max_sub_queries", 2},
+        {"max_results_per_query", 2},
+        {"transport", "map"},
+    };
+    auto expanded_result = search_reg.execute(expanded);
+    assert(expanded_result && expanded_result.value().success);
+    assert(expanded_result.value().result.value("success", false));
+    assert(expanded_result.value().result.value("queries", nlohmann::json::array()).size() == 2);
+    assert(expanded_result.value().result.value("pages_ok", 0) >= 2);
+
+    auto wiki_map = make_fixture_map_transport();
+    wiki_map->set_page(
+        "https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=6&search=OpenAI",
+        R"(["OpenAI",["OpenAI"],[""],["https://en.wikipedia.org/wiki/OpenAI"]])");
+    auto wiki_reg = make_fusion_web_tool_registry(wiki_map);
+    handoffkit::ToolCall wiki_call;
+    wiki_call.tool_name = "web_search";
+    wiki_call.arguments = {
+        {"query", "OpenAI"},
+        {"providers", nlohmann::json::array({"wiki"})},
+        {"transport", "map"},
+    };
+    auto wiki_result = wiki_reg.execute(wiki_call);
+    assert(wiki_result && wiki_result.value().success);
+    assert(wiki_result.value().result.value("providers_requested", nlohmann::json::array()).size() == 1);
+    assert(wiki_result.value().result.value("providers_used", nlohmann::json::array()).at(0) == "wikipedia");
+
+    handoffkit::ToolCall unavailable_call;
+    unavailable_call.tool_name = "web_search";
+    unavailable_call.arguments = {
+        {"query", "OpenAI"},
+        {"providers", nlohmann::json::array({"not_a_provider"})},
+        {"transport", "map"},
+    };
+    auto unavailable_result = wiki_reg.execute(unavailable_call);
+    assert(unavailable_result && unavailable_result.value().success);
+    assert(unavailable_result.value().result.value("success", true) == false);
+    assert(unavailable_result.value().result.value("error_code", "") == "provider_unavailable");
+
+    handoffkit::ToolCall user_browser_call;
+    user_browser_call.tool_name = "web_search";
+    user_browser_call.arguments = {
+        {"query", "OpenAI"},
+        {"providers", nlohmann::json::array({"user_browser"})},
+        {"transport", "map"},
+    };
+    const auto user_browser_result = wiki_reg.execute(user_browser_call);
+    assert(user_browser_result && user_browser_result.value().success);
+    assert(user_browser_result.value().result.value("success", true) == false);
+    assert(user_browser_result.value().result.value("error_code", "") ==
+           "user_browser_bridge_required");
+    std::cout << "test_registry_has_web_search ok\n";
+}
+
+void test_browser_kit_provider_defaults() {
+    handoffkit::browser::BrowserAgentKitOptions options;
+    auto map = handoffkit::browser::make_fixture_map_transport();
+    options.transport = map;
+    options.providers = {"wiki"};
+    auto kit = handoffkit::browser::create_browser_agent_kit(options);
+    map->set_page(
+        "https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=6&search=OpenAI",
+        R"(["OpenAI",["OpenAI"],[""],["https://en.wikipedia.org/wiki/OpenAI"]])");
+
+    const auto direct = kit.search("OpenAI");
+    assert(direct.value("providers_requested", nlohmann::json::array()).at(0) == "wiki");
+    assert(direct.value("providers_used", nlohmann::json::array()).at(0) == "wikipedia");
+
+    handoffkit::ToolCall call;
+    call.tool_name = "web_search";
+    call.arguments = {{"query", "OpenAI"}};
+    const auto tool = kit.registry.execute(call);
+    assert(tool && tool.value().success);
+    assert(tool.value().result.value("providers_requested", nlohmann::json::array()).at(0) == "wiki");
+    std::cout << "test_browser_kit_provider_defaults ok\n";
+}
+
+void test_google_provider_and_ad_filter() {
+    auto map = handoffkit::browser::make_fixture_map_transport();
+    map->set_page(
+        "https://www.google.com/search?hl=en&num=8&q=OpenAI",
+        R"(<html><body>
+          <a href="/aclk?sa=l&amp;adurl=https%3A%2F%2Fads.example%2F">Sponsored</a>
+          <a href="/url?q=https%3A%2F%2Fexample.org%2Fpaper&amp;sa=U">Primary paper</a>
+          <a href="/search?q=OpenAI">Google navigation</a>
+          <a href="https://example.org/direct">Direct source</a>
+        </body></html>)");
+    const auto result = handoffkit::browser::web_search(
+        "OpenAI", map, 4, 20000, {}, {}, {"google"});
+    assert(result.value("success", false));
+    assert(result.value("engine", "") == "google_html");
+    assert(result.value("providers_used", nlohmann::json::array()).at(0) == "google");
+    const auto results = result.value("results", nlohmann::json::array());
+    assert(results.size() == 2);
+    assert(results.at(0).value("url", "") == "https://example.org/direct");
+    assert(results.at(1).value("url", "") == "https://example.org/paper");
+
+    const std::string page = R"(<html><body>
+      <div class="ad-banner"><a href="https://ads.example/click">Buy</a></div>
+      <div id="cookie-consent">Accept cookies</div>
+      <main><p>Primary evidence remains.</p><a href="/source">Source</a></main>
+    </body></html>)";
+    const auto text = handoffkit::browser::extract_text(page);
+    assert(text.find("Primary evidence remains") != std::string::npos);
+    assert(text.find("Buy") == std::string::npos);
+    const auto links = handoffkit::browser::extract_links(page, "https://example.org/", 10);
+    assert(links.size() == 1);
+    assert(links.front().absolute == "https://example.org/source");
+    std::cout << "test_google_provider_and_ad_filter ok\n";
+}
+
+void test_key_gated_json_providers() {
+    auto map = handoffkit::browser::make_fixture_map_transport();
+    map->set_page(
+        "https://api.search.brave.com/res/v1/web/search?q=OpenAI&count=4",
+        R"({"web":{"results":[{"title":"OpenAI API","url":"https://openai.com/api"},{"title":"x","url":""}]}})");
+    map->set_page(
+        "https://api.bing.microsoft.com/v7.0/search?q=OpenAI&count=4&responseFilter=Webpages",
+        R"({"webPages":{"value":[{"name":"OpenAI API","url":"https://openai.com/api"}]}})");
+    map->set_page(
+        "https://kagi.com/api/v0/search?q=OpenAI",
+        R"({"data":[{"title":"OpenAI API","url":"https://openai.com/api"}]})");
+    // Keys are intentionally unset here: stub empty values via direct calls is not
+    // possible without env, so exercise the fail-closed path through web_search.
+    auto missing = handoffkit::browser::web_search("OpenAI", map, 4, 15000, {}, {}, {"brave"});
+    assert(!missing.value("success", true));
+    const auto codes = missing.value("provider_codes", nlohmann::json::array());
+    assert(!codes.empty() && codes.at(0) == "provider_unavailable");
+    std::cout << "test_key_gated_json_providers ok\n";
+}
+
+void test_keyless_html_engines() {
+    auto map = handoffkit::browser::make_fixture_map_transport();
+    map->set_page(
+        "https://www.mojeek.com/search?q=OpenAI",
+        R"(<html><body><a class="title" href="https://openai.com/api">OpenAI API</a><a href="https://www.mojeek.com/preferences">prefs</a></body></html>)");
+    map->set_page(
+        "https://search.marginalia.nu/search?query=OpenAI",
+        R"(<html><body><a href="https://openai.com/blog">OpenAI Blog</a></body></html>)");
+    map->set_page(
+        "https://www.startpage.com/sp/search?query=OpenAI",
+        R"(<html><body><a class="w-gl__result-title" href="https://openai.com/api">OpenAI API</a></body></html>)");
+    for (const char* provider : {"mojeek", "marginalia", "startpage"}) {
+        const auto result = handoffkit::browser::web_search(
+            "OpenAI", map, 4, 15000, {}, {}, {provider});
+        assert(result.value("success", false));
+        assert(result.value("providers_used", nlohmann::json::array()).at(0) == provider);
+        assert(!result.value("results", nlohmann::json::array()).empty());
+    }
+    std::cout << "test_keyless_html_engines ok\n";
+}
+
+void test_parse_searxng_options() {
+    using handoffkit::browser::parse_searxng_options;
+    auto full = parse_searxng_options(nlohmann::json{
+        {"base_urls", nlohmann::json::array({"https://sx.test"})},
+        {"engines", "wikipedia, wikidata"},
+        {"categories", nlohmann::json::array({"general"})},
+        {"page", 2},
+        {"safesearch", 1},
+        {"language", "ES"},
+    });
+    assert(full);
+    assert(full.value().base_urls.size() == 1);
+    assert(full.value().engines.size() == 2);
+    assert(full.value().categories == std::vector<std::string>{"general"});
+    assert(full.value().page == 2);
+    assert(full.value().safesearch == 1);
+    assert(full.value().language == "ES");
+
+    auto camel = parse_searxng_options(nlohmann::json{
+        {"baseUrl", "https://sx2.test/"},
+        {"safeSearch", 0},
+    });
+    assert(camel);
+    assert(camel.value().base_url == "https://sx2.test/");
+    assert(camel.value().safesearch == 0);
+
+    auto def = parse_searxng_options(nlohmann::json(nullptr));
+    assert(def);
+    assert(def.value().page == 1 && def.value().safesearch == -1);
+
+    assert(!parse_searxng_options(nlohmann::json{{"page", 0}}));
+    assert(!parse_searxng_options(nlohmann::json{{"safesearch", 3}}));
+    assert(!parse_searxng_options(nlohmann::json{{"language", "!!!"}}));
+    assert(!parse_searxng_options(nlohmann::json::array()));
+    std::cout << "test_parse_searxng_options ok\n";
+}
+
+void test_searxng_explicit_options_fixture() {
+    auto map = handoffkit::browser::make_fixture_map_transport();
+    map->set_page(
+        "https://sx.test/search?q=OpenAI&format=json&engines=wikipedia",
+        R"({"results":[{"title":"OpenAI API","url":"https://openai.com/api"}]})");
+    handoffkit::browser::SearxngOptions options;
+    options.base_urls = {"https://sx.test"};
+    options.engines = {"wikipedia"};
+    const auto result = handoffkit::browser::web_search(
+        "OpenAI", map, 4, 15000, {}, {}, {"searxng"}, options);
+    assert(result.value("success", false));
+    assert(result.value("engine", "") == "searxng_json");
+    assert(result.value("providers_used", nlohmann::json::array()).at(0) == "searxng");
+    const auto results = result.value("results", nlohmann::json::array());
+    assert(results.size() == 1);
+    assert(results.at(0).value("url", "") == "https://openai.com/api");
+    std::cout << "test_searxng_explicit_options_fixture ok\n";
+}
+
+void test_search_ad_hosts_compare_parsed_hostnames() {
+    using handoffkit::browser::host_is_or_under;
+    using handoffkit::browser::is_search_ad_url;
+    assert(is_search_ad_url("https://ad.doubleclick.net/x"));
+    assert(is_search_ad_url("https://doubleclick.net/x"));
+    assert(is_search_ad_url("https://www.googleadservices.com/x"));
+    assert(is_search_ad_url("https://user@AD.DoubleClick.net:443/x"));
+    assert(!is_search_ad_url("https://evil.com/?x=doubleclick.net"));
+    assert(!is_search_ad_url("https://evil.com/?x=googleadservices.com"));
+    assert(!is_search_ad_url("https://doubleclick.net.evil.com"));
+    assert(!is_search_ad_url("https://doubleclick.net.evil.com/"));
+    assert(!is_search_ad_url("https://notdoubleclick.net/"));
+    assert(!is_search_ad_url("https://evil.com/#doubleclick.net"));
+    assert(is_search_ad_url("https://example.org/aclk?x=1"));
+    assert(is_search_ad_url(""));
+    assert(host_is_or_under("Links.DuckDuckGo.com.", "duckduckgo.com"));
+    assert(!host_is_or_under("duckduckgo.com.evil.test", "duckduckgo.com"));
+    assert(!host_is_or_under("", "duckduckgo.com"));
+    std::cout << "test_search_ad_hosts_compare_parsed_hostnames ok\n";
+}
+
+void test_search_hits_filter_hosts_exactly() {
+    auto map = handoffkit::browser::make_fixture_map_transport();
+    map->set_page(
+        "https://sx-hosts.test/search?q=hosts&format=json",
+        R"({"results":[
+          {"title":"ddg","url":"https://duckduckgo.com/y"},
+          {"title":"ddg sub","url":"https://links.duckduckgo.com/z"},
+          {"title":"kept query","url":"https://evil.test/?x=duckduckgo.com"},
+          {"title":"kept lookalike","url":"https://duckduckgo.com.example.test/"},
+          {"title":"wiki api","url":"https://en.wikipedia.org/w/api.php?action=x"},
+          {"title":"wiki page","url":"https://en.wikipedia.org/wiki/X"},
+          {"title":"ad","url":"https://ad.doubleclick.net/x"},
+          {"title":"kept ad query","url":"https://kept.test/?q=doubleclick.net"}
+        ]})");
+    handoffkit::browser::SearxngOptions options;
+    options.base_urls = {"https://sx-hosts.test"};
+    const auto result = handoffkit::browser::web_search(
+        "hosts", map, 10, 15000, {}, {}, {"searxng"}, options);
+    assert(result.value("success", false));
+    std::vector<std::string> urls;
+    for (const auto& hit : result.value("results", nlohmann::json::array())) {
+        urls.push_back(hit.value("url", ""));
+    }
+    const auto has = [&](std::string_view needle) {
+        for (const auto& u : urls) {
+            if (u.find(needle) != std::string::npos) return true;
+        }
+        return false;
+    };
+    assert(urls.size() == 4);
+    assert(has("evil.test/?x=duckduckgo.com"));
+    assert(has("duckduckgo.com.example.test"));
+    assert(has("en.wikipedia.org/wiki/X"));
+    assert(has("kept.test/?q=doubleclick.net"));
+    assert(!has("api.php"));
+    assert(!has("links.duckduckgo.com"));
+    assert(!has("ad.doubleclick.net"));
+
+    // Google result pages: tag stripping stays linear on many unclosed "<".
+    std::string body = "<html><body><a href=\"https://example.org/direct\">Direct ";
+    for (int i = 0; i < 50000; ++i) body += "<b";
+    body += "</a></body></html>";
+    map->set_page("https://www.google.com/search?hl=en&num=8&q=linear", body);
+    const auto started = std::chrono::steady_clock::now();
+    const auto google = handoffkit::browser::web_search("linear", map, 4, 20000, {}, {}, {"google"});
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started).count();
+    assert(ms < 1500);
+    const auto google_hits = google.value("results", nlohmann::json::array());
+    assert(google_hits.size() == 1);
+    assert(google_hits.at(0).value("url", "") == "https://example.org/direct");
+    std::cout << "test_search_hits_filter_hosts_exactly ok\n";
+}
+
+int main() {
+    test_search_ad_hosts_compare_parsed_hostnames();
+    test_search_hits_filter_hosts_exactly();
+    test_extract_urls();
+    test_search_query_from_draco_wrapper();
+    test_gather_seed_fixture();
+    test_fusion_deep_uses_browser_lite_route();
+    test_fusion_echo_with_web_md();
+    test_registry_has_web_search();
+    test_browser_kit_provider_defaults();
+    test_google_provider_and_ad_filter();
+    test_key_gated_json_providers();
+    test_keyless_html_engines();
+    test_parse_searxng_options();
+    test_searxng_explicit_options_fixture();
+    std::cout << "ALL test_fusion_web_research PASSED\n";
+    return 0;
+}

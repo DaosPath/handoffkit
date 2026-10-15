@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://handoffkit.dev/schemas/clinical-error-v1beta.json",
+  "title": "clinical_error",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "message"],
+  "properties": {
+    "code": {
+      "enum": [
+        "evidence_not_available",
+        "invalid_transition",
+        "budget_exceeded",
+        "gold_leak_detected",
+        "provider_unavailable",
+        "judge_quorum_missing",
+        "retrieval_blocked",
+        "run_incomplete",
+        "invalid_request",
+        "personal_input_rejected",
+        "idempotency_conflict",
+        "revision_conflict",
+        "store_corrupt",
+        "checkpoint_missing"
+      ]
+    },
+    "message": { "type": "string" },
+    "details": { "type": "object" }
+  }
+}

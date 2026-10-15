@@ -4,10 +4,12 @@
 
 The maintained roadmap now lives in [`docs/roadmap/README.md`](docs/roadmap/README.md).
 It covers the evidence-gated 1.19.5 release closure, repository convergence,
-Browser Core/Lite/Real in 1.20-1.29, and planned trains through 1.70 LTS.
+Browser Core/Lite/Real in 1.20 (absorbing the former 1.20-1.29 split), and planned trains through 1.70 LTS.
 
-HandoffKit 1.19 is **not** a completed public release. Its current green branch
-is an experimental development baseline with release-candidate security paths;
+HandoffKit 1.19.5 is a completed public stable release (Production/Stable,
+published to PyPI, npm, crates.io, and as C++ assets). The 1.20 Browser
+Platform line continues from it as an experimental development baseline
+with release-candidate security paths;
 see
 [`HK_CSP_SECURITY.md`](docs/spec/HK_CSP_SECURITY.md) for the authoritative
 capability ledger.
@@ -65,18 +67,18 @@ Status legend: **Done** · **In progress** · **Planned** · **Later**
 
 ---
 
-## Studio (apps/web) — now
+## Studio (apps/studio-web) — now
 
 | Item | Status | Notes |
 |------|--------|--------|
-| Liquid-glass landing + docs | **Done** | Next.js app under `apps/web` |
+| Liquid-glass landing + docs | **Done** | Next.js app under `apps/studio-web` |
 | Studio demos hub (`/demos`) | **Done** | Featured demo + catalog |
 | MAI-style expert panel live | **Done** | Streamed multi-agent run |
 | Provider switch: NVIDIA NIM ↔ Groq | **Done** | Per-agent model pickers |
 | Benchmark / simple / blank cases | **Done** | Case library presets |
 | Top-3 consensus UI + parse recovery | **Done** | `RANKINGS_JSON` + prose fallbacks |
 | Live execution report + token usage | **Done** | Groq metered; NIM trial = $0 |
-| **Local run history** | **Done** | Filesystem JSON under `apps/web/.data/mai-runs/` (gitignored) |
+| **Local run history** | **Done** | Filesystem JSON under `apps/studio-web/.data/mai-runs/` (gitignored) |
 | Export benchmark corpus (API) | **Done** | `GET /api/demos/mai-panel/runs?export=benchmark` |
 | CI: web typecheck + studio tests | **Done** | GitHub Actions web job |
 
@@ -162,7 +164,7 @@ Local file history is the **bootstrap**. Database history is the **prerequisite*
 
 | Path | Role |
 |------|------|
-| `apps/web/src/lib/studio/run-history.ts` | Local filesystem history (current) |
-| `apps/web/src/app/api/demos/mai-panel/runs` | List / get / export API |
-| `apps/web/.data/mai-runs/` | Local storage (gitignored) |
+| `apps/studio-web/src/lib/studio/run-history.ts` | Local filesystem history (current) |
+| `apps/studio-web/src/app/api/demos/mai-panel/runs` | List / get / export API |
+| `apps/studio-web/.data/mai-runs/` | Local storage (gitignored) |
 | `.github/workflows/ci.yml` | CI including studio tests |

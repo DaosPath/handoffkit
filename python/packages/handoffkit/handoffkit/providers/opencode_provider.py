@@ -1,0 +1,472 @@
+"""OpenCode Zen and Go HTTP providers."""
+
+from __future__ import annotations
+
+import json
+import os
+import time
+import urllib.error
+import urllib.request
+from dataclasses import dataclass
+from typing import Any, Literal
+from uuid import uuid4
+
+from handoffkit.errors import ProviderConfigurationError, ProviderExecutionError
+from handoffkit.providers.base import BaseProvider
+
+OpenCodeCatalog = Literal["zen", "go"]
+OpenCodeAPIStyle = Literal["auto", "openai_chat", "openai_responses", "anthropic_messages"]
+
+DEFAULT_OPENCODE_ZEN_BASE_URL = "https://opencode.ai/zen/v1"
+DEFAULT_OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1"
+# The live API rejects requests without this header (HTTP 400 MissingSessionID:
+# "cannot be routed efficiently"). See https://opencode.ai/docs/go/#where-can-i-use-it
+OPENCODE_SESSION_HEADER = "x-opencode-session"
+DEFAULT_OPENCODE_ZEN_MODEL = "gpt-5.4"
+DEFAULT_OPENCODE_GO_MODEL = "deepseek-v4-flash"
+OPENCODE_USER_AGENT = "handoffkit/1.4 OpenCodeProvider"
+
+# Curated "suggested models" lists. These mirror the live catalogs but stay
+# deliberately non-exhaustive: `list_opencode_models()` and the provider's
+# /models endpoint are authoritative. Verified against the live Go catalog
+# (30 models) and Zen catalog (73 models) on 2026-09-20.
+OPENCODE_GO_MODELS = (
+    "deepseek-v4-flash",
+    "deepseek-v4.1-flash",
+    "deepseek-v4-pro",
+    "deepseek-v4-flash-vision-exp",
+    "deepseek-flash",
+    "glm-5.1",
+    "glm-5.2",
+    "glm-5.3",
+    "glm-5.3-flash",
+    "grok-4.6",
+    "gpt-5.6-luna",
+    "hy3",
+    "hy4-preview",
+    "kimi-k2.6",
+    "kimi-k2.7-code",
+    "kimi-k3",
+    "longcat-2.0",
+    "mimo-v2.5",
+    "mimo-v2.5-pro",
+    "minimax-m2.5",
+    "minimax-m2.7",
+    "minimax-m3",
+    "muse-spark-1.2-contributor",
+    "muse-spark-1.3-contributor",
+    "omen-alpha",
+    "qwen3.6-plus",
+    "qwen3.7-max",
+    "qwen3.7-plus",
+    "qwen3.8-flash",
+    "qwen3.8-max",
+)
+
+# Zen exposes 73 entries including free tiers and internal names, so this stays a
+# curated cross-vendor selection; use the /models endpoint for the full list.
+OPENCODE_ZEN_MODELS = (
+    "gpt-5.6-luna",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-6-astra",
+    "gpt-5.5",
+    "gpt-5.5-pro",
+    "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.3-codex",
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "claude-haiku-4-5",
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.1-pro",
+    "grok-4.6",
+    "grok-4.5",
+    "deepseek-v4.1-flash",
+    "deepseek-v4-pro",
+    "glm-5.3",
+    "kimi-k3",
+    "minimax-m3",
+    "qwen3.8-flash",
+    "muse-spark-1.3",
+)
+
+
+@dataclass(frozen=True)
+class RetryPolicy:
+    """Retry policy for transient provider failures."""
+
+    max_attempts: int = 3
+    backoff_seconds: float = 0.5
+    retry_status_codes: tuple[int, ...] = (429, 500, 502, 503, 504)
+
+    def should_retry_status(self, status_code: int, attempt: int) -> bool:
+        """Return whether this HTTP status should be retried."""
+        return attempt < self.max_attempts and status_code in self.retry_status_codes
+
+    def should_retry_url_error(self, attempt: int) -> bool:
+        """Return whether this URL-level error should be retried."""
+        return attempt < self.max_attempts
+
+    def sleep(self, attempt: int) -> None:
+        """Sleep before the next retry attempt."""
+        delay = self.backoff_seconds * max(0, attempt - 1)
+        if delay > 0:
+            time.sleep(delay)
+
+
+_GO_ANTHROPIC_MODELS = {
+    "minimax-m3",
+    "minimax-m2.7",
+    "minimax-m2.5",
+    "qwen3.7-max",
+    "qwen3.7-plus",
+    "qwen3.6-plus",
+}
+
+# Verified against the live Go endpoint (2026-09-20):
+# - These models also answer on /chat/completions, so routing them to /messages
+#   is a working choice rather than the only one.
+# - glm-5.1/5.2/5.3 and kimi-k2.7-code are thinking-only: passing
+#   reasoning_effort="none" is rejected with HTTP 400, so they cannot be made
+#   cheaper by disabling reasoning. Other Go models accept it.
+# - grok-4.6, muse-spark-*, and gpt-5.6-luna only answer on /responses.
+
+_ZEN_ANTHROPIC_MODELS = {
+    "qwen3.7-max",
+    "qwen3.7-plus",
+    "qwen3.6-plus",
+    "qwen3.5-plus",
+}
+
+_VALID_API_STYLES = {"auto", "openai_chat", "openai_responses", "anthropic_messages"}
+
+
+def infer_opencode_api_style(
+    model: str,
+    catalog: OpenCodeCatalog = "zen",
+    api_style: OpenCodeAPIStyle = "auto",
+) -> OpenCodeAPIStyle:
+    """Infer the OpenCode endpoint style for a model id."""
+    resolved_catalog = _normalize_catalog(catalog)
+    normalized_model = _strip_opencode_prefix(model, resolved_catalog)
+    if api_style not in _VALID_API_STYLES:
+        raise ProviderConfigurationError(
+            "api_style must be one of: auto, openai_chat, openai_responses, anthropic_messages."
+        )
+    if api_style != "auto":
+        return api_style
+    if normalized_model.startswith("gemini-"):
+        raise ProviderConfigurationError(
+            "OpenCode Gemini models use a Google-style endpoint that "
+            "OpenCodeProvider does not support yet. Choose a GPT, Claude, Qwen, "
+            "DeepSeek, MiniMax, GLM, Kimi, MiMo, Grok, or free OpenCode model."
+        )
+    # Muse Spark (1.2/1.3, contributor/free) requires OpenAI Responses API.
+    # Ref: https://opencode.ai/docs/zen/ lists muse-spark-*-free under
+    # /v1/responses (not /v1/chat/completions); /chat/completions returns HTTP 500.
+    if normalized_model.startswith("muse-"):
+        return "openai_responses"
+    if resolved_catalog == "go":
+        if normalized_model in _GO_ANTHROPIC_MODELS:
+            return "anthropic_messages"
+        return "openai_chat"
+    if normalized_model.startswith("gpt-"):
+        return "openai_responses"
+    if normalized_model.startswith("claude-") or normalized_model in _ZEN_ANTHROPIC_MODELS:
+        return "anthropic_messages"
+    return "openai_chat"
+
+
+def list_opencode_models(
+    *,
+    catalog: OpenCodeCatalog = "zen",
+    api_key: str | None = None,
+    base_url: str | None = None,
+    timeout: float = 20.0,
+) -> list[str]:
+    """Return model ids from an OpenCode Zen or Go `/models` endpoint."""
+    resolved_catalog = _normalize_catalog(catalog)
+    resolved_key = api_key or os.getenv("OPENCODE_API_KEY")
+    if not resolved_key:
+        raise ProviderConfigurationError(
+            "OPENCODE_API_KEY is required to list OpenCode models. "
+            "Set the environment variable or pass api_key explicitly."
+        )
+    resolved_base_url = _resolve_base_url(resolved_catalog, base_url)
+    request = urllib.request.Request(
+        f"{resolved_base_url}/models",
+        headers={
+            "Authorization": f"Bearer {resolved_key}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": OPENCODE_USER_AGENT,
+        },
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise ProviderExecutionError(
+            f"OpenCode {resolved_catalog} models request failed with HTTP {exc.code}: "
+            f"{_sanitize_error_detail(detail, resolved_key)}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise ProviderExecutionError(
+            f"OpenCode {resolved_catalog} models request failed for "
+            f"{resolved_base_url}: {exc.reason}"
+        ) from exc
+    data = (
+        body.get("data", []) if isinstance(body, dict) else body if isinstance(body, list) else []
+    )
+    models: list[str] = []
+    if isinstance(data, list):
+        for item in data:
+            if isinstance(item, str):
+                models.append(_strip_opencode_prefix(item, resolved_catalog))
+            elif isinstance(item, dict) and isinstance(item.get("id"), str):
+                models.append(_strip_opencode_prefix(item["id"], resolved_catalog))
+    return models
+
+
+class OpenCodeProvider(BaseProvider):
+    """Provider for OpenCode Zen or OpenCode Go APIs."""
+
+    def __init__(
+        self,
+        model: str | None = None,
+        *,
+        catalog: OpenCodeCatalog = "zen",
+        api_key: str | None = None,
+        base_url: str | None = None,
+        api_style: OpenCodeAPIStyle = "auto",
+        timeout: float = 60.0,
+        retry_policy: RetryPolicy | None = None,
+        session_id: str | None = None,
+    ) -> None:
+        self.catalog = _normalize_catalog(catalog)
+        self.model = _strip_opencode_prefix(
+            model or _resolve_model(self.catalog),
+            self.catalog,
+        )
+        self.api_key = api_key or os.getenv("OPENCODE_API_KEY")
+        self.base_url = _resolve_base_url(self.catalog, base_url)
+        self.api_style = infer_opencode_api_style(self.model, self.catalog, api_style)
+        self.timeout = timeout
+        self.retry_policy = retry_policy or RetryPolicy()
+        self.session_id = (
+            session_id or os.getenv("OPENCODE_SESSION_ID") or f"handoffkit-{uuid4().hex}"
+        )
+        if not self.api_key:
+            raise ProviderConfigurationError(
+                "OPENCODE_API_KEY is required for OpenCodeProvider. "
+                "Set the environment variable or pass api_key explicitly."
+            )
+
+    def generate(self, prompt: str, **kwargs: Any) -> str:
+        """Generate text using the OpenCode endpoint family for the selected model."""
+        model = _strip_opencode_prefix(str(kwargs.pop("model", self.model)), self.catalog)
+        api_style = infer_opencode_api_style(model, self.catalog, self.api_style)
+        if api_style == "openai_responses":
+            return self._generate_responses(prompt, model, kwargs)
+        if api_style == "anthropic_messages":
+            return self._generate_messages(prompt, model, kwargs)
+        return self._generate_chat_completions(prompt, model, kwargs)
+
+    def _generate_chat_completions(self, prompt: str, model: str, kwargs: dict[str, Any]) -> str:
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            **kwargs,
+        }
+        body = self._post_json("/chat/completions", payload)
+        choices = body.get("choices") or []
+        if not choices:
+            return ""
+        message = choices[0].get("message") or {}
+        content = message.get("content", "")
+        if isinstance(content, list):
+            return _extract_text_parts(content)
+        return str(content)
+
+    def _generate_responses(self, prompt: str, model: str, kwargs: dict[str, Any]) -> str:
+        # OpenAI Responses API uses max_output_tokens (not max_tokens).
+        kwargs = dict(kwargs)
+        if "max_tokens" in kwargs and "max_output_tokens" not in kwargs:
+            kwargs["max_output_tokens"] = kwargs.pop("max_tokens")
+        # Muse Spark runs reasoning effort=high; reasoning tokens count against
+        # the output budget. Small budgets (e.g. health probes or per-step
+        # fusion caps) return status=incomplete with empty output, so floor
+        # them to leave room for thinking on real prompts.
+        if model.startswith("muse-"):
+            try:
+                if int(kwargs.get("max_output_tokens", 0)) < 16384:
+                    kwargs["max_output_tokens"] = 16384
+            except (TypeError, ValueError):
+                kwargs["max_output_tokens"] = 16384
+        payload = {
+            "model": model,
+            "input": prompt,
+            **kwargs,
+        }
+        body = self._post_json("/responses", payload)
+        output_text = body.get("output_text")
+        if isinstance(output_text, str):
+            return output_text
+        output = body.get("output") or []
+        if not isinstance(output, list):
+            return ""
+        parts: list[str] = []
+        for item in output:
+            if not isinstance(item, dict):
+                continue
+            content = item.get("content") or []
+            if isinstance(content, list):
+                parts.append(_extract_text_parts(content))
+        return "\n".join(part for part in parts if part)
+
+    def _generate_messages(self, prompt: str, model: str, kwargs: dict[str, Any]) -> str:
+        max_tokens = kwargs.pop("max_tokens", 1024)
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            **kwargs,
+        }
+        body = self._post_json(
+            "/messages",
+            payload,
+            extra_headers={"anthropic-version": "2023-06-01", "x-api-key": self.api_key or ""},
+        )
+        content = body.get("content", "")
+        if isinstance(content, list):
+            return _extract_text_parts(content)
+        return str(content)
+
+    def _post_json(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        *,
+        extra_headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        data = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            OPENCODE_SESSION_HEADER: self.session_id,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": OPENCODE_USER_AGENT,
+        }
+        if extra_headers:
+            headers.update(extra_headers)
+        request = urllib.request.Request(
+            f"{self.base_url}{path}",
+            data=data,
+            headers=headers,
+            method="POST",
+        )
+        for attempt in range(1, self.retry_policy.max_attempts + 1):
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                    body = json.loads(response.read().decode("utf-8"))
+                break
+            except urllib.error.HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="replace")
+                if self.retry_policy.should_retry_status(exc.code, attempt):
+                    self.retry_policy.sleep(attempt)
+                    continue
+                raise ProviderExecutionError(
+                    f"OpenCode {self.catalog} request failed with HTTP {exc.code}: "
+                    f"{_sanitize_error_detail(detail, self.api_key)}"
+                ) from exc
+            except urllib.error.URLError as exc:
+                if self.retry_policy.should_retry_url_error(attempt):
+                    self.retry_policy.sleep(attempt)
+                    continue
+                raise ProviderExecutionError(
+                    f"OpenCode {self.catalog} request failed for {self.base_url}: {exc.reason}"
+                ) from exc
+        else:  # pragma: no cover - defensive fallback.
+            raise ProviderExecutionError(f"OpenCode {self.catalog} request failed.")
+        if not isinstance(body, dict):
+            raise ProviderExecutionError(f"OpenCode {self.catalog} response was not a JSON object.")
+        return body
+
+
+class OpenCodeZenProvider(OpenCodeProvider):
+    """Provider for OpenCode Zen."""
+
+    def __init__(self, model: str | None = None, **kwargs: Any) -> None:
+        super().__init__(model=model, catalog="zen", **kwargs)
+
+
+class OpenCodeGoProvider(OpenCodeProvider):
+    """Provider for OpenCode Go."""
+
+    def __init__(self, model: str | None = None, **kwargs: Any) -> None:
+        super().__init__(model=model, catalog="go", **kwargs)
+
+
+def _resolve_model(catalog: OpenCodeCatalog) -> str:
+    if catalog == "go":
+        return (
+            os.getenv("OPENCODE_GO_MODEL")
+            or os.getenv("OPENCODE_MODEL")
+            or DEFAULT_OPENCODE_GO_MODEL
+        )
+    return (
+        os.getenv("OPENCODE_ZEN_MODEL") or os.getenv("OPENCODE_MODEL") or DEFAULT_OPENCODE_ZEN_MODEL
+    )
+
+
+def _resolve_base_url(catalog: OpenCodeCatalog, base_url: str | None) -> str:
+    if catalog == "go":
+        configured = (
+            base_url
+            or os.getenv("OPENCODE_GO_BASE_URL")
+            or os.getenv("OPENCODE_BASE_URL")
+            or DEFAULT_OPENCODE_GO_BASE_URL
+        )
+    else:
+        configured = (
+            base_url
+            or os.getenv("OPENCODE_ZEN_BASE_URL")
+            or os.getenv("OPENCODE_BASE_URL")
+            or DEFAULT_OPENCODE_ZEN_BASE_URL
+        )
+    return configured.rstrip("/")
+
+
+def _normalize_catalog(catalog: str) -> OpenCodeCatalog:
+    if catalog not in {"zen", "go"}:
+        raise ProviderConfigurationError("catalog must be 'zen' or 'go'.")
+    return catalog  # type: ignore[return-value]
+
+
+def _strip_opencode_prefix(model: str, catalog: OpenCodeCatalog) -> str:
+    prefix = "opencode-go/" if catalog == "go" else "opencode/"
+    if model.startswith(prefix):
+        return model.removeprefix(prefix)
+    return model
+
+
+def _extract_text_parts(content: list[Any]) -> str:
+    parts: list[str] = []
+    for item in content:
+        if isinstance(item, str):
+            parts.append(item)
+        elif isinstance(item, dict):
+            text = item.get("text")
+            if isinstance(text, str):
+                parts.append(text)
+    return "".join(parts)
+
+
+def _sanitize_error_detail(detail: str, api_key: str | None) -> str:
+    if not api_key:
+        return detail
+    return detail.replace(api_key, "[redacted-api-key]")

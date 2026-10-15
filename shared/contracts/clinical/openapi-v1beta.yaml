@@ -1,0 +1,102 @@
+openapi: 3.1.0
+info:
+  title: HandoffKit Clinical Sequential Reasoning Lab
+  version: 1.20.0-v1beta
+  description: experimental / research and education only / not clinically validated
+servers:
+  - url: /
+paths:
+  /api/clinical/v1beta/manifests:
+    get:
+      operationId: listManifests
+      responses:
+        "200":
+          description: Case manifests
+  /api/clinical/v1beta/runs:
+    post:
+      operationId: createRun
+      responses:
+        "201":
+          description: Created run
+  /api/clinical/v1beta/runs/{id}:
+    get:
+      operationId: getRun
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Run snapshot
+  /api/clinical/v1beta/runs/{id}/actions:
+    post:
+      operationId: applyAction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated run
+  /api/clinical/v1beta/runs/{id}/events:
+    get:
+      operationId: runEvents
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: JSON snapshot (not a live SSE stream)
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  stream:
+                    enum: [snapshot]
+                  run:
+                    $ref: "./clinical-run.schema.json"
+        "400":
+          description: Structured clinical error
+          content:
+            application/json:
+              schema:
+                $ref: "./clinical-error.schema.json"
+  /api/clinical/v1beta/benchmarks:
+    post:
+      operationId: createBenchmark
+      responses:
+        "201":
+          description: Benchmark handle
+  /api/clinical/v1beta/benchmarks/{id}:
+    get:
+      operationId: getBenchmark
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Benchmark
+  /api/clinical/v1beta/benchmarks/{id}/report:
+    get:
+      operationId: getBenchmarkReport
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audit report

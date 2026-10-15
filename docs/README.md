@@ -11,7 +11,7 @@ contains the centralized guides and demo indexes.
 | JavaScript | [docs/js](js/README.md) | [JavaScript demos](js/demos/README.md) |
 | Rust | [docs/rust](rust/README.md) | [Rust demos](rust/demos/README.md) |
 
-Shared visual assets remain in [`assets/`](assets/) and [`img/`](img/).
+Shared visual assets remain in [`assets/`](assets/).
 
 HK-CSP documentation:
 

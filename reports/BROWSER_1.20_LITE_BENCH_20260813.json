@@ -1,0 +1,10 @@
+{
+  "generated_at": "2026-10-15T06:40:09.100Z",
+  "product": "lite",
+  "notice": "Lite microbench only. Browser Real navigation p50/p95/p99 is not claimed.",
+  "extract_markdown_ms": 1.712,
+  "index_ingest_ms": 5.488,
+  "index_query_ms": 0.371,
+  "index_hits": 1,
+  "ingest_ok": true
+}

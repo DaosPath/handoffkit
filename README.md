@@ -10,13 +10,15 @@ Move tasks, decisions, files, errors, evidence, and next steps between agents as
 validated data instead of fragile chat summaries.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/DaosPath/handoffkit/ci.yml?branch=main&label=CI&logo=github&logoColor=white&style=flat-square)](https://github.com/DaosPath/handoffkit/actions)
-[![Rust Runtime](https://img.shields.io/badge/Rust_runtime-1.19.0-38bdf8?style=flat-square)](packages/rust/README.md)
 [![PyPI](https://img.shields.io/pypi/v/handoffkit.svg?logo=python&logoColor=white&style=flat-square)](https://pypi.org/project/handoffkit/)
 [![npm](https://img.shields.io/npm/v/@handoffkit/core.svg?logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/@handoffkit/core)
-[![C++20](https://img.shields.io/badge/C%2B%2B-20-7c3aed?logo=cplusplus&logoColor=white&style=flat-square)](packages/cpp/README.md)
+[![crates.io](https://img.shields.io/crates/v/handoffkit.svg?logo=rust&logoColor=white&style=flat-square)](https://crates.io/crates/handoffkit)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-7c3aed?logo=cplusplus&logoColor=white&style=flat-square)](cpp/packages/handoffkit/README.md)
 [![License](https://img.shields.io/github/license/DaosPath/handoffkit.svg?style=flat-square)](LICENSE)
 
-[Quick start](#quick-start) · [Runtime status](#runtime-status) · [Native Fusion](#native-c-fusion) · [Documentation](docs/README.md) · [Roadmap](ROADMAP.md)
+[Quick start](#quick-start) · [Runtime status](#runtime-status) · [Browser 1.20](#browser-platform-120-in-development) · [Native Fusion](#native-c-fusion) · [Documentation](docs/README.md) · [Roadmap](docs/roadmap/README.md)
+
+**Stable:** `1.19.5` on PyPI, npm, and crates.io · **Next:** `1.20.0` (Browser Platform, release candidate — not yet published)
 
 </div>
 
@@ -89,9 +91,9 @@ const result = await team.arun("Prepare a release checklist.");
 ### C++20
 
 ```bash
-cmake -S packages/cpp -B packages/cpp/build -DCMAKE_BUILD_TYPE=Release
-cmake --build packages/cpp/build --config Release
-ctest --test-dir packages/cpp/build -C Release --output-on-failure
+cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/packages/handoffkit/build --config Release
+ctest --test-dir cpp/packages/handoffkit/build -C Release --output-on-failure
 ```
 
 ```cpp
@@ -110,9 +112,16 @@ auto result = team.run("Prepare a release checklist");
 ### Rust
 
 ```bash
-cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit-cli -- csp doctor
-cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit-cli -- csp demo
-cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit --example csp_runtime_demo
+cargo add handoffkit                # library (MSRV 1.82)
+cargo install handoffkit-cli        # `handoffkit-rs` CLI
+```
+
+From a checkout:
+
+```bash
+cargo run --manifest-path rust/Cargo.toml -p handoffkit-cli -- csp doctor
+cargo run --manifest-path rust/Cargo.toml -p handoffkit-cli -- csp demo
+cargo run --manifest-path rust/Cargo.toml -p handoffkit --example csp_runtime_demo
 ```
 
 <img src="docs/assets/coding-review-terminal.svg" alt="Five-minute HandoffKit coding review demo" width="100%">
@@ -124,66 +133,53 @@ cargo run --manifest-path packages/rust/Cargo.toml -p handoffkit --example csp_r
 HandoffKit subsystems can advance independently. Each runtime has an explicit
 version and maturity level; wire compatibility remains governed by HK-CSP 1.0.
 
-| Runtime | Status | Distribution | Main surface |
+| Runtime | Status (1.19.5) | Distribution | Main surface |
 |---|---|---|---|
-| **Python 3.10–3.14** | Production runtime; HK-CSP session runtime experimental | [PyPI `handoffkit`](https://pypi.org/project/handoffkit/) | Agents, teams, tools, recipes, traces, asyncio channels, stdio |
-| **JavaScript / TypeScript** | Production runtime; HK-CSP session runtime experimental | npm packages under `@handoffkit/*` | Browser-safe core/CSP, Node stdio, providers, recipes, templates, CLI |
-| **C++20** | Experimental native runtime; local/Conan packaging only | CMake install, Conan recipe, vcpkg overlay; registry publication pending | Runtime core, CSP codecs, provider-gated TLS/CSP, tools, reports, training jobs, native Fusion |
-| **Rust 1.19** | Native Tokio runtime; transport/security APIs experimental | Source workspace; crates.io publication prepared, not yet released | Contracts, protocol, sessions, TLS transport, processes, Agent/Team/Recipe, stdio/subprocess, CLI |
+| **Python 3.10–3.14** | Production/Stable; HK-CSP session runtime experimental | [PyPI `handoffkit`](https://pypi.org/project/handoffkit/) | Agents, teams, tools, recipes, traces, asyncio channels, stdio, TLS 1.3 transport |
+| **JavaScript / TypeScript** | Production runtime; HK-CSP session runtime experimental | [npm `@handoffkit/*`](https://www.npmjs.com/package/@handoffkit/core) | Browser-safe core/CSP, Node stdio and TLS, providers, recipes, templates, CLI, Browser Lite |
+| **Rust (MSRV 1.82)** | Native Tokio runtime; transport/security APIs experimental | [crates.io `handoffkit`](https://crates.io/crates/handoffkit) + `handoffkit-cli` | Contracts, protocol, sessions, TLS transport, processes, Agent/Team/Recipe, stdio/subprocess, CLI |
+| **C++20** | Experimental native runtime | CMake install, Conan recipe, vcpkg overlay; no package-registry publication | Runtime core, CSP codecs, bounded native worker, tools, reports, training jobs, native Fusion |
+| **Go 1.22+** | Experimental HK-CSP runtime | Source module in [`go/handoffkit`](go/handoffkit/README.md) | Channels, sessions, TLS 1.3/mTLS, worker registry and routing, artifact signing |
+
+The authoritative per-capability security status (stable, experimental,
+provider-dependent, unavailable) lives in
+[`HK_CSP_SECURITY.md`](docs/spec/HK_CSP_SECURITY.md). A name, enum, or schema
+in this repository is not a support claim on its own.
 
 Runtime documentation:
-[Python](packages/python/README.md) ·
-[JavaScript](packages/js/README.md) ·
-[C++](packages/cpp/README.md) ·
-[Rust](packages/rust/README.md)
+[Python](python/packages/handoffkit/README.md) ·
+[JavaScript](js/packages/README.md) ·
+[Rust](rust/README.md) ·
+[C++](cpp/packages/handoffkit/README.md) ·
+[Go](go/handoffkit/README.md)
 
 ---
 
-## Historical Rust 1.17.0 baseline
+## What ships in 1.19.5
+
+1.19.5 is the current stable train: a security hardening baseline plus the
+language-first repository layout. Full details in the
+[changelog](CHANGELOG.md) and the [1.19.5 migration guide](docs/MIGRATION-1.19.5.md)
+(paths moved; package names, imports, and wire format did not).
 
 | Area | Included |
 |---|---|
-| **Async runtime** | Tokio sessions, bounded FIFO channels, blocking backpressure, async send/receive/select, lifecycle and clean closure |
-| **Delivery semantics** | ACK/NACK, bounded retry, idempotency keys, in-memory deduplication, deadlines and propagated cancellation |
-| **Local execution** | Supervised local processes, progress events, artifact references and structured redacted errors |
-| **Workflows** | Native Rust Agent, Team and Recipe execution in classic or additive session mode |
-| **Tools and replay** | Async tool registry, Team/Recipe trace construction and side-effect-free replay summaries |
-| **Transports** | Bounded NDJSON framing, stdio, subprocess workers, handshake, correlation and graceful shutdown |
-| **Interop** | Real Rust to Python/JavaScript and Python/JavaScript to Rust subprocess tests |
-| **CLI** | `handoffkit-rs csp doctor`, `inspect`, `run`, `worker` and `demo` |
-| **Security** | 8 MiB default frames, depth validation, process/ACK/retry limits, malformed-line rejection and orphan protection |
-
-Contracts and HK-CSP 1.0 wire semantics are stable. Rust runtime, transport and
-CLI APIs remain experimental through the 1.19 stabilization phase. The current
-1.19 Rust workspace additionally contains provider-backed TLS transport and
-durable security state; those capabilities remain experimental and are not
-implied by this historical baseline section.
-
-[Rust runtime guide](docs/rust/RUNTIME.md) ·
-[Rust workspace](packages/rust/README.md) ·
-[HK-CSP roadmap](docs/spec/HK_CSP_ROADMAP.md)
-
----
-
-## What ships in 1.16.0
-
-| Area | Included |
-|---|---|
+| **Secure transports** | Real TLS 1.3 client/server with mTLS and certificate-derived peer identity in Python, Node, Go, and Rust (C++ TLS unavailable) |
+| **Replay and authorization** | Nonce, sequence, and timestamp replay checks plus local fingerprint-based capability grants, enforced before dispatch |
+| **Artifact signing** | Ed25519 signing and verification in Python, Node, Go, Rust, and optional C++ Crypto, sharing one canonical vector |
+| **Post-quantum TLS** | Provider-detected, fail-closed `X25519MLKEM768` in compatible Node and Go builds; no silent fallback |
+| **Native workers** | C++20 bounded worker (`std::jthread`, backpressure, cancellation, deadlines) running real cpp-ml training/evaluation jobs |
+| **Conformance** | Shared five-runtime security vectors and live TLS/reconnect/throughput/signature benchmarks |
 | **HK-CSP contracts** | Versioned envelopes, sessions, channels, ACK/NACK, retry, deadlines, cancellation, jobs, capabilities, progress, and artifact references |
-| **Python session runtime** | Async bounded FIFO channels, local processes, deduplication, backpressure, stdio, and additive Team/Recipe session mode |
-| **JavaScript session runtime** | Browser-safe `@handoffkit/csp`; Node process/stdio transports in `@handoffkit/node` |
-| **Native protocol foundations** | Rust `contracts`/`protocol` workspace and C++20 CSP codecs plus ML job adapters |
-| **Interop** | Offline Python ↔ JavaScript NDJSON stdio demo using the canonical `snake_case` wire format |
-| **Structured handoffs** | `HandoffState`, protocol modes, shared schemas, Markdown and JSON serialization |
-| **Agent runtimes** | Agent/team execution in Python, JavaScript, and C++ |
-| **Validation and quality** | Contract validators, tool schema checks, deterministic handoff quality scoring |
-| **Tools and providers** | Tool registries, safe local tools, provider adapters, registries, selection, and fallbacks |
+| **Structured handoffs** | `HandoffState`, protocol modes, shared schemas, validators, deterministic handoff quality scoring |
 | **Trace and replay** | Durable run traces, stores, replay summaries, timelines, JSON and Markdown reports |
-| **Workflow composition** | Recipes, templates, extensions, project context, memory, and showcase workflows |
-| **Native C++ Fusion** | Tiered multi-agent synthesis with role packs, configurable prompts, DAG execution, cache, persistence, and quality contracts |
+| **Workflow composition** | Recipes, templates, extensions, project context, memory, showcase workflows, and native C++ Fusion |
+
+Still unavailable in 1.19.5: CRL/OCSP, trust-store live reload, certificate
+rotation, OS keystores, and durable secure recovery.
 
 The canonical wire contracts and cross-runtime fixtures live in
-[`packages/contracts`](packages/contracts/README.md). Contract drift becomes a
+[`shared/contracts`](shared/contracts/README.md). Contract drift becomes a
 CI failure instead of a production surprise.
 
 ### HandoffState vs HK-CSP
@@ -203,7 +199,7 @@ session = runtime.create_session(session_id="release-review")
 ```bash
 handoffkit csp doctor
 handoffkit csp demo
-handoffkit csp inspect packages/contracts/fixtures/message_envelope.json
+handoffkit csp inspect shared/contracts/fixtures/message_envelope.json
 ```
 
 Defaults remain safe and explicit: bounded channels (`64`), blocking
@@ -216,6 +212,55 @@ Specification: [HK-CSP](docs/spec/HK_CSP.md) ·
 [wire format](docs/spec/HK_CSP_WIRE.md) ·
 [security model](docs/spec/HK_CSP_SECURITY.md) ·
 [1.16–1.19 roadmap](docs/spec/HK_CSP_ROADMAP.md)
+
+---
+
+## Browser Platform (1.20, in development)
+
+1.20 gives agents a web layer: **search → fetch/explore → extract → Markdown →
+grounded, cited research packs**. The tree is versioned `1.20.0` (release candidate);
+these packages are not published to registries yet and are not part of the
+1.19.5 stable train. Use them from a checkout.
+
+| Package | Role |
+|---|---|
+| `@handoffkit/browser` (Lite) | Background HTTP research: search providers, bounded crawl, HTML → Markdown, citations, cache. Never launches a browser and never imports Real |
+| `@handoffkit/browser/core` | Subpath of `@handoffkit/browser`: I/O-free contracts and wire models (matching models in Python, Rust, Go, C++) |
+| `@handoffkit/browser-real` | Supervised headless Chromium service (Node 24+) over TLS 1.3 mTLS; CAPTCHAs surface as `provider_challenge`, never bypassed |
+
+Search providers are explicit and every attempt is recorded in a provider
+trace: DuckDuckGo HTML, Wikipedia OpenSearch, Google, self-hosted SearXNG, a
+curated source catalog, and opt-in host bridges (`user_browser`,
+`default_browser`). Selecting a provider strictly never falls back silently.
+
+Try it offline (fixture mode, no network):
+
+```bash
+handoffkit browse fixture                                          # Python
+handoffkit-js browse deep Fixture --fixture --max-pages 3 --json   # JavaScript
+```
+
+```javascript
+import { createBrowserAgentKit } from "@handoffkit/browser";
+
+const kit = createBrowserAgentKit({ maxPages: 3, providers: ["duckduckgo", "wikipedia"] });
+const pack = await kit.gather({ query: "metformin side effects" });
+console.log(pack.promptSection()); // source-labelled Markdown for the next agent
+```
+
+Browser Real needs Chromium installed explicitly — there is no hidden
+postinstall:
+
+```bash
+pnpm --dir js/packages/browser-real run install-chromium
+```
+
+1.20.0 ships only when every dimension of the
+[Browser scorecard](reports/BROWSER_1.20_SCORECARD.md) passes at least 9 of 10
+real gates — there is no averaging. Plan:
+[1.20 Browser Platform](docs/roadmap/1.20-BROWSER-PLATFORM.md) ·
+[package README](js/packages/browser/README.md) ·
+[Browser Real](js/packages/browser-real/README.md)
 
 ---
 
@@ -261,7 +306,7 @@ print(trace.to_timeline())
 <img src="docs/assets/handoffkit-report-gallery.svg" alt="Inspectable HandoffKit JSON and Markdown reports" width="100%">
 
 Golden reports used by demos and tests live under
-[`packages/python/examples/fixtures/reports`](packages/python/examples/fixtures/reports/README.md).
+[`python/packages/handoffkit/examples/fixtures/reports`](python/packages/handoffkit/examples/fixtures/reports/README.md).
 
 ---
 
@@ -300,22 +345,25 @@ cache isolation, resume, provider routing, and local offline validation.
 
 ```text
 handoffkit/
-├── packages/
-│   ├── contracts/        shared schemas and cross-runtime fixtures
-│   ├── python/           production Python runtime and CLI
-│   ├── js/               core, CSP, node, providers, recipes, templates, CLI
-│   ├── cpp/              native C++20 runtime, CLI, tools, and Fusion
-│   ├── cpp-ml/           optional native training complement
-│   └── rust/             Rust contracts/protocol workspace and parity tests
+├── shared/contracts/   shared schemas and cross-runtime fixtures
+├── python/packages/    production Python runtime and CLI (handoffkit, handoffkit-localize)
+├── js/packages/        core, CSP, node, providers, recipes, templates, CLI,
+│                       browser (+ browser/core) / browser-real, clinical
+├── rust/               Rust contracts/protocol/runtime/transport workspace and CLI
+├── go/handoffkit/      Go HK-CSP runtime, TLS transport, and worker
+├── cpp/packages/       native C++20 runtime (handoffkit), CLI, tools, Fusion, handoffkit-ml
 ├── apps/
-│   └── web/              Next.js Studio and documentation experience
+│   ├── studio-web/     Next.js Studio and documentation experience
+│   └── media-studio/   media experience
 ├── docs/
 │   ├── cpp/fusion/       canonical Fusion documentation
 │   ├── python/           Python guides, integrations, and launch material
 │   ├── js/               JavaScript documentation hub
 │   ├── rust/             Rust documentation hub
+│   ├── roadmap/          release trains and governance
 │   └── assets/           shared README diagrams
-└── reports/              selected repository-level report examples
+├── validation/         benchmarks and validation corpora
+└── reports/            release evidence (scorecards, soak, interop, benchmarks)
 ```
 
 Start at the [documentation hub](docs/README.md) for language-specific guides.
@@ -333,13 +381,15 @@ pnpm js:check
 pnpm js:test
 pnpm python:lint
 pnpm python:test
-cargo test --manifest-path packages/rust/Cargo.toml
-cargo fmt --manifest-path packages/rust/Cargo.toml --all --check
-cargo clippy --manifest-path packages/rust/Cargo.toml --workspace --all-targets -- -D warnings
+cargo test --manifest-path rust/Cargo.toml
+cargo fmt --manifest-path rust/Cargo.toml --all --check
+cargo clippy --manifest-path rust/Cargo.toml --workspace --all-targets -- -D warnings
 
-cmake -S packages/cpp -B packages/cpp/build -DCMAKE_BUILD_TYPE=Release
-cmake --build packages/cpp/build --config Release
-ctest --test-dir packages/cpp/build -C Release --output-on-failure
+cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build -DCMAKE_BUILD_TYPE=Release
+cmake --build cpp/packages/handoffkit/build --config Release
+ctest --test-dir cpp/packages/handoffkit/build -C Release --output-on-failure
+
+(cd go/handoffkit && go test ./...)
 ```
 
 Normal tests are designed to run offline. Live provider tests and network access
@@ -351,7 +401,8 @@ must be explicitly enabled and supplied with scoped credentials.
 
 - [Documentation hub](docs/README.md)
 - [Changelog](CHANGELOG.md)
-- [Roadmap](ROADMAP.md)
+- [Roadmap](docs/roadmap/README.md)
+- [HK-CSP security status](docs/spec/HK_CSP_SECURITY.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Python API stability](docs/python/API_STABILITY.md)

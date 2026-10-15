@@ -57,11 +57,11 @@ Publisher for `@handoffkit/core` does not authorize the other packages.
 ```powershell
 pnpm ci:js
 
-cargo fmt --manifest-path packages/rust/Cargo.toml --all --check
-cargo clippy --manifest-path packages/rust/Cargo.toml --workspace --all-targets -- -D warnings
-cargo test --manifest-path packages/rust/Cargo.toml --workspace
+cargo fmt --manifest-path rust/Cargo.toml --all --check
+cargo clippy --manifest-path rust/Cargo.toml --workspace --all-targets -- -D warnings
+cargo test --manifest-path rust/Cargo.toml --workspace
 
-cd packages/python
+cd python/packages/handoffkit
 ruff check --no-cache .
 pytest -q
 python -m build

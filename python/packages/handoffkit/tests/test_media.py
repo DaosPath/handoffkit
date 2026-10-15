@@ -1,0 +1,276 @@
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from handoffkit.recipes.media import (
+    MEDIA_OPERATIONS,
+    MediaAsset,
+    MediaContext,
+    MediaEditionOp,
+    MediaWorkflowReport,
+    SpeakerProfile,
+    TranscriptSegment,
+    apply_transcript_editions,
+    build_creation_context,
+    build_dubbing_plan,
+    build_generation_context,
+    build_screen_narration_prompt,
+    extract_audio,
+    ffmpeg_available,
+    format_srt_timestamp,
+    get_media_operation,
+    handoff_media_context,
+    list_media_pipelines,
+    media_context_to_workflow_report,
+    media_operation_catalog,
+    merge_ocr_asr_segments,
+    mux_audio,
+    parse_screen_narration_json,
+    plan_media_pipeline,
+    read_transcript_json,
+    screen_dubbing_agent_recipe,
+    write_srt,
+    write_transcript_json,
+)
+
+
+def test_media_contracts_roundtrip() -> None:
+    source = MediaAsset("video.mp4", "video", language="zh", duration_seconds=2.5)
+    segment = TranscriptSegment(1, 0.0, 2.5, "你好", speaker="S1", language="zh")
+    speaker = SpeakerProfile("S1", "Narrator", "es-calm", "es")
+    dubbing = build_dubbing_plan([segment], {1: "Hola."}, [speaker])
+    report = MediaWorkflowReport(
+        success=True,
+        source=source,
+        target_language="es",
+        transcript_segments=[segment],
+        speakers=[speaker],
+        dubbing_segments=dubbing,
+        output_files=["subtitles_es.srt"],
+    )
+
+    loaded = MediaWorkflowReport.from_json(report.to_json())
+
+    assert loaded.success is True
+    assert loaded.source.language == "zh"
+    assert loaded.dubbing_segments[0].target_text == "Hola."
+    assert "Media Workflow Report" in loaded.to_markdown()
+
+
+def test_transcript_json_and_srt(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    segments = [
+        TranscriptSegment(1, 0.0, 1.25, "你好", speaker="S1"),
+        TranscriptSegment(2, 1.5, 3.0, "再见", speaker="S2"),
+    ]
+
+    transcript_path = write_transcript_json(segments, tmp_path / "transcript.json")
+    loaded = read_transcript_json(transcript_path)
+    srt_path = write_srt(loaded, tmp_path / "subtitles.srt")
+    payload = json.loads(transcript_path.read_text(encoding="utf-8"))
+
+    assert payload["segments"][0]["text"] == "你好"
+    assert loaded[1].speaker == "S2"
+    assert "00:00:01,250" in srt_path.read_text(encoding="utf-8")
+
+
+def test_srt_timestamp_format() -> None:
+    assert format_srt_timestamp(3723.456) == "01:02:03,456"
+    assert format_srt_timestamp(-1) == "00:00:00,000"
+
+
+def test_ffmpeg_wrappers_fail_clearly_when_missing(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    assert ffmpeg_available("__missing_ffmpeg_binary__") is False
+    with pytest.raises(RuntimeError, match="required"):
+        extract_audio("input.mp4", tmp_path / "audio.wav", ffmpeg="__missing_ffmpeg_binary__")
+    with pytest.raises(RuntimeError, match="required"):
+        mux_audio(
+            "input.mp4",
+            "audio.wav",
+            tmp_path / "output.mp4",
+            ffmpeg="__missing_ffmpeg_binary__",
+        )
+
+
+def test_media_operation_catalog_is_ion_focused() -> None:
+    catalog = media_operation_catalog()
+    names = {item.name for item in catalog}
+    assert names == set(MEDIA_OPERATIONS)
+    for name in MEDIA_OPERATIONS:
+        assert name.endswith("ion")
+        assert get_media_operation(name).name == name
+    assert "from_scratch" in list_media_pipelines()
+    assert "video_dubbing" in list_media_pipelines()
+    assert "screen_dubbing" in list_media_pipelines()
+    assert list_media_pipelines()["screen_dubbing"][2] == "edition"
+
+
+def test_media_context_handoff_creation_generation_edition() -> None:
+    created = build_creation_context("Make a 20s clip", target_language="es")
+    assert created.operation == "creation"
+    assert "generation" in created.next_operations
+
+    generated = handoff_media_context(
+        created, "generation", from_agent="creator", to_agent="generator"
+    )
+    assert generated.operation == "generation"
+    assert generated.history == ["creation"]
+    assert generated.metadata["last_handoff"]["from_agent"] == "creator"
+
+    gen2 = build_generation_context("Narrate calmly", prompts=["line 1"], media_type="audio")
+    assert gen2.operation == "generation"
+    assert gen2.generation_prompts == ["line 1"]
+
+    edited = handoff_media_context(generated, "edition")
+    assert edited.operation == "edition"
+    assert edited.history == ["creation", "generation"]
+
+    segs = [
+        TranscriptSegment(1, 0.0, 1.0, "Hello", speaker="A"),
+        TranscriptSegment(2, 1.0, 2.0, "World", speaker="A"),
+    ]
+    edited.transcript_segments = apply_transcript_editions(segs, {2: "World!"})
+    edited.edition_ops = [MediaEditionOp("rewrite", "2", {"text": "World!"})]
+    assert edited.transcript_segments[1].text == "World!"
+
+    handoff = edited.to_handoff_state(from_agent="editor", to_agent="validator")
+    assert handoff.metadata["kind"] == "media_context"
+    restored = MediaContext.from_handoff_state(handoff)
+    assert restored.operation == "edition"
+    assert restored.history == ["creation", "generation"]
+
+    report = media_context_to_workflow_report(restored)
+    assert report.metadata["operation"] == "edition"
+    assert MediaContext.from_json(restored.to_json()).brief == restored.brief
+
+
+def test_plan_media_pipeline_stages() -> None:
+    planned = plan_media_pipeline(
+        "video_dubbing",
+        brief="Dub demo",
+        target_language="es",
+        source=MediaAsset("clip.mp4", "video"),
+    )
+    assert [c.operation for c in planned] == list(list_media_pipelines()["video_dubbing"])
+    assert planned[0].next_operations[0] == "transcription"
+    assert planned[-1].next_operations == []
+    assert planned[2].history == ["inspection", "transcription"]
+
+
+def test_build_media_context_unknown_pipeline_raises() -> None:
+    with pytest.raises(KeyError, match="unknown media pipeline"):
+        plan_media_pipeline("not-a-real-pipeline")
+    with pytest.raises(KeyError, match="unknown media operation"):
+        get_media_operation("not-an-op")
+
+
+def test_merge_ocr_asr_prefers_on_screen_and_fills_spoken_gaps() -> None:
+    ocr = [
+        TranscriptSegment(1, 0.0, 2.0, "他们为了出气", speaker="NARR", language="zh"),
+        TranscriptSegment(2, 4.0, 6.0, "招娣回来了", speaker="NARR", language="zh"),
+    ]
+    asr = [
+        TranscriptSegment(1, 0.1, 1.8, "为了出气", speaker="S1", language="zh"),
+        TranscriptSegment(2, 2.2, 3.5, "我头好痛", speaker="S1", language="zh"),
+        TranscriptSegment(3, 4.0, 6.0, "赵弟回来了", speaker="S2", language="zh"),
+    ]
+    merged = merge_ocr_asr_segments(ocr, asr, language="zh")
+    texts = [item.text for item in merged]
+    sources = [item.metadata.get("source") for item in merged]
+    assert "他们为了出气" in texts[0]
+    assert "我头好痛" in texts
+    assert any(src == "asr" for src in sources)
+    assert merged[0].metadata.get("text_ocr") == "他们为了出气"
+
+
+def test_screen_narration_prompt_and_parse_cover_full_episode() -> None:
+    ocr = [TranscriptSegment(1, 0.0, 2.0, "他们为了出气", language="zh")]
+    asr = [
+        TranscriptSegment(1, 0.0, 2.0, "为了出气", language="zh"),
+        TranscriptSegment(2, 2.5, 4.0, "我头好痛", language="zh"),
+    ]
+    prompt = build_screen_narration_prompt(
+        ocr,
+        asr,
+        target_language="es",
+        title="0001 pigsty",
+        glossary={"招娣": "Zhaodi"},
+    )
+    assert "OCR (on-screen, canonical, full episode)" in prompt["user"]
+    assert "ASR (spoken, full episode)" in prompt["user"]
+    assert "CONSENSUS" in prompt["user"]
+    assert "招娣 → Zhaodi" in prompt["user"]
+    assert "producer agent" in prompt["system"]
+
+    parsed = parse_screen_narration_json(
+        '```json\n[{"index":1,"start":0,"end":2,"text_zh":"他们为了出气","text_es":"Lo hicieron para desahogarse."}]\n```'  # noqa: E501
+    )
+    assert parsed[0]["text_es"] == "Lo hicieron para desahogarse."
+    assert parsed[0]["text_zh"] == "他们为了出气"
+
+
+def test_screen_narration_fence_strip_is_linear_on_whitespace_runs() -> None:
+    import time
+
+    from handoffkit.recipes.media import parse_spoken_fit_json
+
+    row = '{"index":1,"start":0,"end":2,"text_es":"Hola."}'
+    # Pathological for r"\s*```$": a long space run not followed by a closing fence.
+    hostile = "```json\n[" + row + " " * 50_000 + "]"
+    started = time.perf_counter()
+    parsed = parse_screen_narration_json(hostile)
+    fitted = parse_spoken_fit_json(hostile)
+    assert time.perf_counter() - started < 1.5
+    assert parsed[0]["text_es"] == "Hola."
+    assert fitted[0]["text_es"] == "Hola."
+
+    fenced = parse_screen_narration_json("```json\n[" + row + "]" + " \n\t " * 10_000 + "```")
+    assert fenced[0]["text_es"] == "Hola."
+    assert parse_screen_narration_json("```\n[" + row + "]\n```")[0]["text_es"] == "Hola."
+
+
+def test_spoken_fit_prompt_includes_slot_budget() -> None:
+    from handoffkit.recipes.media import build_spoken_fit_prompt, parse_spoken_fit_json
+
+    segs = [
+        {
+            "index": 1,
+            "start": 0.0,
+            "end": 2.0,
+            "text": "他们为了出气",
+            "text_zh": "他们为了出气",
+            "text_es": "Lo hicieron para desahogarse de una manera demasiado larga.",
+        }
+    ]
+    prompt = build_spoken_fit_prompt(segs, title="0001", max_speed=1.35)
+    assert "budget≈" in prompt["user"]
+    assert "localizer agent" in prompt["system"]
+    fitted = parse_spoken_fit_json(
+        '[{"index":1,"start":0,"end":2,"text_es":"Lo hicieron para desahogarse.","rate":"+8%"}]'
+    )
+    assert fitted[0]["rate"] == "+8%"
+    assert fitted[0]["text_es"] == "Lo hicieron para desahogarse."
+
+
+def test_screen_dubbing_agent_recipe_validates_and_runs_echo() -> None:
+    from handoffkit.recipes import RecipeRunner
+
+    recipe = screen_dubbing_agent_recipe(target_language="es")
+    assert recipe.name == "screen-dubbing"
+    assert [step.name for step in recipe.steps] == [
+        "inspect",
+        "transcribe",
+        "consensus",
+        "translate",
+        "localize",
+        "generate",
+        "compose",
+        "validate",
+        "publish",
+    ]
+    assert recipe.metadata["pipeline"] == "screen_dubbing"
+    assert recipe.metadata["long_context"] is True
+    result = RecipeRunner(recipe).run("Dub the pigsty scene.")
+    assert result.success is True
+    assert result.recipe_name == "screen-dubbing"

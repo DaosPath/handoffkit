@@ -15,7 +15,7 @@ multi-agent workflows, **offline-friendly tests**, and **Python ↔ JS parity**.
 
 ```bash
 # Python
-cd packages/python
+cd python/packages/handoffkit
 python -m pip install -e ".[dev]"
 ruff check --no-cache .
 pytest -q
@@ -38,7 +38,7 @@ pnpm js:test
 - Changelog entries must explain user impact. Benchmark claims must name the
   provider, model, conditions, and whether the result is local or official.
 - **Parity:** if you change a shared contract or media/tool API in Python, update
-  JS in the same PR (`packages/js/*`).
+  JS in the same PR (`js/packages/*`).
 - Add/adjust tests for new behavior.
 - Do not commit `.local-tests/`, secrets, API keys, or private game assets.
 - CI must be green (Ruff, tests, coverage gates on tools/validation).

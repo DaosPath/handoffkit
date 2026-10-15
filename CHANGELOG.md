@@ -7,56 +7,297 @@ HandoffKit uses semantic versioning for published releases. Subsystem changelogs
 contain deeper engineering history; this root file remains the concise public
 release summary.
 
-## [1.19.0-beta.1] - 2026-08-10
-
-First HandoffKit 1.19 beta publication. This is a scoped experimental
-baseline, not the final 1.19 release. PyPI publishes `handoffkit==1.19.0b1`;
-npm publishes the dependency-complete `@handoffkit/core`, `@handoffkit/csp`,
-and `@handoffkit/node` packages as `1.19.0-beta.1`.
-
-Exactly-once effects, global zeroization, OCSP responder fetch, ML-DSA,
-SLH-DSA, common five-runtime ECDSA, and hybrid-PQ outside Node/Go remain
-unavailable and fail closed.
-
 ## [Unreleased]
 
-The current 1.20 development line continues from the 1.19 beta baseline.
+## [1.20.0] - 2026-10-15
+
+Browser Platform release, continuing from the 1.19.5 stable release as a
+**single 1.20 train** (the former 1.20–1.29 split is absorbed). Every dimension
+of `reports/BROWSER_1.20_SCORECARD.md` scores at least 9/10 on real binary
+gates, backed by a hosted five-architecture CI matrix (Windows x64, Linux
+x64/ARM64, macOS x64/ARM64), per-architecture package checksums, and evidence
+refreshed on this tree. Python `handoffkit==1.20.0` is `Production/Stable`; the
+JS packages, including `@handoffkit/browser` (Lite) with its new
+`@handoffkit/browser/core` contracts subpath and the new `@handoffkit/browser-real`
+package (9 published npm packages), the Rust
+workspace, and C++ ship at 1.20.0. The Browser Core wire `contract_version`
+stays `1.20.0-alpha.1`. Model-answer accuracy and clinical validity are not
+claimed.
+
+### Changed
+
+- Before first publication, the in-tree `@handoffkit/browser-core` package
+  became the `@handoffkit/browser/core` subpath export of `@handoffkit/browser`,
+  and the `@handoffkit/browser-lite` alias was folded into `@handoffkit/browser`
+  (which is the Lite product). Neither name is published to npm.
+- `@handoffkit/clinical` is marked `private` and is not published to npm: the
+  Clinical Lab stays an experimental in-repo sandbox (used by Studio) until its
+  official-corpus, judge, and live-provider gates exist.
+- The PyPI wheel no longer ships the research-only `handoffkit.clinical` and
+  `handoffkit.crypto_research` packages (they stay in the source repository,
+  with `handoffkit clinical` available from a checkout), and only the 30-case
+  doctor benchmark set is bundled. The 100- and 400-case sets are downloaded once
+  on demand from a pinned commit, verified by SHA-256, and cached
+  (`HANDOFFKIT_CACHE_DIR`; `HANDOFFKIT_OFFLINE=1` disables the download). The
+  `@handoffkit/cli` npm tarball does the same. Wheel 806 KB → 348 KB; CLI
+  tarball 472 KB → 54 KB.
 
 ### Added
 
+- Clinical Sequential Reasoning Lab (`handoffkit.clinical`, `@handoffkit/clinical`,
+  `/demos/clinical-lab`): experimental predefined-case sequential sandbox.
+  Scoring is fail-closed and `heuristic_only` until independent judges exist.
+  `clinical_validity` stays null. Official 897-case corpus, live providers, and
+  live retrieval remain unavailable. Research never falls back to professional.
+  `gold_replay` is an immutable recorded fixture only. Status: experimental /
+  research and education only / not clinically validated.
+
+- Browser Core I/O-free contracts (`@handoffkit/browser/core` and Python/Rust/Go/C++
+  equivalents) with golden vectors at `shared/contracts/conformance/browser-core-v1.json`.
+- Lite/Real split: `@handoffkit/browser` (Lite) and
+  `@handoffkit/browser-real` (supervised Playwright service, Chromium only via
+  explicit `install-chromium`). `@handoffkit/browser` never imports Real.
+- Search `provider_trace`, `fallback_reason`, `strict_provider`, and opt-in
+  `search_plan=platform`. Workspace `project_index` is opt-in and is not a
+  complete Internet index. ResearchPack v2 adds snapshots, claims, and
+  at-least-once checkpoints.
+- Browser Core network/filesystem policy helpers (`assert_network_url` /
+  `assertFilesystem`) deny loopback, private networks, and local files by
+  default. Browser Real enforces those checks before navigate/download/screenshot
+  paths. C++ HTML extraction now emits Markdown tables and JSON-LD to match
+  JS/Python. Studio Inspector renders authorized screenshots and exposes
+  pause/resume/cancel/retry only against a configured control sink.
+- Studio Browser Inspector (`/studio/browser`) reads only real NDJSON from
+  `HANDOFFKIT_STUDIO_BROWSER_EVENTS`. Hermes surfaces browser progress, sources,
+  errors, and cancel without hosting Chromium.
+
+- Added an auditable evidence-dossier mode to Python and JavaScript grounded
+  research recipes. Each direct claim needs a locally matched quote and
+  semantic alignment with its requirement; cross-claim synthesis references a
+  verified claim ledger, and deterministic composition can avoid a free-form
+  final model pass. Known URL seeds affect ranking only and are still fetched
+  through the real research route. Fixed audit rubrics may add locally verified
+  quote anchors and claim-ID inference rules; stale anchors fail closed.
+- Added the expiring live grounding qualification: 30 HTTPS sources are fetched
+  through HandoffKit WebExplorer, each page is hashed, quotes are extracted from
+  current Markdown, and invented/redirected/fixture citations fail closed.
+  `reports/BROWSER_1.20_GROUNDING_LIVE.json` records a 30/30 run with
+  factual/completeness/citation metrics at 1.0. This is a retrieval/evidence
+  oracle, not an LLM answer-accuracy claim; the corpus must be refreshed after
+  its expiry date.
+
+- Added a deterministic model-answer judge (`judgeModelAnswer` /
+  `judge_model_answer`) in JavaScript and Python with a shared conformance
+  vector (`shared/contracts/conformance/model-answer-v1.json`). It scores a
+  live provider answer transcript against fetched pages only (answer present,
+  citations resolve, literal quotes, claim coverage, no invented URLs) and
+  fails closed on anything unverifiable. This judges grounding fidelity, not
+  general model correctness.
+- Added a `fuzzy` judge mode (`minOverlap`, default 0.6) that passes quotes
+  by token overlap instead of literal match.
+- Added a `maxTotalMs`/`max_total_ms` time budget to `runWebGroundedAnswer` /
+  `run_web_grounded_answer`: provider phases are skipped once exceeded and the
+  report carries `budget{max_total_ms, elapsed_ms, exceeded}`.
+- Added a reader mode (`extractReaderArticle` / `extract_reader_article`)
+  that isolates the main article and scores extraction confidence
+  (landmark, title, byline, JSON-LD, length, link density).
+
+- Added key-gated JSON search providers (`brave`, `bing`, `kagi`) in
+  JavaScript and Python. Keys come from `HANDOFFKIT_BRAVE_API_KEY`,
+  `HANDOFFKIT_BING_API_KEY`, and `HANDOFFKIT_KAGI_API_KEY`; without its key
+  the provider reports `provider_unavailable` and never calls the network.
+- Matured the SearXNG provider: per-call `engines`/`categories`/`page`/
+  `safesearch`/`language` options, `HANDOFFKIT_SEARXNG_URLS` multi-instance
+  fallback in order until hits, infobox links as results, bounded 429/5xx
+  retries, and fail-closed `searxng_invalid_options` for unknown values.
+- Added keyless HTML search providers (`mojeek`, `marginalia`, `startpage`)
+  with lenient anchor extraction and own-domain filtering, query completions
+  (`suggestQueries`/`suggest_queries` for Brave/Bing), a
+  `HANDOFFKIT_SEARXNG_ENGINES` default engine list, and cross-provider
+  canonical URL dedup.
+- Added touch input to Browser Real (`tap`, `swipe`, `longpress`, `pinch`)
+  as supervised CDP touch-event sequences with the same selector and
+  fail-closed rules as the pointer commands.
+- Project index now ranks with SQLite FTS5 (`node:sqlite`, stdlib `sqlite3`;
+  `better-sqlite3` fallback) instead of substring scoring.
+- Added `drag` (selectors or points, 2000 px cap), multi-value `select`,
+  element `screenshot`, and `sha256` on `upload` events.
+- Added a curated source catalog (`SourceCatalog` / `SourceCatalog`, `catalog`
+  provider): user-curated URLs with categories and weights, weight-first
+  retrieval over the project index, fail-closed empty/unconfigured states.
+
+- Screen-dubbing media pipeline and agent recipe (`screen_dubbing` /
+  `screen-dubbing`): OCR + ASR consensus, a long-context producer prompt for
+  one full-episode translation pass, and an improved offline `demo-media`
+  that shows those handoffs. Python and JavaScript stay 1:1
+  (`merge_ocr_asr_segments` / `mergeOcrAsrSegments`,
+  `build_screen_narration_prompt` / `buildScreenNarrationPrompt`,
+  `parse_screen_narration_json` / `parseScreenNarrationJson`).
+- Expanded the experimental `user_browser` provider in JavaScript and Python
+  from search-only to an explicit host page bridge (`fetch`/`open`). The bridge
+  normalizes HTML/Markdown/links, supports bounded multi-page same-host
+  exploration with depth/page/link/timeout limits, fails closed when page
+  access is absent, and emits `ResearchPack.agent_markdown` with queries,
+  citations, evidence, and structured errors. No browser profile, cookie, or
+  HTTP fallback is used by this route.
+- Added the experimental `default_browser` provider in JavaScript and Python.
+  It speaks a bounded loopback/HTTPS JSON bridge (`POST /search`, `POST
+  /fetch`) owned by the host's system-default browser. Missing endpoints,
+  unsafe remote HTTP, timeouts, and malformed responses fail closed; no
+  browser launch, cookie access, or silent HTTP fallback is performed.
+- Added bounded multi-query user-session search with duplicate-source
+  provenance and deterministic scoring. Browser-bridge traversal now ranks
+  links against the research query, skips likely state-changing action links by
+  default, and records traversal/action-skip metadata in agent Markdown.
+- Clarified that `user_browser` visibility belongs to the embedding host:
+  HandoffKit does not hide or foreground tabs, and a visible host harness is
+  not evidence of an invisible HandoffKit browser integration.
+- Hardened `google_browser` organic-result parsing: internal Google links,
+  redirectors, ad URLs, non-HTTP schemes, fragments, and duplicates are
+  removed before results reach the agent. Challenge pages remain a structured
+  `provider_challenge` with no fallback. `scripts/js/browser-real-google-search.mjs`
+  records explicit headless Chromium outcomes; local probes may be challenged
+  or time out and therefore do not close the live-CI gate.
+- Added `pnpm js:pack:checksums`, which emits SHA-256 manifests for all twelve
+  JS tarballs on the current runner. The Browser Platform matrix uploads one
+  manifest per hosted OS/architecture; local x64 output is environmental and
+  does not claim cross-architecture release evidence.
+- Patched the production dependency graph to Playwright 1.62.1 and nanoid
+  3.3.18, and added `pnpm security:dependencies`. The local high/critical
+  production audit is clean; this remains separate from CodeQL and hosted
+  source-security review.
+- Added an experimental, background-only `web_deep_research` route to the
+  JavaScript, Python, and C++ Browser Lite surfaces. It expands bounded
+  subqueries, ranks candidates, explores/fetches through the configured HTTP or
+  fixture transport, and returns citations, limits, timings, and partial errors
+  without opening a user browser window. This does not claim Browser Real,
+  Chromium, page JavaScript, cookies, credentials, screenshots, or a complete
+  local web index.
+- Added runtime-selectable DuckDuckGo/Wikipedia provider adapters to the
+  Browser Lite search, with canonical `providers_requested`,
+  `providers_used`, `errors`, and `error_code` fields across JavaScript,
+  Python, and C++. Deep research now reports cache hits/misses/writes and
+  reuses cached Markdown pages when a cache is supplied. Provider names do not
+  imply live reachability or an independent search index.
+- Added an explicit native Google HTML search adapter to Browser Lite across
+  JavaScript, Python, and C++. It unwraps result redirects, drops sponsored
+  and Google-navigation links, and shares bounded host ranking with the other
+  providers. HTML extraction now removes explicitly marked ad/consent/promo
+  containers before Markdown conversion; the default provider list remains
+  DuckDuckGo/Wikipedia and Google is opt-in.
+- Browser agent kits now propagate an explicit provider allowlist through direct
+  search/research helpers and registered tools across JavaScript, Python, and
+  C++; the JavaScript browse CLI accepts repeated or comma-separated provider
+  flags and keeps option values out of the query.
+- Added an experimental, provider-dependent `user_browser` search adapter for
+  JavaScript and Python. Hosts must inject an explicit `search(query, options)`
+  bridge for an already-authorized browser session; results are reduced to
+  validated HTTP(S) URLs, and missing/invalid bridges return structured errors.
+  The default remains DuckDuckGo/Wikipedia, no cookies or credentials are read,
+  and no silent fallback occurs when only `user_browser` is requested.
 - Added real TLS 1.3 client/server transports for Python, Node, Go, and Rust,
   including configured/system roots, hostname verification, mTLS, structured
   failures, timeouts, and real-socket positive and negative tests. Added a
   provider-gated C++ OpenSSL client/listener with TLS 1.3, mTLS, SAN-bound
   identity, fingerprint policy, timeouts, and framed real sockets; default C++
   builds still report the provider as unavailable.
+- Browser Real now owns Chromium through Playwright `BrowserServer`, records
+  its child process, returns `session.interrupted` after a real process exit,
+  and relaunches/revalidates through `session.retry`. Local evidence includes
+  the real Playwright operation matrix, clean JS tarball consumer imports,
+  environmental p50/p95/p99 measurements, and the five-runtime C++ TCP
+  TLS/mTLS interoperability matrix. Hosted soak, cross-architecture results,
+  full security review, and provider/model answer accuracy remain open gates.
+- Added a real Browser Real protocol interop gate for the C++ client and Node
+  service over TCP TLS 1.3 + mTLS. The C++ path binds source and capabilities
+  to the certificate identity, emits/verifies the HK-CSP security transcript,
+  checks response correlation, and rejects repeated response nonce/sequence.
+  Evidence uses an injected deterministic session engine and does not claim
+  Chromium coverage: `reports/BROWSER_1.20_BROWSER_REAL_CPP_INTEROP.json`.
+- Browser Real egress tests now exercise a real Chromium private subresource
+  rejection, redirect-target rejection, and a real DNS rejection for non-global
+  `localhost` answers. Chromium uses a CDP Fetch interceptor so redirects are
+  checked before continuation; non-Chromium engines retain the compatibility
+  route hook.
+- Studio Browser Inspector now has a reproducible axe-core 4.12.1 WCAG A/AA
+  audit at 375/768/1024/1440, with keyboard-name, landmark, skip-link, and
+  focus-indicator checks. Its pause/resume/cancel/retry controls are exercised
+  through the live Studio API over TCP TLS 1.3+mTLS; hosted and cross-architecture
+  qualification remain separate release gates.
+
+### Security
+
+- Closed the open CodeQL high-severity alerts on the 1.20 branch:
+  - Browser HTML extraction, search, research, robots, page, Browser Core wire
+    redaction, the Google result parser, recipes, providers, core, node, and CLI
+    no longer use polynomial-time (ReDoS-prone) regexes on page or user input.
+    They use linear scans with pathological-input regression tests (50k–200k
+    repetitions) in JavaScript and the Python twins.
+  - Ad/redirect host detection (DuckDuckGo, googleadservices, doubleclick,
+    Wikipedia API) parses the URL and compares hostnames exactly instead of by
+    substring. URL resolution now drops `data:` and `vbscript:` as well as
+    `javascript:`.
+  - Python HTML extraction strips `</script >`-style end tags and unclosed
+    script/style blocks the same way JavaScript does.
+  - Browser Core userinfo redaction now redacts every `user:pass@` occurrence in
+    JavaScript, matching Python (previously only the first).
+  - `@handoffkit/csp` identifiers come only from Web Crypto
+    (`randomUUID`/`getRandomValues`); the `Math.random()` fallback is removed and
+    a missing Web Crypto fails closed.
+- `handoffkit init` no longer prompts for an API key or writes it to `.env` in
+  clear text. The project config stores only the environment variable name
+  (`api_key_env`); use `handoffkit keys set` to store a key explicitly.
+- Benchmark/interop scripts: the local bench server HTML-escapes reflected
+  values, and the Studio interop script launches Next without a shell.
+
+### Fixed
+
+- CI macOS x64 runs on `macos-15-intel` (GitHub retired `macos-13`). The Rust
+  workspace is clippy-clean on Rust 1.99 and still builds on the 1.82 MSRV.
+- C++ Browser parsing (meta/canonical/JSON-LD/links/headings, ad and search-host
+  detection, `data:`/`vbscript:` rejection) now matches JavaScript and Python,
+  using linear scans instead of `std::regex`.
+- Release-evidence scripts and documentation point at the post-1.19.5 layout;
+  `.gitignore` again protects test private keys under `shared/contracts/`.
+- OpenCode Go requests now send the `x-opencode-session` header the live API
+  requires. Without it every `OpenCodeGoProvider` call failed with HTTP 400
+  `MissingSessionID` ("cannot be routed efficiently"), so the provider could not
+  reach the Go catalog at all. Session ids resolve in order from the new
+  `session_id=` constructor argument, the `OPENCODE_SESSION_ID` environment
+  variable, then a generated `handoffkit-<uuid>`; the header is added in
+  `OpenCodeProvider._post_json` so it covers chat-completions, responses, and
+  messages-style models alike, and `OPENCODE_SESSION_ID` is now advertised by the
+  `opencode-go` and `opencode-zen` provider specs. Verified live against
+  `https://opencode.ai/zen/go/v1`: translation windows return full parses with no
+  source-language leakage. The JavaScript `opencode` provider spec is a generic
+  OpenAI-compatible entry that already accepts per-instance `headers`, so callers
+  can pass the same header there; no JS surface change was required.
+- Cloudflare rejects the default Python urllib user agent on `opencode.ai` with
+  error 1010 (`browser_signature_banned`) for POST requests. The provider already
+  sent a product user agent, which is why this only affected ad-hoc probes; it is
+  documented here so future debugging does not misread the 403 as an auth failure.
+
+## [1.19.5] - 2026-09-03
+
+Final 1.19 stable release. Security contract and hardening baseline plus
+repository convergence. This train is publishable: Python `handoffkit==1.19.5`
+is `Production/Stable`, and the JS/Rust/C++ products below ship at 1.19.5.
+
+### Added
+
+- Added real TLS 1.3 client/server transports for Python, Node, Go, and Rust,
+  including configured/system roots, hostname verification, mTLS, structured
+  failures, timeouts, and real-socket positive and negative tests. C++ TLS is
+  unavailable.
 - Added certificate-derived peer identity for those four secure transports.
   URI SAN claims and locally calculated fingerprints are checked against every
   declared identity field; capabilities come from local fingerprint policy.
 - Integrated peer/session-scoped nonce, sequence, and timestamp replay checks
   and local capability authorization into secure receive paths before
-  dispatch. Added optional durable replay backends in Python, Node, Go, and
-  Rust with bounded versioned state, checksums, atomic replacement,
-  expiry/compaction, corruption quarantine, and real listener-restart tests.
-- Added atomic certificate/trust reload and transition-window rotation in the
-  four TLS runtimes, plus a durable local revocation policy for certificate,
-  signer, peer, issuer, and trust-domain subjects. C++ OpenSSL can also enforce
-  a configured PEM CRL and signed DER/PEM OCSP response on real mTLS
-  handshakes. OCSP responder fetch (AIA/HTTP/HTTPS) remains unavailable and
-  fails closed in every runtime.
-- Added an additive HK-CSP 1.0 security transcript on Python, Node, Go, Rust,
-  and C++ shared-vector paths. It binds profile, certificate endpoints, TLS
-  negotiation, session, nonce, capabilities, and timestamp; the canonical
-  UTF-8 payload/hash vector is checked byte-for-byte by all five runtimes and
-  rejects replay/tamper/downgrade.
+  dispatch. Cryptographic replay state remains process-local.
 - Added maintained-provider Ed25519 artifact signing and verification in
   Python, Node, Go, Rust, and optional C++ Crypto, with one canonical shared
   vector and negative trust/tamper/expiry/revocation tests.
-- Added provider-detected ECDSA-P256-SHA256 artifact signing and verification
-  in Python (`cryptography`) and optional C++ OpenSSL Crypto. The explicit
-  `ecdsa-p256-sha256` id uses SHA-256/DER signatures and uncompressed-point
-  fingerprints; JS/Go/Rust and the common five-runtime vector remain
-  unavailable, so no cross-runtime ECDSA capability is claimed.
 - Added provider-detected, fail-closed `X25519MLKEM768` TLS in compatible Node
   and Go environments, including a Node 24 to Go 1.26 mTLS interoperability
   gate that checks the negotiated curve and certificate-bound client identity.
@@ -68,113 +309,49 @@ The current 1.20 development line continues from the 1.19 beta baseline.
 - Added real local cpp-ml `TrainingJob` and `EvaluationJob` execution through
   the native worker, including progress, checkpoint/report artifacts,
   cancellation, deadlines, failures, and CPU/CUDA metadata.
-- Added mandatory Go/C++ artifact ingestion gates with root/media/size/hash,
-  Ed25519 producer/signer policy, quarantine records, and immutable snapshots.
-  cpp-ml consumes verified snapshots rather than reopening unverified inputs.
-- Added an optional Go TLS/mTLS gateway to the local cpp-ml process and a
-  provider-gated direct C++ TLS worker in cpp-ml 0.6.0. `--tls-policy` uses the
-  common dispatcher over real TCP, derives identity/capabilities from the
-  certificate and local fingerprint policy, and persists replay/scheduler
-  state. The older `--policy` NDJSON mode remains local-subprocess compatibility
-  only. CI is configured to exercise both real-process routes; exactly-once and
-  global zeroization remain unavailable.
-- Added a bidirectional real TCP interoperability gate: independent Python,
-  Node.js, Go, and Rust TLS 1.3+mTLS clients reach fresh C++ cpp-ml workers,
-  and the C++ client reaches independent Python, Node.js, Go, and Rust TLS
-  servers. Go and Rust reverse servers are standalone commands, not client
-  server modes. The gate verifies certificate admission, uint32-big-endian
-  framing, and real responses; it does not claim cross-runtime transcript byte
-  parity.
-- Added shared `edge-small`, `edge-standard`, and `server` profiles that apply
-  concrete session/frame/retry limits in Python, JavaScript, Go, Rust, and the
-  C++ local queue. Native Linux ARM64 and macOS ARM64 qualification jobs cover
-  the named runtime/security routes; no broader ARM64 device/OS or
-  unstable-network guarantee is claimed.
-- Added optional read-only Studio runtime security visibility for the Go ML
-  gateway. Its bounded atomic event sink records certificate-authenticated
-  sessions, profile/TLS state, replay and authorization rejections, jobs,
-  artifacts, reconnects, and sanitized runtime status. Studio rejects unsafe,
-  corrupt, or unconfigured sources and shows no mock session data.
-- Added optional durable distributed-scheduler state in Python, Node, Go, and
-  Rust. One shared checksummed/versioned fixture proves queued jobs, counters,
-  and dedup identities across runtimes. Restarted in-flight assignments become
-  explicit interrupted records and require retry/fail; no automatic execution
-  or exactly-once guarantee is claimed. Pre-commit failures roll back, while a
-  post-rename directory-sync uncertainty keeps the committed mutation visible.
-- Added fail-closed unavailable-capability admission checks across the runtime
-  scheduler/configuration paths: `metadata.require_exactly_once=true` is
-  rejected with `exactly_once_unavailable`; OCSP fetch/responder/response
-  configuration is rejected with `ocsp_fetch_unavailable` outside the scoped
-  C++ response-file validator; unsupported ML-DSA/SLH-DSA and non-provider
-  ECDSA artifact paths surface structured `artifact_algorithm_unsupported`
-  errors.
-- Added a checked, durable scheduler migration path for the supported legacy
-  `v0` envelope and opt-in deterministic `auto_resume`/`AutoResumeInterrupted`
-  in Python, Node, Go, and Rust. The mode is explicitly at-least-once; no
-  exactly-once side-effect guarantee is claimed.
-- Added validated private backup/restore operations to the four file-backed
-  scheduler stores and the Go gateway job ledger. Backups use the same checksum,
-  size, permission, and atomic replacement rules; unsupported state versions
-  still fail closed. The explicitly supported v0 scheduler envelope is migrated
-  in place with a new checksum. Automatic in-flight resume and exactly-once
-  side effects remain intentionally unclaimed by default.
-- Added live Go secure-frame checks for certificate expiry, durable revocation,
-  and rotation-window expiry on existing TLS connections, plus real-process
-  Studio event coverage for mTLS, progress, artifacts, reconnect, replay, and
-  authorization rejection.
-- Added bounded Go fuzz executions and property checks for durable state,
-  transcript parsing/canonicalization, artifact metadata, edge configuration,
-  Studio events, replay restart, revocation windows, and rotation windows.
 - Added shared five-runtime security conformance vectors and live security
   benchmarks for TLS/reconnect/throughput/signatures and C++ workers.
 - Added development file-backed credential stores in Python and Node with
   lifecycle/path/POSIX private-key permission checks.
-- Added a provider-dependent Windows C++ `OsKeyStore` backed by Credential
-  Manager, optional macOS Keychain/Linux Secret Service providers, plus a
-  scoped native `SecureBuffer` wipe primitive used for C++ artifact signer key
-  storage and tests. No cross-runtime OS-keystore or global zeroization
-  guarantee is claimed.
-- Added the C++ durable scheduler with private checksummed state, atomic
-  restart recovery, v0→v1 migration, interrupted assignments, and opt-in
-  deterministic at-least-once retry. C++ replay state also supports validated
-  private backup/restore and v0-to-v1 migration. Added the common C++ TLS dispatcher with
-  certificate-bound identity, replay, local authorization, and capability
-  claim rejection before handler dispatch, and connected it to the direct
-  cpp-ml TLS worker route.
-- Added experimental isolated Crypto Lab (`packages/python/handoffkit/crypto_research`) for education, fuzzing, and research, strictly forbidden from production runtime fallbacks.
-- Added a JavaScript package-consumer smoke gate: all eight tarballs are built,
-  installed offline from generated artifacts, imported through public entry
-  points, and checked for package metadata versions. This validates packaging;
-  it does not imply registry publication or version alignment.
+- Added experimental isolated Crypto Lab (`python/packages/handoffkit/handoffkit/crypto_research`) for education, fuzzing, and research, strictly forbidden from production runtime fallbacks.
+
+### Changed
+
+- Repository layout now language-first: `python/packages/handoffkit`,
+  `python/packages/handoffkit-localize`, `js/packages/*`, `rust/`,
+  `go/handoffkit`, `cpp/packages/handoffkit`, `cpp/packages/handoffkit-ml`,
+  `shared/contracts`, `apps/studio-web`, `validation/benchmarks`. History-preserving
+  `git mv`, pnpm workspace `js/packages/*`, Cargo `rust/`, Go `go/handoffkit`,
+  CMake `cpp/packages/handoffkit`, Python `python/packages/handoffkit`, and CI/docs/scripts
+  updated. Public package names (`handoffkit`, `@handoffkit/*`, Rust crates, Go import
+  path, C++ `handoffkit::*`, HK-CSP `1.0` wire) and `snake_case` canonical JSON remain unchanged.
+- Aligned participating products to **1.19.5**: Python `handoffkit==1.19.5`,
+  JS `@handoffkit/core@1.19.5`, `@handoffkit/csp@1.19.5`, `@handoffkit/providers@1.19.5`,
+  `@handoffkit/node@1.19.5`, `@handoffkit/recipes@1.19.5`, `@handoffkit/templates@1.19.5`,
+  `@handoffkit/cli@1.19.5`, `@handoffkit/browser@1.19.5` (Lite facade), Rust workspace `1.19.5`,
+  C++ `1.19.5`. Browser `Core/Lite/Real` split and `clinical` remain at `1.20` and are not part of the 1.19.5 train.
+- `pnpm-workspace.yaml`, `scripts/js/tsconfig.json`, `scripts/js/validate-workspace.mjs`,
+  `scripts/validate-repository-path-map.mjs` (`wave-5-validation`), `package.json` scripts
+  (`js:check`, `python:*`, `rust:test`, `cpp:test`, `web:*`), and JS package `repository.directory`
+  fields updated for the new layout. Contracts moved `packages/contracts` → `shared/contracts`.
 
 ### Security
 
 - Public security status is now classified as stable, experimental,
-  provider-dependent, planned, or unavailable in `HK_CSP_SECURITY.md`.
+  provider-dependent, local-only, partially integrated, planned, or
+  unavailable in `HK_CSP_SECURITY.md`.
 - Algorithm names, signature fields, JSON identity claims, and profile enums no
   longer count as support. Runtime capability reports are provider-derived and
   unsupported profile selection fails closed.
 - Secure Python and Node sockets must originate from their validated transport
   factories; Go verifies the negotiated group when a TLS socket is wrapped as
   `hybrid-pq`. External contexts cannot silently bypass profile requirements.
-- OCSP responder fetch, global zeroization guarantees, durable channel/session
-  buffers, exactly-once external effects, and default automatic in-flight
-  resumption remain unavailable. The five
-  scheduler implementations expose opt-in at-least-once auto-resume only.
-  C++ OpenSSL file-CRL/response validation, provider-selected OS keystores, and
-  scoped native wiping are provider-dependent and integration-tested;
-  artifact gates, Ed25519, provider-gated Python/C++ ECDSA, the development keystore, C++ native
-  worker, benchmarks, ARM64/edge, and durable scheduler recovery are now
-  experimental within their named tested scopes. Studio visibility remains
-  experimental and limited to the optional Go gateway event source. Reload,
-  rotation, and secure replay remain experimental per-runtime controls, not
-  claims of universal production readiness.
+- CRL/OCSP, trust-store live reload, certificate rotation/reconnect lifecycle,
+  OS keystores, zeroization guarantees, durable secure recovery, ARM64/edge
+  qualification, and Studio security visibility remain unavailable.
 - TLS integration certificates and private keys are generated into temporary
   directories for each test process. No reusable TLS or artifact-signing
   private key is committed as a test fixture.
-- Added the evidence matrix in `docs/roadmap/1.19.0-FINAL-AUDIT.md`; it keeps
-  declared, implemented, integrated, interoperability-tested, and
-  production-ready claims separate for every scoped capability.
 
 ### Compatibility
 
@@ -182,10 +359,22 @@ The current 1.20 development line continues from the 1.19 beta baseline.
   covers Python, JavaScript, Go, Rust, and C++; TLS implementations use the
   same ephemeral certificate-generation profile, not pairwise interoperability
   across every runtime.
-- Python package metadata marks this development baseline as Beta rather than
-  Production/Stable.
+- Python package metadata marks this release as `Production/Stable`.
 - Rust dependency resolution is locked to the declared Rust 1.82 MSRV and CI
   checks the complete workspace with that toolchain.
+
+### Validation
+
+- `pnpm workspace:validate` (8 JS pkgs + studio-web), `workspace:paths` (13 paths),
+  `js:pack:check` (8 tarballs), `js:test` (all packages), `check` (workspace + studio + media)
+  pass on the reorg tree. Python Ruff, Rust `cargo fmt --check` / `clippy -D warnings`,
+  and Go `gofmt -l` gates pass; `shared/contracts` parity restored.
+- Python `pytest` passes (stable metadata asserts `Production/Stable`).
+
+## [1.19.0-beta.1] - 2026-08-10
+
+First HandoffKit 1.19 beta publication. This was a scoped experimental
+baseline, superseded by the final 1.19.5 stable release above.
 
 ## [1.18.0] - 2026-07-28
 
@@ -415,5 +604,5 @@ The current 1.20 development line continues from the 1.19 beta baseline.
 ## Subsystem and historical changelogs
 
 - Fusion subsystem history: [`docs/cpp/fusion/CHANGELOG.md`](docs/cpp/fusion/CHANGELOG.md)
-- Python package release history: [`packages/python/CHANGELOG.md`](packages/python/CHANGELOG.md)
-- C++ release process and packaging notes: [`packages/cpp/RELEASE.md`](packages/cpp/RELEASE.md)
+- Python package release history: [`python/packages/handoffkit/CHANGELOG.md`](python/packages/handoffkit/CHANGELOG.md)
+- C++ release process and packaging notes: [`cpp/packages/handoffkit/RELEASE.md`](cpp/packages/handoffkit/RELEASE.md)

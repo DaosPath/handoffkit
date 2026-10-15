@@ -1,19 +1,19 @@
 # Fusion role pack examples
 
 JSON role packs load with the shipped CLI and `load_role_pack_file`.
-Example JSON files remain under `packages/cpp/examples/fusion/role_packs/`.
+Example JSON files remain under `cpp/packages/handoffkit/examples/fusion/role_packs/`.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| [`custom_review.json`](../../../packages/cpp/examples/fusion/role_packs/custom_review.json) | Dual-branch **correctness vs operability** review pack (not a built-in profile dump). Distinct `role_id`s for smoke/CI. |
+| [`custom_review.json`](../../../cpp/packages/handoffkit/examples/fusion/role_packs/custom_review.json) | Dual-branch **correctness vs operability** review pack (not a built-in profile dump). Distinct `role_id`s for smoke/CI. |
 
 ## CLI (offline)
 
 ```bash
-# From monorepo root after building packages/cpp
-handoffkit-cli fusion roles --file packages/cpp/examples/fusion/role_packs/custom_review.json
+# From monorepo root after building cpp/packages/handoffkit
+handoffkit-cli fusion roles --file cpp/packages/handoffkit/examples/fusion/role_packs/custom_review.json
 
 # Built-ins still work
 handoffkit-cli fusion roles --profile neutral
