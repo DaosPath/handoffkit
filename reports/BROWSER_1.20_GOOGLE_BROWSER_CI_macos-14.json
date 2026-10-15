@@ -1,9 +1,9 @@
 {
   "format": "handoffkit.browser.1.20.google_browser_live",
   "format_version": 1,
-  "generated_at": "2026-10-15T05:52:31.940Z",
+  "generated_at": "2026-10-15T08:20:06.504Z",
   "query": "HandoffKit browser",
-  "elapsed_ms": 2662,
+  "elapsed_ms": 2120,
   "browser_headless": true,
   "provider": "google_browser",
   "fallback_used": false,
@@ -13,8 +13,8 @@
   "hits": [],
   "ci": {
     "workflow": "ci.yml",
-    "run_id": 38689007836,
+    "run_id": 38704779240,
     "runner": "macos-14",
-    "commit": "e5320ab"
+    "commit": "17fc897"
   }
 }

@@ -28,7 +28,7 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 7 | Fallback always has fallback_reason | pass (unavailable google_browser/project_index) |
 | 8 | strict_provider=true rejects fallback | pass (browser tests) |
 | 9 | Default order google_browser → project_index → google_http → duckduckgo → wikipedia without silent Lite upgrade | pass (DEFAULT_SEARCH_PROVIDERS now equals PLATFORM_SEARCH_PROVIDERS; Lite never imports Real) |
-| 10 | Google Chromium challenge never hidden | pass (hosted CI run 38689007836 @ e5320ab: scripts/js/browser-real-google-search.mjs on ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-14, macos-15-intel all returned status=provider_challenge with fallback_used=false; reports/BROWSER_1.20_GOOGLE_BROWSER_CI_<runner>.json) |
+| 10 | Google Chromium challenge never hidden | pass (hosted CI run 38704779240 @ 17fc897 (final code commit): scripts/js/browser-real-google-search.mjs on ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-14, macos-15-intel all returned status=provider_challenge with fallback_used=false; reports/BROWSER_1.20_GOOGLE_BROWSER_CI_<runner>.json) |
 
 ## Exploration (current: 10/10)
 
@@ -156,13 +156,13 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 |---|---|---|
 | 1 | pnpm-only JS workspace | pass |
 | 2 | Explicit Chromium install command | pass |
-| 3 | CI matrix Win x64, Linux x64/ARM64, macOS x64/ARM64 | pass (hosted CI run 38689007836 @ e5320ab: Browser 1.20 job green on windows-latest (win32/x64), ubuntu-latest (linux/x64), ubuntu-24.04-arm (linux/arm64), macos-15-intel (darwin/x64), macos-14 (darwin/arm64)) |
+| 3 | CI matrix Win x64, Linux x64/ARM64, macOS x64/ARM64 | pass (hosted CI run 38704779240 @ 17fc897 (final code commit): Browser 1.20 job green on windows-latest (win32/x64), ubuntu-latest (linux/x64), ubuntu-24.04-arm (linux/arm64), macos-15-intel (darwin/x64), macos-14 (darwin/arm64)) |
 | 4 | Cold/hot startup archived | pass (refreshed 2026-10-15 on the current tree: node scripts/js/browser-real-bench.mjs: reports/BROWSER_1.20_REAL_BENCH.json, cold startups + 20 real Chromium navigations on win32/x64, orphan_processes_observed=0) |
 | 5 | Navigation p50/p95/p99 | pass (refreshed 2026-10-15 on the current tree: hot navigation p50=9.329ms, p95=11.579ms, p99=50.963ms (win32/x64; environmental measurement only)) |
 | 6 | DOM/Markdown extract benchmarks | pass (Lite only) |
 | 7 | Index query/ingest benchmarks | pass (Lite only) |
-| 8 | Clean Core/Lite/Real tarball smoke | pass (pnpm run js:pack:check: all 12 JS tarballs contain required files, no links, and stay within the packaging limits; clean-tarball-consumer-smoke imports all 12) |
-| 9 | Checksums per architecture | pass (hosted CI run 38689007836 @ e5320ab: per-runner checksum artifacts, status=pass, 12 packages each; reports/BROWSER_1.20_PACKAGE_CHECKSUMS_{win32_x64,linux_x64,linux_arm64,darwin_x64,darwin_arm64}.json) |
+| 8 | Clean Core/Lite/Real tarball smoke | pass (pnpm run js:pack:check + js:pack:consumer: all 9 publishable JS tarballs contain required files, no links, stay within packaging limits, and import cleanly (including the @handoffkit/browser/core subpath); @handoffkit/clinical is private and not packed) |
+| 9 | Checksums per architecture | pass (hosted CI run 38704779240 @ 17fc897 (final code commit): per-runner checksum artifacts, status=pass, 9 packages each; reports/BROWSER_1.20_PACKAGE_CHECKSUMS_{win32_x64,linux_x64,linux_arm64,darwin_x64,darwin_arm64}.json (hashes differ by OS because of checkout line endings and gzip metadata; publication builds on Linux only)) |
 | 10 | Soak archived | pass (browser-real-soak.yml artifacts browser-real-soak-<os> (run 33809712076), mirrored at reports/BROWSER_1.20_SOAK_<os>.json) |
 
 ## Release train
