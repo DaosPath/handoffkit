@@ -408,8 +408,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Python for ephemeral TLS fixtures
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install TLS fixture generator dependency
+        run: python -m pip install "cryptography>=46,<50"
+
+      # Same configuration as ci.yml: security conformance requires crypto.
       - name: Configure C++ package
-        run: cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build -DCMAKE_BUILD_TYPE=Release -DHANDOFFKIT_WITH_HTTP=OFF
+        run: cmake -S cpp/packages/handoffkit -B cpp/packages/handoffkit/build -DCMAKE_BUILD_TYPE=Release -DHANDOFFKIT_WITH_HTTP=OFF -DHANDOFFKIT_WITH_CRYPTO=ON
 
       - name: Build C++ package
         run: cmake --build cpp/packages/handoffkit/build --config Release
