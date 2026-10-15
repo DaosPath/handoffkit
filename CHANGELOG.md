@@ -33,6 +33,14 @@ claimed.
 - `@handoffkit/clinical` is marked `private` and is not published to npm: the
   Clinical Lab stays an experimental in-repo sandbox (used by Studio) until its
   official-corpus, judge, and live-provider gates exist.
+- The PyPI wheel no longer ships the research-only `handoffkit.clinical` and
+  `handoffkit.crypto_research` packages (they stay in the source repository,
+  with `handoffkit clinical` available from a checkout), and only the 30-case
+  doctor benchmark set is bundled. The 100- and 400-case sets are downloaded once
+  on demand from a pinned commit, verified by SHA-256, and cached
+  (`HANDOFFKIT_CACHE_DIR`; `HANDOFFKIT_OFFLINE=1` disables the download). The
+  `@handoffkit/cli` npm tarball does the same. Wheel 806 KB → 348 KB; CLI
+  tarball 472 KB → 54 KB.
 
 ### Added
 

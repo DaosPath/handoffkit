@@ -1,20 +1,25 @@
-"""Loader for doctor_cases_100 benchmark fixtures (data in JSON, not embedded in .py)."""
+"""Loader for doctor_cases_100 benchmark fixtures.
+
+Not bundled in the wheel: loaded from a source checkout, the local cache, or
+downloaded once from a pinned, SHA-256-verified URL (see ``_remote_cases``).
+"""
 
 from __future__ import annotations
 
-import json
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
-_DATA = Path(__file__).resolve().parent / "data" / "doctor_cases_100.json"
+from handoffkit.benchmarks._remote_cases import load_case_set
 
 
 @lru_cache(maxsize=1)
 def load_doctor_cases_100() -> list[dict[str, Any]]:
-    """Load offline doctor-benchmark cases from packaged JSON."""
-    return json.loads(_DATA.read_text(encoding="utf-8"))
+    """Load the 100-case doctor benchmark set (may download on first use)."""
+    return load_case_set("doctor_cases_100.json")
 
 
-# Back-compat alias used by doctor.py / cases.py
-DOCTOR_CASES_100 = load_doctor_cases_100()
+def __getattr__(name: str) -> Any:
+    # Back-compat: DOCTOR_CASES_100 is resolved lazily so importing never downloads.
+    if name == "DOCTOR_CASES_100":
+        return load_doctor_cases_100()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

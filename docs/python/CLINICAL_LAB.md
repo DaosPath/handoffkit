@@ -47,6 +47,10 @@ and the public [MedCaseReasoning](https://huggingface.co/datasets/zou-lab/MedCas
 
 ## Python
 
+The Clinical Lab is source-only: `handoffkit.clinical` and the
+`handoffkit clinical` command are not included in the PyPI wheel. Run them from
+a repository checkout (`pip install -e python/packages/handoffkit`).
+
 ```bash
 handoffkit clinical run --experience professional --blind-id pro-sandbox-001 --json
 handoffkit clinical benchmark --official

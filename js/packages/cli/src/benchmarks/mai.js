@@ -9,6 +9,7 @@ import {
 } from "@handoffkit/core";
 import { writeReportFiles } from "@handoffkit/node";
 import {
+  ensureDoctorCaseSet,
   loadDoctorBenchmarkCases,
   SOURCE_NAME,
   SOURCE_URL,
@@ -403,6 +404,7 @@ export function buildMAIStyleBenchmark(limit = 30) {
 }
 
 export async function runMAIStyleBenchmark(limit = 30, { outputDir = "runs/latest", reportsDir = "reports" } = {}) {
+  await ensureDoctorCaseSet(limit);
   const report = buildMAIStyleBenchmark(limit);
   fs.mkdirSync(outputDir, { recursive: true });
   fs.mkdirSync(reportsDir, { recursive: true });

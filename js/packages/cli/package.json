@@ -22,6 +22,8 @@
   },
   "files": [
     "src",
+    "!src/benchmarks/doctor_cases_100.json",
+    "!src/benchmarks/doctor_cases_400.json",
     "README.md"
   ],
   "license": "MIT",

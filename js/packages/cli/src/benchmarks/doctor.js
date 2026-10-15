@@ -9,6 +9,7 @@ import {
   TraceEvent,
 } from "@handoffkit/core";
 import { writeReportFiles } from "@handoffkit/node";
+import { caseSetForLimit, CaseSetUnavailableError, ensureCaseSet, readCaseSetSync } from "./remote_cases.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -167,15 +168,27 @@ export class DoctorBenchmarkReport {
 
 export function loadDoctorBenchmarkCases(limit = 30) {
   if (limit < 1) throw new Error("limit must be at least 1");
-  let fileName;
-  if (limit <= 30) fileName = "doctor_cases_30.json";
-  else if (limit <= 100) fileName = "doctor_cases_100.json";
-  else fileName = "doctor_cases_400.json";
-  
-  const raw = fs.readFileSync(join(__dirname, fileName), "utf8");
-  const list = JSON.parse(raw);
+  const fileName = caseSetForLimit(limit);
+  let list;
+  if (fileName === "doctor_cases_30.json") {
+    list = JSON.parse(fs.readFileSync(join(__dirname, fileName), "utf8"));
+  } else {
+    // 100/400 are not bundled in the npm tarball; see ensureDoctorCaseSet().
+    list = readCaseSetSync(fileName);
+    if (!list) {
+      throw new CaseSetUnavailableError(
+        `${fileName} is not available locally; await ensureDoctorCaseSet(${limit}) first to download it once.`,
+      );
+    }
+  }
   const rawCases = list.slice(0, Math.min(limit, list.length));
   return rawCases.map(item => DoctorBenchmarkCase.fromDict(item));
+}
+
+/** Download (once, pinned + SHA-256 verified) the case set needed for `limit`. */
+export async function ensureDoctorCaseSet(limit = 30) {
+  const fileName = caseSetForLimit(limit);
+  if (fileName !== "doctor_cases_30.json") await ensureCaseSet(fileName);
 }
 
 export function buildDoctorBenchmark(limit = 30) {
@@ -195,6 +208,7 @@ export function buildDoctorBenchmark(limit = 30) {
 }
 
 export async function runDoctorBenchmark(limit = 30, { outputDir = "runs/latest", reportsDir = "reports" } = {}) {
+  await ensureDoctorCaseSet(limit);
   const report = buildDoctorBenchmark(limit);
   fs.mkdirSync(outputDir, { recursive: true });
   fs.mkdirSync(reportsDir, { recursive: true });

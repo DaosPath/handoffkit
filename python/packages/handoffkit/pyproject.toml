@@ -59,9 +59,21 @@ handoffkit = "handoffkit.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["handoffkit*"]
+# Research-only labs stay in the source repository and are not shipped on PyPI.
+exclude = ["handoffkit.clinical*", "handoffkit.crypto_research*"]
 
 [tool.setuptools.package-data]
-handoffkit = ["py.typed", "benchmarks/data/*.json", "clinical/data/*.json"]
+# Only the 30-case doctor set is bundled; 100/400 are fetched on demand (pinned + SHA-256).
+handoffkit = ["py.typed", "benchmarks/data/doctor_cases_30.json"]
+
+[tool.setuptools.exclude-package-data]
+handoffkit = [
+  "benchmarks/data/doctor_cases_100.json",
+  "benchmarks/data/doctor_cases_400.json",
+  "clinical/*",
+  "clinical/**/*",
+  "crypto_research/*",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any
 
 from handoffkit.benchmarks.doctor_cases_30 import DOCTOR_CASES_30
-from handoffkit.benchmarks.doctor_cases_100 import DOCTOR_CASES_100
-from handoffkit.benchmarks.doctor_cases_400 import DOCTOR_CASES_400
+from handoffkit.benchmarks.doctor_cases_100 import load_doctor_cases_100
+from handoffkit.benchmarks.doctor_cases_400 import load_doctor_cases_400
 from handoffkit.handoff import HandoffState
 from handoffkit.quality import HandoffQualityEvaluator, HandoffQualityReport
 from handoffkit.replay import ReplayRunner
@@ -232,15 +232,19 @@ class DoctorBenchmarkReport:
 
 
 def load_doctor_benchmark_cases(limit: int = 30) -> list[DoctorBenchmarkCase]:
-    """Load real open-access cases bundled for offline benchmark demos."""
+    """Load real open-access cases for benchmark demos.
+
+    The 30-case set is bundled; larger limits load the 100/400-case sets from a
+    source checkout, the cache, or a one-time pinned, checksum-verified download.
+    """
     if limit < 1:
         raise ValueError("limit must be at least 1")
     if limit <= len(DOCTOR_CASES_30):
         source = DOCTOR_CASES_30
-    elif limit <= len(DOCTOR_CASES_100):
-        source = DOCTOR_CASES_100
+    elif limit <= 100:
+        source = load_doctor_cases_100()
     else:
-        source = DOCTOR_CASES_400
+        source = load_doctor_cases_400()
     raw_cases = source[: min(limit, len(source))]
     return [DoctorBenchmarkCase.from_dict(item) for item in raw_cases]
 

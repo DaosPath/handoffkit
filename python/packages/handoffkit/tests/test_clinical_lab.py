@@ -8,8 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from handoffkit.cli import main
-from handoffkit.clinical import (
+# The Clinical Lab is source-only (excluded from the wheel/sdist package set).
+pytest.importorskip("handoffkit.clinical")
+
+from handoffkit.cli import main  # noqa: E402
+from handoffkit.clinical import (  # noqa: E402
     CONTRACT_VERSION,
     OFFICIAL_CASE_COUNT,
     ClinicalError,

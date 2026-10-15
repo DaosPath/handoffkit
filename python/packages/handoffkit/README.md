@@ -281,7 +281,8 @@ handoffkit report runs/latest
 split, derived from PMC Open Access case reports. It runs in `gold_replay` mode
 as a **regression fixture only**. It does not claim model diagnostic accuracy,
 is not medical advice, and is not the 1.20 official 897-case lab. Use
-`handoffkit clinical` and `/demos/clinical-lab` for sequential scoring.
+`handoffkit clinical` (source checkout only; not in the PyPI wheel) and
+`/demos/clinical-lab` for sequential scoring.
 
 MAI/SDBench-style public benchmark preview:
 

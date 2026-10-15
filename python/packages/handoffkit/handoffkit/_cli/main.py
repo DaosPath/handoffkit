@@ -6,7 +6,14 @@ import argparse
 import sys
 
 from handoffkit._cli.browse import add_browse_parser, run_browse_command
-from handoffkit._cli.clinical import add_clinical_parser, run_clinical_command
+
+try:  # The Clinical Lab ships only in source checkouts, not in the PyPI wheel.
+    from handoffkit._cli.clinical import add_clinical_parser, run_clinical_command
+except ModuleNotFoundError as exc:  # pragma: no cover - exercised by the wheel smoke
+    if exc.name is None or not exc.name.startswith("handoffkit.clinical"):
+        raise
+    add_clinical_parser = None
+    run_clinical_command = None
 from handoffkit._cli.csp import csp_demo, csp_doctor, csp_inspect
 from handoffkit._cli.demos import (
     evaluate_report,
@@ -102,7 +109,8 @@ def main(argv: list[str] | None = None) -> int:
         help="Run creation→generation→edition media context handoff demo.",
     )
     add_browse_parser(subparsers)
-    add_clinical_parser(subparsers)
+    if add_clinical_parser is not None:
+        add_clinical_parser(subparsers)
 
     csp_parser = subparsers.add_parser(
         "csp",
@@ -339,7 +347,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "browse":
         return run_browse_command(args)
-    if args.command == "clinical":
+    if args.command == "clinical" and run_clinical_command is not None:
         return run_clinical_command(args)
     if args.command == "csp":
         if args.csp_command == "doctor":
