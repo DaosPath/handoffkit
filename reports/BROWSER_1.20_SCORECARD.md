@@ -88,7 +88,7 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 6 | Index integrity_check + quarantine | pass |
 | 7 | Chromium crash marks interrupted | pass (HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 launches Chromium via BrowserServer, kills the owned child process, and the next command returns session.interrupted) |
 | 8 | Service restart | pass (same real Chromium test runs session.retry after the killed process, launches a fresh process, and revalidates the last URL) |
-| 9 | 4h soak, 1000 navigations | pass (hosted 4h soak x5 OS (run 33809712076): ubuntu-24.04 1125991 navs, ubuntu-24.04-arm 1030025, windows-2025 785946, macos-14 1276367, macos-15 1271718; orphans=[] everywhere; reports/BROWSER_1.20_SOAK_<os>.json) |
+| 9 | 4h soak, 1000 navigations | pass (hosted 4h soak x5 OS refreshed on the 1.20.0 tree (run 38693805581 @ 5ccdb7b, rewritten as 016b6a4): ubuntu-24.04 1843939, ubuntu-24.04-arm 998889, windows-2025 753633, macos-14 1024662, macos-15 1022017 navigations; orphans=[] everywhere; reports/BROWSER_1.20_SOAK_<os>.json) |
 | 10 | No orphan processes | pass (Playwright real-process test closes the restarted BrowserServer and asserts child.exitCode is non-null; reduced soak reports orphans=[]) |
 
 ## Browser Real (current: 10/10)
@@ -164,7 +164,7 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 7 | Index query/ingest benchmarks | pass (Lite only) |
 | 8 | Clean Core/Lite/Real tarball smoke | pass (pnpm run js:pack:check + js:pack:consumer: all 9 publishable JS tarballs contain required files, no links, stay within packaging limits, and import cleanly (including the @handoffkit/browser/core subpath); @handoffkit/clinical is private and not packed) |
 | 9 | Checksums per architecture | pass (hosted CI run 38704779240 @ 17fc897 (final code commit): per-runner checksum artifacts, status=pass, 9 packages each; reports/BROWSER_1.20_PACKAGE_CHECKSUMS_{win32_x64,linux_x64,linux_arm64,darwin_x64,darwin_arm64}.json (hashes differ by OS because of checkout line endings and gzip metadata; publication builds on Linux only)) |
-| 10 | Soak archived | pass (browser-real-soak.yml artifacts browser-real-soak-<os> (run 33809712076), mirrored at reports/BROWSER_1.20_SOAK_<os>.json) |
+| 10 | Soak archived | pass (browser-real-soak.yml artifacts browser-real-soak-<os> (run 38693805581), mirrored at reports/BROWSER_1.20_SOAK_<os>.json) |
 
 ## Release train
 
