@@ -20,7 +20,7 @@ import { liveGroundingOracle, scoreLiveGroundingRun } from "../../js/packages/br
 import { mapWithConcurrency } from "../../js/packages/browser/src/util.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const corpusPath = join(root, "packages", "contracts", "conformance", "browser-grounding-live-v1.json");
+const corpusPath = join(root, "shared", "contracts", "conformance", "browser-grounding-live-v1.json");
 const reportPath = join(root, "reports", "BROWSER_1.20_GROUNDING_LIVE.json");
 const corpus = JSON.parse(await readFile(corpusPath, "utf8"));
 const startedAt = new Date();

@@ -57,7 +57,7 @@ function cppBinary() {
   const candidates = [
     process.env.HANDOFFKIT_CPP_BROWSER_REAL_CLIENT,
     path.join(root, ".local-tests", "cpp-tls-build", process.platform === "win32" ? "test_browser_real_tls.exe" : "test_browser_real_tls"),
-    path.join(root, "packages", "cpp", "build", process.platform === "win32" ? "test_browser_real_tls.exe" : "test_browser_real_tls"),
+    path.join(root, "cpp", "packages", "handoffkit", "build", process.platform === "win32" ? "test_browser_real_tls.exe" : "test_browser_real_tls"),
   ].filter(Boolean);
   const found = candidates.find((candidate) => existsSync(candidate));
   if (!found) {
@@ -110,20 +110,20 @@ async function runCpp(binary, configPath, timeoutMs = 20_000) {
   }
 }
 
-const { generateTlsFixtures } = await import(pathToFileURL(path.join(root, "packages", "js", "node", "test-support", "security-fixtures.mjs")).href);
+const { generateTlsFixtures } = await import(pathToFileURL(path.join(root, "js", "packages", "node", "test-support", "security-fixtures.mjs")).href);
 const {
   CapabilityPolicy,
   CertificateIdentityPolicy,
   ReplayProtection,
   SecurityConfig,
-} = await import(pathToFileURL(path.join(root, "packages", "js", "csp", "src", "index.js")).href);
+} = await import(pathToFileURL(path.join(root, "js", "packages", "csp", "src", "index.js")).href);
 const {
   DurableReplayProtection,
   NetworkConfig,
   certificateFingerprint,
   peerIdentityFromCertificate,
-} = await import(pathToFileURL(path.join(root, "packages", "js", "node", "src", "index.js")).href);
-const { startBrowserRealService } = await import(pathToFileURL(path.join(root, "packages", "js", "browser-real", "src", "index.js")).href);
+} = await import(pathToFileURL(path.join(root, "js", "packages", "node", "src", "index.js")).href);
+const { startBrowserRealService } = await import(pathToFileURL(path.join(root, "js", "packages", "browser-real", "src", "index.js")).href);
 
 const fixtures = generateTlsFixtures();
 const scratch = await mkdtemp(path.join(tmpdir(), "handoffkit-browser-cpp-"));

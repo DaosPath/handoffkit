@@ -13,8 +13,8 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const browserRealRoot = path.join(root, "packages", "js", "browser-real");
-const webRoot = path.join(root, "apps", "web");
+const browserRealRoot = path.join(root, "js", "packages", "browser-real");
+const webRoot = path.join(root, "apps", "studio-web");
 const browserRequire = createRequire(path.join(browserRealRoot, "package.json"));
 const webRequire = createRequire(path.join(webRoot, "package.json"));
 const playwrightPath = browserRequire.resolve("playwright", { paths: [browserRealRoot] });

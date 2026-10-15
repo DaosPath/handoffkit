@@ -72,7 +72,11 @@ function normalizeEndpoint(value) {
     ) };
   }
   parsed.hash = "";
-  return { url: parsed.href.replace(/\/+$/, ""), error: null };
+  let href = parsed.href;
+  let end = href.length;
+  while (end > 0 && href[end - 1] === "/") end -= 1;
+  href = href.slice(0, end);
+  return { url: href, error: null };
 }
 
 function endpointPath(base, path) {

@@ -327,27 +327,21 @@ export async function initProjectInteractive(defaultProjectName, options = {}) {
     const template = (await rl.question("Template (basic-agent): ")).trim() || "basic-agent";
     const provider = validateProviderId((await rl.question("LLM Provider (openai/nvidia/groq/ollama/echo) [openai]: ")).trim() || "openai");
     
-    let apiKey = "";
-    if (provider !== "echo" && provider !== "ollama") {
-      apiKey = (await rl.question(`API Key for ${provider.toUpperCase()}: `)).trim();
-    }
-    
+    // API keys are never prompted for or written to disk here (parity with the
+    // Python CLI): the config records only the environment variable *name*.
+    const apiKeyEnv = provider === "echo" || provider === "ollama" ? "" : `${provider.toUpperCase()}_API_KEY`;
+
     rl.close();
 
     const scaffolder = new TemplateScaffolder();
     const targetDir = options.output === "." ? path.join(process.cwd(), name) : path.join(options.output, name);
     const result = await scaffolder.scaffold(name, { output: options.output, template, force: options.force });
 
-    const envLines = [];
-    if (apiKey) {
-      const envName = `${provider.toUpperCase()}_API_KEY`;
-      envLines.push(`${envName}=${apiKey}`);
-    }
-    if (envLines.length > 0) {
-      await writeFile(path.join(targetDir, ".env"), envLines.join("\n") + "\n", "utf8");
+    if (apiKeyEnv) {
+      // Make sure a later `handoffkit-js keys set` never ends up in git.
       try {
         let gitignore = await readFile(path.join(targetDir, ".gitignore"), "utf8");
-        if (!gitignore.includes(".env")) {
+        if (!gitignore.split(/\r?\n/).includes(".env")) {
           gitignore += "\n.env\n";
           await writeFile(path.join(targetDir, ".gitignore"), gitignore, "utf8");
         }
@@ -358,13 +352,16 @@ export async function initProjectInteractive(defaultProjectName, options = {}) {
       provider,
       model: provider === "openai" ? "gpt-4o-mini" : (provider === "nvidia" ? "meta/llama-3.1-8b-instruct" : "default")
     };
+    if (apiKeyEnv) config.api_key_env = apiKeyEnv;
     await atomicWriteFile(path.join(targetDir, "handoff.config.json"), JSON.stringify(config, null, 2));
 
     return [
       result.toMarkdown(),
       "",
       `Configured provider: ${provider}`,
-      apiKey ? "Saved API Key to .env" : "No API Key saved",
+      apiKeyEnv
+        ? `Set ${apiKeyEnv} in your environment (or run \`handoffkit-js keys set ${apiKeyEnv} <value>\` to store it in .env)`
+        : "No API key required",
       "",
       "## Next Commands",
       "",

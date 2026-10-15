@@ -16,7 +16,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const webRoot = path.join(root, "apps", "web");
+const webRoot = path.join(root, "apps", "studio-web");
 const outputPath = path.join(root, "reports", "BROWSER_1.20_STUDIO_REAL_INTEROP.json");
 const sessionId = "studio-real-interop";
 const trustDomain = "handoffkit.internal";
@@ -83,15 +83,15 @@ async function stopChild(child) {
   }
 }
 
-const { generateTlsFixtures } = await import(pathToFileURL(path.join(root, "packages", "js", "node", "test-support", "security-fixtures.mjs")).href);
+const { generateTlsFixtures } = await import(pathToFileURL(path.join(root, "js", "packages", "node", "test-support", "security-fixtures.mjs")).href);
 const {
   CapabilityPolicy,
   CertificateIdentityPolicy,
   ReplayProtection,
   SecurityConfig,
-} = await import(pathToFileURL(path.join(root, "packages", "js", "csp", "src", "index.js")).href);
-const { DurableReplayProtection, NetworkConfig, certificateFingerprint } = await import(pathToFileURL(path.join(root, "packages", "js", "node", "src", "index.js")).href);
-const { connectBrowserRealTls, startBrowserRealService } = await import(pathToFileURL(path.join(root, "packages", "js", "browser-real", "src", "index.js")).href);
+} = await import(pathToFileURL(path.join(root, "js", "packages", "csp", "src", "index.js")).href);
+const { DurableReplayProtection, NetworkConfig, certificateFingerprint } = await import(pathToFileURL(path.join(root, "js", "packages", "node", "src", "index.js")).href);
+const { connectBrowserRealTls, startBrowserRealService } = await import(pathToFileURL(path.join(root, "js", "packages", "browser-real", "src", "index.js")).href);
 
 const fixtures = generateTlsFixtures();
 const scratch = await mkdtemp(path.join(tmpdir(), "handoffkit-studio-real-"));

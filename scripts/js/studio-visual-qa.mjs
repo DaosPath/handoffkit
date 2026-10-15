@@ -11,7 +11,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const packageRoot = path.join(root, "packages", "js", "browser-real");
+const packageRoot = path.join(root, "js", "packages", "browser-real");
 const require = createRequire(path.join(packageRoot, "package.json"));
 const playwrightPath = require.resolve("playwright", { paths: [packageRoot] });
 const importedPlaywright = await import(pathToFileURL(playwrightPath).href);
