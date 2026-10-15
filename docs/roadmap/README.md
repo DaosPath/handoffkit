@@ -83,3 +83,11 @@ architecture. Version numbers express dependency order, not calendar dates.
 - Every release range has explicit non-goals. Unfinished items move forward;
   tests and security policy are never weakened to preserve a version date.
 - No tag or publication follows automatically from completing a roadmap file.
+
+## Cancelled permanently
+
+- **Own web-scale index (2026-10-15).** HandoffKit will not build its own
+  crawler/frontier or public-web search index to replace public search providers
+  (former 1.20–1.29 plan items 1.25–1.26). Web search stays on explicit providers
+  with provider traces and no silent fallback. The per-project FTS5 index, the
+  curated source catalog, and `BrowserCache` are unaffected.
