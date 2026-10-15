@@ -1,6 +1,6 @@
 {
   "name": "@handoffkit/providers",
-  "version": "1.20.0-alpha.2",
+  "version": "1.20.0",
   "description": "Standalone JavaScript LLM provider adapters and routing utilities for HandoffKit.",
   "repository": {
     "type": "git",

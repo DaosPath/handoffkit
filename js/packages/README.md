@@ -20,7 +20,7 @@ Both browser-safe and server-side runtimes are supported natively in ES Modules.
 The packages above are published on npm at the stable `1.19.5` release.
 
 The 1.20 Browser Platform packages below are in development
-(`1.20.0-alpha.2`) and are **not published** to npm:
+(`1.20.0`, release candidate) and are **not published** to npm yet:
 
 | Package | Directory | Description |
 |---|---|---|

@@ -18,7 +18,7 @@ validated data instead of fragile chat summaries.
 
 [Quick start](#quick-start) · [Runtime status](#runtime-status) · [Browser 1.20](#browser-platform-120-in-development) · [Native Fusion](#native-c-fusion) · [Documentation](docs/README.md) · [Roadmap](docs/roadmap/README.md)
 
-**Stable:** `1.19.5` on PyPI, npm, and crates.io · **In development:** `1.20.0-alpha.2` (Browser Platform, unreleased)
+**Stable:** `1.19.5` on PyPI, npm, and crates.io · **Next:** `1.20.0` (Browser Platform, release candidate — not yet published)
 
 </div>
 
@@ -218,7 +218,7 @@ Specification: [HK-CSP](docs/spec/HK_CSP.md) ·
 ## Browser Platform (1.20, in development)
 
 1.20 gives agents a web layer: **search → fetch/explore → extract → Markdown →
-grounded, cited research packs**. The tree is versioned `1.20.0-alpha.2`;
+grounded, cited research packs**. The tree is versioned `1.20.0` (release candidate);
 these packages are not published to registries yet and are not part of the
 1.19.5 stable train. Use them from a checkout.
 

@@ -9,10 +9,18 @@ release summary.
 
 ## [Unreleased]
 
-The current 1.20 development line continues from the 1.19.5 stable release.
-Browser Platform work is a **single 1.20 train** (the former 1.20–1.29 split is
-absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
-`reports/BROWSER_1.20_SCORECARD.md`. No tag or publication is implied.
+## [1.20.0] - 2026-10-15
+
+Browser Platform release, continuing from the 1.19.5 stable release as a
+**single 1.20 train** (the former 1.20–1.29 split is absorbed). Every dimension
+of `reports/BROWSER_1.20_SCORECARD.md` scores at least 9/10 on real binary
+gates, backed by a hosted five-architecture CI matrix (Windows x64, Linux
+x64/ARM64, macOS x64/ARM64), per-architecture package checksums, and evidence
+refreshed on this tree. Python `handoffkit==1.20.0` is `Production/Stable`; the
+JS packages, including the new `@handoffkit/browser-core`, `browser-lite`,
+`browser-real`, and `clinical`, the Rust workspace, and C++ ship at 1.20.0. The
+Browser Core wire `contract_version` stays `1.20.0-alpha.1`. Model-answer
+accuracy and clinical validity are not claimed.
 
 ### Added
 
@@ -224,6 +232,13 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
 
 ### Fixed
 
+- CI macOS x64 runs on `macos-15-intel` (GitHub retired `macos-13`). The Rust
+  workspace is clippy-clean on Rust 1.99 and still builds on the 1.82 MSRV.
+- C++ Browser parsing (meta/canonical/JSON-LD/links/headings, ad and search-host
+  detection, `data:`/`vbscript:` rejection) now matches JavaScript and Python,
+  using linear scans instead of `std::regex`.
+- Release-evidence scripts and documentation point at the post-1.19.5 layout;
+  `.gitignore` again protects test private keys under `shared/contracts/`.
 - OpenCode Go requests now send the `x-opencode-session` header the live API
   requires. Without it every `OpenCodeGoProvider` call failed with HTTP 400
   `MissingSessionID` ("cannot be routed efficiently"), so the provider could not

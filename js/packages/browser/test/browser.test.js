@@ -51,7 +51,7 @@ import {
 import { hostIsOrUnder, isSearchAdUrl } from "../src/search.js";
 
 test("version matches package", () => {
-  assert.equal(HANDOFFKIT_BROWSER_VERSION, "1.20.0-alpha.2");
+  assert.equal(HANDOFFKIT_BROWSER_VERSION, "1.20.0");
 
 });
 
