@@ -281,7 +281,12 @@ def default_provider_specs() -> list[ProviderSpec]:
         ProviderSpec(
             name="opencode-go",
             description="OpenCode Go provider for open coding and reasoning models.",
-            env_vars=("OPENCODE_API_KEY", "OPENCODE_GO_BASE_URL", "OPENCODE_BASE_URL"),
+            env_vars=(
+                "OPENCODE_API_KEY",
+                "OPENCODE_GO_BASE_URL",
+                "OPENCODE_BASE_URL",
+                "OPENCODE_SESSION_ID",
+            ),
             model_env_vars=("OPENCODE_GO_MODEL", "OPENCODE_MODEL"),
             default_model=DEFAULT_OPENCODE_GO_MODEL,
             suggested_models=OPENCODE_GO_MODELS,
@@ -293,7 +298,12 @@ def default_provider_specs() -> list[ProviderSpec]:
         ProviderSpec(
             name="opencode-zen",
             description="OpenCode Zen provider for GPT, Claude, Qwen, DeepSeek and more.",
-            env_vars=("OPENCODE_API_KEY", "OPENCODE_ZEN_BASE_URL", "OPENCODE_BASE_URL"),
+            env_vars=(
+                "OPENCODE_API_KEY",
+                "OPENCODE_ZEN_BASE_URL",
+                "OPENCODE_BASE_URL",
+                "OPENCODE_SESSION_ID",
+            ),
             model_env_vars=("OPENCODE_ZEN_MODEL", "OPENCODE_MODEL"),
             default_model=DEFAULT_OPENCODE_ZEN_MODEL,
             suggested_models=OPENCODE_ZEN_MODELS,

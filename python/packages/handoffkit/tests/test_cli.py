@@ -1,3 +1,7 @@
+import io
+import json
+import sys
+
 import pytest
 
 from handoffkit.cli import (
@@ -254,6 +258,45 @@ def test_media_cli_commands_run(tmp_path, monkeypatch, capsys) -> None:  # type:
     assert main(["media", "plan", "demo.mp4", "--from", "zh", "--to", "es"]) == 0
     captured = capsys.readouterr()
     assert "zh -> es" in captured.out
+
+
+def test_media_cli_output_survives_legacy_console_encoding(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Media CLI output must not crash on a legacy cp1252 Windows console."""
+    monkeypatch.chdir(tmp_path)
+    buffer = io.BytesIO()
+    legacy_stdout = io.TextIOWrapper(buffer, encoding="cp1252", errors="strict")
+    monkeypatch.setattr(sys, "stdout", legacy_stdout)
+
+    assert main(["demo-media-context"]) == 0
+    assert main(["media", "pipeline", "video_dubbing"]) == 0
+
+    transcript = tmp_path / "transcripción_测试.json"
+    transcript.write_text(
+        json.dumps(
+            {
+                "segments": [
+                    {
+                        "index": 1,
+                        "start": 0.0,
+                        "end": 2.0,
+                        "text": "你好",
+                        "speaker": "S1",
+                        "language": "zh",
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    assert main(["media", "inspect", str(transcript)]) == 0
+
+    legacy_stdout.flush()
+    written = buffer.getvalue().decode("utf-8")
+
+    assert "creation -> generation -> edition" in written
+    assert "-> next:" in written
+    assert "Segments: 1" in written
 
 
 def test_doctor_showcase_cli_command_runs(tmp_path, monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]

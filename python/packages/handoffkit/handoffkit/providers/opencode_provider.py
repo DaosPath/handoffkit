@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from typing import Any, Literal
+from uuid import uuid4
 
 from handoffkit.errors import ProviderConfigurationError, ProviderExecutionError
 from handoffkit.providers.base import BaseProvider
@@ -18,31 +19,77 @@ OpenCodeAPIStyle = Literal["auto", "openai_chat", "openai_responses", "anthropic
 
 DEFAULT_OPENCODE_ZEN_BASE_URL = "https://opencode.ai/zen/v1"
 DEFAULT_OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1"
+# The live API rejects requests without this header (HTTP 400 MissingSessionID:
+# "cannot be routed efficiently"). See https://opencode.ai/docs/go/#where-can-i-use-it
+OPENCODE_SESSION_HEADER = "x-opencode-session"
 DEFAULT_OPENCODE_ZEN_MODEL = "gpt-5.4"
 DEFAULT_OPENCODE_GO_MODEL = "deepseek-v4-flash"
 OPENCODE_USER_AGENT = "handoffkit/1.4 OpenCodeProvider"
 
+# Curated "suggested models" lists. These mirror the live catalogs but stay
+# deliberately non-exhaustive: `list_opencode_models()` and the provider's
+# /models endpoint are authoritative. Verified against the live Go catalog
+# (30 models) and Zen catalog (73 models) on 2026-09-20.
 OPENCODE_GO_MODELS = (
-    "mimo-v2.5",
     "deepseek-v4-flash",
+    "deepseek-v4.1-flash",
     "deepseek-v4-pro",
+    "deepseek-v4-flash-vision-exp",
+    "deepseek-flash",
+    "glm-5.1",
     "glm-5.2",
+    "glm-5.3",
+    "glm-5.3-flash",
+    "grok-4.6",
+    "gpt-5.6-luna",
+    "hy3",
+    "hy4-preview",
+    "kimi-k2.6",
+    "kimi-k2.7-code",
+    "kimi-k3",
+    "longcat-2.0",
+    "mimo-v2.5",
+    "mimo-v2.5-pro",
+    "minimax-m2.5",
+    "minimax-m2.7",
+    "minimax-m3",
+    "muse-spark-1.2-contributor",
+    "muse-spark-1.3-contributor",
+    "omen-alpha",
+    "qwen3.6-plus",
     "qwen3.7-max",
     "qwen3.7-plus",
-    "kimi-k2.7-code",
-    "minimax-m3",
+    "qwen3.8-flash",
+    "qwen3.8-max",
 )
 
+# Zen exposes 73 entries including free tiers and internal names, so this stays a
+# curated cross-vendor selection; use the /models endpoint for the full list.
 OPENCODE_ZEN_MODELS = (
+    "gpt-5.6-luna",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-6-astra",
+    "gpt-5.5",
+    "gpt-5.5-pro",
     "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.3-codex",
+    "claude-opus-5",
     "claude-sonnet-5",
-    "qwen3.7-max",
-    "qwen3.7-plus",
-    "deepseek-v4-flash",
+    "claude-haiku-4-5",
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.1-pro",
+    "grok-4.6",
+    "grok-4.5",
+    "deepseek-v4.1-flash",
     "deepseek-v4-pro",
-    "glm-5.2",
-    "kimi-k2.7-code",
+    "glm-5.3",
+    "kimi-k3",
     "minimax-m3",
+    "qwen3.8-flash",
+    "muse-spark-1.3",
 )
 
 
@@ -77,6 +124,14 @@ _GO_ANTHROPIC_MODELS = {
     "qwen3.7-plus",
     "qwen3.6-plus",
 }
+
+# Verified against the live Go endpoint (2026-09-20):
+# - These models also answer on /chat/completions, so routing them to /messages
+#   is a working choice rather than the only one.
+# - glm-5.1/5.2/5.3 and kimi-k2.7-code are thinking-only: passing
+#   reasoning_effort="none" is rejected with HTTP 400, so they cannot be made
+#   cheaper by disabling reasoning. Other Go models accept it.
+# - grok-4.6, muse-spark-*, and gpt-5.6-luna only answer on /responses.
 
 _ZEN_ANTHROPIC_MODELS = {
     "qwen3.7-max",
@@ -190,6 +245,7 @@ class OpenCodeProvider(BaseProvider):
         api_style: OpenCodeAPIStyle = "auto",
         timeout: float = 60.0,
         retry_policy: RetryPolicy | None = None,
+        session_id: str | None = None,
     ) -> None:
         self.catalog = _normalize_catalog(catalog)
         self.model = _strip_opencode_prefix(
@@ -201,6 +257,9 @@ class OpenCodeProvider(BaseProvider):
         self.api_style = infer_opencode_api_style(self.model, self.catalog, api_style)
         self.timeout = timeout
         self.retry_policy = retry_policy or RetryPolicy()
+        self.session_id = (
+            session_id or os.getenv("OPENCODE_SESSION_ID") or f"handoffkit-{uuid4().hex}"
+        )
         if not self.api_key:
             raise ProviderConfigurationError(
                 "OPENCODE_API_KEY is required for OpenCodeProvider. "
@@ -297,6 +356,7 @@ class OpenCodeProvider(BaseProvider):
         data = json.dumps(payload).encode("utf-8")
         headers = {
             "Authorization": f"Bearer {self.api_key}",
+            OPENCODE_SESSION_HEADER: self.session_id,
             "Accept": "application/json",
             "Content-Type": "application/json",
             "User-Agent": OPENCODE_USER_AGENT,

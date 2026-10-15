@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 
 from handoffkit._cli.browse import add_browse_parser, run_browse_command
 from handoffkit._cli.clinical import add_clinical_parser, run_clinical_command
@@ -60,8 +61,21 @@ from handoffkit._version import __version__
 from handoffkit.recipes.showcases import showcase_names
 
 
+def configure_stdio() -> None:
+    """Keep Unicode output from crashing on legacy Windows consoles."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the command-line interface."""
+    configure_stdio()
     parser = argparse.ArgumentParser(prog="handoffkit")
     parser.add_argument("--version", action="version", version=f"handoffkit {__version__}")
     subparsers = parser.add_subparsers(dest="command")

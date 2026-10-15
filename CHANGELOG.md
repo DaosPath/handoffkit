@@ -197,6 +197,26 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
   through the live Studio API over TCP TLS 1.3+mTLS; hosted and cross-architecture
   qualification remain separate release gates.
 
+### Fixed
+
+- OpenCode Go requests now send the `x-opencode-session` header the live API
+  requires. Without it every `OpenCodeGoProvider` call failed with HTTP 400
+  `MissingSessionID` ("cannot be routed efficiently"), so the provider could not
+  reach the Go catalog at all. Session ids resolve in order from the new
+  `session_id=` constructor argument, the `OPENCODE_SESSION_ID` environment
+  variable, then a generated `handoffkit-<uuid>`; the header is added in
+  `OpenCodeProvider._post_json` so it covers chat-completions, responses, and
+  messages-style models alike, and `OPENCODE_SESSION_ID` is now advertised by the
+  `opencode-go` and `opencode-zen` provider specs. Verified live against
+  `https://opencode.ai/zen/go/v1`: translation windows return full parses with no
+  source-language leakage. The JavaScript `opencode` provider spec is a generic
+  OpenAI-compatible entry that already accepts per-instance `headers`, so callers
+  can pass the same header there; no JS surface change was required.
+- Cloudflare rejects the default Python urllib user agent on `opencode.ai` with
+  error 1010 (`browser_signature_banned`) for POST requests. The provider already
+  sent a product user agent, which is why this only affected ad-hoc probes; it is
+  documented here so future debugging does not misread the 403 as an auth failure.
+
 ## [1.19.5] - 2026-09-03
 
 Final 1.19 stable release. Security contract and hardening baseline plus

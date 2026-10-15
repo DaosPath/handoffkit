@@ -26,7 +26,7 @@ DEFAULT_FUSION_TASK = (
     "scored 233/400 with MiMo. Improve reliability without using gold labels "
     "or making clinical claims."
 )
-DEFAULT_FUSION_MODELS = "mimo-v2.5,deepseek-v4-pro,glm-5.2,qwen3.7-max"
+DEFAULT_FUSION_MODELS = "deepseek-v4.1-flash,deepseek-v4-pro,glm-5.3,qwen3.8-max"
 
 
 @dataclass(frozen=True)
@@ -150,7 +150,7 @@ def offline_fusion_panel(task: str = DEFAULT_FUSION_TASK) -> list[PanelResponse]
     """Return a deterministic offline panel for demos and tests."""
     return [
         PanelResponse(
-            model="mimo-v2.5/offline",
+            model="deepseek-v4.1-flash/offline",
             role="broad diagnostician",
             answer=(
                 "Use a domain router before expensive reasoning: pathology, "
@@ -172,7 +172,7 @@ def offline_fusion_panel(task: str = DEFAULT_FUSION_TASK) -> list[PanelResponse]
             confidence="medium-high",
         ),
         PanelResponse(
-            model="glm-5.2/offline",
+            model="glm-5.3/offline",
             role="adversarial reviewer",
             answer=(
                 "Run rescue only on low-confidence or disagreement cases. Generic "
@@ -183,7 +183,7 @@ def offline_fusion_panel(task: str = DEFAULT_FUSION_TASK) -> list[PanelResponse]
             confidence="high",
         ),
         PanelResponse(
-            model="qwen3.7-max/offline",
+            model="qwen3.8-max/offline",
             role="retrieval planner",
             answer=(
                 "Generate 3-5 retrieval queries per case, then build a compact "

@@ -237,15 +237,15 @@ def plan_media_dubbing(video_path: str, *, source_language: str, target_language
         f"ffmpeg available: {ffmpeg_available()}\n"
         f"Pipeline (-ion): {stages}\n"
         f"Screen dubbing (OCR+ASR, long-context): {screen}\n\n"
-        "1. inspection — probe source media\n"
-        "2. transcription — ASR speech + burned-in OCR\n"
-        "3. edition — merge OCR+ASR into one consensus script\n"
-        "4. translation — one long-context episode pass\n"
-        "5. localization — voices and locale notes\n"
-        "6. generation — TTS / voice clips\n"
-        "7. composition — mux audio into video\n"
-        "8. validation — QA gates\n"
-        "9. publication — deliverables + report\n"
+        "1. inspection - probe source media\n"
+        "2. transcription - ASR speech + burned-in OCR\n"
+        "3. edition - merge OCR+ASR into one consensus script\n"
+        "4. translation - one long-context episode pass\n"
+        "5. localization - voices and locale notes\n"
+        "6. generation - TTS / voice clips\n"
+        "7. composition - mux audio into video\n"
+        "8. validation - QA gates\n"
+        "9. publication - deliverables + report\n"
     )
 
 
@@ -286,7 +286,7 @@ def run_media_pipeline_plan(
     ]
     for ctx in planned:
         nxt = ", ".join(ctx.next_operations) if ctx.next_operations else "(end)"
-        lines.append(f"[{ctx.metadata.get('stage_index', '?')}] {ctx.operation} → next: {nxt}")
+        lines.append(f"[{ctx.metadata.get('stage_index', '?')}] {ctx.operation} -> next: {nxt}")
     return "\n".join(lines) + "\n"
 
 
@@ -351,7 +351,7 @@ def run_media_context_demo() -> str:
     report.metadata["history"] = edited.history
     json_path, markdown_path = write_report_files(report, "media_context_demo", "reports")
     return (
-        "HandoffKit media context demo (creation → generation → edition)\n"
+        "HandoffKit media context demo (creation -> generation -> edition)\n"
         f"History: {' -> '.join(edited.history + [edited.operation])}\n"
         f"Segments: {len(edited.transcript_segments)}\n"
         f"Context: {ctx_path}\n"

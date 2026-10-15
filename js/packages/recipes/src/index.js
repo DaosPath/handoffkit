@@ -398,7 +398,7 @@ function buildStepTask(step, initialTask, previousOutput, index) {
 
 export const SAFETY_NOTE = "Research-only orchestration demo. Not medical advice, not clinical validation, and not for patient care.";
 export const DEFAULT_FUSION_TASK = "Design a next-pass strategy for a research-only clinical benchmark that scored 233/400 with MiMo. Improve reliability without using gold labels or making clinical claims.";
-export const DEFAULT_FUSION_MODELS = "mimo-v2.5,deepseek-v4-pro,glm-5.2,qwen3.7-max";
+export const DEFAULT_FUSION_MODELS = "deepseek-v4.1-flash,deepseek-v4-pro,glm-5.3,qwen3.8-max";
 
 export class PanelResponse {
   constructor({ model, role, answer, strengths = [], risks = [], confidence = "medium" } = {}) {
@@ -519,7 +519,7 @@ export function splitModels(value) {
 export function offlineFusionPanel(task = DEFAULT_FUSION_TASK) {
   return [
     new PanelResponse({
-      model: "mimo-v2.5/offline",
+      model: "deepseek-v4.1-flash/offline",
       role: "broad diagnostician",
       answer: "Use a domain router before expensive reasoning: pathology, infection, endocrine/electrolyte, neuro, drug reaction, and rare syndrome.",
       strengths: ["broad recall", "cheap first pass", "good label variety"],
@@ -535,7 +535,7 @@ export function offlineFusionPanel(task = DEFAULT_FUSION_TASK) {
       confidence: "medium-high",
     }),
     new PanelResponse({
-      model: "glm-5.2/offline",
+      model: "glm-5.3/offline",
       role: "adversarial reviewer",
       answer: "Run rescue only on low-confidence or disagreement cases. Generic reruns waste budget and did not move the score enough.",
       strengths: ["skeptical review", "cost control"],
@@ -543,7 +543,7 @@ export function offlineFusionPanel(task = DEFAULT_FUSION_TASK) {
       confidence: "high",
     }),
     new PanelResponse({
-      model: "qwen3.7-max/offline",
+      model: "qwen3.8-max/offline",
       role: "retrieval planner",
       answer: "Generate 3-5 retrieval queries per case, then build a compact evidence packet before the panel votes.",
       strengths: ["query planning", "structured extraction"],

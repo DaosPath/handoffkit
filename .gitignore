@@ -14,6 +14,7 @@ packages/contracts/test-fixtures/**/*.pem
 packages/contracts/test-fixtures/**/*.key
 packages/contracts/test-fixtures/**/*.p12
 packages/contracts/test-fixtures/**/*.pfx
+secrets/
 .build-tmp/
 .build-artifacts/
 .build-noiso/

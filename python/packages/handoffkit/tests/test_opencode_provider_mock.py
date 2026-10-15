@@ -89,6 +89,81 @@ def test_opencode_go_open_models_use_chat_completions(monkeypatch) -> None:  # t
     assert payload["temperature"] == 0
 
 
+def _headers_lower(request: urllib.request.Request) -> dict[str, str]:
+    return {key.lower(): value for key, value in request.headers.items()}
+
+
+def test_opencode_go_sends_session_header(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """The live Go endpoint rejects requests without x-opencode-session."""
+    captured: dict[str, str] = {}
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> FakeResponse:
+        captured.update(_headers_lower(request))
+        return FakeResponse({"choices": [{"message": {"content": "ok"}}]})
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    provider = OpenCodeGoProvider(model="deepseek-v4.1-flash", api_key="test-secret")
+    assert provider.generate("hi") == "ok"
+
+    assert captured["x-opencode-session"] == provider.session_id
+    assert captured["x-opencode-session"]
+    assert captured["x-opencode-session"] != "test-secret"
+
+
+def test_opencode_session_id_from_env(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("OPENCODE_SESSION_ID", "session-from-env")
+    captured: dict[str, str] = {}
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> FakeResponse:
+        captured.update(_headers_lower(request))
+        return FakeResponse({"choices": [{"message": {"content": "ok"}}]})
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    OpenCodeGoProvider(model="deepseek-v4-flash", api_key="test-secret").generate("hi")
+    assert captured["x-opencode-session"] == "session-from-env"
+
+
+def test_opencode_session_id_argument_wins(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("OPENCODE_SESSION_ID", "session-from-env")
+    captured: dict[str, str] = {}
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> FakeResponse:
+        captured.update(_headers_lower(request))
+        return FakeResponse({"choices": [{"message": {"content": "ok"}}]})
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    OpenCodeGoProvider(
+        model="deepseek-v4-flash", api_key="test-secret", session_id="explicit-session"
+    ).generate("hi")
+    assert captured["x-opencode-session"] == "explicit-session"
+
+
+def test_opencode_session_ids_are_unique_per_instance(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.delenv("OPENCODE_SESSION_ID", raising=False)
+    first = OpenCodeGoProvider(model="deepseek-v4-flash", api_key="test-secret")
+    second = OpenCodeGoProvider(model="deepseek-v4-flash", api_key="test-secret")
+    assert first.session_id != second.session_id
+
+
+def test_opencode_session_header_on_messages_style(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Anthropic-style models must carry the session header too."""
+    captured: dict[str, str] = {}
+
+    def fake_urlopen(request: urllib.request.Request, timeout: float) -> FakeResponse:
+        captured.update(_headers_lower(request))
+        return FakeResponse({"content": [{"type": "text", "text": "ok"}]})
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    provider = OpenCodeGoProvider(model="qwen3.7-max", api_key="test-secret")
+    assert provider.api_style == "anthropic_messages"
+    provider.generate("hi")
+    assert captured["x-opencode-session"] == provider.session_id
+
+
 def test_opencode_go_qwen_uses_messages_endpoint(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     captured: dict[str, object] = {}
 
