@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { makeFixtureMapTransport } from "../src/index.js";
 import { webSearch } from "../src/search.js";
-import { PROVIDER_ALIASES } from "@handoffkit/browser-core";
+import { PROVIDER_ALIASES } from "../src/core/index.js";
 
 const SEARX_BODY = JSON.stringify({
   query: "OpenAI",
@@ -16,7 +16,7 @@ const SEARX_BODY = JSON.stringify({
   unresponsive_engines: [],
 });
 
-test("searxng aliases are registered in browser-core", () => {
+test("searxng aliases are registered in browser core contracts", () => {
   assert.equal(PROVIDER_ALIASES.sx, "searxng");
   assert.equal(PROVIDER_ALIASES.dodo, "searxng");
 });

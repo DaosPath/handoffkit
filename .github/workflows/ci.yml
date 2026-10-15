@@ -180,8 +180,6 @@ jobs:
         shell: bash
         run: |
           pnpm --dir js/packages/browser test
-          pnpm --dir js/packages/browser-core test
-          pnpm --dir js/packages/browser-lite test
           pnpm --dir js/packages/clinical test
 
       - name: Produce per-runner package checksums

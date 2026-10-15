@@ -24,8 +24,7 @@ The 1.20 Browser Platform packages below are in development
 
 | Package | Directory | Description |
 |---|---|---|
-| [`@handoffkit/browser-core`](./browser-core) | `js/packages/browser-core` | I/O-free Browser Core wire contracts. |
-| [`@handoffkit/browser-lite`](./browser-lite) | `js/packages/browser-lite` | Named Lite product (re-exports the `@handoffkit/browser` HTTP implementation). |
+| [`@handoffkit/browser/core`](./browser#core-contracts-handoffkitbrowsercore) | `js/packages/browser/src/core` | I/O-free Browser Core wire contracts, shipped as a subpath export of `@handoffkit/browser` (the Lite product). |
 | [`@handoffkit/browser-real`](./browser-real) | `js/packages/browser-real` | Supervised Browser Real service (explicitly installed headless Chromium). |
 | [`@handoffkit/clinical`](./clinical) | `js/packages/clinical` | Experimental Clinical Sequential Reasoning Lab contracts and client; not clinically validated. |
 

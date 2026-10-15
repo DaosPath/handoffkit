@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { ResearchClaim, PageSnapshot } from "@handoffkit/browser-core";
+import { ResearchClaim, PageSnapshot } from "./core/index.js";
 
 export function sha256Utf8(text) {
   return createHash("sha256").update(String(text ?? ""), "utf8").digest("hex");

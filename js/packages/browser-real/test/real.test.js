@@ -5,7 +5,7 @@ import test from "node:test";
 import {
   BrowserCoreError,
   BrowserPolicy,
-} from "@handoffkit/browser-core";
+} from "@handoffkit/browser/core";
 import {
   BrowserRealClient,
   BrowserRealService,

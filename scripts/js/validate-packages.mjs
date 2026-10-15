@@ -10,9 +10,7 @@ const packageNames = [
   "csp",
   "providers",
   "node",
-  "browser-core",
   "browser",
-  "browser-lite",
   "browser-real",
   "clinical",
   "recipes",
@@ -87,7 +85,10 @@ for (const short of packageNames) {
         throw new Error(`${manifest.name}: tarball contains link ${entry.name} -> ${entry.linkname}`);
       }
     }
-    for (const required of ["package.json", "README.md", "src/index.js", "src/index.d.ts"]) {
+    const exportTargets = Object.values(manifest.exports ?? {}).flatMap((entry) =>
+      ["types", "import", "default"].map((key) => entry?.[key]).filter(Boolean).map((target) => target.replace(/^\.\//, "")),
+    );
+    for (const required of new Set(["package.json", "README.md", "src/index.js", "src/index.d.ts", ...exportTargets])) {
       const entry = files.get(required);
       if (!entry) throw new Error(`${manifest.name}: tarball missing ${required}`);
       if (entry.size === 0) throw new Error(`${manifest.name}: tarball contains empty ${required}`);

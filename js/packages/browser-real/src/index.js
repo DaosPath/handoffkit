@@ -1,4 +1,4 @@
-export { HANDOFFKIT_BROWSER_CORE_VERSION } from "@handoffkit/browser-core";
+export { HANDOFFKIT_BROWSER_CORE_VERSION } from "@handoffkit/browser/core";
 
 export const HANDOFFKIT_BROWSER_REAL_VERSION = "1.20.0";
 

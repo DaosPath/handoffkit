@@ -17,10 +17,19 @@ of `reports/BROWSER_1.20_SCORECARD.md` scores at least 9/10 on real binary
 gates, backed by a hosted five-architecture CI matrix (Windows x64, Linux
 x64/ARM64, macOS x64/ARM64), per-architecture package checksums, and evidence
 refreshed on this tree. Python `handoffkit==1.20.0` is `Production/Stable`; the
-JS packages, including the new `@handoffkit/browser-core`, `browser-lite`,
-`browser-real`, and `clinical`, the Rust workspace, and C++ ship at 1.20.0. The
-Browser Core wire `contract_version` stays `1.20.0-alpha.1`. Model-answer
-accuracy and clinical validity are not claimed.
+JS packages, including `@handoffkit/browser` (Lite) with its new
+`@handoffkit/browser/core` contracts subpath and the new `@handoffkit/browser-real`
+and `@handoffkit/clinical` packages (10 npm packages in total), the Rust
+workspace, and C++ ship at 1.20.0. The Browser Core wire `contract_version`
+stays `1.20.0-alpha.1`. Model-answer accuracy and clinical validity are not
+claimed.
+
+### Changed
+
+- Before first publication, the in-tree `@handoffkit/browser-core` package
+  became the `@handoffkit/browser/core` subpath export of `@handoffkit/browser`,
+  and the `@handoffkit/browser-lite` alias was folded into `@handoffkit/browser`
+  (which is the Lite product). Neither name is published to npm.
 
 ### Added
 
@@ -32,9 +41,9 @@ accuracy and clinical validity are not claimed.
   `gold_replay` is an immutable recorded fixture only. Status: experimental /
   research and education only / not clinically validated.
 
-- Browser Core I/O-free contracts (`@handoffkit/browser-core` and Python/Rust/Go/C++
+- Browser Core I/O-free contracts (`@handoffkit/browser/core` and Python/Rust/Go/C++
   equivalents) with golden vectors at `shared/contracts/conformance/browser-core-v1.json`.
-- Named Lite/Real packages: `@handoffkit/browser-lite` (facade re-export) and
+- Lite/Real split: `@handoffkit/browser` (Lite) and
   `@handoffkit/browser-real` (supervised Playwright service, Chromium only via
   explicit `install-chromium`). `@handoffkit/browser` never imports Real.
 - Search `provider_trace`, `fallback_reason`, `strict_provider`, and opt-in

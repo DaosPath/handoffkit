@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
-const packageNames = ["core", "csp", "providers", "node", "browser", "browser-core", "browser-lite", "browser-real", "clinical", "recipes", "templates", "cli"];
+const packageNames = ["core", "csp", "providers", "node", "browser", "browser-real", "clinical", "recipes", "templates", "cli"];
 const manifests = [];
 
 function fail(message) {
@@ -44,6 +44,20 @@ for (const { short, packageRoot, manifest } of manifests) {
     const info = await stat(path.resolve(packageRoot, target));
     if (!info.isFile()) fail(`${manifest.name}: missing entrypoint ${target}`);
   }
+  for (const [subpath, entry] of Object.entries(manifest.exports ?? {})) {
+    if (subpath === ".") continue;
+    for (const key of ["types", "import", "default"]) {
+      const target = entry?.[key];
+      if (!target) fail(`${manifest.name}: exports["${subpath}"].${key} is required`);
+      const info = await stat(path.resolve(packageRoot, target));
+      if (!info.isFile()) fail(`${manifest.name}: missing entrypoint ${target}`);
+    }
+    const subModule = await import(`${pathToFileURL(path.resolve(packageRoot, entry.import)).href}?validate=${Date.now()}`);
+    if (Object.keys(subModule).length === 0) fail(`${manifest.name}${subpath.slice(1)}: entrypoint has no exports`);
+    if (short === "browser" && subpath === "./core" && subModule.HANDOFFKIT_BROWSER_CORE_VERSION !== manifest.version) {
+      fail(`${manifest.name}/core: runtime version ${subModule.HANDOFFKIT_BROWSER_CORE_VERSION} does not match manifest ${manifest.version}`);
+    }
+  }
   const module = await import(`${pathToFileURL(path.resolve(packageRoot, manifest.exports["."].import)).href}?validate=${Date.now()}`);
   if (Object.keys(module).length === 0) fail(`${manifest.name}: public entrypoint has no exports`);
   const runtimeVersion = short === "core"
@@ -52,8 +66,8 @@ for (const { short, packageRoot, manifest } of manifests) {
       ? module.HANDOFFKIT_CSP_VERSION
     : short === "providers"
       ? module.HANDOFFKIT_PROVIDERS_VERSION
-    : short === "browser-core"
-      ? module.HANDOFFKIT_BROWSER_CORE_VERSION
+    : short === "browser"
+      ? module.HANDOFFKIT_BROWSER_VERSION
     : short === "browser-real"
       ? module.HANDOFFKIT_BROWSER_REAL_VERSION
     : short === "clinical"

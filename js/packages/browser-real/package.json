@@ -33,7 +33,6 @@
   },
   "dependencies": {
     "@handoffkit/browser": "workspace:*",
-    "@handoffkit/browser-core": "workspace:*",
     "@handoffkit/csp": "workspace:*",
     "@handoffkit/node": "workspace:*"
   },

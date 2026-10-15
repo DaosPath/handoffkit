@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync, lstatSync, readFileSync, chmodSync } from "node:fs";
 import path from "node:path";
 
-import { BrowserCoreError } from "@handoffkit/browser-core";
+import { BrowserCoreError } from "@handoffkit/browser/core";
 
 export const PROFILE_MARKER = "handoffkit.browser.profile";
 export const PROFILE_MARKER_VERSION = 1;

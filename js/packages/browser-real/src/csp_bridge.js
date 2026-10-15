@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
 import { makeEnvelope, MessageEnvelope, normalizeFingerprint, ReplayDetectedError } from "@handoffkit/csp";
-import { BrowserCommand, BrowserCoreError, BrowserEvent } from "@handoffkit/browser-core";
+import { BrowserCommand, BrowserCoreError, BrowserEvent } from "@handoffkit/browser/core";
 
 export const BROWSER_CONTROL_CHANNEL = "browser.control";
 export const BROWSER_CONTROL_OPERATION = "browser:control";

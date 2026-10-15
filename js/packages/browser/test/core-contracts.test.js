@@ -16,7 +16,7 @@ import {
   parseCoreModel,
   redactSensitive,
   classifyNetworkTarget,
-} from "../src/index.js";
+} from "../src/core/index.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
 const vectors = JSON.parse(
@@ -48,12 +48,32 @@ test("package version matches runtime constant", async () => {
 });
 
 test("core sources do not import I/O", async () => {
-  const srcRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
+  const srcRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "core");
   const files = await readdir(srcRoot);
   const joined = (
     await Promise.all(files.filter((name) => name.endsWith(".js")).map((name) => readFile(join(srcRoot, name), "utf8")))
   ).join("\n");
   assert.doesNotMatch(joined, /node:fs|node:net|node:http|node:https|playwright|child_process|better-sqlite3|node:sqlite/);
+});
+
+test("core subpath is self-contained and browser-safe", async () => {
+  const srcRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "core");
+  const files = (await readdir(srcRoot)).filter((name) => name.endsWith(".js") || name.endsWith(".d.ts"));
+  for (const name of files) {
+    const source = await readFile(join(srcRoot, name), "utf8");
+    const specifiers = [...source.matchAll(/(?:from|import)\s*\(?\s*["']([^"']+)["']/g)].map((match) => match[1]);
+    for (const specifier of specifiers) {
+      assert.match(specifier, /^\.\/[^/]+\.js$/, `${name} imports ${specifier}; core may only import sibling core modules`);
+    }
+    assert.doesNotMatch(source, /\bfetch\s*\(/, `${name} must not perform fetch I/O`);
+  }
+});
+
+test("@handoffkit/browser/core subpath export resolves to the same module", async () => {
+  const viaExport = await import("@handoffkit/browser/core");
+  const viaPath = await import("../src/core/index.js");
+  assert.equal(viaExport.BrowserPolicy, viaPath.BrowserPolicy);
+  assert.equal(viaExport.HANDOFFKIT_BROWSER_CORE_VERSION, "1.20.0");
 });
 
 for (const [key, modelName] of Object.entries(MODEL_FILES)) {

@@ -122,32 +122,15 @@ importers:
 
   js/packages/browser:
     dependencies:
-      '@handoffkit/browser-core':
-        specifier: workspace:*
-        version: link:../browser-core
       '@handoffkit/core':
         specifier: workspace:*
         version: link:../core
-
-  js/packages/browser-core: {}
-
-  js/packages/browser-lite:
-    dependencies:
-      '@handoffkit/browser':
-        specifier: workspace:*
-        version: link:../browser
-      '@handoffkit/browser-core':
-        specifier: workspace:*
-        version: link:../browser-core
 
   js/packages/browser-real:
     dependencies:
       '@handoffkit/browser':
         specifier: workspace:*
         version: link:../browser
-      '@handoffkit/browser-core':
-        specifier: workspace:*
-        version: link:../browser-core
       '@handoffkit/csp':
         specifier: workspace:*
         version: link:../csp

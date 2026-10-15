@@ -1,7 +1,7 @@
 import dns from "node:dns/promises";
 import net from "node:net";
 
-import { BrowserCoreError, classifyNetworkTarget } from "@handoffkit/browser-core";
+import { BrowserCoreError, classifyNetworkTarget } from "@handoffkit/browser/core";
 
 const BLOCKED_KINDS = new Set(["loopback", "private", "invalid", "filesystem"]);
 

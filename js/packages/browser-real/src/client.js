@@ -1,4 +1,4 @@
-import { BrowserCommand, BrowserEvent, BrowserCoreError } from "@handoffkit/browser-core";
+import { BrowserCommand, BrowserEvent, BrowserCoreError } from "@handoffkit/browser/core";
 import { normalizeFingerprint } from "@handoffkit/csp";
 import {
   wrapCommandEnvelope,

@@ -9,7 +9,8 @@ Chromium is **not** installed as a hidden postinstall. Install it explicitly:
 pnpm --dir js/packages/browser-real run install-chromium
 ```
 
-The service speaks Browser Core commands/events over the existing Node TLS 1.3
+The service speaks Browser Core commands/events (models from
+`@handoffkit/browser/core`) over the existing Node TLS 1.3
 mTLS transport. The CLI requires `HANDOFFKIT_BROWSER_REAL_CONFIG` (endpoint,
 CA/cert/key, trust domain, fingerprint grants, replay/state stores, artifact
 root, profile root, policy). Without a valid file it exits; it never opens an

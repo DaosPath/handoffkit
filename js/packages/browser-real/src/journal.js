@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-import { BrowserCoreError } from "@handoffkit/browser-core";
+import { BrowserCoreError } from "@handoffkit/browser/core";
 
 const FORMAT = "handoffkit.browser.session-journal";
 const VERSION = 1;

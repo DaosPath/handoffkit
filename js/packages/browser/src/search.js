@@ -1,4 +1,4 @@
-import { PLATFORM_SEARCH_PROVIDERS, normalizeProviderName } from "@handoffkit/browser-core";
+import { PLATFORM_SEARCH_PROVIDERS, normalizeProviderName } from "./core/index.js";
 import { TransportRequest, defaultTransport } from "./transport.js";
 import { rankSearchHits } from "./rank.js";
 import { decodeHtmlEntities, scanHrefAnchors } from "./html_extract.js";

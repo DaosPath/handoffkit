@@ -16,6 +16,11 @@
       "types": "./src/index.d.ts",
       "import": "./src/index.js",
       "default": "./src/index.js"
+    },
+    "./core": {
+      "types": "./src/core/index.d.ts",
+      "import": "./src/core/index.js",
+      "default": "./src/core/index.js"
     }
   },
   "files": [
@@ -29,7 +34,6 @@
     "prepack": "pnpm run check && pnpm run test"
   },
   "dependencies": {
-    "@handoffkit/browser-core": "workspace:*",
     "@handoffkit/core": "workspace:*"
   },
   "engines": {

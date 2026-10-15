@@ -24,13 +24,13 @@ export class ChromiumSupervisor {
   async attachPlaywright() {
     if (this.engineOverride) return null;
     if (nodeMajor() < 24) {
-      const { BrowserCoreError } = await import("@handoffkit/browser-core");
+      const { BrowserCoreError } = await import("@handoffkit/browser/core");
       throw new BrowserCoreError("Browser Real requires Node.js 24+", { code: "engine_unsupported" });
     }
     try {
       return await import("playwright");
     } catch {
-      const { BrowserCoreError } = await import("@handoffkit/browser-core");
+      const { BrowserCoreError } = await import("@handoffkit/browser/core");
       throw new BrowserCoreError("Playwright/Chromium is not installed. Run install-chromium explicitly.", {
         code: "engine_unsupported",
       });

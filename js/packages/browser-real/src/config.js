@@ -1,7 +1,7 @@
 import { readFileSync, lstatSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
-import { BrowserCoreError, BrowserPolicy } from "@handoffkit/browser-core";
+import { BrowserCoreError, BrowserPolicy } from "@handoffkit/browser/core";
 
 export const CONFIG_ENV = "HANDOFFKIT_BROWSER_REAL_CONFIG";
 

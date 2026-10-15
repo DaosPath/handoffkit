@@ -14,7 +14,7 @@ import {
   BrowserSessionRequest,
   BrowserSessionState,
   redactSensitive,
-} from "@handoffkit/browser-core";
+} from "@handoffkit/browser/core";
 import { normalizeFingerprint, ReplayProtection } from "@handoffkit/csp";
 
 import { ArtifactStore } from "./artifacts.js";

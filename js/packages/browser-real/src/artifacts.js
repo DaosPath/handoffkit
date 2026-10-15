@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-import { BrowserCoreError } from "@handoffkit/browser-core";
+import { BrowserCoreError } from "@handoffkit/browser/core";
 
 const DEFAULT_RETENTION_MS = 24 * 60 * 60 * 1000;
 const MAX_SCREENSHOT_PREVIEW = 512 * 1024;

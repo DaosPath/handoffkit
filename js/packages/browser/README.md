@@ -198,6 +198,39 @@ offscreen document, or equivalent background bridge. If that bridge is not
 available, use the default HTTP transport for background research or fail
 closed with `user_browser_bridge_required`.
 
+## Core contracts (`@handoffkit/browser/core`)
+
+`@handoffkit/browser/core` is the I/O-free Browser Core contract layer for
+HandoffKit 1.20. It contains canonical `snake_case` wire models only: it does
+not fetch HTTP, open sockets, launch Chromium, import `node:` modules, or
+advertise engine capabilities, so it is safe to bundle for browsers. It ships
+inside this package (no extra install) and never imports
+`@handoffkit/browser-real`.
+
+```js
+import { BrowserPolicy, SearchRequest, CONTRACT_VERSION } from "@handoffkit/browser/core";
+```
+
+Models:
+
+- `BrowserCapabilities`
+- `BrowserPolicy`
+- `BrowserSessionRequest` / `BrowserSessionState`
+- `BrowserCommand` / `BrowserEvent`
+- `SearchRequest` / `SearchResult`
+- `ResearchJob` / `ResearchProgress` / `ResearchResult`
+- `PageSnapshot`
+- `DocumentRecord`
+- `ProviderTrace`
+- `BrowserError`
+
+Every model includes `contract_version` where it is a top-level envelope, plus
+request/command/session identifiers and timestamps when they apply.
+
+Golden vectors live in `shared/contracts/conformance/browser-core-v1.json`.
+Round-trip equality is required across JavaScript, Python
+(`handoffkit.browser.core`), Rust, Go, and C++.
+
 ## Python parity
 
 ```python

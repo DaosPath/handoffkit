@@ -224,8 +224,8 @@ these packages are not published to registries yet and are not part of the
 
 | Package | Role |
 |---|---|
-| `@handoffkit/browser-core` | I/O-free contracts and wire models (matching models in Python, Rust, Go, C++) |
-| `@handoffkit/browser` / `@handoffkit/browser-lite` | Background HTTP research: search providers, bounded crawl, HTML → Markdown, citations, cache. Never launches a browser and never imports Real |
+| `@handoffkit/browser` (Lite) | Background HTTP research: search providers, bounded crawl, HTML → Markdown, citations, cache. Never launches a browser and never imports Real |
+| `@handoffkit/browser/core` | Subpath of `@handoffkit/browser`: I/O-free contracts and wire models (matching models in Python, Rust, Go, C++) |
 | `@handoffkit/browser-real` | Supervised headless Chromium service (Node 24+) over TLS 1.3 mTLS; CAPTCHAs surface as `provider_challenge`, never bypassed |
 
 Search providers are explicit and every attempt is recorded in a provider
@@ -348,7 +348,7 @@ handoffkit/
 ├── shared/contracts/   shared schemas and cross-runtime fixtures
 ├── python/packages/    production Python runtime and CLI (handoffkit, handoffkit-localize)
 ├── js/packages/        core, CSP, node, providers, recipes, templates, CLI,
-│                       browser-core / browser(-lite) / browser-real, clinical
+│                       browser (+ browser/core) / browser-real, clinical
 ├── rust/               Rust contracts/protocol/runtime/transport workspace and CLI
 ├── go/handoffkit/      Go HK-CSP runtime, TLS transport, and worker
 ├── cpp/packages/       native C++20 runtime (handoffkit), CLI, tools, Fusion, handoffkit-ml

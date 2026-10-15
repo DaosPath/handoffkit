@@ -40,12 +40,14 @@ for (const file of files.sort()) {
   }
 }
 
-const publicExport = manifest.exports?.["."];
-for (const key of ["types", "import", "default"]) {
-  const target = publicExport?.[key];
-  if (!target) throw new Error(`${manifest.name}: exports[\".\"].${key} is required`);
-  const info = await stat(path.resolve(root, target));
-  if (!info.isFile()) throw new Error(`${manifest.name}: export target is not a file: ${target}`);
+if (!manifest.exports?.["."]) throw new Error(`${manifest.name}: exports[\".\"] is required`);
+for (const [subpath, publicExport] of Object.entries(manifest.exports)) {
+  for (const key of ["types", "import", "default"]) {
+    const target = publicExport?.[key];
+    if (!target) throw new Error(`${manifest.name}: exports[\"${subpath}\"].${key} is required`);
+    const info = await stat(path.resolve(root, target));
+    if (!info.isFile()) throw new Error(`${manifest.name}: export target is not a file: ${target}`);
+  }
 }
 
 for (const [name, target] of Object.entries(manifest.bin ?? {})) {

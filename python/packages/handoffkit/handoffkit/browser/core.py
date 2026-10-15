@@ -231,7 +231,7 @@ def _has_http_userinfo(text: str) -> bool:
 
     The regex form is polynomial on inputs like ``"http://:::::"``. True when
     some ``@`` in the authority (text up to the first ``/``) has a ``:`` after
-    the previous ``@``. Mirrors ``hasHttpUserinfo`` in browser-core ``wire.js``.
+    the previous ``@``. Mirrors ``hasHttpUserinfo`` in ``js/packages/browser/src/core/wire.js``.
     """
     scheme = _HTTP_SCHEME_RE.match(text)
     if not scheme:
@@ -253,7 +253,7 @@ def _redact_userinfo(text: str) -> str:
     """Linear-time equivalent of
     ``re.sub(r"//([^/@]+):([^/@]*)@", "//[redacted]:[redacted]@", text)``.
 
-    Mirrors ``redactUserinfo`` in browser-core ``wire.js``.
+    Mirrors ``redactUserinfo`` in ``js/packages/browser/src/core/wire.js``.
     """
     out: list[str] = []
     last = 0
