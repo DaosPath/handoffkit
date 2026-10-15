@@ -74,7 +74,7 @@ def init_project_interactive(
         selected_template = inp_tmpl
 
     provider = input("LLM Provider (openai/nvidia/groq/ollama/echo) [openai]: ").strip() or "openai"
-    api_key_env = "" if provider in ("echo", "ollama") else f"{provider.upper()}_API_KEY"
+    credential_env_var = "" if provider in ("echo", "ollama") else f"{provider.upper()}_API_KEY"
 
     scaffolder = TemplateScaffolder()
     target_dir = Path(output) / name
@@ -86,7 +86,7 @@ def init_project_interactive(
     )
     rendered = result.to_markdown()
 
-    if api_key_env:
+    if credential_env_var:
         # Make sure a later `handoffkit keys set` never ends up in git.
         gitignore_path = target_dir / ".gitignore"
         if gitignore_path.exists():
@@ -105,16 +105,16 @@ def init_project_interactive(
     else:
         model = "default"
     config: dict[str, str] = {"provider": provider, "model": model}
-    if api_key_env:
-        config["api_key_env"] = api_key_env
+    if credential_env_var:
+        config["api_key_env"] = credential_env_var
     config_path = target_dir / "handoff.config.json"
     config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
     rendered += f"\n## Next Commands\n\ncd {name}\nConfigured provider: {provider}\n"
-    if api_key_env:
+    if credential_env_var:
         rendered += (
-            f"Set {api_key_env} in your environment "
-            f"(or run `handoffkit keys set {api_key_env} <value>` to store it in .env)\n"
+            f"Set {credential_env_var} in your environment "
+            f"(or run `handoffkit keys set {credential_env_var} <value>` to store it in .env)\n"
         )
     else:
         rendered += "No API key required\n"
