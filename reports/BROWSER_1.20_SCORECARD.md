@@ -71,8 +71,8 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 5 | Contradiction detector exists | pass |
 | 6 | Zero invented citations in Core parse | pass |
 | 7 | ≥30-question live corpus exists | pass (packages/contracts/conformance/browser-grounding-live-v1.json (30 expiring HTTPS sources)) |
-| 8 | Live fetched-evidence oracle fact coverage ≥90% | pass (reports/BROWSER_1.20_GROUNDING_LIVE.json: 30/30 pages, factual_accuracy=1.0; model_accuracy_measured=false) |
-| 9 | Citation entailment ≥95% on live pages | pass (reports/BROWSER_1.20_GROUNDING_LIVE.json: citation_entailment=1.0, direct_claims_with_evidence=1.0, invented_citations=0) |
+| 8 | Live fetched-evidence oracle fact coverage ≥90% | pass (refreshed 2026-10-15 on the current tree: reports/BROWSER_1.20_GROUNDING_LIVE.json run 20261015064128, corpus re-verified (30/30 sources HTTP 200 with facts) and renewed to expires_at 2026-11-15: 30/30 pages, factual_accuracy=1.0; model_accuracy_measured=false) |
+| 9 | Citation entailment ≥95% on live pages | pass (refreshed 2026-10-15 on the current tree: run 20261015064128: citation_entailment=1.0, direct_claims_with_evidence=1.0, invented_citations=0) |
 | 10 | Draco is additional, not sole evidence | pass |
 
 ## Stability (current: 10/10)
@@ -101,8 +101,8 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 5 | Operator Chrome/Edge/Firefox profile refused | pass |
 | 6 | CAPTCHA → provider_challenge | pass (fake-engine unit test) |
 | 7 | Capabilities advertised only after probe via live getter | pass (startBrowserRealService getter; not a pre-probe snapshot) |
-| 8 | Full Playwright op matrix | pass (HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 playwright.test.js: SPA/cross-origin frame/shadow/forms/popup/history/PDF/screenshot/download/deadline plus owned Chromium process kill, session.interrupted, fresh launch, and URL revalidation) |
-| 9 | TLS 1.3/mTLS listen on Node transport | pass (HANDOFFKIT_BROWSER_REAL_TLS=1 HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 pnpm --dir packages/js/browser-real test: 15 pass / 8480ms; session.start/status, message_id correlation, SAN/fingerprint, replay_detected, javascript_denied+capability_denied, rogue CA, ownedPids=0, handle.close 2ms) |
+| 8 | Full Playwright op matrix | pass (refreshed 2026-10-15 on the current tree: HANDOFFKIT_BROWSER_REAL_TLS=1 HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 pnpm --dir js/packages/browser-real test: 29/29 pass with real Chromium (SPA/frames/shadow/forms/popup/history/PDF/screenshot/download/deadline, process kill → session.interrupted → session.retry)) |
+| 9 | TLS 1.3/mTLS listen on Node transport | pass (refreshed 2026-10-15 on the current tree: same run, TLS 1.3/mTLS listen, SAN/fingerprint, replay_detected, capability_denied, rogue CA rejected, ownedPids=0) |
 | 10 | Hermes does not host Chromium | pass |
 
 ## Security (current: 9/10)
@@ -130,9 +130,9 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 4 | Go | pass |
 | 5 | C++ | pass |
 | 6 | snake_case wire | pass |
-| 7 | Real TLS clients in five runtimes | pass (reports/BROWSER_1.20_CPP_TCP_INTEROP.json: independent Python/Node/Go/Rust clients reached the C++ worker and an independent C++ client reached Python/Node/Go/Rust servers; every route negotiated TLSv1.3/mTLS) |
+| 7 | Real TLS clients in five runtimes | pass (hosted CI run 38689007836 @ e5320ab: Linux ARM64 edge and macOS ARM64 qualification jobs run cpp/packages/handoffkit-ml/tests/interop/test_tcp_interoperability.py (Python/Node/Go/Rust clients ↔ C++ worker and C++ client ↔ Python/Node/Go/Rust servers, all TLSv1.3/mTLS); local reference reports/BROWSER_1.20_CPP_TCP_INTEROP.json) |
 | 8 | Lite search traces JS/Python/C++ | pass |
-| 9 | Live JS↔native sockets for Real | pass (reports/BROWSER_1.20_BROWSER_REAL_CPP_INTEROP.json: C++ BrowserRealTlsClient reached Node BrowserRealService over TCP TLS 1.3 + mTLS; C++ verified response correlation, peer identity, transcript, operation, sequence and nonce replay; session.started + session.status) |
+| 9 | Live JS↔native sockets for Real | pass (refreshed 2026-10-15 on the current tree: reports/BROWSER_1.20_BROWSER_REAL_CPP_INTEROP.json: C++ test_browser_real_tls (HANDOFFKIT_WITH_TLS=ON, CRYPTO=ON) reached Node BrowserRealService over TCP TLS 1.3 + mTLS; authenticated peer, response replay checked by C++; status=pass) |
 | 10 | ResearchPack v2 golden round-trip in all five | pass |
 
 ## UX (current: 10/10)
@@ -145,10 +145,10 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 4 | Keyboard-focusable controls (44px target) | pass |
 | 5 | Reduced motion | pass |
 | 6 | aria-live loading/success/error | pass (BrowserInspectorClient) |
-| 7 | WCAG 2.2 AA audit | pass (reports/BROWSER_1.20_STUDIO_ACCESSIBILITY.json: axe-core 4.12.1 at 375/768/1024/1440, zero violations and keyboard/landmark checks pass) |
-| 8 | 375/768/1024/1440 visual QA | pass (node scripts/js/studio-visual-qa.mjs: real Chromium screenshots/status 200 at 375/768/1024/1440, all controls labelled and at least 44px; .local-tests/studio-visual-qa/report.json; local visual smoke only, not a formal WCAG audit) |
+| 7 | WCAG 2.2 AA audit | pass (refreshed 2026-10-15 on the current tree: node scripts/js/studio-accessibility-audit.mjs against a production Studio build (next start): axe-core zero violations at 375/768/1024/1440; reports/BROWSER_1.20_STUDIO_ACCESSIBILITY.json) |
+| 8 | 375/768/1024/1440 visual QA | pass (refreshed 2026-10-15 on the current tree: node scripts/js/studio-visual-qa.mjs against the production Studio build: HTTP 200 and labelled ≥44px controls at 375/768/1024/1440; .local-tests/studio-visual-qa/report.json (local visual smoke, not a formal WCAG audit)) |
 | 9 | Authorized screenshot only with MIME/size/hash | pass (verifyAuthorizedScreenshot) |
-| 10 | Pause/resume/retry drive Real TLS | pass (reports/BROWSER_1.20_STUDIO_REAL_INTEROP.json: Studio API POST route drives pause/resume/cancel/retry over TCP TLS 1.3 + mTLS; all correlated events HTTP 200) |
+| 10 | Pause/resume/retry drive Real TLS | pass (refreshed 2026-10-15 on the current tree: reports/BROWSER_1.20_STUDIO_REAL_INTEROP.json: Studio API drives pause/resume/cancel/retry over TCP TLS 1.3 + mTLS, authenticated peer; status=pass) |
 
 ## Performance / packaging (current: 10/10)
 
@@ -157,8 +157,8 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 1 | pnpm-only JS workspace | pass |
 | 2 | Explicit Chromium install command | pass |
 | 3 | CI matrix Win x64, Linux x64/ARM64, macOS x64/ARM64 | pass (hosted CI run 38689007836 @ e5320ab: Browser 1.20 job green on windows-latest (win32/x64), ubuntu-latest (linux/x64), ubuntu-24.04-arm (linux/arm64), macos-15-intel (darwin/x64), macos-14 (darwin/arm64)) |
-| 4 | Cold/hot startup archived | pass (node scripts/js/browser-real-bench.mjs: reports/BROWSER_1.20_REAL_BENCH.json contains 3 cold startups and 20 real Chromium navigations on win32/x64) |
-| 5 | Navigation p50/p95/p99 | pass (BROWSER_1.20_REAL_BENCH.json records hot navigation p50=9.468ms, p95=20.567ms, p99=94.496ms; environmental measurement only) |
+| 4 | Cold/hot startup archived | pass (refreshed 2026-10-15 on the current tree: node scripts/js/browser-real-bench.mjs: reports/BROWSER_1.20_REAL_BENCH.json, cold startups + 20 real Chromium navigations on win32/x64, orphan_processes_observed=0) |
+| 5 | Navigation p50/p95/p99 | pass (refreshed 2026-10-15 on the current tree: hot navigation p50=9.329ms, p95=11.579ms, p99=50.963ms (win32/x64; environmental measurement only)) |
 | 6 | DOM/Markdown extract benchmarks | pass (Lite only) |
 | 7 | Index query/ingest benchmarks | pass (Lite only) |
 | 8 | Clean Core/Lite/Real tarball smoke | pass (pnpm run js:pack:check: all 12 JS tarballs contain required files, no links, and stay within the packaging limits; clean-tarball-consumer-smoke imports all 12) |
@@ -170,10 +170,10 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | Cut | Status |
 |---|---|
 | alpha.1 Core + Lite | in tree, still beta |
-| alpha.2 Real + security | service rewritten; Chromium process recovery and JS mTLS dispatch green locally; hosted soak/CodeQL not live-proven |
-| alpha.3 search / index / grounding | default provider order updated; live fetched-evidence oracle green; model-answer accuracy is not measured |
-| beta.1 clients / Studio / Hermes | TLS clients + Studio adapter in tree; JS mTLS sockets green locally |
-| rc.1 matrix / soak / packaging | local five-runtime TCP matrix, real benchmark, and clean tarball consumer green; hosted 4h/1000 soak and architecture artifacts remain |
+| alpha.2 Real + security | Chromium recovery and mTLS dispatch green; hosted 4h soak archived; CodeQL high alerts closed on the branch (confirm 0 open before tagging) |
+| alpha.3 search / index / grounding | live fetched-evidence oracle green on a renewed corpus; model-answer accuracy is not measured |
+| beta.1 clients / Studio / Hermes | TLS clients, Studio adapter, and C++↔Node Browser Real mTLS green |
+| rc.1 matrix / soak / packaging | hosted five-architecture CI matrix, per-architecture checksums, five-runtime TCP matrix, 4h/1000 soak, real benchmark, and clean tarball consumer green |
 | 1.20.0 | 1.20.0 is unblocked only after a live evidence refresh. |
 
 No PR, merge, tag, or publish from this scorecard.

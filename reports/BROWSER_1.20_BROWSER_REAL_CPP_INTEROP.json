@@ -1,7 +1,7 @@
 {
   "format": "handoffkit.browser-real.cpp-tcp-interop",
   "format_version": 1,
-  "generated_at": "2026-08-16T03:19:18.341Z",
+  "generated_at": "2026-10-15T06:52:45.700Z",
   "status": "pass",
   "transport": "TCP TLS 1.3 + mTLS",
   "direction": "C++ BrowserRealTlsClient -> Node BrowserRealService",
@@ -9,7 +9,7 @@
     "peer_id": "server-peer",
     "node_id": "server-node",
     "worker_id": null,
-    "credential_fingerprint": "sha256:2386fc4aba33035894a15d035817b2132c871da6c536de80f4fb02997ca0f40e"
+    "credential_fingerprint": "sha256:636682a2331721879b9345dd7d0b06ae45c48fc54e4b08379d69b0580be5f086"
   },
   "commands": [
     {

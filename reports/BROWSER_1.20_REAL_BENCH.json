@@ -1,8 +1,8 @@
 {
   "format": "handoffkit.browser.real.benchmark",
   "format_version": 1,
-  "generated_at": "2026-08-14T20:25:38.714Z",
-  "started_at": "2026-08-14T20:25:35.915Z",
+  "generated_at": "2026-10-15T06:40:08.946Z",
+  "started_at": "2026-10-15T06:40:06.204Z",
   "product": "browser-real",
   "notice": "Environmental local measurement only; not a performance guarantee. Hosted 4h/1000 soak and cross-architecture results are separate gates.",
   "environment": {
@@ -13,19 +13,19 @@
   },
   "cold_startup": {
     "count": 3,
-    "min_ms": 388.815,
-    "p50_ms": 435.18,
-    "p95_ms": 783.793,
-    "p99_ms": 783.793,
-    "max_ms": 783.793
+    "min_ms": 219.495,
+    "p50_ms": 223.956,
+    "p95_ms": 1460.06,
+    "p99_ms": 1460.06,
+    "max_ms": 1460.06
   },
   "hot_navigation": {
     "count": 20,
-    "min_ms": 8.466,
-    "p50_ms": 9.468,
-    "p95_ms": 20.567,
-    "p99_ms": 94.496,
-    "max_ms": 94.496
+    "min_ms": 7.928,
+    "p50_ms": 9.329,
+    "p95_ms": 11.579,
+    "p99_ms": 50.963,
+    "max_ms": 50.963
   },
   "requested_navigation_count": 20,
   "cold_runs": 3,

@@ -3,8 +3,8 @@
   "format_version": 1,
   "contract_version": "1.20.0-alpha.1",
   "disclaimer": "Live corpus contract. URLs are fetched at run time; this file is not evidence and never substitutes for a scored run.",
-  "as_of": "2026-08-14",
-  "expires_at": "2026-09-14",
+  "as_of": "2026-10-15",
+  "expires_at": "2026-11-15",
   "source_policy": {
     "require_https": true,
     "allow_hosts": ["en.wikipedia.org", "pnpm.io", "rfc-editor.org", "www.w3.org", "www.archives.gov"],
