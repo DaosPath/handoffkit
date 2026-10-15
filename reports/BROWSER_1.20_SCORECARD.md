@@ -11,6 +11,7 @@ Grounding/release notes:
 - Grounding gates 7-9 measure real HTTPS retrieval, literal fact coverage, verified page hashes, and citation entailment.
 - Model-answer accuracy is not measured by the deterministic oracle and remains unavailable until a live provider answer transcript is scored.
 - This manifest does not authorize release, publication, or a claim of clinical or general model correctness.
+- Commit SHAs cited in gate evidence predate a 2026-10-15 message-only history rewrite with byte-identical trees; see reports/BROWSER_1.20_COMMIT_MAP.md.
 
 
 Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
