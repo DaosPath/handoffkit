@@ -563,14 +563,26 @@ impl CspSession {
             session: self.clone(),
             cancellation: token.clone(),
         };
-        self.inner
-            .process_count
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
-                (count < DEFAULT_MAX_PROCESSES).then_some(count + 1)
-            })
-            .map_err(|_| {
-                RuntimeError::retryable("process_limit", "session process limit reached")
-            })?;
+        // Explicit CAS loop: `fetch_update` is deprecated on new toolchains and
+        // its replacement `try_update` is newer than our MSRV (1.82).
+        let mut count = self.inner.process_count.load(Ordering::Acquire);
+        loop {
+            if count >= DEFAULT_MAX_PROCESSES {
+                return Err(RuntimeError::retryable(
+                    "process_limit",
+                    "session process limit reached",
+                ));
+            }
+            match self.inner.process_count.compare_exchange_weak(
+                count,
+                count + 1,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => break,
+                Err(actual) => count = actual,
+            }
+        }
         self.inner
             .process_tokens
             .lock()
