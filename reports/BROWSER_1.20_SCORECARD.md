@@ -105,7 +105,7 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 9 | TLS 1.3/mTLS listen on Node transport | pass (refreshed 2026-10-15 on the current tree: same run, TLS 1.3/mTLS listen, SAN/fingerprint, replay_detected, capability_denied, rogue CA rejected, ownedPids=0) |
 | 10 | Hermes does not host Chromium | pass |
 
-## Security (current: 9/10)
+## Security (current: 10/10)
 
 | # | Gate | Result |
 |---|---|---|
@@ -118,7 +118,7 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 7 | Downloads quarantined with selector + size cap | pass (playwright.test.js download quarantined; HEAD content-length >50MiB → download_too_large) |
 | 8 | mTLS identity SAN/fingerprint | pass (authenticatedPeer.peerId=server-peer and matching credential fingerprints after connect) |
 | 9 | SSRF covers DNS, redirects, and subresources | pass (HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 test/playwright.test.js uses Chromium CDP Fetch interception to reject a 302 to 10.0.0.1, reject a private subresource, and resolvePublicHost('localhost') rejects non-global DNS answers) |
-| 10 | No critical/high vulns in this surface | fail (scripts/js/dependency-audit.mjs reports zero production dependency advisories locally; dedicated CodeQL/security review and hosted artifact are still absent) |
+| 10 | No critical/high vulns in this surface | pass (hosted CodeQL run 38695461309 @ 51bb356 (javascript-typescript + python): 0 open code-scanning alerts on browser/1.20-platform (38 high closed in 15ad204/5ccdb7b/e4d9431); scripts/js/dependency-audit.mjs 2026-10-15: 0 high/critical production advisories (reports/BROWSER_1.20_DEPENDENCY_AUDIT.json)) |
 
 ## Interoperability (current: 10/10)
 
@@ -170,7 +170,7 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | Cut | Status |
 |---|---|
 | alpha.1 Core + Lite | in tree, still beta |
-| alpha.2 Real + security | Chromium recovery and mTLS dispatch green; hosted 4h soak archived; CodeQL high alerts closed on the branch (confirm 0 open before tagging) |
+| alpha.2 Real + security | Chromium recovery and mTLS dispatch green; hosted 4h soak archived; CodeQL reports 0 open alerts on the branch |
 | alpha.3 search / index / grounding | live fetched-evidence oracle green on a renewed corpus; model-answer accuracy is not measured |
 | beta.1 clients / Studio / Hermes | TLS clients, Studio adapter, and C++↔Node Browser Real mTLS green |
 | rc.1 matrix / soak / packaging | hosted five-architecture CI matrix, per-architecture checksums, five-runtime TCP matrix, 4h/1000 soak, real benchmark, and clean tarball consumer green |

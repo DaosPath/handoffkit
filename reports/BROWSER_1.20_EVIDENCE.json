@@ -111,7 +111,7 @@
         { "id": 7, "name": "Downloads quarantined with selector + size cap", "result": "pass", "evidence": "playwright.test.js download quarantined; HEAD content-length >50MiB → download_too_large" },
         { "id": 8, "name": "mTLS identity SAN/fingerprint", "result": "pass", "evidence": "authenticatedPeer.peerId=server-peer and matching credential fingerprints after connect" },
         { "id": 9, "name": "SSRF covers DNS, redirects, and subresources", "result": "pass", "evidence": "HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 test/playwright.test.js uses Chromium CDP Fetch interception to reject a 302 to 10.0.0.1, reject a private subresource, and resolvePublicHost('localhost') rejects non-global DNS answers" },
-        { "id": 10, "name": "No critical/high vulns in this surface", "result": "fail", "evidence": "scripts/js/dependency-audit.mjs reports zero production dependency advisories locally; dedicated CodeQL/security review and hosted artifact are still absent" }
+        { "id": 10, "name": "No critical/high vulns in this surface", "result": "pass", "evidence": "hosted CodeQL run 38695461309 @ 51bb356 (javascript-typescript + python): 0 open code-scanning alerts on browser/1.20-platform (38 high closed in 15ad204/5ccdb7b/e4d9431); scripts/js/dependency-audit.mjs 2026-10-15: 0 high/critical production advisories (reports/BROWSER_1.20_DEPENDENCY_AUDIT.json)" }
       ]
     },
     "interop": {

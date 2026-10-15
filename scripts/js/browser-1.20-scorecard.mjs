@@ -73,7 +73,7 @@ ${body}
 | Cut | Status |
 |---|---|
 | alpha.1 Core + Lite | in tree, still beta |
-| alpha.2 Real + security | Chromium recovery and mTLS dispatch green; hosted 4h soak archived; CodeQL high alerts closed on the branch (confirm 0 open before tagging) |
+| alpha.2 Real + security | Chromium recovery and mTLS dispatch green; hosted 4h soak archived; CodeQL reports 0 open alerts on the branch |
 | alpha.3 search / index / grounding | live fetched-evidence oracle green on a renewed corpus; model-answer accuracy is not measured |
 | beta.1 clients / Studio / Hermes | TLS clients, Studio adapter, and C++↔Node Browser Real mTLS green |
 | rc.1 matrix / soak / packaging | hosted five-architecture CI matrix, per-architecture checksums, five-runtime TCP matrix, 4h/1000 soak, real benchmark, and clean tarball consumer green |
