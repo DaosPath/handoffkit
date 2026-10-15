@@ -2,12 +2,32 @@
 
 #include <handoffkit/browser/web_types.hpp>
 
+#include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace handoffkit {
 namespace browser {
+
+/// Attributes of one open tag: lowercased name -> value (nullopt when the
+/// attribute has no `=value`). The first occurrence of a name wins.
+using TagAttributes = std::map<std::string, std::optional<std::string>>;
+
+/// One `<a ...>...</a>` carrying an href attribute (see scan_href_anchors).
+struct HrefAnchor {
+    std::string href;
+    TagAttributes attrs;
+    std::string inner;
+};
+
+/// Every `<a ...>...</a>` with an href, in document order. Linear scan
+/// (parity with JS scanHrefAnchors / Python scan_href_anchors): attributes in
+/// any order, quoted or unquoted values; anchors without an href are skipped
+/// without consuming their content; an anchor without a closing tag ends the
+/// scan.
+[[nodiscard]] std::vector<HrefAnchor> scan_href_anchors(std::string_view html);
 
 /// First-party HTML extraction (no external browser / DOM engine).
 /// Good enough for titles, anchors, and readable text; not a full HTML5 parser.

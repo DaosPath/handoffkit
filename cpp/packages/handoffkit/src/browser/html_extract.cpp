@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <initializer_list>
+#include <optional>
 #include <regex>
 #include <sstream>
 
@@ -16,35 +18,232 @@ std::string lower_copy(std::string s) {
     return s;
 }
 
-std::string strip_tags_region(std::string html, const std::string& tag) {
-    // Remove <tag ...> ... </tag> case-insensitive, non-greedy-ish via loop.
-    const std::string open = "<" + tag;
-    const std::string close = "</" + tag + ">";
-    std::string low = lower_copy(html);
+// ---------------------------------------------------------------------------
+// Linear tag/attribute scanning (parity with js/packages/browser
+// html_extract.js). Replaces std::regex patterns such as
+// `<meta\b[^>]*name=...[^>]*content=...` that backtrack polynomially and, in
+// libstdc++, recurse once per consumed character (stack overflow on large
+// pages). Every helper below is a single forward pass built on find().
+// ---------------------------------------------------------------------------
+
+bool is_html_space(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f';
+}
+
+bool is_open_tag_name_end(char c) {
+    return c == '>' || c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '/';
+}
+
+// Equivalent of a regex `\b` right after a tag name (next char is not [a-z0-9_]).
+bool is_tag_name_boundary(std::string_view low, std::size_t idx) {
+    if (idx >= low.size()) return true;
+    const char c = low[idx];
+    return !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || c == '_');
+}
+
+std::string trim_ws_copy(std::string_view s) {
+    // Mirrors JS String#trim / Python str.strip for ASCII whitespace.
+    const auto is_ws = [](char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
+    };
+    std::size_t b = 0;
+    std::size_t e = s.size();
+    while (b < e && is_ws(s[b])) ++b;
+    while (e > b && is_ws(s[e - 1])) --e;
+    return std::string(s.substr(b, e - b));
+}
+
+/// Parse the attribute text of an open tag (everything between the tag name
+/// and its `>`). Names are lowercased, the first occurrence wins, valueless
+/// attributes map to std::nullopt.
+TagAttributes parse_tag_attributes(std::string_view s) {
+    TagAttributes attrs;
+    const std::size_t n = s.size();
+    std::size_t i = 0;
+    while (i < n) {
+        while (i < n && (is_html_space(s[i]) || s[i] == '/')) ++i;
+        if (i >= n) break;
+        const std::size_t name_start = i;
+        while (i < n && !is_html_space(s[i]) && s[i] != '/' && s[i] != '=') ++i;
+        if (i == name_start) {
+            ++i;  // stray "=" without a name
+            continue;
+        }
+        std::string name = lower_copy(std::string(s.substr(name_start, i - name_start)));
+        std::size_t j = i;
+        while (j < n && is_html_space(s[j])) ++j;
+        std::optional<std::string> value;
+        if (j < n && s[j] == '=') {
+            ++j;
+            while (j < n && is_html_space(s[j])) ++j;
+            const char q = j < n ? s[j] : '\0';
+            if (q == '"' || q == '\'') {
+                const auto close = s.find(q, j + 1);
+                value = std::string(close == std::string_view::npos ? s.substr(j + 1)
+                                                                    : s.substr(j + 1, close - j - 1));
+                j = close == std::string_view::npos ? n : close + 1;
+            } else {
+                const std::size_t value_start = j;
+                while (j < n && !is_html_space(s[j])) ++j;
+                value = std::string(s.substr(value_start, j - value_start));
+            }
+            i = j;
+        }
+        attrs.emplace(std::move(name), std::move(value));  // emplace keeps the first occurrence
+    }
+    return attrs;
+}
+
+const std::string* attr_get(const TagAttributes& attrs, const std::string& name) {
+    const auto it = attrs.find(name);
+    if (it == attrs.end() || !it->second.has_value()) return nullptr;
+    return &*it->second;
+}
+
+bool attr_equals(const TagAttributes& attrs, const std::string& name, std::string_view expected) {
+    const std::string* value = attr_get(attrs, name);
+    return value != nullptr && lower_copy(trim_ws_copy(*value)) == expected;
+}
+
+struct OpenTag {
+    std::size_t start = 0;
+    std::size_t content_start = 0;
+    TagAttributes attrs;
+};
+
+/// Next `<tag ...>` open tag at or after `from`. The tag ends at the first `>`.
+std::optional<OpenTag> next_open_tag(std::string_view source, std::string_view low,
+                                     std::string_view tag, std::size_t from) {
+    const std::string open = "<" + std::string(tag);
+    std::size_t pos = from;
+    while (true) {
+        const auto start = low.find(open, pos);
+        if (start == std::string_view::npos) return std::nullopt;
+        const std::size_t name_end = start + open.size();
+        if (!is_tag_name_boundary(low, name_end)) {
+            pos = start + 1;
+            continue;
+        }
+        const auto gt = low.find('>', name_end);
+        if (gt == std::string_view::npos) return std::nullopt;
+        OpenTag out;
+        out.start = start;
+        out.content_start = gt + 1;
+        out.attrs = parse_tag_attributes(source.substr(name_end, gt - name_end));
+        return out;
+    }
+}
+
+struct CloseTag {
+    std::size_t start = 0;
+    std::size_t end = 0;
+};
+
+/// Next end tag for `tag` at or after `from`: `</tag>` and also `</tag >`,
+/// `</tag\t\n foo>` (what browsers accept).
+std::optional<CloseTag> find_close_tag(std::string_view low, std::string_view tag, std::size_t from) {
+    const std::string needle = "</" + std::string(tag);
+    std::size_t pos = from;
+    while (true) {
+        const auto i = low.find(needle, pos);
+        if (i == std::string_view::npos) return std::nullopt;
+        const std::size_t j = i + needle.size();
+        if (j >= low.size()) return std::nullopt;
+        const char c = low[j];
+        if (c == '>') return CloseTag{i, j + 1};
+        if (is_html_space(c) || c == '/') {
+            const auto gt = low.find('>', j);
+            if (gt == std::string_view::npos) return std::nullopt;
+            return CloseTag{i, gt + 1};
+        }
+        pos = i + 1;
+    }
+}
+
+// First `<meta>` whose name/property is one of `names` and that has content.
+std::optional<std::string> meta_content(std::string_view source, std::string_view low,
+                                        std::initializer_list<std::string_view> names) {
     std::size_t pos = 0;
     while (true) {
-        auto start = low.find(open, pos);
-        if (start == std::string::npos) break;
-        // ensure it's a tag start: <script or <script>
-        if (start + open.size() < low.size()) {
-            char next = low[start + open.size()];
-            if (next != '>' && next != ' ' && next != '\t' && next != '\n' && next != '\r' && next != '/') {
-                pos = start + 1;
-                continue;
+        auto tag = next_open_tag(source, low, "meta", pos);
+        if (!tag) return std::nullopt;
+        pos = tag->content_start;
+        const std::string* content = attr_get(tag->attrs, "content");
+        if (content == nullptr) continue;
+        for (const auto name : names) {
+            if (attr_equals(tag->attrs, "name", name) || attr_equals(tag->attrs, "property", name)) {
+                return *content;
             }
         }
-        auto end = low.find(close, start);
-        if (end == std::string::npos) {
-            html.erase(start);
-            low.erase(start);
+    }
+}
+
+std::optional<std::string> canonical_href(std::string_view source, std::string_view low) {
+    std::size_t pos = 0;
+    while (true) {
+        auto tag = next_open_tag(source, low, "link", pos);
+        if (!tag) return std::nullopt;
+        pos = tag->content_start;
+        const std::string* href = attr_get(tag->attrs, "href");
+        if (href != nullptr && attr_equals(tag->attrs, "rel", "canonical")) return *href;
+    }
+}
+
+// Same result as the JS regex /charset\s*=\s*["']?([a-z0-9-]+)/i (first hit),
+// as a linear scan: std::regex's `\s*` recurses once per space in libstdc++.
+std::string first_charset(std::string_view low) {
+    const auto is_regex_space = [](char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
+    };
+    const auto is_charset_char = [](char c) {
+        return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-';
+    };
+    std::size_t pos = 0;
+    while (true) {
+        const auto at = low.find("charset", pos);
+        if (at == std::string_view::npos) return {};
+        pos = at + 1;
+        std::size_t j = at + 7;
+        while (j < low.size() && is_regex_space(low[j])) ++j;
+        if (j >= low.size() || low[j] != '=') continue;
+        ++j;
+        while (j < low.size() && is_regex_space(low[j])) ++j;
+        if (j < low.size() && (low[j] == '"' || low[j] == '\'')) ++j;
+        const std::size_t value_start = j;
+        while (j < low.size() && is_charset_char(low[j])) ++j;
+        if (j > value_start) return std::string(low.substr(value_start, j - value_start));
+    }
+}
+
+std::string strip_tags_region(const std::string& html, const std::string& tag) {
+    // Remove <tag ...> ... </tag> (end tag may carry whitespace/attributes).
+    // An unclosed block drops the rest of the document. Built in one pass
+    // instead of repeated erase() (which was O(n^2) on many short blocks).
+    const std::string low = lower_copy(html);
+    const std::string open = "<" + tag;
+    std::string out;
+    out.reserve(html.size());
+    std::size_t copy_from = 0;
+    std::size_t pos = 0;
+    while (true) {
+        const auto start = low.find(open, pos);
+        if (start == std::string::npos) break;
+        const std::size_t name_end = start + open.size();
+        if (name_end < low.size() && !is_open_tag_name_end(low[name_end])) {
+            pos = start + 1;
+            continue;
+        }
+        out.append(html, copy_from, start - copy_from);
+        const auto close = find_close_tag(low, tag, name_end);
+        if (!close) {
+            copy_from = html.size();
             break;
         }
-        end += close.size();
-        html.erase(start, end - start);
-        low.erase(start, end - start);
-        pos = start;
+        copy_from = close->end;
+        pos = close->end;
     }
-    return html;
+    out.append(html, copy_from, std::string::npos);
+    return out;
 }
 
 bool is_noise_container(std::string_view tag) {
@@ -228,7 +427,7 @@ std::string extract_title(std::string_view html) {
 std::string prefer_main_content(std::string_view html) {
     std::string s = strip_marked_noise(std::string(html));
     for (const char* tag : {"script", "style", "noscript", "svg", "nav", "footer", "aside"}) {
-        s = strip_tags_region(std::move(s), tag);
+        s = strip_tags_region(s, tag);
     }
     const std::string low = lower_copy(s);
     for (const char* tag : {"article", "main"}) {
@@ -250,7 +449,7 @@ std::string prefer_main_content(std::string_view html) {
         const auto e = low.find("</body>", gt == std::string::npos ? body_idx : gt);
         if (gt != std::string::npos && e != std::string::npos && e > gt) {
             std::string inner = s.substr(gt + 1, e - gt - 1);
-            inner = strip_tags_region(std::move(inner), "header");
+            inner = strip_tags_region(inner, "header");
             const std::string title = extract_title(html);
             if (title.empty()) return inner;
             return "<html><head><title>" + title + "</title></head><body>" + inner + "</body></html>";
@@ -286,21 +485,34 @@ std::string extract_text(std::string_view html, bool strip_scripts_styles, int m
     return text;
 }
 
+std::vector<HrefAnchor> scan_href_anchors(std::string_view html) {
+    const std::string low = lower_copy(std::string(html));
+    std::vector<HrefAnchor> out;
+    std::size_t pos = 0;
+    while (true) {
+        auto tag = next_open_tag(html, low, "a", pos);
+        if (!tag) break;
+        pos = tag->content_start;
+        const std::string* href = attr_get(tag->attrs, "href");
+        if (href == nullptr) continue;
+        const auto close = find_close_tag(low, "a", tag->content_start);
+        if (!close) break;
+        pos = close->end;
+        HrefAnchor anchor;
+        anchor.href = *href;
+        anchor.inner = std::string(html.substr(tag->content_start, close->start - tag->content_start));
+        anchor.attrs = std::move(tag->attrs);
+        out.push_back(std::move(anchor));
+    }
+    return out;
+}
+
 std::vector<ExtractedLink> extract_links(std::string_view html, std::string_view base_url, int max_links) {
     std::vector<ExtractedLink> out;
-    // Match href= loosely: href="..." or href='...' or href=bare
-    static const std::regex re(
-        R"re(<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)</a>)re",
-        std::regex::icase
-    );
-    std::string s = prefer_main_content(html);
-    auto begin = std::sregex_iterator(s.begin(), s.end(), re);
-    auto end = std::sregex_iterator();
-    for (auto it = begin; it != end; ++it) {
+    for (const auto& anchor : scan_href_anchors(prefer_main_content(html))) {
         if (max_links > 0 && static_cast<int>(out.size()) >= max_links) break;
-        const auto& m = *it;
-        std::string href = m[1].matched ? m[1].str() : (m[2].matched ? m[2].str() : m[3].str());
-        std::string text = collapse_ws(decode_html_entities(extract_text(m[4].str(), true, 200)));
+        const std::string& href = anchor.href;
+        std::string text = collapse_ws(decode_html_entities(extract_text(anchor.inner, true, 200)));
         std::string abs = resolve_url(base_url, href);
         if (abs.empty() && href.find("://") != std::string::npos) abs = href;
         ExtractedLink link;
@@ -394,16 +606,20 @@ std::string html_table_to_markdown(std::string_view html) {
 }
 
 std::vector<nlohmann::json> extract_json_ld(std::string_view html) {
-    static const std::regex re(
-        R"re(<script\b[^>]*type\s*=\s*["']application/ld\+json["'][^>]*>([\s\S]*?)</script>)re",
-        std::regex::icase);
-    std::string source(html);
+    const std::string low = lower_copy(std::string(html));
     std::vector<nlohmann::json> out;
-    auto begin = std::sregex_iterator(source.begin(), source.end(), re);
-    auto end = std::sregex_iterator();
-    for (auto it = begin; it != end; ++it) {
+    std::size_t pos = 0;
+    while (true) {
+        auto tag = next_open_tag(html, low, "script", pos);
+        if (!tag) break;
+        pos = tag->content_start;
+        if (!attr_equals(tag->attrs, "type", "application/ld+json")) continue;
+        const auto close = find_close_tag(low, "script", tag->content_start);
+        if (!close) break;
+        pos = close->end;
         try {
-            out.push_back(nlohmann::json::parse(decode_html_entities((*it)[1].str())));
+            out.push_back(nlohmann::json::parse(decode_html_entities(
+                html.substr(tag->content_start, close->start - tag->content_start))));
         } catch (...) {
             // Malformed JSON-LD is skipped, never invented.
         }
@@ -413,27 +629,14 @@ std::vector<nlohmann::json> extract_json_ld(std::string_view html) {
 
 nlohmann::json extract_page_metadata(std::string_view html, std::string_view url) {
     std::string source(html);
-    auto meta = [&](const char* name) -> std::string {
-        std::regex re(
-            std::string(R"re(<meta\b[^>]*(?:name|property)\s*=\s*["'])re") + name +
-                R"re(["'][^>]*content\s*=\s*["']([^"']*)["'])re",
-            std::regex::icase);
-        std::smatch match;
-        if (std::regex_search(source, match, re)) return decode_html_entities(match[1].str());
-        return {};
+    const std::string low = lower_copy(source);
+    auto meta = [&](std::string_view name) -> std::string {
+        const auto content = meta_content(source, low, {name});
+        return content ? decode_html_entities(*content) : std::string{};
     };
-    std::regex canonical_re(
-        R"re(<link\b[^>]*rel\s*=\s*["']canonical["'][^>]*href\s*=\s*["']([^"']*)["'])re",
-        std::regex::icase);
-    std::regex charset_re(R"re(charset\s*=\s*["']?([a-z0-9-]+))re", std::regex::icase);
-    std::smatch canonical_match;
-    std::smatch charset_match;
-    std::string canonical = std::regex_search(source, canonical_match, canonical_re)
-        ? canonical_match[1].str()
-        : std::string(url);
-    std::string charset = std::regex_search(source, charset_match, charset_re)
-        ? lower_copy(charset_match[1].str())
-        : std::string{};
+    const auto canonical_found = canonical_href(source, low);
+    std::string canonical = canonical_found ? *canonical_found : std::string(url);
+    std::string charset = first_charset(low);
     std::string description = meta("description");
     if (description.empty()) description = meta("og:description");
     return {

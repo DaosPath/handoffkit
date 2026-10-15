@@ -87,17 +87,55 @@ UrlParts parse_url(std::string_view url) {
     return p;
 }
 
-std::string resolve_url(std::string_view base, std::string_view href) {
-    if (href.empty()) return {};
-    std::string h(href);
-    // trim
-    while (!h.empty() && (h.front() == ' ' || h.front() == '\t')) h.erase(h.begin());
-    while (!h.empty() && (h.back() == ' ' || h.back() == '\t')) h.pop_back();
-    if (h.empty() || h[0] == '#' || h.rfind("javascript:", 0) == 0 || h.rfind("mailto:", 0) == 0 ||
-        h.rfind("data:", 0) == 0) {
-        return {};
+namespace {
+
+// Script-capable schemes are never surfaced as links. The check mirrors how
+// browsers parse hrefs: ASCII whitespace/control characters are ignored, so
+// " java\tscript:" is still javascript: (parity with JS hasUnsafeLinkScheme).
+bool has_unsafe_link_scheme(std::string_view href) {
+    std::string normalized;
+    for (const char ch : href) {
+        const auto c = static_cast<unsigned char>(ch);
+        if (c > 0x20 && c != 0x7f) {
+            normalized.push_back((c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : ch);
+        }
+        if (normalized.size() > 16) break;
     }
-    if (h.find("://") != std::string::npos) return h;
+    for (const std::string_view scheme : {"javascript:", "data:", "vbscript:"}) {
+        if (normalized.compare(0, scheme.size(), scheme) == 0) return true;
+    }
+    return false;
+}
+
+// `^[a-z][a-z0-9+.-]*:` (case-insensitive): href already carries a scheme.
+bool has_scheme_prefix(std::string_view h) {
+    const auto is_alpha = [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); };
+    if (h.empty() || !is_alpha(h[0])) return false;
+    for (std::size_t i = 1; i < h.size(); ++i) {
+        const char c = h[i];
+        if (c == ':') return true;
+        if (!(is_alpha(c) || (c >= '0' && c <= '9') || c == '+' || c == '.' || c == '-')) return false;
+    }
+    return false;
+}
+
+bool is_trim_space(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
+}
+
+}  // namespace
+
+std::string resolve_url(std::string_view base, std::string_view href) {
+    // Parity with JS resolveUrl: trim, drop empty/fragment-only and
+    // script-capable schemes (javascript:, data:, vbscript:), return any other
+    // scheme-qualified href (https:, mailto:, tel:, ...) unchanged.
+    std::size_t b = 0;
+    std::size_t e = href.size();
+    while (b < e && is_trim_space(href[b])) ++b;
+    while (e > b && is_trim_space(href[e - 1])) --e;
+    std::string h(href.substr(b, e - b));
+    if (h.empty() || h[0] == '#' || has_unsafe_link_scheme(h)) return {};
+    if (has_scheme_prefix(h)) return h;
     if (h.rfind("//", 0) == 0) {
         auto bp = parse_url(base);
         return (bp.scheme.empty() ? "https" : bp.scheme) + ":" + h;

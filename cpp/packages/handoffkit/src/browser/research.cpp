@@ -11,13 +11,88 @@
 #include <cstdlib>
 #include <cctype>
 #include <functional>
-#include <regex>
 #include <sstream>
 #include <thread>
 #include <utility>
 
 namespace handoffkit {
 namespace browser {
+namespace {
+
+struct UrlHostPath {
+    std::string host;  // lowercased hostname, "" when the URL has no authority
+    std::string path;  // pathname ("/" when empty)
+};
+
+// Hostname + pathname of an absolute `scheme://` URL (the parts JS reads from
+// `new URL(raw).hostname/.pathname`). Strips userinfo and port; the authority
+// ends at the first '/', '?', '#' or '\\'. Relative or scheme-less input
+// yields an empty host, like a URL that fails to parse in JS.
+UrlHostPath url_host_path(std::string_view raw) {
+    UrlHostPath out;
+    const auto scheme_end = raw.find("://");
+    if (scheme_end == std::string_view::npos || scheme_end == 0) return out;
+    for (std::size_t i = 0; i < scheme_end; ++i) {
+        const char c = raw[i];
+        const bool alpha = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+        if (i == 0 ? !alpha : !(alpha || (c >= '0' && c <= '9') || c == '+' || c == '.' || c == '-')) {
+            return out;
+        }
+    }
+    const std::size_t auth_start = scheme_end + 3;
+    std::size_t auth_end = raw.find_first_of("/?#\\", auth_start);
+    if (auth_end == std::string_view::npos) auth_end = raw.size();
+    std::string_view authority = raw.substr(auth_start, auth_end - auth_start);
+    const auto at = authority.rfind('@');
+    if (at != std::string_view::npos) authority.remove_prefix(at + 1);
+    std::string_view host = authority;
+    if (!host.empty() && host.front() == '[') {
+        const auto close = host.find(']');
+        host = close == std::string_view::npos ? host : host.substr(0, close + 1);
+    } else {
+        const auto colon = host.find(':');
+        if (colon != std::string_view::npos) host = host.substr(0, colon);
+    }
+    out.host.reserve(host.size());
+    for (const char c : host) out.host.push_back((c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c);
+    if (auth_end < raw.size() && (raw[auth_end] == '/' || raw[auth_end] == '\\')) {
+        auto path_end = raw.find_first_of("?#", auth_end);
+        if (path_end == std::string_view::npos) path_end = raw.size();
+        out.path = std::string(raw.substr(auth_end, path_end - auth_end));
+    }
+    if (out.path.empty()) out.path = "/";
+    return out;
+}
+
+}  // namespace
+
+bool host_is_or_under(std::string_view host, std::string_view domain) {
+    std::string h(host);
+    std::string d(domain);
+    for (char& c : h) c = (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
+    for (char& c : d) c = (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
+    if (!h.empty() && h.back() == '.') h.pop_back();
+    if (h.empty() || d.empty()) return false;
+    if (h == d) return true;
+    return h.size() > d.size() + 1 && h[h.size() - d.size() - 1] == '.' &&
+           h.compare(h.size() - d.size(), d.size(), d) == 0;
+}
+
+bool is_search_ad_url(std::string_view url) {
+    std::string value(url);
+    for (char& c : value) c = (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
+    if (value.empty()) return true;
+    const std::string host = url_host_path(value).host;
+    for (const std::string_view domain : {"googleadservices.com", "doubleclick.net"}) {
+        if (host_is_or_under(host, domain)) return true;
+    }
+    if (value.find("/aclk?") != std::string::npos || value.find("/pagead/") != std::string::npos ||
+        value.find("adurl=") != std::string::npos) {
+        return true;
+    }
+    return value.find("/ads/") != std::string::npos || value.ends_with("/ads");
+}
+
 namespace {
 
 using Clock = std::chrono::steady_clock;
@@ -85,14 +160,41 @@ bool is_stopword(const std::string& w) {
     return false;
 }
 
+// Linear equivalent of regex_replace(s, `<[^>]+>`, " ") followed by
+// `\s+` -> " " and trim (parity with JS stripTags/replaceTags). The regex
+// form is O(n^2) on many "<" without a closing ">" and recurses per char.
 std::string strip_tags(std::string_view html) {
-    static const std::regex kTags(R"(<[^>]+>)");
-    static const std::regex kSpaces(R"(\s+)");
-    std::string out(html);
-    out = std::regex_replace(out, kTags, " ");
-    out = std::regex_replace(out, kSpaces, " ");
-    while (!out.empty() && out.front() == ' ') out.erase(out.begin());
-    while (!out.empty() && out.back() == ' ') out.pop_back();
+    std::string tagless;
+    tagless.reserve(html.size());
+    std::size_t copy_from = 0;
+    std::size_t pos = 0;
+    while (true) {
+        const auto lt = html.find('<', pos);
+        if (lt == std::string_view::npos) break;
+        const auto gt = html.find('>', lt + 1);
+        if (gt == std::string_view::npos) break;
+        if (gt == lt + 1) {  // "<>" is not a tag
+            pos = lt + 1;
+            continue;
+        }
+        tagless.append(html.substr(copy_from, lt - copy_from));
+        tagless.push_back(' ');
+        copy_from = gt + 1;
+        pos = gt + 1;
+    }
+    tagless.append(html.substr(copy_from));
+    std::string out;
+    out.reserve(tagless.size());
+    bool pending_space = false;
+    for (const char c : tagless) {
+        if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v') {
+            pending_space = true;
+            continue;
+        }
+        if (pending_space && !out.empty()) out.push_back(' ');
+        pending_space = false;
+        out.push_back(c);
+    }
     return out;
 }
 
@@ -100,22 +202,12 @@ void push_hit(std::vector<std::pair<std::string, std::string>>& hits, std::strin
               int max_results) {
     if (static_cast<int>(hits.size()) >= max_results) return;
     if (url.rfind("http", 0) != 0) return;
-    if (url.find("duckduckgo.com") != std::string::npos) return;
-    if (url.find("wikipedia.org/w/api.php") != std::string::npos) return;
+    // Parsed hostname, exact or subdomain match (never a substring of the URL).
+    const auto parsed = url_host_path(url);
+    if (host_is_or_under(parsed.host, "duckduckgo.com")) return;
+    if (host_is_or_under(parsed.host, "wikipedia.org") && parsed.path == "/w/api.php") return;
     url = canonical_url(url);
-    std::string low_url = url;
-    std::transform(low_url.begin(), low_url.end(), low_url.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-    if (low_url.find("googleadservices.com") != std::string::npos ||
-        low_url.find("doubleclick.net") != std::string::npos ||
-        low_url.find("/aclk?") != std::string::npos ||
-        low_url.find("/pagead/") != std::string::npos ||
-        low_url.find("adurl=") != std::string::npos ||
-        low_url.find("/ads/") != std::string::npos ||
-        (low_url.size() >= 4 && low_url.ends_with("/ads"))) {
-        return;
-    }
+    if (is_search_ad_url(url)) return;
     for (auto& h : hits) {
         if (h.second == url) {
             if (h.first.empty() && !title.empty()) h.first = std::move(title);
@@ -938,18 +1030,12 @@ std::string unwrap_google_link(std::string link) {
         link = url_decode_basic(link.substr(start, end - start));
     }
     if (link.rfind("http://", 0) != 0 && link.rfind("https://", 0) != 0) return {};
-    std::string low = link;
-    std::transform(low.begin(), low.end(), low.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-    if (low.find("google.com") != std::string::npos || low.find("googleadservices.com") != std::string::npos ||
-        low.find("doubleclick.net") != std::string::npos || low.find("/aclk?") != std::string::npos ||
-        low.find("/pagead/") != std::string::npos || low.find("adurl=") != std::string::npos ||
-        low.find("/ads/") != std::string::npos || (low.size() >= 4 && low.ends_with("/ads"))) {
-        return {};
-    }
     const auto hash = link.find('#');
     if (hash != std::string::npos) link.resize(hash);
+    // Parity with JS unwrapGoogleLink: ad hosts and google.com (or any
+    // subdomain) are matched on the parsed hostname, not as substrings.
+    if (is_search_ad_url(link)) return {};
+    if (host_is_or_under(url_host_path(link).host, "google.com")) return {};
     return link;
 }
 

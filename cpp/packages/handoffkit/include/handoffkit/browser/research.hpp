@@ -76,6 +76,16 @@ struct WebResearchResult {
 };
 
 [[nodiscard]] std::vector<std::string> extract_urls_from_text(std::string_view text);
+
+/// True when `host` is exactly `domain` or a subdomain of it (case-insensitive,
+/// one trailing dot ignored). Never a substring match (parity with JS
+/// hostIsOrUnder): "doubleclick.net.evil.com" is not under "doubleclick.net".
+[[nodiscard]] bool host_is_or_under(std::string_view host, std::string_view domain);
+
+/// Search-result ad/redirector detection (parity with JS isSearchAdUrl): ad
+/// hosts (googleadservices.com, doubleclick.net) by parsed hostname, plus
+/// /aclk?, /pagead/, adurl=, /ads/ path markers. Empty input counts as an ad.
+[[nodiscard]] bool is_search_ad_url(std::string_view url);
 [[nodiscard]] std::string make_search_query_from_task(std::string_view task, std::size_t max_chars = 140);
 [[nodiscard]] std::string keyword_compress(std::string_view query, std::size_t max_words = 10);
 

@@ -6,8 +6,11 @@
 #include <handoffkit/explore/transport.hpp>
 
 #include <cassert>
+#include <chrono>
 #include <iostream>
 #include <string>
+#include <string_view>
+#include <vector>
 
 using namespace handoffkit::demos::fusion;
 using namespace handoffkit::explore;
@@ -364,7 +367,84 @@ void test_searxng_explicit_options_fixture() {
     std::cout << "test_searxng_explicit_options_fixture ok\n";
 }
 
+void test_search_ad_hosts_compare_parsed_hostnames() {
+    using handoffkit::browser::host_is_or_under;
+    using handoffkit::browser::is_search_ad_url;
+    assert(is_search_ad_url("https://ad.doubleclick.net/x"));
+    assert(is_search_ad_url("https://doubleclick.net/x"));
+    assert(is_search_ad_url("https://www.googleadservices.com/x"));
+    assert(is_search_ad_url("https://user@AD.DoubleClick.net:443/x"));
+    assert(!is_search_ad_url("https://evil.com/?x=doubleclick.net"));
+    assert(!is_search_ad_url("https://evil.com/?x=googleadservices.com"));
+    assert(!is_search_ad_url("https://doubleclick.net.evil.com"));
+    assert(!is_search_ad_url("https://doubleclick.net.evil.com/"));
+    assert(!is_search_ad_url("https://notdoubleclick.net/"));
+    assert(!is_search_ad_url("https://evil.com/#doubleclick.net"));
+    assert(is_search_ad_url("https://example.org/aclk?x=1"));
+    assert(is_search_ad_url(""));
+    assert(host_is_or_under("Links.DuckDuckGo.com.", "duckduckgo.com"));
+    assert(!host_is_or_under("duckduckgo.com.evil.test", "duckduckgo.com"));
+    assert(!host_is_or_under("", "duckduckgo.com"));
+    std::cout << "test_search_ad_hosts_compare_parsed_hostnames ok\n";
+}
+
+void test_search_hits_filter_hosts_exactly() {
+    auto map = handoffkit::browser::make_fixture_map_transport();
+    map->set_page(
+        "https://sx-hosts.test/search?q=hosts&format=json",
+        R"({"results":[
+          {"title":"ddg","url":"https://duckduckgo.com/y"},
+          {"title":"ddg sub","url":"https://links.duckduckgo.com/z"},
+          {"title":"kept query","url":"https://evil.test/?x=duckduckgo.com"},
+          {"title":"kept lookalike","url":"https://duckduckgo.com.example.test/"},
+          {"title":"wiki api","url":"https://en.wikipedia.org/w/api.php?action=x"},
+          {"title":"wiki page","url":"https://en.wikipedia.org/wiki/X"},
+          {"title":"ad","url":"https://ad.doubleclick.net/x"},
+          {"title":"kept ad query","url":"https://kept.test/?q=doubleclick.net"}
+        ]})");
+    handoffkit::browser::SearxngOptions options;
+    options.base_urls = {"https://sx-hosts.test"};
+    const auto result = handoffkit::browser::web_search(
+        "hosts", map, 10, 15000, {}, {}, {"searxng"}, options);
+    assert(result.value("success", false));
+    std::vector<std::string> urls;
+    for (const auto& hit : result.value("results", nlohmann::json::array())) {
+        urls.push_back(hit.value("url", ""));
+    }
+    const auto has = [&](std::string_view needle) {
+        for (const auto& u : urls) {
+            if (u.find(needle) != std::string::npos) return true;
+        }
+        return false;
+    };
+    assert(urls.size() == 4);
+    assert(has("evil.test/?x=duckduckgo.com"));
+    assert(has("duckduckgo.com.example.test"));
+    assert(has("en.wikipedia.org/wiki/X"));
+    assert(has("kept.test/?q=doubleclick.net"));
+    assert(!has("api.php"));
+    assert(!has("links.duckduckgo.com"));
+    assert(!has("ad.doubleclick.net"));
+
+    // Google result pages: tag stripping stays linear on many unclosed "<".
+    std::string body = "<html><body><a href=\"https://example.org/direct\">Direct ";
+    for (int i = 0; i < 50000; ++i) body += "<b";
+    body += "</a></body></html>";
+    map->set_page("https://www.google.com/search?hl=en&num=8&q=linear", body);
+    const auto started = std::chrono::steady_clock::now();
+    const auto google = handoffkit::browser::web_search("linear", map, 4, 20000, {}, {}, {"google"});
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started).count();
+    assert(ms < 1500);
+    const auto google_hits = google.value("results", nlohmann::json::array());
+    assert(google_hits.size() == 1);
+    assert(google_hits.at(0).value("url", "") == "https://example.org/direct");
+    std::cout << "test_search_hits_filter_hosts_exactly ok\n";
+}
+
 int main() {
+    test_search_ad_hosts_compare_parsed_hostnames();
+    test_search_hits_filter_hosts_exactly();
     test_extract_urls();
     test_search_query_from_draco_wrapper();
     test_gather_seed_fixture();

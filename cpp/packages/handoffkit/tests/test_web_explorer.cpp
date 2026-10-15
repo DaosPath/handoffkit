@@ -4,10 +4,13 @@
 #include <handoffkit/explore/transport.hpp>
 #include <handoffkit/explore/web_types.hpp>
 #include <handoffkit/runtime/tool.hpp>
+#include <handoffkit/browser/page.hpp>
 
 #include <cassert>
+#include <chrono>
 #include <iostream>
 #include <string>
+#include <string_view>
 
 using namespace handoffkit;
 using namespace handoffkit::explore;
@@ -340,7 +343,162 @@ void test_noise_strip_pathological_nesting() {
     std::cout << "test_noise_strip_pathological_nesting ok chars=" << text.size() << "\n";
 }
 
+// --- CodeQL parity (JS 15ad204): linear HTML scanning, scheme guard ---------
+
+constexpr int kRedosRepeat = 50000;
+// Single-character runs need longer input to expose quadratic/recursive paths.
+constexpr int kRunRepeat = 200000;
+
+std::string repeat(std::string_view s, int n) {
+    std::string out;
+    out.reserve(s.size() * static_cast<std::size_t>(n));
+    for (int i = 0; i < n; ++i) out.append(s);
+    return out;
+}
+
+template <class F>
+auto assert_fast(const char* label, F&& fn, long long budget_ms = 1500) {
+    const auto started = std::chrono::steady_clock::now();
+    auto value = fn();
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started).count();
+    if (ms >= budget_ms) {
+        std::cerr << label << " took " << ms << "ms\n";
+        assert(false && "pathological input exceeded time budget");
+    }
+    return value;
+}
+
+void test_html_extraction_linear_on_pathological_attributes() {
+    const std::string fallback = "https://fallback.test/";
+    assert(assert_fast("json-ld", [&] {
+        return extract_json_ld("<script " + repeat(R"(type="application/ld+json")", kRedosRepeat));
+    }).empty());
+    assert(assert_fast("canonical", [&] {
+        return extract_page_metadata("<link " + repeat(R"(rel="canonical")", kRedosRepeat), fallback);
+    })["canonical"] == fallback);
+    assert(assert_fast("canonical href", [&] {
+        return extract_page_metadata("<link " + repeat(R"(href="")", kRedosRepeat), fallback);
+    })["canonical"] == fallback);
+    assert(assert_fast("links", [&] {
+        return extract_links("<a " + repeat(R"(href="")", kRedosRepeat), "", 100);
+    }).empty());
+    assert(assert_fast("anchors", [&] {
+        return scan_href_anchors("<a " + repeat("<a ", kRedosRepeat));
+    }).empty());
+    assert(assert_fast("meta unclosed", [&] {
+        return extract_page_metadata("<meta " + repeat(R"(name="description")", kRedosRepeat), fallback);
+    })["description"] == "");
+    assert(assert_fast("meta closed", [&] {
+        return extract_page_metadata(
+            "<meta " + repeat(R"(name="description" )", kRedosRepeat) + R"(content="Ada">)", fallback);
+    })["description"] == "Ada");
+    assert(assert_fast("charset run", [&] {
+        return extract_page_metadata("charset" + repeat(" ", kRunRepeat) + "x", fallback);
+    })["charset"] == "");
+    assert(assert_fast("unclosed scripts", [&] {
+        return extract_text("<body><p>keep</p>" + repeat("<script>", kRedosRepeat) + "</body>");
+    }) == "keep");
+    assert(assert_fast("many closed scripts", [&] {
+        return extract_text("<body><p>keep</p>" + repeat("<script>x</script >", kRedosRepeat) + "</body>");
+    }) == "keep");
+    std::cout << "test_html_extraction_linear_on_pathological_attributes ok\n";
+}
+
+void test_html_metadata_order_and_case_variants() {
+    const std::string html = R"(<html><head><title>T</title>
+<META CONTENT="Desc &amp; more" NAME="Description">
+<meta property="og:description" content="OG">
+<meta charset=UTF-8>
+<link href="https://example.org/canon" rel="canonical">
+<script type="application/ld+json">{"@type":"Article","name":"x"}</script >
+<script type='Application/LD+JSON'>{"@type":"NewsArticle"}</script
+>
+<script>var x = "</scriptx>";</script>
+</head><body><p>Body text</p></body></html>)";
+    const auto meta = extract_page_metadata(html, "https://fallback.test/");
+    assert(meta["title"] == "T");
+    assert(meta["description"] == "Desc & more");
+    assert(meta["canonical"] == "https://example.org/canon");
+    assert(meta["charset"] == "utf-8");
+    const auto& ld = meta["json_ld"];
+    assert(ld.size() == 2);
+    assert(ld[0]["@type"] == "Article");
+    assert(ld[1]["@type"] == "NewsArticle");
+    // og:description is the fallback when description is absent.
+    assert(extract_page_metadata(R"(<meta content="OG" property="og:description">)")["description"] == "OG");
+
+    const auto links = extract_links(
+        R"(<body><a name="top">Top</a><a class=x HREF='/a?x=1'>A <b>bold</b></a><a href=/b>B</a ><a href="https://c.test/">C</a></body>)",
+        "https://example.org/", 100);
+    assert(links.size() == 3);
+    assert(links[0].href == "/a?x=1" && links[0].absolute == "https://example.org/a?x=1" && links[0].text == "A bold");
+    assert(links[1].href == "/b" && links[1].absolute == "https://example.org/b" && links[1].text == "B");
+    assert(links[2].href == "https://c.test/" && links[2].absolute == "https://c.test/" && links[2].text == "C");
+
+    const auto text = extract_text(
+        "<body><p>before</p><script>evil()</script ><p>middle</p><style>x{}</style\t\n foo><p>after</p>"
+        "<SCRIPT>bad()</SCRIPT></body>");
+    assert(text == "before middle after");
+    std::cout << "test_html_metadata_order_and_case_variants ok\n";
+}
+
+void test_readme_headings_linear() {
+    const auto md = to_readme_markdown(
+        "T", "", "# One\n\n#### Four\n##NoSpace\n###   Three  \r\n## Two\nbody");
+    assert(md.find("## Contents\n\n- One\n- Three\n- Two\n") != std::string::npos);
+    assert(md.find("\n# One\n") == std::string::npos);  // duplicate leading title dropped
+    const auto sourced = to_readme_markdown("T", "", "Source: https://x.test/\n\nbody");
+    assert(sourced.find("Source:") == std::string::npos);
+    assert(sourced.find("body") != std::string::npos);
+
+    assert_fast("headings", [&] {
+        return to_readme_markdown("T", "", "#" + repeat(" ", kRunRepeat) + std::string(1, '\0'));
+    });
+    assert_fast("title line", [&] { return to_readme_markdown("T", "", "#" + repeat(" ", kRunRepeat)); });
+    assert_fast("source line", [&] {
+        return to_readme_markdown("T", "", "Source:" + repeat(" ", kRunRepeat) + "x");
+    });
+    assert_fast("many headings", [&] {
+        return to_readme_markdown("T", "", repeat("## h\n", kRedosRepeat));
+    });
+    std::cout << "test_readme_headings_linear ok\n";
+}
+
+void test_resolve_url_rejects_script_schemes() {
+    for (const std::string href : {
+             std::string("javascript:alert(1)"),
+             std::string(" JaVaScRiPt:alert(1)"),
+             std::string("java\tscript:alert(1)"),
+             std::string("\x01javascript:x"),
+             std::string("data:text/html,<script>alert(1)</script>"),
+             std::string("DATA:text/html;base64,AAAA"),
+             std::string("vbscript:msgbox(1)"),
+             std::string(" VBScript:x"),
+         }) {
+        assert(resolve_url("https://example.org/", href).empty());
+    }
+    assert(resolve_url("https://example.org/a/", "b") == "https://example.org/a/b");
+    assert(resolve_url("https://example.org/", "mailto:x@example.org") == "mailto:x@example.org");
+    assert(resolve_url("https://example.org/", "https://other.test/p") == "https://other.test/p");
+    assert(resolve_url("https://example.org/", "/data:not-a-scheme") == "https://example.org/data:not-a-scheme");
+
+    // Unsafe links never get an absolute URL, so the explorer never queues them.
+    const auto links = extract_links(
+        R"(<body><a href="data:text/html,x">D</a><a href=" VBScript:x">V</a>)"
+        "<a href=\"java\tscript:x\">J</a><a href=\"/ok\">OK</a></body>",
+        "https://example.org/", 100);
+    assert(links.size() == 4);
+    for (std::size_t i = 0; i < 3; ++i) assert(links[i].absolute.empty());
+    assert(links[3].absolute == "https://example.org/ok");
+    std::cout << "test_resolve_url_rejects_script_schemes ok\n";
+}
+
 int main() {
+    test_html_extraction_linear_on_pathological_attributes();
+    test_html_metadata_order_and_case_variants();
+    test_readme_headings_linear();
+    test_resolve_url_rejects_script_schemes();
     test_html_extract();
     test_html_to_markdown_tool();
     test_url_and_host_policy();
