@@ -223,11 +223,66 @@ def require_rfc3339(value: Any, field: str) -> str:
     return text
 
 
+_HTTP_SCHEME_RE = re.compile(r"^https?://", re.I)
+
+
+def _has_http_userinfo(text: str) -> bool:
+    """Linear-time equivalent of ``re.match(r"^https?://[^/]*:[^/@]*@", text, re.I)``.
+
+    The regex form is polynomial on inputs like ``"http://:::::"``. True when
+    some ``@`` in the authority (text up to the first ``/``) has a ``:`` after
+    the previous ``@``. Mirrors ``hasHttpUserinfo`` in browser-core ``wire.js``.
+    """
+    scheme = _HTTP_SCHEME_RE.match(text)
+    if not scheme:
+        return False
+    saw_colon = False
+    for ch in text[scheme.end():]:
+        if ch == "/":
+            return False
+        if ch == ":":
+            saw_colon = True
+        elif ch == "@":
+            if saw_colon:
+                return True
+            saw_colon = False
+    return False
+
+
+def _redact_userinfo(text: str) -> str:
+    """Linear-time equivalent of
+    ``re.sub(r"//([^/@]+):([^/@]*)@", "//[redacted]:[redacted]@", text)``.
+
+    Mirrors ``redactUserinfo`` in browser-core ``wire.js``.
+    """
+    out: list[str] = []
+    last = 0
+    length = len(text)
+    s = text.find("//")
+    while s != -1:
+        start = s + 2
+        end = start
+        colon = -1
+        while end < length and text[end] != "/" and text[end] != "@":
+            if text[end] == ":":
+                colon = end
+            end += 1
+        if end < length and text[end] == "@" and colon > start:
+            out.append(text[last:s])
+            out.append("//[redacted]:[redacted]@")
+            last = end + 1
+            s = text.find("//", last)
+        else:
+            s = text.find("//", s + 1)
+    out.append(text[last:])
+    return "".join(out)
+
+
 def _redact_string(value: str) -> str:
     if re.match(r"^bearer\s+", value, re.I) or re.match(r"^set-cookie:", value, re.I):
         return "[redacted]"
-    if re.match(r"^https?://[^/]*:[^/@]*@", value, re.I):
-        return re.sub(r"//([^/@]+):([^/@]*)@", "//[redacted]:[redacted]@", value)
+    if _has_http_userinfo(value):
+        return _redact_userinfo(value)
     if re.search(r"[?&](?:token|password|secret|api[_-]?key|access_token)=", value, re.I):
         return re.sub(
             r"([?&](?:token|password|secret|api[_-]?key|access_token)=)([^&]*)",

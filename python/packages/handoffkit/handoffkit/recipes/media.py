@@ -515,7 +515,9 @@ def parse_screen_narration_json(raw: str) -> list[dict[str, Any]]:
     text = (raw or "").strip()
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
-        text = re.sub(r"\s*```$", "", text)
+        # Linear-time trailing fence strip (r"\s*```$" backtracks quadratically).
+        if text.endswith("```"):
+            text = text[:-3].rstrip()
     start = text.find("[")
     end = text.rfind("]")
     if start < 0 or end <= start:

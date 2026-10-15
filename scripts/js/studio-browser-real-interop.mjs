@@ -10,6 +10,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -179,21 +180,11 @@ try {
   })}\n`, "utf8");
 
   const studioPort = 3101;
-  const studioCommand = process.platform === "win32"
-    ? `pnpm --dir ${webRoot} exec next dev -p ${studioPort}`
-    : `pnpm --dir "${webRoot}" exec next dev -p ${studioPort}`;
-  studio = process.platform === "win32"
-    ? spawn(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", studioCommand], {
-      cwd: root,
-      env: {
-        ...process.env,
-        HANDOFFKIT_BROWSER_REAL_CONFIG: configPath,
-        HANDOFFKIT_STUDIO_BROWSER_EVENTS: eventsPath,
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-    })
-    : spawn("sh", ["-lc", studioCommand], {
-    cwd: root,
+  // Run the Next.js CLI directly with this Node binary (argv form, no shell),
+  // equivalent to `pnpm --dir <webRoot> exec next dev -p <port>`.
+  const nextBin = createRequire(path.join(webRoot, "package.json")).resolve("next/dist/bin/next");
+  studio = spawn(process.execPath, [nextBin, "dev", "-p", String(studioPort)], {
+    cwd: webRoot,
     env: {
       ...process.env,
       HANDOFFKIT_BROWSER_REAL_CONFIG: configPath,

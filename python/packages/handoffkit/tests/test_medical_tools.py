@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from urllib.parse import urlsplit
 
 from handoffkit.tools.medical import (
     clinical_trials_search,
@@ -81,7 +82,10 @@ def test_pmc_search_summarizes_esearch_and_esummary(monkeypatch) -> None:  # typ
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
     result = pmc_search.run(query="rare disease", max_results=1)
     assert result["results"][0]["pmcid"] == "PMC123"
-    assert "pmc.ncbi.nlm.nih.gov" in result["results"][0]["url"]
+    parsed_url = urlsplit(result["results"][0]["url"])
+    assert parsed_url.scheme == "https"
+    assert parsed_url.hostname == "pmc.ncbi.nlm.nih.gov"
+    assert parsed_url.path == "/articles/PMC123/"
 
 
 def test_pubmed_abstract_search_fetches_abstracts(monkeypatch) -> None:  # type: ignore[no-untyped-def]

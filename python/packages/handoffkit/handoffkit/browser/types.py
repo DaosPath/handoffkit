@@ -162,9 +162,25 @@ def parse_url(url: str) -> dict[str, Any]:
     return out
 
 
+# Script-capable schemes are never surfaced as links. The check mirrors how
+# browsers parse hrefs: ASCII whitespace/control characters are ignored, so
+# " java\tscript:" is still javascript:.
+_UNSAFE_LINK_SCHEMES = ("javascript:", "data:", "vbscript:")
+
+
+def _has_unsafe_link_scheme(href: str) -> bool:
+    normalized = ""
+    for ch in str(href or ""):
+        if ord(ch) > 0x20 and ch != "\x7f":
+            normalized += ch.lower()
+        if len(normalized) > 16:
+            break
+    return normalized.startswith(_UNSAFE_LINK_SCHEMES)
+
+
 def resolve_url(base: str, href: str) -> str:
     raw = (href or "").strip()
-    if not raw or raw.startswith("#") or raw.lower().startswith("javascript:"):
+    if not raw or raw.startswith("#") or _has_unsafe_link_scheme(raw):
         return ""
     try:
         return urljoin(base or "", raw)

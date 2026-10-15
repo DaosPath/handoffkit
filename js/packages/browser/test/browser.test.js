@@ -43,7 +43,12 @@ import {
   runFixtureGrounding,
   liveGroundingOracle,
   scoreLiveGroundingRun,
+  extractPageMetadata,
+  resolveUrl,
+  parseRobotsTxt,
+  extractUrlsFromText,
 } from "../src/index.js";
+import { hostIsOrUnder, isSearchAdUrl } from "../src/search.js";
 
 test("version matches package", () => {
   assert.equal(HANDOFFKIT_BROWSER_VERSION, "1.20.0-alpha.2");
@@ -453,7 +458,9 @@ test("user_browser exploration prioritizes relevant links and skips action links
   assert.equal(result.pagesFetched, 2);
   assert.equal(result.steps[1].url, "https://example.org/guide");
   assert.equal(result.metadata.action_links_skipped, 1);
-  assert.equal(result.steps[0].blockedLinks.includes("https://example.org/logout"), true);
+  // Exact URL equality on parsed entries (not a substring/`includes` check).
+  const logoutHref = new URL("https://example.org/logout").href;
+  assert.equal(result.steps[0].blockedLinks.filter((link) => new URL(link).href === logoutHref).length, 1);
 });
 
 test("user_browser fails closed without a bridge and never falls back", async () => {
@@ -820,4 +827,170 @@ test("live smoke gated by BROWSER_LIVE", { skip: process.env.BROWSER_LIVE !== "1
   const search = await webSearch("metformin", { maxResults: 3 });
   assert.equal(search.success, true);
   assert.ok(search.count > 0);
+});
+
+// --- CodeQL hardening: linear HTML scanning, exact host checks, scheme guard ---
+
+const REDOS_REPEAT = 50_000;
+// Single-character runs backtrack quadratically too, but need longer input to exceed the budget.
+const RUN_REPEAT = 200_000;
+
+function assertFast(label, fn, budgetMs = 1500) {
+  const started = performance.now();
+  const value = fn();
+  const elapsed = performance.now() - started;
+  assert.ok(elapsed < budgetMs, `${label} took ${elapsed.toFixed(0)}ms`);
+  return value;
+}
+
+test("html extraction stays linear on pathological attribute repetitions", () => {
+  assert.deepEqual(
+    assertFast("json-ld", () => extractJsonLd(`<script ${'type="application/ld+json"'.repeat(REDOS_REPEAT)}`)),
+    [],
+  );
+  assert.equal(
+    assertFast("canonical", () => extractPageMetadata(`<link ${'rel="canonical"'.repeat(REDOS_REPEAT)}`, "https://fallback.test/"))
+      .canonical,
+    "https://fallback.test/",
+  );
+  assert.equal(
+    assertFast("canonical href", () => extractPageMetadata(`<link ${'href=""'.repeat(REDOS_REPEAT)}`, "https://fallback.test/"))
+      .canonical,
+    "https://fallback.test/",
+  );
+  assert.deepEqual(assertFast("links", () => extractLinks(`<a ${'href=""'.repeat(REDOS_REPEAT)}`)), []);
+  assert.equal(assertFast("byline", () => extractReaderArticle(`<meta ${'name="author"'.repeat(REDOS_REPEAT)}`)).byline, "");
+  assert.equal(
+    assertFast("byline closed", () => extractReaderArticle(`<meta ${'name="author" '.repeat(REDOS_REPEAT)}content="Ada">`)).byline,
+    "Ada",
+  );
+  assertFast("role=main", () => extractReaderArticle(`<div ${'role="main"'.repeat(REDOS_REPEAT)}`));
+  assertFast("anchor count", () => extractReaderArticle(`<a ${"<a ".repeat(REDOS_REPEAT)}`));
+  assert.equal(
+    assertFast("unclosed scripts", () => extractText(`<body><p>keep</p>${"<script>".repeat(REDOS_REPEAT)}</body>`)),
+    "keep",
+  );
+});
+
+test("html metadata scanning keeps normal results and accepts order/case variants", () => {
+  const html = `<html><head><title>T</title>
+<META CONTENT="Desc &amp; more" NAME="Description">
+<meta property="og:description" content="OG">
+<link href="https://example.org/canon" rel="canonical">
+<meta name="author" content="Ada Lovelace">
+<script type="application/ld+json">{"@type":"Article","name":"x"}</script >
+<script type='Application/LD+JSON'>{"@type":"NewsArticle"}</script
+>
+<script>var x = "</scriptx>";</script>
+</head><body><div role="main"><p>Body text</p></div></body></html>`;
+  const meta = extractPageMetadata(html, "https://fallback.test/");
+  assert.equal(meta.title, "T");
+  assert.equal(meta.description, "Desc & more");
+  assert.equal(meta.canonical, "https://example.org/canon");
+  assert.deepEqual(meta.json_ld.map((node) => node["@type"]), ["Article", "NewsArticle"]);
+  const reader = extractReaderArticle(html, "https://example.org/");
+  assert.equal(reader.byline, "Ada Lovelace");
+  assert.equal(reader.container, "role=main");
+  assert.match(reader.markdown, /Body text/);
+});
+
+test("extractLinks handles quoted, unquoted and missing hrefs", () => {
+  const links = extractLinks(
+    `<body><a name="top">Top</a><a class=x HREF='/a?x=1'>A <b>bold</b></a><a href=/b>B</a ><a href="https://c.test/">C</a></body>`,
+    "https://example.org/",
+  );
+  assert.deepEqual(
+    links.map((link) => [link.href, link.absolute, link.text]),
+    [
+      ["/a?x=1", "https://example.org/a?x=1", "A bold"],
+      ["/b", "https://example.org/b", "B"],
+      ["https://c.test/", "https://c.test/", "C"],
+    ],
+  );
+});
+
+test("script/style stripping honors end tags with whitespace or attributes", () => {
+  const text = extractText(
+    "<body><p>before</p><script>evil()</script ><p>middle</p><style>x{}</style\t\n foo><p>after</p><SCRIPT>bad()</SCRIPT></body>",
+  );
+  assert.equal(text, "before middle after");
+});
+
+test("robots comments, URL punctuation and readme headings parse in linear time", () => {
+  const groups = assertFast("robots", () =>
+    parseRobotsTxt(`User-agent: *\nDisallow: /private # note ${"#".repeat(RUN_REPEAT)}\rx`),
+  );
+  assert.deepEqual(groups[0].disallow, ["/private"]);
+  assert.equal(isRobotsAllowed("User-agent: *\nDisallow: /private # comment", "https://x.test/private/a"), false);
+
+  assert.deepEqual(extractUrlsFromText("see https://a.test/x!!!), and https://b.test/y."), ["https://a.test/x", "https://b.test/y"]);
+  const longUrl = `https://a.test/${"!".repeat(RUN_REPEAT)}x`;
+  assert.deepEqual(assertFast("urls", () => extractUrlsFromText(longUrl)), [longUrl]);
+
+  const md = toReadmeMarkdown({ title: "T", markdown: "# One\n\n#### Four\n##NoSpace\n###   Three  \r\n## Two\nbody" });
+  assert.match(md, /## Contents\n\n- One\n- Three\n- Two\n/);
+  assert.ok(!md.includes("\n# One\n"), "duplicate leading title is dropped");
+  assertFast("headings", () => toReadmeMarkdown({ title: "T", markdown: `#${" ".repeat(RUN_REPEAT)}\u0000` }));
+  assertFast("title line", () => toReadmeMarkdown({ title: "T", markdown: `#${" ".repeat(RUN_REPEAT)}` }));
+});
+
+test("search ad/host checks compare parsed hostnames, not substrings", () => {
+  assert.equal(isSearchAdUrl("https://ad.doubleclick.net/x"), true);
+  assert.equal(isSearchAdUrl("https://doubleclick.net/x"), true);
+  assert.equal(isSearchAdUrl("https://www.googleadservices.com/x"), true);
+  assert.equal(isSearchAdUrl("https://evil.com/?x=doubleclick.net"), false);
+  assert.equal(isSearchAdUrl("https://evil.com/?x=googleadservices.com"), false);
+  assert.equal(isSearchAdUrl("https://doubleclick.net.evil.com/"), false);
+  assert.equal(isSearchAdUrl("https://notdoubleclick.net/"), false);
+  assert.equal(hostIsOrUnder("Links.DuckDuckGo.com.", "duckduckgo.com"), true);
+  assert.equal(hostIsOrUnder("duckduckgo.com.evil.test", "duckduckgo.com"), false);
+});
+
+test("searxng hits drop duckduckgo/wikipedia-api hosts exactly and trim base slashes linearly", async () => {
+  const transport = makeFixtureMapTransport();
+  transport.setPage(
+    "http://127.0.0.1:8899/search?q=hosts&format=json",
+    JSON.stringify({
+      results: [
+        { title: "ddg", url: "https://duckduckgo.com/y" },
+        { title: "ddg sub", url: "https://links.duckduckgo.com/z" },
+        { title: "kept query", url: "https://evil.test/?x=duckduckgo.com" },
+        { title: "kept lookalike", url: "https://duckduckgo.com.example.test/" },
+        { title: "wiki api", url: "https://en.wikipedia.org/w/api.php?action=x" },
+        { title: "wiki page", url: "https://en.wikipedia.org/wiki/X" },
+      ],
+    }),
+  );
+  const started = performance.now();
+  const result = await webSearch("hosts", {
+    transport,
+    providers: ["searxng"],
+    maxResults: 10,
+    searxng: { baseUrl: `http://127.0.0.1:8899${"/".repeat(RUN_REPEAT)}` },
+  });
+  assert.ok(performance.now() - started < 1500);
+  assert.equal(result.success, true);
+  assert.deepEqual(
+    result.results.map((hit) => hit.url).sort(),
+    ["https://duckduckgo.com.example.test", "https://en.wikipedia.org/wiki/X", "https://evil.test/?x=duckduckgo.com"],
+  );
+});
+
+test("resolveUrl rejects script-capable schemes after browser-style normalization", () => {
+  for (const href of [
+    "javascript:alert(1)",
+    " JaVaScRiPt:alert(1)",
+    "java\tscript:alert(1)",
+    "\u0001javascript:x",
+    "data:text/html,<script>alert(1)</script>",
+    "DATA:text/html;base64,AAAA",
+    "vbscript:msgbox(1)",
+    " VBScript:x",
+  ]) {
+    assert.equal(resolveUrl("https://example.org/", href), "", JSON.stringify(href));
+  }
+  assert.equal(resolveUrl("https://example.org/a/", "b"), "https://example.org/a/b");
+  assert.equal(resolveUrl("https://example.org/", "mailto:x@example.org"), "mailto:x@example.org");
+  assert.equal(resolveUrl("https://example.org/", "https://other.test/p"), "https://other.test/p");
+  assert.equal(resolveUrl("https://example.org/", "/data:not-a-scheme"), "https://example.org/data:not-a-scheme");
 });

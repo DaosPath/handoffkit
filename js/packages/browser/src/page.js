@@ -104,9 +104,38 @@ export function makeExcerpt(text, max = 320) {
   return `${clean.slice(0, max - 3).trimEnd()}...`;
 }
 
+// ATX headings up to `maxLevel` ("# x" .. "### x"), one per line. Linear line
+// scan instead of `/^#{1,3}\s+(.+)$/gm`, which backtracks polynomially on long
+// whitespace runs.
+const LINE_BREAK_RE = /\r\n|[\n\r\u2028\u2029]/;
+
+function markdownHeadings(body, maxLevel) {
+  const out = [];
+  for (const line of String(body ?? "").split(LINE_BREAK_RE)) {
+    let level = 0;
+    while (level < line.length && line[level] === "#") level++;
+    if (level < 1 || level > maxLevel) continue;
+    if (!/\s/.test(line[level] ?? "")) continue;
+    const text = line.slice(level).trim();
+    if (text) out.push(text);
+  }
+  return out;
+}
+
+// Drop a leading "# Title" line plus the newlines after it. Linear stand-in
+// for `/^#\s+.*\n+/`, which is O(n^2) on "#" followed by a long space run.
+function dropLeadingTitleLine(text) {
+  const nl = text.indexOf("\n");
+  if (nl === -1 || text[0] !== "#" || !/\s/.test(text[1] ?? "")) return text;
+  if (/[\r\u2028\u2029]/.test(text.slice(1, nl).trimStart())) return text;
+  let end = nl;
+  while (text[end] === "\n") end++;
+  return text.slice(end);
+}
+
 export function toReadmeMarkdown({ title = "", url = "", markdown = "", links = [] } = {}) {
   const body = String(markdown ?? "");
-  const headings = [...body.matchAll(/^#{1,3}\s+(.+)$/gm)].map((m) => m[1].trim()).slice(0, 12);
+  const headings = markdownHeadings(body, 3).slice(0, 12);
   const lines = [];
   lines.push(`# ${title || "Untitled page"}`);
   lines.push("");
@@ -122,7 +151,7 @@ export function toReadmeMarkdown({ title = "", url = "", markdown = "", links = 
   }
   // strip duplicate leading title/source if already present
   let rest = body;
-  rest = rest.replace(/^#\s+.*\n+/, "");
+  rest = dropLeadingTitleLine(rest);
   rest = rest.replace(/^Source:\s+\S+\n+/, "");
   lines.push(rest.trim());
   if (links?.length && !rest.includes("## Links")) {

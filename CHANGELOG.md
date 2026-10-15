@@ -197,6 +197,31 @@ absorbed). 1.20 stays beta until every scorecard dimension is ≥9/10. See
   through the live Studio API over TCP TLS 1.3+mTLS; hosted and cross-architecture
   qualification remain separate release gates.
 
+### Security
+
+- Closed the open CodeQL high-severity alerts on the 1.20 branch:
+  - Browser HTML extraction, search, research, robots, page, Browser Core wire
+    redaction, the Google result parser, recipes, providers, core, node, and CLI
+    no longer use polynomial-time (ReDoS-prone) regexes on page or user input.
+    They use linear scans with pathological-input regression tests (50k–200k
+    repetitions) in JavaScript and the Python twins.
+  - Ad/redirect host detection (DuckDuckGo, googleadservices, doubleclick,
+    Wikipedia API) parses the URL and compares hostnames exactly instead of by
+    substring. URL resolution now drops `data:` and `vbscript:` as well as
+    `javascript:`.
+  - Python HTML extraction strips `</script >`-style end tags and unclosed
+    script/style blocks the same way JavaScript does.
+  - Browser Core userinfo redaction now redacts every `user:pass@` occurrence in
+    JavaScript, matching Python (previously only the first).
+  - `@handoffkit/csp` identifiers come only from Web Crypto
+    (`randomUUID`/`getRandomValues`); the `Math.random()` fallback is removed and
+    a missing Web Crypto fails closed.
+- `handoffkit init` no longer prompts for an API key or writes it to `.env` in
+  clear text. The project config stores only the environment variable name
+  (`api_key_env`); use `handoffkit keys set` to store a key explicitly.
+- Benchmark/interop scripts: the local bench server HTML-escapes reflected
+  values, and the Studio interop script launches Next without a shell.
+
 ### Fixed
 
 - OpenCode Go requests now send the `x-opencode-session` header the live API

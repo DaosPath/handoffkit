@@ -53,3 +53,13 @@ for (const { name, transcript, expected } of fixture.fuzzy_cases ?? []) {
     }
   });
 }
+
+test("answer URL trailing punctuation is trimmed linearly and still resolves", () => {
+  const pages = [{ url: "https://example.test/docs/channels", markdown: "channels are bounded" }];
+  const ok = judgeModelAnswer({ answer: "See https://example.test/docs/channels!?).", pages });
+  assert.equal(ok.gates.find((gate) => gate.id === "no_invented_urls").result, "pass");
+  const started = performance.now();
+  const bad = judgeModelAnswer({ answer: `See https://example.test/docs/channels${"!".repeat(200_000)}x`, pages });
+  assert.ok(performance.now() - started < 1500);
+  assert.equal(bad.gates.find((gate) => gate.id === "no_invented_urls").result, "fail");
+});

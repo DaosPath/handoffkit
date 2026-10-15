@@ -200,9 +200,23 @@ export function parseUrl(url) {
   return out;
 }
 
+// Script-capable schemes are never surfaced as links. The check mirrors how
+// browsers parse hrefs: ASCII whitespace/control characters are ignored, so
+// " java\tscript:" is still javascript:.
+const UNSAFE_LINK_SCHEMES = Object.freeze(["javascript:", "data:", "vbscript:"]);
+
+function hasUnsafeLinkScheme(href) {
+  let normalized = "";
+  for (const c of String(href ?? "")) {
+    if (c.charCodeAt(0) > 0x20 && c !== "\u007f") normalized += c.toLowerCase();
+    if (normalized.length > 16) break;
+  }
+  return UNSAFE_LINK_SCHEMES.some((scheme) => normalized.startsWith(scheme));
+}
+
 export function resolveUrl(base, href) {
   const raw = String(href ?? "").trim();
-  if (!raw || raw.startsWith("#") || raw.toLowerCase().startsWith("javascript:")) return "";
+  if (!raw || raw.startsWith("#") || hasUnsafeLinkScheme(raw)) return "";
   if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) return raw;
   try {
     return new URL(raw, base || undefined).href;

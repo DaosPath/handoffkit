@@ -1148,11 +1148,17 @@ export function buildScreenNarrationPrompt(
   return { system: SCREEN_NARRATION_SYSTEM, user };
 }
 
+// Linear-time removal of a leading ```/```json fence and a trailing ``` fence.
+// Avoids `/\s*```$/`, which backtracks quadratically on long whitespace runs.
+function stripCodeFence(text) {
+  let out = text.replace(/^```(?:json)?\s*/, "");
+  if (out.endsWith("```")) out = out.slice(0, -3).trimEnd();
+  return out;
+}
+
 export function parseScreenNarrationJson(raw) {
   let text = String(raw || "").trim();
-  if (text.startsWith("```")) {
-    text = text.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
-  }
+  if (text.startsWith("```")) text = stripCodeFence(text);
   const start = text.indexOf("[");
   const end = text.lastIndexOf("]");
   if (start < 0 || end <= start) {
@@ -1213,9 +1219,7 @@ export function buildSpokenFitPrompt(
 export function parseSpokenFitJson(raw) {
   const rows = parseScreenNarrationJson(raw);
   let text = String(raw || "").trim();
-  if (text.startsWith("```")) {
-    text = text.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
-  }
+  if (text.startsWith("```")) text = stripCodeFence(text);
   const start = text.indexOf("[");
   const end = text.lastIndexOf("]");
   let extra = [];
@@ -2064,7 +2068,10 @@ function webProviderText(provider, prompt, options = {}) {
 
 function stripJsonFence(value) {
   let text = String(value ?? "").trim();
-  text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  text = text.replace(/^```(?:json)?\s*/i, "");
+  // endsWith + trim instead of `/\s*```$/`, which backtracks quadratically.
+  if (text.endsWith("```")) text = text.slice(0, -3);
+  text = text.trim();
   const first = text.indexOf("{");
   const last = text.lastIndexOf("}");
   return first >= 0 && last > first ? text.slice(first, last + 1) : text;

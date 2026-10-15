@@ -337,3 +337,28 @@ test("provider errors are single-line, redacted, and bounded", async () => {
   assert.equal(redactSecrets(undefined), "");
   assert.equal(sanitizeErrorBody("a\n b", 10), "a b");
 });
+
+test("base URL trailing slashes are trimmed in linear time", async () => {
+  const requested = [];
+  const provider = new OpenAICompatibleProvider({
+    provider: "opencode",
+    baseURL: "http://127.0.0.1:1337/v1///",
+    model: "local-model",
+    allowEnv: false,
+    fetchImpl: async (url) => {
+      requested.push(String(url));
+      return jsonResponse({ choices: [{ message: { content: "ok" } }] });
+    },
+  });
+  assert.equal(provider.baseURL, "http://127.0.0.1:1337/v1");
+  assert.equal(await provider.agenerate("hello"), "ok");
+  assert.ok(requested[0].startsWith("http://127.0.0.1:1337/v1/"));
+  assert.ok(!requested[0].includes("v1//"));
+
+  // Pathological for `/\/+$/`: a long slash run followed by a non-slash.
+  const hostile = `http://h/${"/".repeat(100_000)}x`;
+  const started = performance.now();
+  const slow = new OpenAICompatibleProvider({ provider: "opencode", baseURL: hostile, model: "m", allowEnv: false });
+  assert.ok(performance.now() - started < 1500, "base URL trimming must not backtrack quadratically");
+  assert.equal(slow.baseURL, hostile);
+});

@@ -210,6 +210,26 @@ def test_screen_narration_prompt_and_parse_cover_full_episode() -> None:
     assert parsed[0]["text_zh"] == "他们为了出气"
 
 
+def test_screen_narration_fence_strip_is_linear_on_whitespace_runs() -> None:
+    import time
+
+    from handoffkit.recipes.media import parse_spoken_fit_json
+
+    row = '{"index":1,"start":0,"end":2,"text_es":"Hola."}'
+    # Pathological for r"\s*```$": a long space run not followed by a closing fence.
+    hostile = "```json\n[" + row + " " * 50_000 + "]"
+    started = time.perf_counter()
+    parsed = parse_screen_narration_json(hostile)
+    fitted = parse_spoken_fit_json(hostile)
+    assert time.perf_counter() - started < 1.5
+    assert parsed[0]["text_es"] == "Hola."
+    assert fitted[0]["text_es"] == "Hola."
+
+    fenced = parse_screen_narration_json("```json\n[" + row + "]" + " \n\t " * 10_000 + "```")
+    assert fenced[0]["text_es"] == "Hola."
+    assert parse_screen_narration_json("```\n[" + row + "]\n```")[0]["text_es"] == "Hola."
+
+
 def test_spoken_fit_prompt_includes_slot_budget() -> None:
     from handoffkit.recipes.media import build_spoken_fit_prompt, parse_spoken_fit_json
 

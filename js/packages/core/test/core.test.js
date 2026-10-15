@@ -783,3 +783,15 @@ test("core providers keep transport options out of request payloads and bound er
     return true;
   });
 });
+
+test("provider base URLs trim trailing slashes in linear time", () => {
+  assert.equal(new OpenAIProvider({ apiKey: "k", baseUrl: "https://example.test/v1//" }).baseUrl, "https://example.test/v1");
+  assert.equal(new OllamaProvider({ model: "m", baseUrl: "http://localhost:11434/" }).baseUrl, "http://localhost:11434");
+
+  // Pathological for `/\/+$/`: a long slash run followed by a non-slash.
+  const hostile = `http://h/${"/".repeat(100_000)}x`;
+  const started = performance.now();
+  const provider = new OllamaProvider({ model: "m", baseUrl: hostile });
+  assert.ok(performance.now() - started < 1500, "base URL trimming must not backtrack quadratically");
+  assert.equal(provider.baseUrl, hostile);
+});

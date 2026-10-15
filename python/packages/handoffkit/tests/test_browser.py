@@ -932,3 +932,189 @@ def test_browser_live_search():
     result = web_search("HandoffKit protocol", max_results=4)
     assert result["success"] is True
     assert result["count"] >= 1
+
+
+# --- CodeQL hardening: linear HTML scanning, exact host checks, scheme guard ---
+# Mirrors the JS regression tests in js/packages/browser/test/browser.test.js.
+
+_REDOS_REPEAT = 50_000
+# Single-character runs backtrack quadratically too, but need longer input.
+_RUN_REPEAT = 200_000
+
+
+def _assert_fast(label, fn, budget_s=2.0):
+    import time
+
+    started = time.perf_counter()
+    value = fn()
+    elapsed = time.perf_counter() - started
+    assert elapsed < budget_s, f"{label} took {elapsed:.2f}s"
+    return value
+
+
+def test_html_extraction_stays_linear_on_pathological_attribute_repetitions():
+    from handoffkit.browser.html_extract import (
+        extract_json_ld,
+        extract_links,
+        extract_page_metadata,
+        extract_text,
+        scan_href_anchors,
+    )
+
+    n = _REDOS_REPEAT
+    ld_html = "<script " + 'type="application/ld+json"' * n
+    assert _assert_fast("json-ld", lambda: extract_json_ld(ld_html)) == []
+    meta = _assert_fast(
+        "canonical",
+        lambda: extract_page_metadata("<link " + 'rel="canonical"' * n, "https://fallback.test/"),
+    )
+    assert meta["canonical"] == "https://fallback.test/"
+    assert _assert_fast("links", lambda: extract_links("<a " + 'href=""' * n)) == []
+    assert _assert_fast("anchors", lambda: scan_href_anchors("<a " + 'href=""' * n)) == []
+    author_html = "<meta " + 'name="author"' * n
+    assert _assert_fast("byline", lambda: extract_reader_article(author_html))["byline"] == ""
+    closed = _assert_fast(
+        "byline closed",
+        lambda: extract_reader_article("<meta " + 'name="author" ' * n + 'content="Ada">'),
+    )
+    assert closed["byline"] == "Ada"
+    _assert_fast("role=main", lambda: extract_reader_article("<div " + 'role="main"' * n))
+    _assert_fast("anchor count", lambda: extract_reader_article("<a " + "<a " * n))
+    text = _assert_fast(
+        "unclosed scripts",
+        lambda: extract_text("<body><p>keep</p>" + "<script>" * n + "</body>"),
+    )
+    assert text == "keep"
+
+
+def test_html_metadata_scanning_keeps_normal_results_and_accepts_order_case_variants():
+    from handoffkit.browser.html_extract import extract_page_metadata
+
+    html = (
+        "<html><head><title>T</title>\n"
+        '<META CONTENT="Desc &amp; more" NAME="Description">\n'
+        '<meta property="og:description" content="OG">\n'
+        '<link href="https://example.org/canon" rel="canonical">\n'
+        '<meta name="author" content="Ada Lovelace">\n'
+        '<script type="application/ld+json">{"@type":"Article","name":"x"}</script >\n'
+        "<script type='Application/LD+JSON'>{\"@type\":\"NewsArticle\"}</script\n>\n"
+        '<script>var x = "</scriptx>";</script>\n'
+        '</head><body><div role="main"><p>Body text</p></div></body></html>'
+    )
+    meta = extract_page_metadata(html, "https://fallback.test/")
+    assert meta["title"] == "T"
+    assert meta["description"] == "Desc & more"
+    assert meta["canonical"] == "https://example.org/canon"
+    assert [node["@type"] for node in meta["json_ld"]] == ["Article", "NewsArticle"]
+    reader = extract_reader_article(html, "https://example.org/")
+    assert reader["byline"] == "Ada Lovelace"
+    assert reader["container"] == "role=main"
+    assert "Body text" in reader["markdown"]
+
+
+def test_extract_links_and_markdown_anchor_scan_keep_behavior():
+    from handoffkit.browser.html_extract import extract_links
+
+    html = (
+        '<body><a name="top">Top</a><a class=x HREF=\'/a?x=1\'>A <b>bold</b></a>'
+        '<a href="https://c.test/">C</a ></body>'
+    )
+    links = extract_links(html, "https://example.org/")
+    assert [(link.href, link.absolute, link.text) for link in links] == [
+        ("/a?x=1", "https://example.org/a?x=1", "A bold"),
+        ("https://c.test/", "https://c.test/", "C"),
+    ]
+    md = html_to_markdown(html, base_url="https://example.org/")
+    assert "[A bold](https://example.org/a?x=1)" in md
+    assert "[C](https://c.test/)" in md
+
+
+def test_script_style_stripping_honors_end_tags_with_whitespace_or_attributes():
+    from handoffkit.browser.html_extract import extract_text, strip_noise
+
+    assert strip_noise("<p>a</p><script>x()</script\t\n foo><p>b</p>") == "<p>a</p><p>b</p>"
+    assert strip_noise("<p>a</p><SCRIPT>x()</script ><p>b</p>") == "<p>a</p><p>b</p>"
+    styled = "<p>a</p><style>x{}</style\n><noscript>n</noscript ><p>b</p>"
+    assert strip_noise(styled) == "<p>a</p><p>b</p>"
+    text = extract_text(
+        "<body><p>before</p><script>evil()</script ><p>middle</p>"
+        "<style>x{}</style\t\n foo><p>after</p><SCRIPT>bad()</SCRIPT></body>"
+    )
+    assert text.split() == ["before", "middle", "after"]
+
+
+def test_robots_comments_and_url_punctuation_parse_in_linear_time():
+    from handoffkit.browser.research import extract_urls_from_text
+    from handoffkit.browser.robots import is_robots_allowed, parse_robots_txt
+
+    groups = _assert_fast(
+        "robots",
+        lambda: parse_robots_txt(
+            "User-agent: *\nDisallow: /private # note " + "#" * _RUN_REPEAT + "\rx"
+        ),
+    )
+    assert groups[0]["disallow"] == ["/private"]
+    robots = "User-agent: *\nDisallow: /private # comment"
+    assert is_robots_allowed(robots, "https://x.test/private/a") is False
+
+    assert extract_urls_from_text("see https://a.test/x!!!), and https://b.test/y.") == [
+        "https://a.test/x",
+        "https://b.test/y",
+    ]
+    long_url = "https://a.test/" + "!" * _RUN_REPEAT + "x"
+    assert _assert_fast("urls", lambda: extract_urls_from_text(long_url)) == [long_url]
+
+
+def test_search_ad_and_host_checks_compare_parsed_hostnames_not_substrings():
+    from handoffkit.browser.search import _host_is_or_under, _is_search_ad_url
+
+    assert _is_search_ad_url("https://ad.doubleclick.net/x") is True
+    assert _is_search_ad_url("https://doubleclick.net/x") is True
+    assert _is_search_ad_url("https://www.googleadservices.com/x") is True
+    assert _is_search_ad_url("https://evil.com/?x=doubleclick.net") is False
+    assert _is_search_ad_url("https://evil.com/?x=googleadservices.com") is False
+    assert _is_search_ad_url("https://doubleclick.net.evil.com/") is False
+    assert _is_search_ad_url("https://notdoubleclick.net/") is False
+    assert _host_is_or_under("Links.DuckDuckGo.com.", "duckduckgo.com") is True
+    assert _host_is_or_under("duckduckgo.com.evil.test", "duckduckgo.com") is False
+
+
+def test_duckduckgo_results_drop_duckduckgo_hosts_exactly():
+    from handoffkit.browser.search import search_duckduckgo
+
+    transport = make_fixture_map_transport()
+    transport.set_page(
+        "https://html.duckduckgo.com/html/?q=hosts",
+        "<html><body>"
+        '<a class="result__a" href="https://duckduckgo.com/y.js?ad=1">Ad</a>'
+        '<a class="result__a" href="//duckduckgo.com/l/?uddg='
+        'https%3A%2F%2Fevil.test%2F%3Fx%3Dduckduckgo.com">Kept</a>'
+        '<a class="result__a" href="https://duckduckgo.com.example.test/">Lookalike</a>'
+        '<a class="other" href="https://ignored.test/">Not a result</a>'
+        "</body></html>",
+    )
+    hits = search_duckduckgo("hosts", transport=transport, max_results=5)
+    assert [hit["url"] for hit in hits] == [
+        "https://evil.test/?x=duckduckgo.com",
+        "https://duckduckgo.com.example.test/",
+    ]
+
+
+def test_resolve_url_rejects_script_capable_schemes_after_normalization():
+    from handoffkit.browser.types import resolve_url
+
+    for href in (
+        "javascript:alert(1)",
+        " JaVaScRiPt:alert(1)",
+        "java\tscript:alert(1)",
+        "\x01javascript:x",
+        "data:text/html,<script>alert(1)</script>",
+        "DATA:text/html;base64,AAAA",
+        "vbscript:msgbox(1)",
+        " VBScript:x",
+    ):
+        assert resolve_url("https://example.org/", href) == "", href
+    assert resolve_url("https://example.org/a/", "b") == "https://example.org/a/b"
+    assert resolve_url("https://example.org/", "mailto:x@example.org") == "mailto:x@example.org"
+    assert resolve_url("https://example.org/", "https://other.test/p") == "https://other.test/p"
+    assert resolve_url("https://example.org/", "/data:not-a-scheme") == "https://example.org/data:not-a-scheme"

@@ -882,7 +882,9 @@ test("Node secure profiles reject tlsOptions overrides before network use", asyn
     TcpTransport.connect("127.0.0.1", 9, {
       config: standardClient,
       servername: "localhost",
-      tlsOptions: { rejectUnauthorized: false },
+      // Swapping the trust anchors is a TLS context override and must be refused
+      // before any socket is opened.
+      tlsOptions: { ca: [] },
     }),
     (error) => error instanceof SecurityError
       && error.code === "tls_context_override_forbidden",

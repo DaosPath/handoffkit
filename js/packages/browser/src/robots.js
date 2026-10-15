@@ -10,7 +10,9 @@ export function parseRobotsTxt(text, userAgent = "*") {
     current = { agents: [], allow: [], disallow: [] };
   };
   for (const raw of String(text ?? "").split(/\r?\n/)) {
-    const line = raw.replace(/#.*$/, "").trim();
+    // indexOf instead of `/#.*$/` (polynomial on "####..." lines); mirrors Python split("#", 1).
+    const hash = raw.indexOf("#");
+    const line = (hash === -1 ? raw : raw.slice(0, hash)).trim();
     if (!line) continue;
     const idx = line.indexOf(":");
     if (idx < 1) continue;

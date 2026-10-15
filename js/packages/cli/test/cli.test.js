@@ -28,7 +28,7 @@ test("version and help work offline", async () => {
 
   const child = spawnSync(process.execPath, [binPath, "--version"], { encoding: "utf8" });
   assert.equal(child.status, 0);
-  assert.match(child.stdout, new RegExp(`handoffkit-js ${VERSION.replace(/\./g, "\\.")}`));
+  assert.ok(child.stdout.includes(`handoffkit-js ${VERSION}`), child.stdout);
 });
 
 test("csp doctor, demo, and inspect work offline", async () => {
@@ -270,4 +270,25 @@ test("CLI version and source imports use public package boundaries", async () =>
 test("benchmark limits must be positive integers", async () => {
   assert.equal(await main(["doctor", "0"], { stderr: () => {} }), 1);
   assert.equal(await main(["mai", "not-a-number"], { stderr: () => {} }), 1);
+});
+
+test("keys set/delete trim trailing newlines in linear time", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "handoffkit-js-cli-env-"));
+  const cwd = process.cwd();
+  process.chdir(dir);
+  try {
+    // Pathological for `/\n+$/`: a long newline run that is not at the end.
+    const blank = "\n".repeat(100_000);
+    await writeFile(join(dir, ".env"), `${blank}B=2`, "utf8");
+    const started = performance.now();
+    assert.equal(await main(["keys", "set", "NEW_KEY", "v"], { stdout: () => {}, stderr: () => {} }), 0);
+    assert.ok(performance.now() - started < 1500, "env normalization must not backtrack quadratically");
+    assert.equal(await readFile(join(dir, ".env"), "utf8"), `${blank}B=2\nNEW_KEY=v\n`);
+
+    await writeFile(join(dir, ".env"), "A=1\nB=2\n\n\n", "utf8");
+    assert.equal(await main(["keys", "delete", "B"], { stdout: () => {}, stderr: () => {} }), 0);
+    assert.equal(await readFile(join(dir, ".env"), "utf8"), "A=1\n");
+  } finally {
+    process.chdir(cwd);
+  }
 });

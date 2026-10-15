@@ -101,6 +101,40 @@ def test_redaction() -> None:
     assert redacted["nested"]["title"] == "ok"
 
 
+def test_redaction_url_userinfo() -> None:
+    assert redact_sensitive("Bearer abc.def") == "[redacted]"
+    assert (
+        redact_sensitive("https://user:pass@example.org/x")
+        == "https://[redacted]:[redacted]@example.org/x"
+    )
+    assert redact_sensitive("HTTP://User:Pw@host/") == "HTTP://[redacted]:[redacted]@host/"
+    assert redact_sensitive("https://host:443/x@y") == "https://host:443/x@y"
+    assert (
+        redact_sensitive("https://u:p@h/?next=//a:b@c")
+        == "https://[redacted]:[redacted]@h/?next=//[redacted]:[redacted]@c"
+    )
+
+
+def test_redaction_url_userinfo_is_linear() -> None:
+    import time
+
+    n = 50_000
+    colons = "http://:" + ":" * n
+    dots = "http://a:b@h/" + "//.:" + ".:." * n
+    cases = [
+        (colons, colons[:256] + "…[truncated]"),
+        (colons + "@h", "http://[redacted]:[redacted]@h"),
+        (dots, "http://[redacted]:[redacted]@h/" + "//.:" + ".:." * n),
+        (dots + "@", "http://[redacted]:[redacted]@h/" + "//[redacted]:[redacted]@"),
+    ]
+    for value, expected in cases:
+        started = time.perf_counter()
+        out = redact_sensitive(value)
+        elapsed = time.perf_counter() - started
+        assert out == expected
+        assert elapsed < 2.0, f"redaction took {elapsed:.2f}s"
+
+
 def test_share_cookies_and_cgnat() -> None:
     with pytest.raises(BrowserCoreError) as raised:
         BrowserPolicy.from_wire({"credentials": {"share_cookies": True}})

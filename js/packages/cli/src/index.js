@@ -744,7 +744,11 @@ function parseEnvAssignment(line) {
 }
 
 function normalizeEnvLines(lines) {
-  const content = lines.join("\n").replace(/\n+$/, "");
+  // Trim trailing newlines with a loop: `/\n+$/` backtracks quadratically.
+  const joined = lines.join("\n");
+  let end = joined.length;
+  while (end > 0 && joined[end - 1] === "\n") end -= 1;
+  const content = joined.slice(0, end);
   return content ? `${content}\n` : "";
 }
 

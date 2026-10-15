@@ -1,7 +1,7 @@
 import { PLATFORM_SEARCH_PROVIDERS, normalizeProviderName } from "@handoffkit/browser-core";
 import { TransportRequest, defaultTransport } from "./transport.js";
 import { rankSearchHits } from "./rank.js";
-import { decodeHtmlEntities } from "./html_extract.js";
+import { decodeHtmlEntities, scanHrefAnchors } from "./html_extract.js";
 import { detectSoftBlock } from "./util.js";
 import { SourceCatalog } from "./source_catalog.js";
 import {
@@ -117,11 +117,27 @@ export function canonicalSearchUrl(raw) {
   }
 }
 
+function parseHttpUrl(raw) {
+  try {
+    return new URL(String(raw ?? ""));
+  } catch {
+    return null;
+  }
+}
+
+/** True when `host` is exactly `domain` or a subdomain of it (never a substring match). */
+export function hostIsOrUnder(host, domain) {
+  const h = String(host ?? "").toLowerCase().replace(/\.$/, "");
+  const d = String(domain ?? "").toLowerCase();
+  return Boolean(h && d) && (h === d || h.endsWith(`.${d}`));
+}
+
 function pushHit(hits, title, url, maxResults, extra = {}) {
   if (hits.length >= maxResults) return;
   if (!url || !url.startsWith("http")) return;
-  if (url.includes("duckduckgo.com")) return;
-  if (url.includes("wikipedia.org/w/api.php")) return;
+  const parsedUrl = parseHttpUrl(url);
+  if (parsedUrl && hostIsOrUnder(parsedUrl.hostname, "duckduckgo.com")) return;
+  if (parsedUrl && hostIsOrUnder(parsedUrl.hostname, "wikipedia.org") && parsedUrl.pathname === "/w/api.php") return;
   const canonical = canonicalSearchUrl(url);
   const existing = hits.find((h) => h.url === canonical);
   if (existing) {
@@ -137,9 +153,30 @@ function pushHit(hits, title, url, maxResults, extra = {}) {
   });
 }
 
+// Linear equivalent of s.replace(/<[^>]+>/g, repl); the regex is O(n^2) on
+// many "<" without a closing ">".
+function replaceTags(s, repl) {
+  let out = "";
+  let copyFrom = 0;
+  let pos = 0;
+  while (true) {
+    const lt = s.indexOf("<", pos);
+    if (lt === -1) break;
+    const gt = s.indexOf(">", lt + 1);
+    if (gt === -1) break;
+    if (gt === lt + 1) {
+      pos = lt + 1; // "<>" is not a tag
+      continue;
+    }
+    out += s.slice(copyFrom, lt) + repl;
+    copyFrom = gt + 1;
+    pos = gt + 1;
+  }
+  return out + s.slice(copyFrom);
+}
+
 function stripTags(s) {
-  return String(s ?? "")
-    .replace(/<[^>]+>/g, " ")
+  return replaceTags(String(s ?? ""), " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -262,10 +299,13 @@ export function providerEngine(providers) {
   return names.join("+") || "none";
 }
 
-function isSearchAdUrl(url) {
+const AD_HOSTS = Object.freeze(["googleadservices.com", "doubleclick.net"]);
+
+export function isSearchAdUrl(url) {
   const value = String(url ?? "").toLowerCase();
   if (!value) return true;
-  if (value.includes("googleadservices.com") || value.includes("doubleclick.net")) return true;
+  const host = parseHttpUrl(value)?.hostname ?? "";
+  if (AD_HOSTS.some((domain) => hostIsOrUnder(host, domain))) return true;
   if (value.includes("/aclk?") || value.includes("/pagead/") || value.includes("adurl=")) return true;
   if (value.includes("/ads/") || value.endsWith("/ads")) return true;
   return false;
@@ -322,13 +362,11 @@ export async function searchGoogle(transport, query, maxResults = 8, timeoutMs =
   );
   if (resp.error || resp.status < 200 || resp.status >= 300 || !resp.body) return hits;
 
-  const html = resp.body;
-  const anchorRe = /<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
-  let match;
-  while (hits.length < maxResults && (match = anchorRe.exec(html)) !== null) {
-    const link = unwrapGoogleLink(match[1] ?? match[2] ?? match[3] ?? "");
+  for (const anchor of scanHrefAnchors(resp.body)) {
+    if (hits.length >= maxResults) break;
+    const link = unwrapGoogleLink(anchor.href);
     if (!link) continue;
-    const title = stripTags(match[4] ?? "");
+    const title = stripTags(anchor.inner);
     if (!title || title.length < 2) continue;
     pushHit(hits, title, link, maxResults);
   }
@@ -416,6 +454,14 @@ async function wikipediaOpensearch(transport, query, maxResults, timeoutMs) {
  */
 const SEARXNG_CATEGORIES = Object.freeze(["general", "images", "videos", "news"]);
 
+// Linear replacement for `.replace(/\/+$/, "")` (that regex is O(n^2) on "////...x").
+function trimTrailingSlashes(value) {
+  const s = String(value ?? "");
+  let end = s.length;
+  while (end > 0 && s[end - 1] === "/") end--;
+  return s.slice(0, end);
+}
+
 function searxngOptionList(value) {
   const items = Array.isArray(value) ? value : String(value ?? "").split(",");
   return items.map((item) => String(item ?? "").trim().toLowerCase()).filter(Boolean);
@@ -427,10 +473,10 @@ async function searxngJsonSearch(transport, query, maxResults, timeoutMs, option
   const opts = options && typeof options === "object" ? options : {};
   const bases = [
     ...searxngOptionList(opts.baseUrls),
-    ...(opts.baseUrl ? [String(opts.baseUrl).trim().replace(/\/+$/, "")] : []),
+    ...(opts.baseUrl ? [trimTrailingSlashes(String(opts.baseUrl).trim())] : []),
     ...searxngOptionList(process.env.HANDOFFKIT_SEARXNG_URLS),
     ...(process.env.HANDOFFKIT_SEARXNG_URL
-      ? [String(process.env.HANDOFFKIT_SEARXNG_URL).trim().replace(/\/+$/, "")]
+      ? [trimTrailingSlashes(String(process.env.HANDOFFKIT_SEARXNG_URL).trim())]
       : []),
   ].filter(Boolean);
   if (!bases.length) {
@@ -616,11 +662,9 @@ async function kagiJsonSearch(transport, query, maxResults, timeoutMs) {
 function scrapeAnchorHits(html, maxResults, excludeHosts) {
   const hits = [];
   const seen = new Set();
-  const pattern = /<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/a\s*>/gi;
-  let match = null;
-  while ((match = pattern.exec(String(html ?? ""))) !== null) {
-    const url = String(match[1] ?? match[2] ?? match[3] ?? "").trim();
-    const title = stripTags(match[4] ?? "");
+  for (const anchor of scanHrefAnchors(html)) {
+    const url = anchor.href.trim();
+    const title = stripTags(anchor.inner);
     if (!url.startsWith("http") || title.length < 2) continue;
     let host = "";
     try {

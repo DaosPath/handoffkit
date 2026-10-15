@@ -26,7 +26,7 @@ def extract_urls_from_text(text: str) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for raw in found:
-        u = re.sub(r"[.,;:!?)]+$", "", raw)
+        u = raw.rstrip(".,;:!?)")
         if u in seen:
             continue
         seen.add(u)

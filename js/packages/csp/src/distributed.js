@@ -4,6 +4,7 @@ import {
   WorkerCapabilities,
   WorkerHeartbeat,
 } from "./contracts.js";
+import { randomId } from "./ids.js";
 import { SecurityError } from "./security.js";
 
 export const WorkerStatus = Object.freeze({ ONLINE: "online", SUSPECT: "suspect", OFFLINE: "offline" });
@@ -29,7 +30,7 @@ function schedulerCommitApplied(error) {
 }
 
 function identifier(prefix) {
-  return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
+  return randomId(prefix);
 }
 
 export class WorkerRecord {

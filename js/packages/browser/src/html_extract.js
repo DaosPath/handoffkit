@@ -22,34 +22,180 @@ function collapseWs(s) {
   return out.trimEnd();
 }
 
-function stripTagsRegion(html, tag) {
+// ASCII-only lowercase: unlike String#toLowerCase it never changes the string
+// length, so indices found in the lowered copy are valid in the source.
+function asciiLower(s) {
+  return String(s ?? "").replace(/[A-Z]+/g, (m) => m.toLowerCase());
+}
+
+const HTML_SPACE = new Set([" ", "\t", "\n", "\r", "\f"]);
+const OPEN_TAG_NAME_END = new Set([">", " ", "\t", "\n", "\r", "/"]);
+
+// Equivalent of a regex `\b` right after a tag name (next char is not [a-z0-9_]).
+function isTagNameBoundary(low, idx) {
+  if (idx >= low.length) return true;
+  const c = low.charCodeAt(idx);
+  return !((c >= 48 && c <= 57) || (c >= 97 && c <= 122) || c === 95);
+}
+
+/**
+ * Parse the attribute text of an open tag (everything between the tag name
+ * and its `>`). Single linear pass, no regex backtracking. Names are
+ * lowercased, the first occurrence wins, valueless attributes map to null.
+ */
+function parseTagAttributes(text) {
+  const attrs = new Map();
+  const s = String(text ?? "");
+  const n = s.length;
+  let i = 0;
+  while (i < n) {
+    while (i < n && (HTML_SPACE.has(s[i]) || s[i] === "/")) i++;
+    if (i >= n) break;
+    const nameStart = i;
+    while (i < n && !HTML_SPACE.has(s[i]) && s[i] !== "/" && s[i] !== "=") i++;
+    if (i === nameStart) {
+      i++; // stray "=" without a name
+      continue;
+    }
+    const name = asciiLower(s.slice(nameStart, i));
+    let j = i;
+    while (j < n && HTML_SPACE.has(s[j])) j++;
+    let value = null;
+    if (j < n && s[j] === "=") {
+      j++;
+      while (j < n && HTML_SPACE.has(s[j])) j++;
+      const q = s[j];
+      if (q === '"' || q === "'") {
+        const close = s.indexOf(q, j + 1);
+        value = close === -1 ? s.slice(j + 1) : s.slice(j + 1, close);
+        j = close === -1 ? n : close + 1;
+      } else {
+        const valueStart = j;
+        while (j < n && !HTML_SPACE.has(s[j])) j++;
+        value = s.slice(valueStart, j);
+      }
+      i = j;
+    }
+    if (!attrs.has(name)) attrs.set(name, value);
+  }
+  return attrs;
+}
+
+/**
+ * Next `<tag ...>` open tag at or after `from` (linear indexOf scan).
+ * Returns {start, contentStart, attrs} or null. The tag ends at the first `>`.
+ */
+function nextOpenTag(source, low, tag, from) {
   const open = `<${tag}`;
-  const close = `</${tag}>`;
-  let s = String(html ?? "");
-  let low = lower(s);
+  let pos = from;
+  while (true) {
+    const start = low.indexOf(open, pos);
+    if (start === -1) return null;
+    const nameEnd = start + open.length;
+    if (!isTagNameBoundary(low, nameEnd)) {
+      pos = start + 1;
+      continue;
+    }
+    const gt = low.indexOf(">", nameEnd);
+    if (gt === -1) return null;
+    return { start, contentStart: gt + 1, attrs: parseTagAttributes(source.slice(nameEnd, gt)) };
+  }
+}
+
+/**
+ * Next end tag for `tag` at or after `from`: `</tag>` and also `</tag >`,
+ * `</tag\t\n foo>` (what browsers accept). Returns {start, end} or null.
+ */
+function findCloseTag(low, tag, from) {
+  const needle = `</${tag}`;
+  let pos = from;
+  while (true) {
+    const i = low.indexOf(needle, pos);
+    if (i === -1) return null;
+    const j = i + needle.length;
+    if (j >= low.length) return null;
+    const c = low[j];
+    if (c === ">") return { start: i, end: j + 1 };
+    if (HTML_SPACE.has(c) || c === "/") {
+      const gt = low.indexOf(">", j);
+      return gt === -1 ? null : { start: i, end: gt + 1 };
+    }
+    pos = i + 1;
+  }
+}
+
+function attrEquals(attrs, name, expected) {
+  const value = attrs.get(name);
+  return value != null && asciiLower(value.trim()) === expected;
+}
+
+// First `<meta>` whose name/property is one of `names` and that has content.
+function metaContent(source, low, names) {
+  let pos = 0;
+  while (true) {
+    const tag = nextOpenTag(source, low, "meta", pos);
+    if (!tag) return null;
+    pos = tag.contentStart;
+    const content = tag.attrs.get("content");
+    if (content == null) continue;
+    if (names.some((name) => attrEquals(tag.attrs, "name", name) || attrEquals(tag.attrs, "property", name))) {
+      return content;
+    }
+  }
+}
+
+/**
+ * Every `<a ...>...</a>` carrying an href attribute, as {href, attrs, inner}.
+ * Linear scan that replaces `<a\b[^>]*\bhref\s*=...[^>]*>([\s\S]*?)<\/a>`
+ * regexes (polynomial backtracking on pathological markup). Anchors without
+ * an href are skipped without consuming their content; an anchor without a
+ * closing tag ends the scan (nothing after it could close either).
+ */
+export function scanHrefAnchors(html) {
+  const source = String(html ?? "");
+  const low = asciiLower(source);
+  const out = [];
+  let pos = 0;
+  while (true) {
+    const tag = nextOpenTag(source, low, "a", pos);
+    if (!tag) break;
+    pos = tag.contentStart;
+    const href = tag.attrs.get("href");
+    if (href == null) continue;
+    const close = findCloseTag(low, "a", tag.contentStart);
+    if (!close) break;
+    pos = close.end;
+    out.push({ href, attrs: tag.attrs, inner: source.slice(tag.contentStart, close.start) });
+  }
+  return out;
+}
+
+function stripTagsRegion(html, tag) {
+  const s = String(html ?? "");
+  const low = asciiLower(s);
+  const open = `<${tag}`;
+  const parts = [];
+  let copyFrom = 0;
   let pos = 0;
   while (true) {
     const start = low.indexOf(open, pos);
     if (start === -1) break;
-    if (start + open.length < low.length) {
-      const next = low[start + open.length];
-      if (next !== ">" && next !== " " && next !== "\t" && next !== "\n" && next !== "\r" && next !== "/") {
-        pos = start + 1;
-        continue;
-      }
+    const nameEnd = start + open.length;
+    if (nameEnd < low.length && !OPEN_TAG_NAME_END.has(low[nameEnd])) {
+      pos = start + 1;
+      continue;
     }
-    let end = low.indexOf(close, start);
-    if (end === -1) {
-      s = s.slice(0, start);
-      low = low.slice(0, start);
+    parts.push(s.slice(copyFrom, start));
+    const close = findCloseTag(low, tag, nameEnd);
+    if (!close) {
+      copyFrom = s.length;
       break;
     }
-    end += close.length;
-    s = s.slice(0, start) + s.slice(end);
-    low = low.slice(0, start) + low.slice(end);
-    pos = start;
+    copyFrom = close.end;
+    pos = close.end;
   }
-  return s;
+  parts.push(s.slice(copyFrom));
+  return parts.join("");
 }
 
 // Remove common advertising/consent chrome before article selection. This is
@@ -149,12 +295,19 @@ export function htmlTableToMarkdown(html) {
 
 export function extractJsonLd(html) {
   const out = [];
-  const re = /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   const source = String(html ?? "");
-  let match;
-  while ((match = re.exec(source)) !== null) {
+  const low = asciiLower(source);
+  let pos = 0;
+  while (true) {
+    const tag = nextOpenTag(source, low, "script", pos);
+    if (!tag) break;
+    pos = tag.contentStart;
+    if (!attrEquals(tag.attrs, "type", "application/ld+json")) continue;
+    const close = findCloseTag(low, "script", tag.contentStart);
+    if (!close) break;
+    pos = close.end;
     try {
-      out.push(JSON.parse(decodeHtmlEntities(match[1] ?? "")));
+      out.push(JSON.parse(decodeHtmlEntities(source.slice(tag.contentStart, close.start))));
     } catch {
       // Malformed JSON-LD is skipped, never invented.
     }
@@ -162,20 +315,30 @@ export function extractJsonLd(html) {
   return out;
 }
 
+function canonicalHref(source, low) {
+  let pos = 0;
+  while (true) {
+    const tag = nextOpenTag(source, low, "link", pos);
+    if (!tag) return null;
+    pos = tag.contentStart;
+    const href = tag.attrs.get("href");
+    if (href != null && attrEquals(tag.attrs, "rel", "canonical")) return href;
+  }
+}
+
 export function extractPageMetadata(html, url = "") {
   const source = String(html ?? "");
+  const low = asciiLower(source);
   const attr = (name) => {
-    const re = new RegExp(`<meta\\b[^>]*(?:name|property)\\s*=\\s*["']${name}["'][^>]*content\\s*=\\s*["']([^"']*)["']`, "i");
-    const match = re.exec(source);
-    return match ? decodeHtmlEntities(match[1]) : "";
+    const content = metaContent(source, low, [name]);
+    return content == null ? "" : decodeHtmlEntities(content);
   };
-  const canonicalMatch = /<link\b[^>]*rel\s*=\s*["']canonical["'][^>]*href\s*=\s*["']([^"']*)["']/i.exec(source)
-    || /<link\b[^>]*href\s*=\s*["']([^"']*)["'][^>]*rel\s*=\s*["']canonical["']/i.exec(source);
+  const canonical = canonicalHref(source, low);
   const charsetMatch = /charset\s*=\s*["']?([a-z0-9-]+)/i.exec(source);
   return {
     title: extractTitle(source),
     description: attr("description") || attr("og:description"),
-    canonical: canonicalMatch ? canonicalMatch[1] : url,
+    canonical: canonical != null ? canonical : url,
     charset: charsetMatch ? charsetMatch[1].toLowerCase() : "",
     json_ld: extractJsonLd(source),
   };
@@ -278,13 +441,9 @@ function attrValue(openTag, attr) {
 
 export function extractLinks(html, baseUrl = "", maxLinks = 100) {
   const out = [];
-  const re = /<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
-  const s = preferMainContent(String(html ?? ""));
-  let m;
-  while ((m = re.exec(s)) !== null) {
+  for (const { href, inner } of scanHrefAnchors(preferMainContent(String(html ?? "")))) {
     if (maxLinks > 0 && out.length >= maxLinks) break;
-    const href = m[1] ?? m[2] ?? m[3] ?? "";
-    const text = collapseWs(decodeHtmlEntities(extractText(m[4] ?? "", true, 200)));
+    const text = collapseWs(decodeHtmlEntities(extractText(inner, true, 200)));
     let absolute = resolveUrl(baseUrl, href);
     if (!absolute && href.includes("://")) absolute = href;
     out.push({ href, absolute, text });
@@ -569,6 +728,52 @@ export function extractPage(url, html, policy = {}) {
   return page;
 }
 
+// First open tag of any name carrying role="main" (linear scan).
+function findRoleMainTag(source, low) {
+  let pos = 0;
+  while (true) {
+    const lt = low.indexOf("<", pos);
+    if (lt === -1) return null;
+    let k = lt + 1;
+    const first = low.charCodeAt(k);
+    if (!(first >= 97 && first <= 122)) {
+      pos = lt + 1;
+      continue;
+    }
+    while (k < low.length && /[a-z0-9]/.test(low[k])) k++;
+    if (!isTagNameBoundary(low, k)) {
+      pos = lt + 1;
+      continue;
+    }
+    const gt = low.indexOf(">", k);
+    if (gt === -1) return null;
+    if (attrEquals(parseTagAttributes(source.slice(k, gt)), "role", "main")) {
+      return { tag: low.slice(lt + 1, k), gt };
+    }
+    pos = gt + 1;
+  }
+}
+
+// Count `<a ...>` tags whose attribute text mentions href (linear scan).
+function countAnchorsWithHref(html) {
+  const low = asciiLower(html);
+  let count = 0;
+  let pos = 0;
+  while (true) {
+    const start = low.indexOf("<a", pos);
+    if (start === -1) return count;
+    const nameEnd = start + 2;
+    if (!isTagNameBoundary(low, nameEnd)) {
+      pos = start + 1;
+      continue;
+    }
+    const gt = low.indexOf(">", nameEnd);
+    if (low.slice(nameEnd, gt === -1 ? low.length : gt).includes("href")) count++;
+    if (gt === -1) return count;
+    pos = gt + 1;
+  }
+}
+
 /**
  * Reader mode: isolate the main article and score extraction confidence.
  * Returns {title, byline, markdown, confidence, container, signals}.
@@ -577,7 +782,7 @@ export function extractPage(url, html, policy = {}) {
  */
 export function extractReaderArticle(html, url = "") {
   const source = String(html ?? "");
-  const low = lower(source);
+  const low = asciiLower(source);
   let container = "body";
   let inner = "";
   for (const [tag, label] of [["article", "article"], ["main", "main"]]) {
@@ -592,10 +797,9 @@ export function extractReaderArticle(html, url = "") {
     }
   }
   if (!inner) {
-    const roleMatch = /<([a-z][a-z0-9]*)\b[^>]*\brole\s*=\s*["']main["'][^>]*>/i.exec(source);
+    const roleMatch = findRoleMainTag(source, low);
     if (roleMatch) {
-      const tag = roleMatch[1].toLowerCase();
-      const gt = source.indexOf(">", roleMatch.index);
+      const { tag, gt } = roleMatch;
       const e = low.indexOf(`</${tag}>`, gt);
       if (gt !== -1 && e !== -1 && e > gt) {
         container = "role=main";
@@ -604,8 +808,8 @@ export function extractReaderArticle(html, url = "") {
     }
   }
   const title = extractTitle(source);
-  const bylineMatch = /<meta\b[^>]*(?:name|property)\s*=\s*["'](?:author|article:author)["'][^>]*content\s*=\s*["']([^"']*)["']/i.exec(source);
-  const byline = bylineMatch ? decodeHtmlEntities(bylineMatch[1]).trim() : "";
+  const bylineContent = metaContent(source, low, ["author", "article:author"]);
+  const byline = bylineContent != null ? decodeHtmlEntities(bylineContent).trim() : "";
   const jsonLd = extractJsonLd(source);
   const hasArticleSchema = jsonLd.some((node) => {
     const types = Array.isArray(node?.["@type"]) ? node["@type"] : [node?.["@type"]];
@@ -614,7 +818,7 @@ export function extractReaderArticle(html, url = "") {
   const markdown = htmlToMarkdown(inner || source, { baseUrl: url });
   const text = collapseWs(markdown.replace(/[#*`>\[\]()!-]/g, " "));
   const linkScope = inner || source;
-  const linkCount = (linkScope.match(/<a\b[^>]*href/gi) || []).length;
+  const linkCount = countAnchorsWithHref(linkScope);
   const linkDensity = text.length ? linkCount / Math.max(text.split(" ").length, 1) : 1;
   const signals = [];
   let score = 0;

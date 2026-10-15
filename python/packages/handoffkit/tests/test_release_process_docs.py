@@ -69,7 +69,8 @@ def test_release_process_docs_cover_trusted_publishing() -> None:
     assert "TestPyPI" in text
     assert "pypi" in text
     assert "npm" in text
-    assert "crates.io" in text
+    # Registry name in prose (not a URL check): match it as a whole word.
+    assert re.search(r"\bcrates\.io\b", text) is not None
     assert "DaosPath" in text
     assert "handoffkit" in text
     assert "no environment name" in text

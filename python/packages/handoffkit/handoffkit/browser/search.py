@@ -16,12 +16,14 @@ from urllib.parse import (
     urlencode,
     urljoin,
     urlparse,
+    urlsplit,
 )
 
 from handoffkit.browser.default_browser import (
     DEFAULT_BROWSER_PROVIDER,
     search_default_browser,
 )
+from handoffkit.browser.html_extract import _strip_tags, scan_href_anchors
 from handoffkit.browser.rank import rank_search_hits
 from handoffkit.browser.transport import WebTransport, default_transport
 from handoffkit.browser.types import DEFAULT_UA
@@ -63,16 +65,7 @@ STOPWORDS = {
     "how",
 }
 
-_RESULT_RE = re.compile(
-    r"""<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)</a>""",
-    re.I,
-)
-_TAG_RE = re.compile(r"<[^>]+>")
 _UDDG_RE = re.compile(r'uddg=([^&"\'>\s]+)', re.I)
-_GOOGLE_A_RE = re.compile(
-    r"<a\b[^>]*\bhref\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)</a>",
-    re.I,
-)
 DEFAULT_SEARCH_PROVIDERS = (
     "google_browser",
     "project_index",
@@ -182,7 +175,7 @@ def keyword_compress(query: str, max_words: int = 10) -> str:
 
 
 def _strip(s: str) -> str:
-    return re.sub(r"\s+", " ", html_lib.unescape(_TAG_RE.sub("", s or ""))).strip()
+    return re.sub(r"\s+", " ", html_lib.unescape(_strip_tags(s or ""))).strip()
 
 
 _TRACKING_PARAMS = frozenset(
@@ -259,12 +252,31 @@ def _get_json_with_retry(
     return None, last_code, last_error
 
 
+_AD_HOSTS = ("googleadservices.com", "doubleclick.net")
+
+
+def _host_is_or_under(host: str | None, domain: str) -> bool:
+    """True when ``host`` is exactly ``domain`` or a subdomain of it (never a substring)."""
+    h = str(host or "").lower()
+    if h.endswith("."):
+        h = h[:-1]
+    d = str(domain or "").lower()
+    return bool(h and d) and (h == d or h.endswith("." + d))
+
+
+def _url_hostname(url: str) -> str:
+    try:
+        return urlsplit(str(url or "")).hostname or ""
+    except ValueError:
+        return ""
+
+
 def _is_search_ad_url(url: str) -> bool:
     value = str(url or "").lower()
+    host = _url_hostname(value)
     return (
         not value
-        or "googleadservices.com" in value
-        or "doubleclick.net" in value
+        or any(_host_is_or_under(host, domain) for domain in _AD_HOSTS)
         or "/aclk?" in value
         or "/pagead/" in value
         or "adurl=" in value
@@ -323,9 +335,9 @@ def search_google(
         return []
     hits: list[dict[str, str]] = []
     seen: set[str] = set()
-    for match in _GOOGLE_A_RE.finditer(resp.body):
-        link = _unwrap_google_link(match.group(1) or match.group(2) or match.group(3) or "")
-        title = _strip(match.group(4) or "")
+    for attrs, inner in scan_href_anchors(resp.body):
+        link = _unwrap_google_link(attrs.get("href") or "")
+        title = _strip(inner)
         if not link or len(title) < 2 or link in seen:
             continue
         seen.add(link)
@@ -374,10 +386,17 @@ def search_duckduckgo(
     hits: list[dict[str, str]] = []
     seen: set[str] = set()
 
-    for m in _RESULT_RE.finditer(resp.body):
-        link = _unwrap_ddg(m.group(1))
-        title = _strip(m.group(2))
-        if link and link.startswith("http") and "duckduckgo.com" not in link and link not in seen:
+    for attrs, inner in scan_href_anchors(resp.body):
+        if "result__a" not in (attrs.get("class") or "") or not attrs.get("href"):
+            continue
+        link = _unwrap_ddg(attrs.get("href") or "")
+        title = _strip(inner)
+        if (
+            link
+            and link.startswith("http")
+            and not _host_is_or_under(_url_hostname(link), "duckduckgo.com")
+            and link not in seen
+        ):
             seen.add(link)
             hits.append({"title": title or link, "url": link})
         if len(hits) >= max_results * 2:
@@ -385,7 +404,11 @@ def search_duckduckgo(
 
     for m in _UDDG_RE.finditer(resp.body):
         link = unquote(m.group(1))
-        if link.startswith("http") and "duckduckgo.com" not in link and link not in seen:
+        if (
+            link.startswith("http")
+            and not _host_is_or_under(_url_hostname(link), "duckduckgo.com")
+            and link not in seen
+        ):
             seen.add(link)
             hits.append({"title": "", "url": link})
         if len(hits) >= max_results * 2:
@@ -655,21 +678,15 @@ def search_kagi(
     return hits
 
 
-_ANCHOR_RE = re.compile(
-    r"<a\b[^>]*\bhref\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)</a\s*>",
-    re.I,
-)
-
-
 def _scrape_anchor_hits(
     html: str, max_results: int, exclude_hosts: tuple[str, ...]
 ) -> list[dict[str, str]]:
     """Lenient anchor extraction for keyless engines. Unknown markup yields []."""
     hits: list[dict[str, str]] = []
     seen: set[str] = set()
-    for match in _ANCHOR_RE.finditer(html or ""):
-        url = str(match.group(1) or match.group(2) or match.group(3) or "").strip()
-        title = _strip(match.group(4) or "")
+    for attrs, inner in scan_href_anchors(html or ""):
+        url = str(attrs.get("href") or "").strip()
+        title = _strip(inner)
         if not url.startswith("http") or len(title) < 2:
             continue
         try:

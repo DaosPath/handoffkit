@@ -12,12 +12,19 @@ import { finalizeResearchPackV2 } from "./research_pack_v2.js";
 
 const URL_RE = /https?:\/\/[^\s<>"')\]]+/gi;
 
+// Linear scan (mirrors Python's str.rstrip); a `[...]+$` regex is O(n^2) on "!!!!...x".
+function stripTrailingUrlPunctuation(url) {
+  let end = url.length;
+  while (end > 0 && ".,;:!?)".includes(url[end - 1])) end--;
+  return url.slice(0, end);
+}
+
 export function extractUrlsFromText(text) {
   const found = String(text ?? "").match(URL_RE) ?? [];
   const out = [];
   const seen = new Set();
   for (let u of found) {
-    u = u.replace(/[.,;:!?)]+$/, "");
+    u = stripTrailingUrlPunctuation(u);
     if (seen.has(u)) continue;
     seen.add(u);
     out.push(u);

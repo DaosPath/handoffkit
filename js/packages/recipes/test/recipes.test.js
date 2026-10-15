@@ -650,3 +650,21 @@ test("runWebGroundedAnswer honors maxTotalMs and reports budget", async () => {
   assert.equal(calls.length, 1);
   assert.equal(result.answer, "");
 });
+
+test("screen narration JSON fence stripping is linear on long whitespace runs", async () => {
+  const { parseScreenNarrationJson, parseSpokenFitJson } = await import("../src/index.js");
+  const row = '{"index":1,"start":0,"end":2,"text_es":"Hola."}';
+  // Pathological for `/\s*```$/`: a long space run not followed by a closing fence.
+  const hostile = "```json\n[" + row + " ".repeat(100_000) + "]";
+  const started = performance.now();
+  const parsed = parseScreenNarrationJson(hostile);
+  const fitted = parseSpokenFitJson(hostile);
+  assert.ok(performance.now() - started < 1500, "fence stripping must not backtrack quadratically");
+  assert.equal(parsed[0].text_es, "Hola.");
+  assert.equal(fitted[0].text_es, "Hola.");
+
+  // Closing fence preceded by whitespace is still removed; bare fences still parse.
+  const fenced = parseScreenNarrationJson("```json\n[" + row + "]" + " \n\t ".repeat(10_000) + "```");
+  assert.equal(fenced[0].text_es, "Hola.");
+  assert.equal(parseScreenNarrationJson("```\n[" + row + "]\n```")[0].text_es, "Hola.");
+});

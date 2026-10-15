@@ -37,10 +37,16 @@ function summary(values) {
   };
 }
 
+const HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => HTML_ESCAPES[char]);
+}
+
 async function listen() {
   const server = createServer((request, response) => {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    response.end(`<!doctype html><title>HandoffKit Browser Real benchmark</title><main><h1>${request.url}</h1><p>local benchmark</p></main>`);
+    response.end(`<!doctype html><title>HandoffKit Browser Real benchmark</title><main><h1>${escapeHtml(request.url)}</h1><p>local benchmark</p></main>`);
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   return { server, port: server.address().port };

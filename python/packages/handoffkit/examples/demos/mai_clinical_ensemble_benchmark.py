@@ -179,14 +179,18 @@ def build_retrieval_query(case: SequentialDoctorCase, row: dict[str, Any]) -> st
     return " ".join(terms) or "rare disease case report"
 
 
-def controlled_medical_retrieval(
+def controlled_literature_retrieval(
     case: SequentialDoctorCase,
     row: dict[str, Any],
     *,
     max_results: int = 3,
     cache_dir: Path | None = None,
 ) -> dict[str, Any]:
-    """Run public evidence lookups with no gold-label or title query."""
+    """Run public literature lookups (PubMed/PMC/trials/DailyMed) with no gold-label or title query.
+
+    The result holds only public search results for a de-identified benchmark
+    fixture query, never patient data.
+    """
     query = build_retrieval_query(case, row)
     evidence: dict[str, Any] = {"query": query, "sources": {}}
     lookups = {
@@ -279,7 +283,7 @@ def run_ensemble_rescue(
             )
             continue
         evidence = (
-            controlled_medical_retrieval(
+            controlled_literature_retrieval(
                 case,
                 row,
                 max_results=retrieval_results,

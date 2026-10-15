@@ -151,3 +151,19 @@ test("subprocess stdio transport starts without a shell", async () => {
   assert.equal(response.source, "node-child");
   await transport.close();
 });
+
+test("report and trace file names trim dashes in linear time", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "handoffkit-node-safename-"));
+  const team = new Team({ agents: [new Agent({ name: "A" })] });
+  const trace = RunTrace.fromTeamResult(team.run("Name me."), { name: "safe-name" });
+  const reports = await writeReportFiles(trace, "  --weird name!!--  ", dir);
+  assert.ok(reports.jsonPath.endsWith(join(dir, "weird-name.json")));
+  const fallback = await writeReportFiles(trace, "----", dir);
+  assert.ok(fallback.jsonPath.endsWith(join(dir, "report.json")));
+
+  // Pathological for `/-+$/`: a long dash run followed by a non-dash.
+  const store = new FileTraceStore({ root: dir });
+  const started = performance.now();
+  await assert.rejects(() => store.load(`a${"-".repeat(100_000)}b`));
+  assert.ok(performance.now() - started < 1500, "file name sanitizing must not backtrack quadratically");
+});

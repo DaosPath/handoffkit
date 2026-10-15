@@ -194,6 +194,32 @@ test("CGNAT, multicast, and IPv4-mapped addresses are private", () => {
 test("redaction also covers bearer values and URL userinfo", () => {
   assert.equal(redactSensitive("Bearer abc.def"), "[redacted]");
   assert.equal(redactSensitive("https://user:pass@example.org/x"), "https://[redacted]:[redacted]@example.org/x");
+  assert.equal(redactSensitive("HTTP://User:Pw@host/"), "HTTP://[redacted]:[redacted]@host/");
+  assert.equal(redactSensitive("https://host:443/x@y"), "https://host:443/x@y");
+  // Every userinfo occurrence is redacted (parity with Python re.sub).
+  assert.equal(
+    redactSensitive("https://u:p@h/?next=//a:b@c"),
+    "https://[redacted]:[redacted]@h/?next=//[redacted]:[redacted]@c",
+  );
+});
+
+test("URL userinfo redaction is linear on pathological input (CodeQL js/polynomial-redos)", () => {
+  const n = 50_000;
+  const cases = [
+    // Old /^https?:\/\/[^/]*:[^/@]*@/i backtracked on many ":".
+    ["http://:" + ":".repeat(n), `${("http://:" + ":".repeat(n)).slice(0, 256)}…[truncated]`],
+    ["http://:" + ":".repeat(n) + "@h", "http://[redacted]:[redacted]@h"],
+    // Old /\/\/([^/@]+):([^/@]*)@/ backtracked on "//.:" + many ".:.".
+    ["http://a:b@h/" + "//.:" + ".:.".repeat(n), "http://[redacted]:[redacted]@h/" + "//.:" + ".:.".repeat(n)],
+    ["http://a:b@h/" + "//.:" + ".:.".repeat(n) + "@", "http://[redacted]:[redacted]@h/" + "//[redacted]:[redacted]@"],
+  ];
+  for (const [input, expected] of cases) {
+    const started = performance.now();
+    const out = redactSensitive(input);
+    const elapsed = performance.now() - started;
+    assert.equal(out, expected);
+    assert.ok(elapsed < 1000, `redaction took ${elapsed.toFixed(1)}ms`);
+  }
 });
 
 test("session.pause and artifact error codes are accepted", () => {

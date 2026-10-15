@@ -13,10 +13,7 @@ import {
   RuntimeMode,
   SessionConfig,
 } from "./contracts.js";
-
-function randomId(prefix) {
-  return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
-}
+import { randomId } from "./ids.js";
 
 export class Transport {
   async send(_envelope) { throw new CspError("Transport.send() is not implemented."); }

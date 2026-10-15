@@ -52,3 +52,39 @@ test("Google Browser provider returns only parsed organic results", async () => 
     { title: "A", url: "https://example.org/a", snippet: "", provider: "google_browser" },
   ]);
 });
+
+test("Google parser keeps regex semantics for quoted '>' and the last href= in a tag", () => {
+  const html = [
+    '<a class="x" data-href="https://ignored.example/" href="https://example.org/last">Last <b>bold</b></a>',
+    '<A HREF="https://example.org/upper?q=a>b">Upper<>case</A>',
+    '<abbr href="https://example.org/abbr">not an anchor</abbr>',
+  ].join("\n");
+  assert.deepEqual(parseGoogleOrganicResults(html, 10), [
+    { title: "Last bold", url: "https://example.org/last", snippet: "", provider: "google_browser" },
+    { title: "Upper<>case", url: "https://example.org/upper?q=a%3Eb", snippet: "", provider: "google_browser" },
+  ]);
+});
+
+test("Google parser is linear on pathological HTML (CodeQL js/polynomial-redos)", () => {
+  const n = 50_000;
+  const cases = [
+    // Old anchor regex backtracked on many repetitions of 'href="!"'.
+    ['<a ' + 'href="!"'.repeat(n), []],
+    ['<a ' + 'href="!"'.repeat(n) + '>t', []],
+    ['<a ' + 'href="!" '.repeat(n) + 'href="https://example.org/p">ok</a>', [
+      { title: "ok", url: "https://example.org/p", snippet: "", provider: "google_browser" },
+    ]],
+    ['<a<a'.repeat(n) + '>x</a>', []],
+    // Old tag-strip regex backtracked on '<' followed by many '<'.
+    ['<a href="https://example.org/t">' + "<".repeat(n) + "title</a>", [
+      { title: `${"<".repeat(n)}title`, url: "https://example.org/t", snippet: "", provider: "google_browser" },
+    ]],
+  ];
+  for (const [html, expected] of cases) {
+    const started = performance.now();
+    const hits = parseGoogleOrganicResults(html, 10);
+    const elapsed = performance.now() - started;
+    assert.deepEqual(hits, expected);
+    assert.ok(elapsed < 1000, `parse took ${elapsed.toFixed(1)}ms`);
+  }
+});

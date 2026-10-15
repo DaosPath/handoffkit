@@ -76,12 +76,55 @@ export function requireRfc3339(value, field) {
   return text;
 }
 
+// Linear-time equivalent of /^https?:\/\/[^/]*:[^/@]*@/i (the regex form is
+// polynomial on inputs like "http://:::::"). True when some "@" in the
+// authority (text up to the first "/") has a ":" after the previous "@".
+function hasHttpUserinfo(text) {
+  const scheme = /^https?:\/\//i.exec(text);
+  if (!scheme) return false;
+  let sawColon = false;
+  for (let i = scheme[0].length; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === "/") return false;
+    if (ch === ":") sawColon = true;
+    else if (ch === "@") {
+      if (sawColon) return true;
+      sawColon = false;
+    }
+  }
+  return false;
+}
+
+// Linear-time equivalent of
+// text.replace(/\/\/([^/@]+):([^/@]*)@/g, "//[redacted]:[redacted]@")
+// (every non-overlapping match, same as Python re.sub in the twin).
+function redactUserinfo(text) {
+  let out = "";
+  let last = 0;
+  let s = text.indexOf("//");
+  while (s !== -1) {
+    const start = s + 2;
+    let end = start;
+    let colon = -1;
+    while (end < text.length && text[end] !== "/" && text[end] !== "@") {
+      if (text[end] === ":") colon = end;
+      end += 1;
+    }
+    if (end < text.length && text[end] === "@" && colon > start) {
+      out += `${text.slice(last, s)}//[redacted]:[redacted]@`;
+      last = end + 1;
+      s = text.indexOf("//", last);
+    } else {
+      s = text.indexOf("//", s + 1);
+    }
+  }
+  return out + text.slice(last);
+}
+
 function redactString(value) {
   const text = String(value);
   if (/^bearer\s+/i.test(text) || /^set-cookie:/i.test(text)) return "[redacted]";
-  if (/^https?:\/\/[^/]*:[^/@]*@/i.test(text)) {
-    return text.replace(/\/\/([^/@]+):([^/@]*)@/, "//[redacted]:[redacted]@");
-  }
+  if (hasHttpUserinfo(text)) return redactUserinfo(text);
   if (/[?&](?:token|password|secret|api[_-]?key|access_token)=/i.test(text)) {
     return text.replace(/([?&](?:token|password|secret|api[_-]?key|access_token)=)([^&]*)/gi, "$1[redacted]");
   }

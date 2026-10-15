@@ -53,7 +53,13 @@ def init_project_interactive(
     output: str = ".",
     force: bool = False,
 ) -> str:
-    """Scaffold a project interactively prompting for name, provider, and API key."""
+    """Scaffold a project interactively prompting for name, template, and provider.
+
+    API keys are never prompted for or written to disk here: the project
+    config records only the *name* of the environment variable that holds the
+    key (``api_key_env``). Users export it in their shell or opt in to a local
+    ``.env`` explicitly via ``handoffkit keys set``.
+    """
     name = (default_project_name or "").strip()
     if not name:
         name = input("Project name (my-agent): ").strip() or "my-agent"
@@ -68,9 +74,7 @@ def init_project_interactive(
         selected_template = inp_tmpl
 
     provider = input("LLM Provider (openai/nvidia/groq/ollama/echo) [openai]: ").strip() or "openai"
-    api_key = ""
-    if provider not in ("echo", "ollama"):
-        api_key = input(f"API Key for {provider.upper()}: ").strip()
+    api_key_env = "" if provider in ("echo", "ollama") else f"{provider.upper()}_API_KEY"
 
     scaffolder = TemplateScaffolder()
     target_dir = Path(output) / name
@@ -82,20 +86,13 @@ def init_project_interactive(
     )
     rendered = result.to_markdown()
 
-    env_lines = []
-    if api_key:
-        env_name = f"{provider.upper()}_API_KEY"
-        env_lines.append(f"{env_name}={api_key}")
-
-    if env_lines:
-        env_path = target_dir / ".env"
-        env_path.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
-
+    if api_key_env:
+        # Make sure a later `handoffkit keys set` never ends up in git.
         gitignore_path = target_dir / ".gitignore"
         if gitignore_path.exists():
             try:
                 git_content = gitignore_path.read_text(encoding="utf-8")
-                if ".env" not in git_content:
+                if ".env" not in git_content.splitlines():
                     git_content += "\n.env\n"
                     gitignore_path.write_text(git_content, encoding="utf-8")
             except Exception:
@@ -107,13 +104,20 @@ def init_project_interactive(
         model = "meta/llama-3.1-8b-instruct"
     else:
         model = "default"
-    config = {"provider": provider, "model": model}
+    config: dict[str, str] = {"provider": provider, "model": model}
+    if api_key_env:
+        config["api_key_env"] = api_key_env
     config_path = target_dir / "handoff.config.json"
     config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
-    rendered += f"\n## Next Commands\n\ncd {name}\nConfigured provider: {provider}\n" + (
-        "Saved API Key to .env\n" if api_key else "No API Key saved\n"
-    )
+    rendered += f"\n## Next Commands\n\ncd {name}\nConfigured provider: {provider}\n"
+    if api_key_env:
+        rendered += (
+            f"Set {api_key_env} in your environment "
+            f"(or run `handoffkit keys set {api_key_env} <value>` to store it in .env)\n"
+        )
+    else:
+        rendered += "No API key required\n"
     return rendered
 
 

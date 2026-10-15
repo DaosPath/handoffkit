@@ -113,3 +113,32 @@ test("session deadline is inherited and enforced", async () => {
   );
   await expired.close();
 });
+
+test("session and message identifiers come from Web Crypto", () => {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  const envelopeFor = () => makeEnvelope({ sessionId: "s", channel: "tasks", source: "test", sequence: 1, payloadType: "json", payload: {} });
+  const sessionId = new CspRuntime().createSession().sessionId;
+  assert.match(sessionId, /^session-/);
+  assert.match(sessionId.slice("session-".length), uuid);
+  const messageId = envelopeFor().messageId;
+  assert.match(messageId.slice("msg-".length), uuid);
+  assert.notEqual(envelopeFor().messageId, messageId);
+
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+  const webCrypto = globalThis.crypto;
+  try {
+    // Runtimes with getRandomValues but no randomUUID still get a CSPRNG v4 UUID.
+    Object.defineProperty(globalThis, "crypto", {
+      configurable: true,
+      value: { getRandomValues: (array) => webCrypto.getRandomValues(array) },
+    });
+    assert.match(envelopeFor().messageId.slice("msg-".length), uuid);
+    assert.match(new CspRuntime().createSession().sessionId.slice("session-".length), uuid);
+
+    // Without Web Crypto there is no insecure Math.random() fallback.
+    Object.defineProperty(globalThis, "crypto", { configurable: true, value: undefined });
+    assert.throws(envelopeFor, /Web Crypto/);
+  } finally {
+    Object.defineProperty(globalThis, "crypto", descriptor);
+  }
+});

@@ -14,8 +14,14 @@ function normalize(text) {
   return String(text ?? "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+const TRAILING_PUNCT = ".,;:!?)]";
+
+// Linear scan (mirrors Python's str.rstrip); a `[...]+$` regex is O(n^2) on "!!!!...x".
 function stripTrailingPunctuation(url) {
-  return String(url).replace(/[.,;:!?)\]]+$/u, "");
+  const s = String(url);
+  let end = s.length;
+  while (end > 0 && TRAILING_PUNCT.includes(s[end - 1])) end--;
+  return s.slice(0, end);
 }
 
 function answerUrls(answer) {

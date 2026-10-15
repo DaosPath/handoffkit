@@ -968,7 +968,12 @@ function atomicWriteFileSync(filePath, data) {
 }
 
 function safeFileName(value) {
-  return String(value || "report").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "report";
+  const text = String(value || "report").replace(/[^a-zA-Z0-9._-]+/g, "-");
+  let start = 0;
+  let end = text.length;
+  while (start < end && text[start] === "-") start += 1;
+  while (end > start && text[end - 1] === "-") end -= 1;
+  return text.slice(start, end) || "report";
 }
 
 function normalizePositiveInteger(value, fallback) {
