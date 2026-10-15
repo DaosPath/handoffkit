@@ -516,7 +516,7 @@ outputs are intentionally excluded.
 | `python/packages/handoffkit/handoffkit/recipes/fusion.py` | Python deterministic/real-provider panel recipe. | Smaller panel+judge implementation; no native C++ tier/DAG/cache/prompt parity. |
 | `python/packages/handoffkit/examples/demos/fusion_style_demo.py` | Python CLI/example wrapper. | Runs the Python recipe and writes JSON/Markdown reports. |
 | `python/packages/handoffkit/tests/test_fusion_style_demo.py` | Python offline Fusion smoke test. | Validates the smaller deterministic recipe. |
-| `js/packages/cli/src/validation/benchmarks/fusion_demo.js` | JavaScript offline Echo panel and judge demo. | Deterministic demonstration only; real providers and advanced native engine are not wired. |
+| `js/packages/cli/src/benchmarks/fusion_demo.js` | JavaScript offline Echo panel and judge demo. | Deterministic demonstration only; real providers and advanced native engine are not wired. |
 
 **Audited total: 107 files.**
 

@@ -2,7 +2,7 @@
 
 Convenience facade for the independent HandoffKit Rust runtime.
 
-HandoffKit 1.19 development re-exports:
+The facade (stable `1.19.5` on crates.io) re-exports:
 
 - canonical workflow contracts from `handoffkit-contracts`;
 - HK-CSP 1.0 wire types from `handoffkit-protocol`;

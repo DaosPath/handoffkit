@@ -23,8 +23,8 @@ python/packages/handoffkit/
   MANIFEST.in
 ```
 
-Long-form Python documentation lives at [`docs/python/`](../../docs/python/).
-The runnable demo index lives at [`docs/python/demos/`](../../docs/python/demos/).
+Long-form Python documentation lives at [`docs/python/`](../../../docs/python/).
+The runnable demo index lives at [`docs/python/demos/`](../../../docs/python/demos/).
 
 ## Rules
 

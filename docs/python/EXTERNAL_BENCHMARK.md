@@ -40,7 +40,7 @@ Each task expects **`len(roles) - 1` handoffs**. Descriptions are hashed in
 ## APIs (Python)
 
 ```python
-from handoffkit.validation/benchmarks import (
+from handoffkit.benchmarks import (
     methodology_manifest,
     build_independent_benchmark,
     run_independent_benchmark,
@@ -85,7 +85,7 @@ Artifacts:
 ### Related metrics API
 
 ```python
-from handoffkit.validation/benchmarks.metrics import build_workflow_metrics
+from handoffkit.benchmarks.metrics import build_workflow_metrics
 ```
 
 See also doctor/MAI educational harnesses (`benchmark-doctor`, `benchmark-doctor-mai`)

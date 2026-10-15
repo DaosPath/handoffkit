@@ -76,4 +76,4 @@ explicit human approval of Publish/GitHub Release.
 ## Code of conduct
 
 Be respectful. No harassment. Assume good intent; require evidence for claims
-about security or validation/benchmarks.
+about security or benchmarks.

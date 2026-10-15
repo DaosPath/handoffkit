@@ -1,7 +1,7 @@
 # Changelog
 
 > This file preserves published Python package history. New monorepo-wide and
-> unreleased changes are recorded in the root [`CHANGELOG.md`](../../CHANGELOG.md).
+> unreleased changes are recorded in the root [`CHANGELOG.md`](../../../CHANGELOG.md).
 
 ## 1.16.0
 

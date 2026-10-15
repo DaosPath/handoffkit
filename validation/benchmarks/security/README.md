@@ -1,6 +1,6 @@
-# Security validation/benchmarks
+# Security benchmarks
 
-These validation/benchmarks exercise live runtime paths and emit JSON. Every result is an
+These benchmarks exercise live runtime paths and emit JSON. Every result is an
 **environmental measurement — not a performance guarantee**.
 
 - `node-security-benchmark.mjs`: real TLS 1.3 TCP handshakes, reconnect latency,

@@ -17,6 +17,18 @@ Both browser-safe and server-side runtimes are supported natively in ES Modules.
 | [`@handoffkit/templates`](./templates) | `js/packages/templates` | Scaffolder and workspace starter templates. |
 | [`@handoffkit/cli`](./cli) | `js/packages/cli` | Autonomous Node.js CLI (`handoffkit-js`). |
 
+The packages above are published on npm at the stable `1.19.5` release.
+
+The 1.20 Browser Platform packages below are in development
+(`1.20.0-alpha.2`) and are **not published** to npm:
+
+| Package | Directory | Description |
+|---|---|---|
+| [`@handoffkit/browser-core`](./browser-core) | `js/packages/browser-core` | I/O-free Browser Core wire contracts. |
+| [`@handoffkit/browser-lite`](./browser-lite) | `js/packages/browser-lite` | Named Lite product (re-exports the `@handoffkit/browser` HTTP implementation). |
+| [`@handoffkit/browser-real`](./browser-real) | `js/packages/browser-real` | Supervised Browser Real service (explicitly installed headless Chromium). |
+| [`@handoffkit/clinical`](./clinical) | `js/packages/clinical` | Experimental Clinical Sequential Reasoning Lab contracts and client; not clinically validated. |
+
 ## Installation
 
 Install the package suited for your runtime environment:

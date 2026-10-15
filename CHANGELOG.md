@@ -569,5 +569,5 @@ baseline, superseded by the final 1.19.5 stable release above.
 ## Subsystem and historical changelogs
 
 - Fusion subsystem history: [`docs/cpp/fusion/CHANGELOG.md`](docs/cpp/fusion/CHANGELOG.md)
-- Python package release history: [`packages/python/CHANGELOG.md`](packages/python/CHANGELOG.md)
-- C++ release process and packaging notes: [`packages/cpp/RELEASE.md`](packages/cpp/RELEASE.md)
+- Python package release history: [`python/packages/handoffkit/CHANGELOG.md`](python/packages/handoffkit/CHANGELOG.md)
+- C++ release process and packaging notes: [`cpp/packages/handoffkit/RELEASE.md`](cpp/packages/handoffkit/RELEASE.md)

@@ -1,6 +1,8 @@
 # HandoffKit Go Runtime
 
-Experimental Go implementation of HK-CSP 1.0 for HandoffKit 1.19 development.
+Experimental Go implementation of HK-CSP 1.0 for HandoffKit. Source-only
+module `github.com/DaosPath/handoffkit/go` (no registry publication); it tracks
+the stable `1.19.5` release, with 1.20 in development in this tree.
 
 ## Implemented
 

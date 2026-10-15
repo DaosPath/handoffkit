@@ -184,18 +184,18 @@ See [examples/consumer_core/README.md](examples/consumer_core/README.md).
 Built by default (`HANDOFFKIT_BUILD_CLI=ON`). Offline Echo-based demos — no API keys required.
 
 ```powershell
-.\packages\cpp\build\handoffkit-cli.exe help
-.\packages\cpp\build\handoffkit-cli.exe version
-.\packages\cpp\build\handoffkit-cli.exe doctor
-.\packages\cpp\build\handoffkit-cli.exe demos
-.\packages\cpp\build\handoffkit-cli.exe team --out runs/cpp-cli/team
-.\packages\cpp\build\handoffkit-cli.exe demo support_escalation --out runs/cpp-cli/support
-.\packages\cpp\build\handoffkit-cli.exe demo coding_review --out runs/cpp-cli/coding
-.\packages\cpp\build\handoffkit-cli.exe validate --sample-good
-.\packages\cpp\build\handoffkit-cli.exe quality
-.\packages\cpp\build\handoffkit-cli.exe tools list
-.\packages\cpp\build\handoffkit-cli.exe explore fixture --max-depth 2
-.\packages\cpp\build\handoffkit-cli.exe cases --domain support
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe help
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe version
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe doctor
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe demos
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe team --out runs/cpp-cli/team
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe demo support_escalation --out runs/cpp-cli/support
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe demo coding_review --out runs/cpp-cli/coding
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe validate --sample-good
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe quality
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe tools list
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe explore fixture --max-depth 2
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe cases --domain support
 ```
 
 Subcommands: `help`, `version`, `doctor`, `demos`, `demo`, `explore`, `team`, `tools`, `validate`, `quality`, `report`, `cases`, `templates`, `evaluate`, `replay`, `parse-structured`, `providers`, `generate`, `benchmark`, `train`, and `fusion`.
@@ -238,9 +238,9 @@ handoffkit-cli fusion explain --tier genius --profile research
 handoffkit-cli fusion --provider echo --tier medium --prompt "Compare A and B."
 ```
 
-- [Current architecture, configuration, CLI, limitations, and complete audit](../../docs/cpp/fusion/README.md)
-- [Fusion-specific changelog](../../docs/cpp/fusion/CHANGELOG.md)
-- [Configuration examples](../../docs/cpp/fusion/CONFIGURATION.md)
+- [Current architecture, configuration, CLI, limitations, and complete audit](../../../docs/cpp/fusion/README.md)
+- [Fusion-specific changelog](../../../docs/cpp/fusion/CHANGELOG.md)
+- [Configuration examples](../../../docs/cpp/fusion/CONFIGURATION.md)
 
 ### Native DRACO benchmark
 
@@ -260,10 +260,10 @@ cmake --build cpp/packages/handoffkit/build-http --target handoffkit-cli
 Validate the dataset and discover the provider's current model IDs:
 
 ```powershell
-.\packages\cpp\build-http\handoffkit-cli.exe benchmark draco validate `
+.\cpp\packages\handoffkit\build-http\handoffkit-cli.exe benchmark draco validate `
   --dataset .local-tests/draco/hf/test.jsonl
 
-.\packages\cpp\build-http\handoffkit-cli.exe providers models opencode-go
+.\cpp\packages\handoffkit\build-http\handoffkit-cli.exe providers models opencode-go
 ```
 
 Run the first 20-case baseline batch. Declare the judge configuration even when
@@ -284,10 +284,10 @@ $common = @(
 )
 
 # Generate and inspect answers first.
-.\packages\cpp\build-http\handoffkit-cli.exe @common --generate-only
+.\cpp\packages\handoffkit\build-http\handoffkit-cli.exe @common --generate-only
 
 # Judge the saved answers later, without regenerating them.
-.\packages\cpp\build-http\handoffkit-cli.exe @common --judge-only --resume
+.\cpp\packages\handoffkit\build-http\handoffkit-cli.exe @common --judge-only --resume
 ```
 
 Omit `--generate-only`/`--judge-only` to generate and judge in one pass. Repeat
@@ -402,10 +402,10 @@ RELEASE.md
 ### Providers
 
 ```powershell
-.\packages\cpp\build\handoffkit-cli.exe providers list
-.\packages\cpp\build\handoffkit-cli.exe providers show nvidia
-.\packages\cpp\build\handoffkit-cli.exe providers resolve groq --allow-missing-key
-.\packages\cpp\build-http\handoffkit-cli.exe providers models opencode-go
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe providers list
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe providers show nvidia
+.\cpp\packages\handoffkit\build\handoffkit-cli.exe providers resolve groq --allow-missing-key
+.\cpp\packages\handoffkit\build-http\handoffkit-cli.exe providers models opencode-go
 ```
 
 ```cpp
@@ -427,7 +427,10 @@ Offline OpenAI response parsing is always available via `parse_openai_chat_compl
 
 ## Version
 
-`1.19.0` — keep `CMakeLists.txt`, `version.hpp`, and `conanfile.py` in sync.
+Stable release: `1.19.5` (shipped via CMake/Conan/vcpkg overlay; no package
+registry). The development tree is versioned `1.20.0` in `CMakeLists.txt` and
+`conanfile.py` (1.20 in development, unreleased). Keep `CMakeLists.txt`,
+`version.hpp`, and `conanfile.py` in sync.
 
 ## Publishing / Trusted path
 

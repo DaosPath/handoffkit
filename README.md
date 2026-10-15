@@ -276,7 +276,7 @@ real gates — there is no averaging. Plan:
 
 Additional offline demos cover media workflows, tools, structured outputs,
 provider formats, memory, project context, evaluations, medical research
-validation/benchmarks, and Fusion-style panels.
+benchmarks, and Fusion-style panels.
 
 - [Python demo index](docs/python/demos/README.md)
 - [JavaScript demo index](docs/js/demos/README.md)

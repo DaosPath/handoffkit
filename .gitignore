@@ -10,10 +10,10 @@ shared/contracts/test-fixtures/**/*.pem
 shared/contracts/test-fixtures/**/*.key
 shared/contracts/test-fixtures/**/*.p12
 shared/contracts/test-fixtures/**/*.pfx
-packages/contracts/test-fixtures/**/*.pem
-packages/contracts/test-fixtures/**/*.key
-packages/contracts/test-fixtures/**/*.p12
-packages/contracts/test-fixtures/**/*.pfx
+shared/contracts/test-fixtures/**/*.pem
+shared/contracts/test-fixtures/**/*.key
+shared/contracts/test-fixtures/**/*.p12
+shared/contracts/test-fixtures/**/*.pfx
 secrets/
 .build-tmp/
 .build-artifacts/
@@ -51,15 +51,6 @@ python/packages/handoffkit/dist/
 python/packages/handoffkit/*.egg-info/
 python/packages/handoffkit/tests/_tmp_tool_execution/
 python/packages/handoffkit/tests/_tmp_memory_context/
-packages/python/examples/output/
-packages/python/runs/
-packages/python/reports/**
-!packages/python/reports/README.md
-packages/python/build/
-packages/python/dist/
-packages/python/*.egg-info/
-packages/python/tests/_tmp_tool_execution/
-packages/python/tests/_tmp_memory_context/
 
 # Local workspace rules
 AGENTS.md
@@ -76,19 +67,14 @@ apps/web/.data/
 apps/*/.data/
 js/packages/*/node_modules/
 js/packages/*/dist/
-packages/js/*/node_modules/
-packages/js/*/dist/
-packages/*/node_modules/
-packages/*/dist/
-packages/*/target/
 rust/fuzz/artifacts/
 rust/fuzz/corpus/
 rust/fuzz/target/
 rust/fuzz/crashes/
-packages/rust/fuzz/artifacts/
-packages/rust/fuzz/corpus/
-packages/rust/fuzz/target/
-packages/rust/fuzz/crashes/
+rust/fuzz/artifacts/
+rust/fuzz/corpus/
+rust/fuzz/target/
+rust/fuzz/crashes/
 rust/target/
 
 # Local agent terminal logs
@@ -99,5 +85,3 @@ terminals/
 cpp/packages/handoffkit-ml/build-cuda/
 cpp/packages/handoffkit-ml/build-csp/
 cpp/packages/handoffkit/build/
-packages/cpp-ml/build-cuda/
-packages/cpp-ml/build-csp/

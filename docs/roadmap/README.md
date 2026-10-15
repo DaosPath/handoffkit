@@ -5,16 +5,21 @@ or package name is not evidence that a capability exists.
 
 ## Current release state
 
-HandoffKit 1.19 is not complete as a public release. The current branch is a
-green development baseline with experimental and release-candidate security
-paths. The remaining release decision is **Result B** until the 1.19.5 gates
-are closed or explicitly removed from public scope.
+**1.19.5** is the completed stable release, published on PyPI (`handoffkit`),
+npm (`@handoffkit/*`), and crates.io (`handoffkit` workspace crates); C++ ships
+via CMake/Conan/vcpkg overlay and Go as a source-only module. See the root
+[`CHANGELOG.md`](../../CHANGELOG.md) and the
+[1.19.5 migration guide](../MIGRATION-1.19.5.md).
+
+**1.20** (Browser Platform, currently `1.20.0-alpha.2`) is in development and
+is not published to any registry. Completing or editing a roadmap file is not
+evidence that a 1.20 capability exists.
 
 The authoritative current capability ledger remains
 [`HK_CSP_SECURITY.md`](../spec/HK_CSP_SECURITY.md). Future documents in this
 directory must never override runtime evidence in that ledger.
 
-The current evidence matrix is
+The 1.19 evidence matrix is
 [`1.19.0-FINAL-CLOSURE-REPORT.md`](./1.19.0-FINAL-CLOSURE-REPORT.md). The
 earlier [`1.19.0-FINAL-AUDIT.md`](./1.19.0-FINAL-AUDIT.md) is retained as
 history; the closure report supersedes stale capability wording and reports
@@ -25,7 +30,7 @@ production-ready state without turning the baseline into a release claim.
 
 | Version range | Theme | Planned outcome |
 |---|---|---|
-| [1.19.5](./1.19.5-MASS-RELEASE.md) | Monorepo convergence | Massive, aligned package train after repository reorganization and release closure |
+| [1.19.5](./1.19.5-MASS-RELEASE.md) | Monorepo convergence | **Released** (stable): aligned package train after repository reorganization and release closure |
 | [1.20](./1.20-BROWSER-PLATFORM.md) | Browser platform | Single 1.20 train: Core, Lite, Real, index, grounding, Studio, Hermes. Absorbs the former 1.20–1.29 split. Stays beta until every dimension is ≥9/10. |
 | [1.20 Clinical Lab](./1.20-CLINICAL-LAB.md) | Sequential diagnosis lab | Experimental predefined-case sandbox. Clinical validity, official 897 run, live providers, and live retrieval remain unavailable. Not clinically validated. |
 | [1.30-1.39](./1.30-1.39-APP-RUNTIME.md) | App runtime | Permissioned app manifests, isolated hosts, SDKs, Studio shell, lifecycle, and conformance |

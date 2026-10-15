@@ -46,7 +46,7 @@ Status legend: **Done** · **In progress** · **Planned** · **Later**
 |------|--------|-------|
 | Split `cli.py` | **Done** | Implementation under `handoffkit/_cli/` (demos, media, project, main); thin `cli.py` facade |
 | Split JS `core/index.js` | **Done** | Modular sibling modules + `index.js` facade; tests green |
-| Medical datasets out of `.py` | **Done** | JSON under `handoffkit/validation/benchmarks/data/`; loaders stay thin |
+| Medical datasets out of `.py` | **Done** | JSON under `handoffkit/benchmarks/data/`; loaders stay thin |
 | Freeze smaller public API | **Done** | `PUBLIC_API.md` tiers: Stable / Extended / Experimental |
 | Deprecation policy | **Done** | `docs/python/DEPRECATION.md` + release cadence |
 | Studio: DB, auth, workspaces | **Done (v1)** | Wired into MAI panel run save/list APIs; file-backed, DB-ready |
@@ -60,7 +60,7 @@ Status legend: **Done** · **In progress** · **Planned** · **Later**
 | Independent benchmark | **Published** | Methodology `handoffkit-protocol-v1` + APIs/CLI; no public leaderboard |
 | External use cases | **Docs** | Integration guides + comparison table |
 | Comparison vs LangGraph / AutoGen / CrewAI / OpenAI Agents SDK | **Foundation** | Same-task protocol in EXTERNAL_BENCHMARK.md |
-| Cost / latency / context-loss / recovery metrics | **Done** | `handoffkit.validation/benchmarks.metrics` |
+| Cost / latency / context-loss / recovery metrics | **Done** | `handoffkit.benchmarks.metrics` |
 | Open contributions + issues hygiene | **Done** | Root `CONTRIBUTING.md` |
 | Second maintainer | **Policy** | Stated goal in CONTRIBUTING (onboarding pending people) |
 | Published threat model | **Done** | `docs/python/THREAT_MODEL.md` |

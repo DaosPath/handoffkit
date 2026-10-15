@@ -1,4 +1,9 @@
-# HandoffKit Rust 1.19 development
+# HandoffKit Rust
+
+Stable release: `1.19.5` on crates.io (`handoffkit`, `handoffkit-cli`,
+`handoffkit-contracts`, `handoffkit-protocol`, `handoffkit-runtime`,
+`handoffkit-transport`). The workspace in this tree is versioned
+`1.20.0-alpha.2` (1.20 in development, not published). MSRV: Rust 1.82.
 
 Independent Rust implementation of HandoffKit and HK-CSP. It does not invoke or
 embed Python.
