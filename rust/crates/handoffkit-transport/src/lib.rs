@@ -48,6 +48,9 @@ use tokio_tungstenite::{
 
 static NEXT_TRANSPORT_ID: AtomicU64 = AtomicU64::new(1);
 
+// async_trait emits `#[must_use]` on the boxed-future methods it generates;
+// newer clippy flags that macro output as `double_must_use`.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait Transport: Send + Sync {
     async fn send(&self, envelope: &MessageEnvelope) -> RuntimeResult<()>;
