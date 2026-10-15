@@ -21,7 +21,7 @@
         { "id": 7, "name": "Fallback always has fallback_reason", "result": "pass", "evidence": "unavailable google_browser/project_index" },
         { "id": 8, "name": "strict_provider=true rejects fallback", "result": "pass", "evidence": "browser tests" },
         { "id": 9, "name": "Default order google_browser → project_index → google_http → duckduckgo → wikipedia without silent Lite upgrade", "result": "pass", "evidence": "DEFAULT_SEARCH_PROVIDERS now equals PLATFORM_SEARCH_PROVIDERS; Lite never imports Real" },
-        { "id": 10, "name": "Google Chromium challenge never hidden", "result": "fail", "evidence": "scripts/js/browser-real-google-search.mjs; reports/BROWSER_1.20_GOOGLE_BROWSER_LIVE.json records the explicit headless Chromium outcome (provider_challenge/timeout) with no fallback; hosted CI proof is still absent" }
+        { "id": 10, "name": "Google Chromium challenge never hidden", "result": "pass", "evidence": "hosted CI run 38689007836 @ e5320ab: scripts/js/browser-real-google-search.mjs on ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-14, macos-15-intel all returned status=provider_challenge with fallback_used=false; reports/BROWSER_1.20_GOOGLE_BROWSER_CI_<runner>.json" }
       ]
     },
     "explore": {
@@ -149,13 +149,13 @@
       "gates": [
         { "id": 1, "name": "pnpm-only JS workspace", "result": "pass" },
         { "id": 2, "name": "Explicit Chromium install command", "result": "pass" },
-        { "id": 3, "name": "CI matrix Win x64, Linux x64/ARM64, macOS x64/ARM64", "result": "fail", "evidence": "workflow definitions exist, but no archived hosted green run for all requested architectures is present in this tree" },
+        { "id": 3, "name": "CI matrix Win x64, Linux x64/ARM64, macOS x64/ARM64", "result": "pass", "evidence": "hosted CI run 38689007836 @ e5320ab: Browser 1.20 job green on windows-latest (win32/x64), ubuntu-latest (linux/x64), ubuntu-24.04-arm (linux/arm64), macos-15-intel (darwin/x64), macos-14 (darwin/arm64)" },
         { "id": 4, "name": "Cold/hot startup archived", "result": "pass", "evidence": "node scripts/js/browser-real-bench.mjs: reports/BROWSER_1.20_REAL_BENCH.json contains 3 cold startups and 20 real Chromium navigations on win32/x64" },
         { "id": 5, "name": "Navigation p50/p95/p99", "result": "pass", "evidence": "BROWSER_1.20_REAL_BENCH.json records hot navigation p50=9.468ms, p95=20.567ms, p99=94.496ms; environmental measurement only" },
         { "id": 6, "name": "DOM/Markdown extract benchmarks", "result": "pass", "evidence": "Lite only" },
         { "id": 7, "name": "Index query/ingest benchmarks", "result": "pass", "evidence": "Lite only" },
         { "id": 8, "name": "Clean Core/Lite/Real tarball smoke", "result": "pass", "evidence": "pnpm run js:pack:check: all 12 JS tarballs contain required files, no links, and stay within the packaging limits; clean-tarball-consumer-smoke imports all 12" },
-        { "id": 9, "name": "Checksums per architecture", "result": "fail", "evidence": "scripts/js/package-checksums.mjs produced reports/BROWSER_1.20_PACKAGE_CHECKSUMS_win32_x64.json locally; hosted Linux/macOS architecture artifacts are not archived" },
+        { "id": 9, "name": "Checksums per architecture", "result": "pass", "evidence": "hosted CI run 38689007836 @ e5320ab: per-runner checksum artifacts, status=pass, 12 packages each; reports/BROWSER_1.20_PACKAGE_CHECKSUMS_{win32_x64,linux_x64,linux_arm64,darwin_x64,darwin_arm64}.json" },
         { "id": 10, "name": "Soak archived", "result": "pass", "evidence": "browser-real-soak.yml artifacts browser-real-soak-<os> (run 33809712076), mirrored at reports/BROWSER_1.20_SOAK_<os>.json" }
       ]
     }

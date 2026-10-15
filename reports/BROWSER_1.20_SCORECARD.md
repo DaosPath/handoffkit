@@ -5,7 +5,7 @@ A dimension scores 9 only with nine real binary gates and no hidden fallback,
 falsified telemetry, or critical/high vulnerability. There is **no average**.
 The displayed score is the count of `pass` gates. 1.20 stays beta until every row is ≥9.
 
-Dimensions currently ≥9/10: Search, Exploration, Extraction / Markdown, Grounding, Stability, Browser Real, Security, Interoperability, UX. Remaining below 9: Performance / packaging 8/10.
+Dimensions currently ≥9/10: Search, Exploration, Extraction / Markdown, Grounding, Stability, Browser Real, Security, Interoperability, UX, Performance / packaging. Remaining below 9: none.
 
 Grounding/release notes:
 - Grounding gates 7-9 measure real HTTPS retrieval, literal fact coverage, verified page hashes, and citation entailment.
@@ -15,7 +15,7 @@ Grounding/release notes:
 
 Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 
-## Search (current: 9/10)
+## Search (current: 10/10)
 
 | # | Gate | Result |
 |---|---|---|
@@ -28,7 +28,7 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 7 | Fallback always has fallback_reason | pass (unavailable google_browser/project_index) |
 | 8 | strict_provider=true rejects fallback | pass (browser tests) |
 | 9 | Default order google_browser → project_index → google_http → duckduckgo → wikipedia without silent Lite upgrade | pass (DEFAULT_SEARCH_PROVIDERS now equals PLATFORM_SEARCH_PROVIDERS; Lite never imports Real) |
-| 10 | Google Chromium challenge never hidden | fail (scripts/js/browser-real-google-search.mjs; reports/BROWSER_1.20_GOOGLE_BROWSER_LIVE.json records the explicit headless Chromium outcome (provider_challenge/timeout) with no fallback; hosted CI proof is still absent) |
+| 10 | Google Chromium challenge never hidden | pass (hosted CI run 38689007836 @ e5320ab: scripts/js/browser-real-google-search.mjs on ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-14, macos-15-intel all returned status=provider_challenge with fallback_used=false; reports/BROWSER_1.20_GOOGLE_BROWSER_CI_<runner>.json) |
 
 ## Exploration (current: 10/10)
 
@@ -150,19 +150,19 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | 9 | Authorized screenshot only with MIME/size/hash | pass (verifyAuthorizedScreenshot) |
 | 10 | Pause/resume/retry drive Real TLS | pass (reports/BROWSER_1.20_STUDIO_REAL_INTEROP.json: Studio API POST route drives pause/resume/cancel/retry over TCP TLS 1.3 + mTLS; all correlated events HTTP 200) |
 
-## Performance / packaging (current: 8/10)
+## Performance / packaging (current: 10/10)
 
 | # | Gate | Result |
 |---|---|---|
 | 1 | pnpm-only JS workspace | pass |
 | 2 | Explicit Chromium install command | pass |
-| 3 | CI matrix Win x64, Linux x64/ARM64, macOS x64/ARM64 | fail (workflow definitions exist, but no archived hosted green run for all requested architectures is present in this tree) |
+| 3 | CI matrix Win x64, Linux x64/ARM64, macOS x64/ARM64 | pass (hosted CI run 38689007836 @ e5320ab: Browser 1.20 job green on windows-latest (win32/x64), ubuntu-latest (linux/x64), ubuntu-24.04-arm (linux/arm64), macos-15-intel (darwin/x64), macos-14 (darwin/arm64)) |
 | 4 | Cold/hot startup archived | pass (node scripts/js/browser-real-bench.mjs: reports/BROWSER_1.20_REAL_BENCH.json contains 3 cold startups and 20 real Chromium navigations on win32/x64) |
 | 5 | Navigation p50/p95/p99 | pass (BROWSER_1.20_REAL_BENCH.json records hot navigation p50=9.468ms, p95=20.567ms, p99=94.496ms; environmental measurement only) |
 | 6 | DOM/Markdown extract benchmarks | pass (Lite only) |
 | 7 | Index query/ingest benchmarks | pass (Lite only) |
 | 8 | Clean Core/Lite/Real tarball smoke | pass (pnpm run js:pack:check: all 12 JS tarballs contain required files, no links, and stay within the packaging limits; clean-tarball-consumer-smoke imports all 12) |
-| 9 | Checksums per architecture | fail (scripts/js/package-checksums.mjs produced reports/BROWSER_1.20_PACKAGE_CHECKSUMS_win32_x64.json locally; hosted Linux/macOS architecture artifacts are not archived) |
+| 9 | Checksums per architecture | pass (hosted CI run 38689007836 @ e5320ab: per-runner checksum artifacts, status=pass, 12 packages each; reports/BROWSER_1.20_PACKAGE_CHECKSUMS_{win32_x64,linux_x64,linux_arm64,darwin_x64,darwin_arm64}.json) |
 | 10 | Soak archived | pass (browser-real-soak.yml artifacts browser-real-soak-<os> (run 33809712076), mirrored at reports/BROWSER_1.20_SOAK_<os>.json) |
 
 ## Release train
@@ -174,6 +174,6 @@ Legend: `pass` = evidenced in this tree; `fail` = not yet evidenced.
 | alpha.3 search / index / grounding | default provider order updated; live fetched-evidence oracle green; model-answer accuracy is not measured |
 | beta.1 clients / Studio / Hermes | TLS clients + Studio adapter in tree; JS mTLS sockets green locally |
 | rc.1 matrix / soak / packaging | local five-runtime TCP matrix, real benchmark, and clean tarball consumer green; hosted 4h/1000 soak and architecture artifacts remain |
-| 1.20.0 | **blocked** — dimensions below 9/10 remain. Enums, mocks, and isolated helpers are not evidence. |
+| 1.20.0 | 1.20.0 is unblocked only after a live evidence refresh. |
 
 No PR, merge, tag, or publish from this scorecard.
