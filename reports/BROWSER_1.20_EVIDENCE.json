@@ -81,7 +81,7 @@
         { "id": 6, "name": "Index integrity_check + quarantine", "result": "pass" },
         { "id": 7, "name": "Chromium crash marks interrupted", "result": "pass", "evidence": "HANDOFFKIT_BROWSER_REAL_PLAYWRIGHT=1 launches Chromium via BrowserServer, kills the owned child process, and the next command returns session.interrupted" },
         { "id": 8, "name": "Service restart", "result": "pass", "evidence": "same real Chromium test runs session.retry after the killed process, launches a fresh process, and revalidates the last URL" },
-        { "id": 9, "name": "4h soak, 1000 navigations", "result": "pass", "evidence": "hosted 4h soak x5 OS (run 33809712076): ubuntu-24.04 1125991 navs, ubuntu-24.04-arm 1030025, windows-2025 785946, macos-14 1276367, macos-15 1271718; orphans=[] everywhere; reports/BROWSER_1.20_SOAK_<os>.json" },
+        { "id": 9, "name": "4h soak, 1000 navigations", "result": "pass", "evidence": "hosted 4h soak x5 OS refreshed on the 1.20.0 tree (run 38693805581 @ 5ccdb7b, rewritten as 016b6a4): ubuntu-24.04 1843939, ubuntu-24.04-arm 998889, windows-2025 753633, macos-14 1024662, macos-15 1022017 navigations; orphans=[] everywhere; reports/BROWSER_1.20_SOAK_<os>.json" },
         { "id": 10, "name": "No orphan processes", "result": "pass", "evidence": "Playwright real-process test closes the restarted BrowserServer and asserts child.exitCode is non-null; reduced soak reports orphans=[]" }
       ]
     },
@@ -157,7 +157,7 @@
         { "id": 7, "name": "Index query/ingest benchmarks", "result": "pass", "evidence": "Lite only" },
         { "id": 8, "name": "Clean Core/Lite/Real tarball smoke", "result": "pass", "evidence": "pnpm run js:pack:check + js:pack:consumer: all 9 publishable JS tarballs contain required files, no links, stay within packaging limits, and import cleanly (including the @handoffkit/browser/core subpath); @handoffkit/clinical is private and not packed" },
         { "id": 9, "name": "Checksums per architecture", "result": "pass", "evidence": "hosted CI run 38704779240 @ 17fc897 (final code commit): per-runner checksum artifacts, status=pass, 9 packages each; reports/BROWSER_1.20_PACKAGE_CHECKSUMS_{win32_x64,linux_x64,linux_arm64,darwin_x64,darwin_arm64}.json (hashes differ by OS because of checkout line endings and gzip metadata; publication builds on Linux only)" },
-        { "id": 10, "name": "Soak archived", "result": "pass", "evidence": "browser-real-soak.yml artifacts browser-real-soak-<os> (run 33809712076), mirrored at reports/BROWSER_1.20_SOAK_<os>.json" }
+        { "id": 10, "name": "Soak archived", "result": "pass", "evidence": "browser-real-soak.yml artifacts browser-real-soak-<os> (run 38693805581), mirrored at reports/BROWSER_1.20_SOAK_<os>.json" }
       ]
     }
   }
