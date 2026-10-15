@@ -19,7 +19,7 @@ x64/ARM64, macOS x64/ARM64), per-architecture package checksums, and evidence
 refreshed on this tree. Python `handoffkit==1.20.0` is `Production/Stable`; the
 JS packages, including `@handoffkit/browser` (Lite) with its new
 `@handoffkit/browser/core` contracts subpath and the new `@handoffkit/browser-real`
-and `@handoffkit/clinical` packages (10 npm packages in total), the Rust
+package (9 published npm packages), the Rust
 workspace, and C++ ship at 1.20.0. The Browser Core wire `contract_version`
 stays `1.20.0-alpha.1`. Model-answer accuracy and clinical validity are not
 claimed.
@@ -30,6 +30,9 @@ claimed.
   became the `@handoffkit/browser/core` subpath export of `@handoffkit/browser`,
   and the `@handoffkit/browser-lite` alias was folded into `@handoffkit/browser`
   (which is the Lite product). Neither name is published to npm.
+- `@handoffkit/clinical` is marked `private` and is not published to npm: the
+  Clinical Lab stays an experimental in-repo sandbox (used by Studio) until its
+  official-corpus, judge, and live-provider gates exist.
 
 ### Added
 

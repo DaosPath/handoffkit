@@ -12,7 +12,6 @@ const packageNames = [
   "node",
   "browser",
   "browser-real",
-  "clinical",
   "recipes",
   "templates",
   "cli",

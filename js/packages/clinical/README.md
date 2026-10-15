@@ -22,9 +22,8 @@ personal cases are rejected. Detection is heuristic, not perfect.
 
 ## Install
 
-```bash
-pnpm add @handoffkit/clinical
-```
+This package is `private` and is **not published to npm**. Use it from a
+checkout as a workspace dependency (`"@handoffkit/clinical": "workspace:*"`).
 
 ## Surface
 
